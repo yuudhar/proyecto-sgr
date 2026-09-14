@@ -1,0 +1,17 @@
+{% extends "base.html" %}
+
+{% block title %}Login | SGR{% endblock %}
+
+{% block content %}
+  <h1>{{ sistema }}</h1>
+  <p>{{ mensaje }}</p>
+  <p>{{ institucion }}</p>
+
+  <form>
+    <label>Usuario:</label>
+    <input type="text" name="usuario">
+    <label>Contraseña:</label>
+    <input type="password" name="password">
+    <button type="submit">Ingresar</button>
+  </form>
+{% endblock %}

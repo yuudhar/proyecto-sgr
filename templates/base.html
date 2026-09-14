@@ -1,0 +1,14 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <title>{% block title %}SGR{% endblock %}</title>
+</head>
+<body>
+  <nav>
+    <a href="{% url 'core:login' %}">Login</a>
+    <a href="{% url 'core:dashboard' %}">Dashboard</a>
+  </nav>
+  <main>{% block content %}{% endblock %}</main>
+</body>
+</html>
