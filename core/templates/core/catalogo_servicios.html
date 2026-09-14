@@ -1,0 +1,25 @@
+{% extends "base.html" %}
+
+{% block title %}Catálogo de Servicios | SGR{% endblock %}
+
+{% block content %}
+  <h1>Catálogo Maestro de Servicios</h1>
+
+  <table border="1" cellpadding="6">
+    <tr><th>Nombre</th><th>Estado</th><th>Acción</th></tr>
+    {% for s in servicios %}
+    <tr>
+      <td>{{ s.nombre }}</td>
+      <td>{{ s.estado }}</td>
+      <td><button type="button">Editar</button></td>
+    </tr>
+    {% endfor %}
+  </table>
+
+  <h2>Nuevo Servicio</h2>
+  <form>
+    <label>Nombre:</label>
+    <input type="text" name="nombre">
+    <button type="submit">Agregar</button>
+  </form>
+{% endblock %}
