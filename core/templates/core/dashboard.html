@@ -1,0 +1,19 @@
+{% extends "base.html" %}
+
+{% block title %}Dashboard | SGR{% endblock %}
+
+{% block content %}
+  <h1>Ficha Personal</h1>
+  <p>Nombre: {{ funcionario.nombre }}</p>
+  <p>Cargo: {{ funcionario.cargo }}</p>
+  <p>Delegación: {{ funcionario.delegacion }}</p>
+
+  <h2>Metas</h2>
+  <ul>
+    {% for meta in metas %}
+      <li>{{ meta.item }} — Avance: {{ meta.avance }} / {{ meta.meta }} — Semáforo: {{ meta.semaforo }}</li>
+    {% empty %}
+      <li>No hay metas registradas.</li>
+    {% endfor %}
+  </ul>
+{% endblock %}

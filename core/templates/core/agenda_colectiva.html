@@ -1,0 +1,45 @@
+{% extends "base.html" %}
+
+{% block title %}Agenda Colectiva | SGR{% endblock %}
+
+{% block content %}
+  <h1>Agenda Colectiva</h1>
+
+  <table border="1" cellpadding="6">
+    <tr>
+      <th>Solicitante</th>
+      <th>Territorio</th>
+      <th>Responsable</th>
+      <th>Fecha comprometida</th>
+      <th>Estado</th>
+    </tr>
+    {% for c in compromisos %}
+    <tr>
+      <td>{{ c.solicitante }}</td>
+      <td>{{ c.territorio }}</td>
+      <td>{{ c.responsable }}</td>
+      <td>{{ c.fecha_comprometida }}</td>
+      <td>{{ c.estado }}</td>
+    </tr>
+    {% empty %}
+    <tr><td colspan="5">No hay compromisos registrados.</td></tr>
+    {% endfor %}
+  </table>
+
+  <h2>Nuevo Compromiso</h2>
+  <form>
+    <label>Solicitante:</label>
+    <input type="text" name="solicitante">
+
+    <label>Territorio:</label>
+    <input type="text" name="territorio">
+
+    <label>Fecha comprometida:</label>
+    <input type="date" name="fecha_comprometida">
+
+    <label>Apoyo requerido:</label>
+    <input type="text" name="apoyo">
+
+    <button type="submit">Registrar Compromiso</button>
+  </form>
+{% endblock %}

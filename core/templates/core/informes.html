@@ -1,0 +1,39 @@
+{% extends "base.html" %}
+
+{% block title %}Informes | SGR{% endblock %}
+
+{% block content %}
+  <h1>Generar Informe de Desempeño</h1>
+
+  <form>
+    <label>Delegación:</label>
+    <select name="delegacion">
+      <option value="">Todas</option>
+      <option value="centro">Centro</option>
+      <option value="la_antena">La Antena</option>
+    </select>
+
+    <label>Período:</label>
+    <input type="month" name="periodo">
+
+    <button type="submit">Generar</button>
+    <button type="button">Exportar</button>
+  </form>
+
+  <table border="1" cellpadding="6">
+    <tr>
+      <th>Funcionario</th>
+      <th>Delegación</th>
+      <th>Actividades</th>
+      <th>Cumplimiento</th>
+    </tr>
+    {% for r in resumen_informe %}
+    <tr>
+      <td>{{ r.funcionario }}</td>
+      <td>{{ r.delegacion }}</td>
+      <td>{{ r.actividades }}</td>
+      <td>{{ r.cumplimiento }}%</td>
+    </tr>
+    {% endfor %}
+  </table>
+{% endblock %}

@@ -1,0 +1,23 @@
+{% extends "base.html" %}
+
+{% block title %}Cargar Evidencia | SGR{% endblock %}
+
+{% block content %}
+  <h1>Cargar Evidencia</h1>
+
+  <p>Actividad asociada: {{ actividad.item }} — {{ actividad.fecha }}</p>
+  <p>Código de evidencia: <strong>EV-{{ actividad.id }}-2026</strong></p>
+
+  <form>
+    <label>Archivo (fotografía u otro):</label>
+    <input type="file" name="archivo">
+
+    <label>Metadatos / Observación:</label>
+    <textarea name="metadatos"></textarea>
+
+    <button type="submit">Subir Evidencia</button>
+  </form>
+
+  <p>Estado de revisión: <em>Pendiente</em></p>
+
+{% endblock %}
