@@ -1,4 +1,4 @@
-# SGR · Programación Back End — Evaluación Sumativa II
+# SGR · Programación Back End
 
 Proyecto SGR (Sistema de Gestión de Resultados) hecho en Django para Programación Back End. La gestión se hace desde el Django Admin.
 
