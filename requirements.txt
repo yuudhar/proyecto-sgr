@@ -1,3 +1,8 @@
 asgiref==3.12.1
 Django==6.1.1
 sqlparse==0.6.0
+python-dotenv==1.0.1
+
+# Descomenta esta línea solo si vas a usar DB_ENGINE=mysql en tu .env
+# (requiere las librerías de desarrollo de MySQL/MariaDB instaladas en el sistema):
+# mysqlclient==2.2.4

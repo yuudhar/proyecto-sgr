@@ -1,0 +1,26 @@
+{% extends "base.html" %}
+
+{% block title %}Administración | SGR{% endblock %}
+
+{% block content %}
+  <h1>Administración</h1>
+
+  <h2>Delegaciones</h2>
+  <table border="1" cellpadding="6">
+    <tr><th>Nombre</th><th>Estado</th></tr>
+    {% for d in delegaciones %}
+    <tr><td>{{ d.nombre }}</td><td>{{ d.estado }}</td></tr>
+    {% endfor %}
+  </table>
+
+  <h2>Cargos</h2>
+  <table border="1" cellpadding="6">
+    <tr><th>Nombre</th><th>Vigencia</th></tr>
+    {% for c in cargos %}
+    <tr><td>{{ c.nombre }}</td><td>{{ c.vigencia }}</td></tr>
+    {% endfor %}
+  </table>
+
+  <h2>Período de Medición Actual</h2>
+  <p>Inicio: {{ periodo_actual.inicio }} — Término: {{ periodo_actual.termino }} — Estado: {{ periodo_actual.estado }}</p>
+{% endblock %}

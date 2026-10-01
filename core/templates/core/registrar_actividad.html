@@ -1,0 +1,34 @@
+{% extends "base.html" %}
+
+{% block title %}Registrar Actividad | SGR{% endblock %}
+
+{% block content %}
+  <h1>Registrar Actividad</h1>
+
+  <form>
+    <label>Fecha:</label>
+    <input type="date" name="fecha">
+
+    <label>Ítem:</label>
+    <select name="item">
+      {% for item in items %}
+        <option value="{{ item.id }}">{{ item.nombre }}</option>
+      {% endfor %}
+    </select>
+
+    <label>Solicitud / Problema:</label>
+    <textarea name="solicitud_problema"></textarea>
+
+    <label>Acción realizada:</label>
+    <textarea name="accion"></textarea>
+
+    <label>Contacto:</label>
+    <input type="text" name="contacto">
+
+    <label>Teléfono:</label>
+    <input type="text" name="telefono">
+
+    <button type="submit">Guardar Actividad</button>
+  </form>
+
+{% endblock %}

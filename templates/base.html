@@ -1,0 +1,22 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <title>{% block title %}SGR{% endblock %}</title>
+</head>
+<body>
+  <nav>
+    <a href="{% url 'core:login' %}">Login</a>
+    <a href="{% url 'core:dashboard' %}">Dashboard</a>
+    <a href="{% url 'core:registrar_actividad' %}">Registrar Actividad</a>
+    <a href="{% url 'core:cargar_evidencia' %}">Cargar Evidencia</a>
+    <a href="{% url 'core:validar_evidencia' %}">Validar Evidencia</a>
+    <a href="{% url 'core:agenda_colectiva' %}">Agenda Colectiva</a>
+    <a href="{% url 'core:tablero_delegacion' %}">Tablero Delegación</a>
+    <a href="{% url 'core:administracion' %}">Administración</a>
+    <a href="{% url 'core:informes' %}">Informes</a>
+    <a href="{% url 'core:catalogo_servicios' %}">Catálogo Servicios</a>
+  </nav>
+  <main>{% block content %}{% endblock %}</main>
+</body>
+</html>
