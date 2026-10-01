@@ -1,6 +1,8 @@
 from django.contrib import admin
 
 from core.admin_mixins import DelegationScopedAdminMixin
+from core.admin_utils import get_user_delegation
+from organization.models import Officer
 
 from .models import Evidence, Validation
 
@@ -10,6 +12,13 @@ class ValidationInline(admin.TabularInline):
     extra = 0
     fields = ("decision", "reviewer_officer", "result")
     show_change_link = True
+
+    def formfield_for_foreignkey(self, db_field, request, **kwargs):
+        if db_field.name == "reviewer_officer" and not request.user.is_superuser:
+            kwargs["queryset"] = Officer.objects.filter(
+                delegation=get_user_delegation(request), deleted_at__isnull=True
+            )
+        return super().formfield_for_foreignkey(db_field, request, **kwargs)
 
 
 @admin.register(Evidence)

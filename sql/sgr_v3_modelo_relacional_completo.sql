@@ -1,30 +1,3 @@
--- =====================================================================
--- SISTEMA DE GESTION DE RESULTADOS (SGR) - Modelo Relacional
--- VERSION DEL PROYECTO: v3   (modelo base: v4 de Analisis y Diseño)
--- 22 tablas - Para ejecutar en DBeaver (MySQL / MariaDB)
---
--- UNICO CAMBIO RESPECTO AL MODELO ORIGINAL (siguen siendo 22 tablas):
---   Beneficiario.direccion  -> calle y numero de la vivienda (un solo
---   campo, opcional: queda vacio si no se conoce).
--- Todo lo demas (incluidas Cargo y Rol) queda exactamente igual.
---
--- v4: 19 tablas base (verificadas contra las 11 entidades minimas de
---     Guia_Proyecto_Software_SGR_Alumnos.pdf) + Beneficiario,
---     Territorio y Tipo_Gestion, agregadas tras el cruce exhaustivo
---     contra las 20 diapositivas de la Matriz SGR real (PPT).
--- Verificacion final: se revisaron las 19 capturas de pantalla
--- incrustadas en el PPT (no solo el texto) y se elimino la columna
--- de texto redundante 'territorio' en Compromiso (rubrica: "diseno
--- orientado a evitar redundancias innecesarias").
--- =====================================================================
-
--- ATENCION: esto borra por completo la base sgr_db actual (las 19
--- tablas y todos los datos que tengas cargados) antes de recrearla
--- limpia con las 22 tablas. Confirmado por el alumno que los datos
--- actuales son de prueba y se pueden perder.
--- OJO: si el .env de Django tambien apunta a sgr_db (DB_ENGINE=mysql),
--- esto borra tambien las tablas y usuarios de Django. En ese caso usa
--- otro nombre para Django (ej. DB_NAME=sgr_django).
 DROP DATABASE IF EXISTS sgr_db;
 
 CREATE DATABASE sgr_db CHARACTER SET utf8mb4;
@@ -93,7 +66,7 @@ CREATE TABLE Usuario_Rol_Delegacion (
 
 CREATE TABLE Item (
     id_item         INT AUTO_INCREMENT PRIMARY KEY,
-    Item_id_item_padre INT NULL,                              -- NUEVO v3: TIPO_ATENCION -> SUB_ATENCION
+    Item_id_item_padre INT NULL,                              
     nombre          VARCHAR(150) NOT NULL,
     tipo_calculo    VARCHAR(20) NOT NULL DEFAULT 'cuantitativo',
     CONSTRAINT fk_item_padre FOREIGN KEY (Item_id_item_padre) REFERENCES Item(id_item)
@@ -105,23 +78,18 @@ CREATE TABLE Servicio (
     estado          VARCHAR(20) NOT NULL DEFAULT 'activo'
 ) ENGINE=InnoDB;
 
--- NUEVO en v2: catálogo de tipos de gestión (Área Social: presencial,
--- visita a terreno, entrega de informe, entrega de beneficio, etc.)
+
 CREATE TABLE Tipo_Gestion (
     id_tipo_gestion INT AUTO_INCREMENT PRIMARY KEY,
     nombre          VARCHAR(80) NOT NULL UNIQUE
 ) ENGINE=InnoDB;
 
--- NUEVO en v4: el vecino/usuario atendido (RUT, nombre, teléfono).
--- Tabla propia (no columnas sueltas) porque el mismo RUT se repite
--- en varias actividades a lo largo del tiempo.
--- v3: se agrega la direccion de la vivienda (calle y numero).
 CREATE TABLE Beneficiario (
     id_beneficiario INT AUTO_INCREMENT PRIMARY KEY,
     rut             VARCHAR(12) NOT NULL UNIQUE,
     nombre          VARCHAR(150) NOT NULL,
     telefono        VARCHAR(20),
-    direccion       VARCHAR(200) NOT NULL DEFAULT ''          -- NUEVO v3: calle y numero (vacio si no se conoce)
+    direccion       VARCHAR(200) NOT NULL DEFAULT ''          
 ) ENGINE=InnoDB;
 
 -- NUEVO en v4: subdivisión geográfica dentro de una delegación
@@ -216,10 +184,10 @@ CREATE TABLE Actividad (
     accion              TEXT,
     contacto            VARCHAR(100),
     telefono            VARCHAR(20),
-    Beneficiario_id_beneficiario INT NULL,                    -- NUEVO v4
+    Beneficiario_id_beneficiario INT NULL,                    
     estado              VARCHAR(30) NOT NULL DEFAULT 'registrada',
-    requiere_visita     BOOLEAN NOT NULL DEFAULT FALSE,        -- NUEVO v2
-    ingreso_a_tubo      BOOLEAN NOT NULL DEFAULT FALSE,        -- NUEVO v2
+    requiere_visita     BOOLEAN NOT NULL DEFAULT FALSE,        
+    ingreso_a_tubo      BOOLEAN NOT NULL DEFAULT FALSE,        
     Item_id_item        INT NOT NULL,
     Servicio_id_servicio INT NULL,
     Delegacion_id_delegacion INT NOT NULL,
@@ -234,13 +202,13 @@ CREATE TABLE Actividad (
 CREATE TABLE Gestion_Atencion (
     id_gestion      INT AUTO_INCREMENT PRIMARY KEY,
     numero_gestion  TINYINT NOT NULL,
-    Tipo_Gestion_id_tipo_gestion INT NULL,                    -- NUEVO v2
+    Tipo_Gestion_id_tipo_gestion INT NULL,                    
     fecha           DATE NOT NULL,
     resultado       VARCHAR(255) NOT NULL,
-    fecha_programada_visita DATE NULL,                        -- NUEVO v2
-    fecha_visita            DATE NULL,                        -- NUEVO v2
-    fecha_entrega_informe   DATE NULL,                        -- NUEVO v2
-    fecha_entrega_beneficio DATE NULL,                        -- NUEVO v2
+    fecha_programada_visita DATE NULL,                        
+    fecha_visita            DATE NULL,                        
+    fecha_entrega_informe   DATE NULL,                        
+    fecha_entrega_beneficio DATE NULL,                        
     Actividad_id_actividad INT NOT NULL,
     CONSTRAINT fk_gestion_actividad FOREIGN KEY (Actividad_id_actividad) REFERENCES Actividad(id_actividad),
     CONSTRAINT fk_gestion_tipo FOREIGN KEY (Tipo_Gestion_id_tipo_gestion) REFERENCES Tipo_Gestion(id_tipo_gestion),
@@ -277,11 +245,11 @@ CREATE TABLE Validacion (
 CREATE TABLE Compromiso (
     id_compromiso   INT AUTO_INCREMENT PRIMARY KEY,
     origen          VARCHAR(100),
-    fecha_solicitud DATE NULL,                                 -- NUEVO v3
-    descripcion     TEXT NULL,                                 -- NUEVO v3
+    fecha_solicitud DATE NULL,                                 
+    descripcion     TEXT NULL,                                 
     solicitante     VARCHAR(100) NOT NULL,
-    tipo_solicitante ENUM('INT','EXT') NOT NULL DEFAULT 'EXT', -- NUEVO v2
-    Territorio_id_territorio INT NOT NULL,                     -- NUEVO v4 (reemplaza la columna de texto 'territorio', evita redundancia)
+    tipo_solicitante ENUM('INT','EXT') NOT NULL DEFAULT 'EXT', 
+    Territorio_id_territorio INT NOT NULL,                     
     fecha_comprometida DATE NOT NULL,
     apoyo           VARCHAR(100),
     estado          VARCHAR(30) NOT NULL DEFAULT 'ingresado',
@@ -319,10 +287,3 @@ INSERT INTO Tipo_Gestion (nombre) VALUES
     ('Otras gestiones');
 
 SET FOREIGN_KEY_CHECKS = 1;
-
--- =====================================================================
--- FIN - v3 del proyecto (modelo v4): 22 tablas creadas
--- (19 base verificadas contra la guia oficial del profesor +
---  Beneficiario + Territorio + Tipo_Gestion, del cruce exhaustivo
---  contra las 20 diapositivas de la Matriz SGR real)
--- =====================================================================

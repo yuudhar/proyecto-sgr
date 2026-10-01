@@ -1,8 +1,30 @@
-
 from django.contrib import admin, messages
 from django.utils import timezone
 
 from core.admin_utils import get_user_delegation
+
+
+class ArchivedRecordsFilter(admin.SimpleListFilter):
+    title = "Registros archivados"
+    parameter_name = "show_archived"
+
+    def lookups(self, request, model_admin):
+        return (("1", "Incluir archivados"),)
+
+    def choices(self, changelist):
+        yield {
+            "selected": self.value() != "1",
+            "query_string": changelist.get_query_string(remove=[self.parameter_name]),
+            "display": "Ocultar archivados",
+        }
+        yield {
+            "selected": self.value() == "1",
+            "query_string": changelist.get_query_string({self.parameter_name: "1"}),
+            "display": "Incluir archivados",
+        }
+
+    def queryset(self, request, queryset):
+        return queryset
 
 
 @admin.action(
@@ -28,6 +50,9 @@ class SoftDeleteAdminMixin:
 
     def _showing_archived(self, request):
         return request.GET.get("show_archived") == "1"
+
+    def get_list_filter(self, request):
+        return (ArchivedRecordsFilter, *super().get_list_filter(request))
 
     def get_queryset(self, request):
         qs = super().get_queryset(request)
