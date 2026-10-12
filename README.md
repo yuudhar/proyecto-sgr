@@ -2,36 +2,67 @@
 
 Aplicación web hecha en Django para registrar y dar seguimiento al trabajo de las delegaciones municipales: atención de público, actividades, compromisos, evidencias, planificación e informes. Cada persona ve solo lo que su rol y sus delegaciones le permiten.
 
-Es un proyecto académico de Programación Back End. Todos los datos son ficticios y no representa un sitio oficial de la Municipalidad de La Serena.
+Es un proyecto académico de **Programación Back End / Proyecto Integrado (INACAP)**. Todos los datos son ficticios y no representa un sitio oficial de la Municipalidad de La Serena.
+
+## Índice
+
+1. [Integrantes](#integrantes)
+2. [Descripción](#descripción)
+3. [Requisitos](#requisitos)
+4. [Instalación](#instalación)
+5. [Configuración](#configuración)
+6. [Base de datos: migraciones y scripts](#base-de-datos-migraciones-y-scripts)
+7. [Despliegue en Amazon Linux 2023](#despliegue-en-amazon-linux-2023)
+8. [Estado de cada módulo](#estado-de-cada-módulo)
+9. [Funciones operativas, simuladas y pendientes](#funciones-operativas-simuladas-y-pendientes)
+10. [Instrucciones de pruebas](#instrucciones-de-pruebas)
+11. [Entrega y evidencias (A4)](#entrega-y-evidencias-a4)
+12. [Estructura del proyecto](#estructura-del-proyecto)
 
 ## Integrantes
 
-- Matías Quiroz
 - Matías Cavieres
+- Matías Quiroz
 - Sakty Argandoña
 
-## Qué permite hacer
+Asignatura: Programación Back End · Proyecto Integrado, INACAP. Repositorio: `yuudhar/proyecto-sgr` en GitHub.
 
-- **Atención:** buscar a una persona por RUT o nombre e ingresar una atención con su tipo y sub atención.
+## Descripción
+
+El SGR reemplaza las planillas sueltas de las delegaciones municipales por un sistema único con base de datos real:
+
+- **Atención:** buscar a una persona por RUT o nombre e ingresar una atención con su tipo y sub atención. La delegación, el responsable y la fecha se completan solos.
 - **Dashboard, tablero de delegación e informes:** indicadores del período, semáforo de metas y exportación a Excel.
 - **Mantenedores:** delegaciones, funcionarios, cargos, territorios, beneficiarios, catálogo de servicios, períodos, metas, ítems, tipos de atención y sub atención.
-- **Operación y evidencias:** actividades, compromisos, seguimientos, evidencias y su validación.
-- **Usuarios y permisos:** roles con permisos por módulo, delegaciones autorizadas por usuario y recuperación de contraseña con código de seis dígitos.
-- **Auditoría:** cada cambio queda registrado con quién, cuándo y qué se modificó.
+- **Operación y evidencias:** actividades, gestiones (compromisos), agenda colectiva, evidencias y su validación.
+- **Usuarios y permisos:** roles con permisos por módulo, delegaciones autorizadas por usuario y recuperación de contraseña con código de seis dígitos enviado por correo.
+- **Auditoría:** cada alta, edición, archivo, exportación y recuperación queda registrada con quién, cuándo y qué valor tenía antes y después.
 
-Todos los listados incluyen búsqueda (sin distinguir mayúsculas ni tildes), paginador, filtros y exportación a Excel. Los formularios se abren en ventanas modales, validan los datos y avisan con SweetAlert2.
+Todos los listados incluyen búsqueda (sin distinguir mayúsculas ni tildes), paginador, filtros, orden y exportación a Excel. Los formularios se abren en ventanas modales, validan los datos en la pantalla y otra vez en el servidor, y avisan con SweetAlert2.
 
-## Tecnologías
+### Reglas de los datos
 
-- Python 3.12 o superior y Django
-- SQLite (MySQL opcional)
-- Bootstrap 5 y SweetAlert2 (incluidos en el proyecto, funciona sin internet)
-- openpyxl para los archivos de Excel
-- gunicorn con nginx o con Apache para el despliegue en un servidor
+- **Contraseñas:** mínimo 8 caracteres, que no sea de uso común, que no sea solo de números y que no se parezca a los datos del usuario. Se revisan al crear un usuario, al cambiar la contraseña desde *Mi perfil* y al recuperarla.
+- **Formatos:** RUT con dígito verificador, teléfono, correo, nombres, códigos, usuario y color (`#RRGGBB`) tienen una regla propia en `core/rules.py`, que usan igual el servidor y el navegador.
+
+## Requisitos
+
+| Qué | Versión |
+|---|---|
+| Python | 3.12 o superior (en el servidor se usa 3.13) |
+| Django | 6.1.1 |
+| Base de datos | SQLite (desarrollo, no necesita instalar nada) o MariaDB 10.11 / MySQL 8.4 o superior (producción) |
+| `mysqlclient` | 2.2.1 o superior, solo si se usa MariaDB o MySQL |
+| Navegador | Chrome, Edge o Firefox actualizados |
+| Servidor (despliegue) | Amazon Linux 2023, Apache, gunicorn y certbot |
+
+Las dependencias de Python están en `requirements.txt` (desarrollo) y `deploy/requirements-produccion.txt` (servidor). Bootstrap 5 y SweetAlert2 vienen incluidos en el proyecto: funciona sin internet.
 
 ## Instalación
 
-Necesitas Python 3.12 o superior. Abre Git Bash dentro de la carpeta del proyecto (la que contiene `manage.py`) y ejecuta:
+Abre una terminal (Git Bash en Windows) dentro de la carpeta del proyecto, la que contiene `manage.py`.
+
+**Windows (Git Bash):**
 
 ```bash
 python -m venv venv
@@ -45,20 +76,36 @@ python manage.py seed_demo_data
 python manage.py runserver
 ```
 
-Luego abre `http://127.0.0.1:8000/` en el navegador.
-
-En Linux o macOS la activación del entorno es `source venv/bin/activate` y el comando de Python es `python3`.
-
-Las próximas veces solo hacen falta dos comandos:
+**Linux o macOS:**
 
 ```bash
-source venv/Scripts/activate
+python3 -m venv venv
+source venv/bin/activate
+python -m pip install -r requirements.txt
+
+cp .env.example .env
+
+python manage.py migrate
+python manage.py seed_demo_data
 python manage.py runserver
 ```
 
-## Cuentas de prueba
+Luego abre `http://127.0.0.1:8000/`. Las próximas veces solo hacen falta la activación del entorno y `python manage.py runserver`.
 
-Las crea `seed_demo_data`. Se ingresa con el **usuario** (no con el correo) y todas tienen la contraseña `Hola123!`.
+### Instalación sin datos de demostración (limpia)
+
+`migrate` solo crea las tablas, sin datos. Para una instalación real:
+
+```bash
+python manage.py migrate
+python manage.py seed_roles              # crea los 5 roles con sus permisos
+python manage.py seed_management_types   # crea los tipos de gestión
+python manage.py createsuperuser         # tu propia cuenta de administrador
+```
+
+### Cuentas de prueba
+
+`seed_demo_data` las crea **una sola vez** y desde ahí son datos de la base: en el servidor viven en MariaDB y se ven en phpMyAdmin (`sgr_django`, tabla `auth_user`; la contraseña se guarda cifrada, nunca en texto). Se ingresa con el **usuario** (o con el correo) y las cuentas parten con la contraseña `Hola123!`, que cumple esas reglas. Desde ahí se administran como cualquier dato: se editan, se desactivan o se crean otras en *Control de usuarios*, y cada persona cambia su contraseña en *Mi perfil*. **En un servidor real cambia las claves de partida** (o crea tus propias cuentas y no ejecutes el seed) con `python manage.py changepassword <usuario>`.
 
 | Usuario | Rol |
 |---|---|
@@ -70,45 +117,287 @@ Las crea `seed_demo_data`. Se ingresa con el **usuario** (no con el correo) y to
 | `matias.quiroz` | Funcionario y Verificador, Delegación Sur |
 | `consulta1` | Solo lectura |
 
-Para recuperar una contraseña, cada cuenta tiene un correo con la forma `usuario@sgr.example`. Como ese dominio no existe, el código no se envía: aparece en la ventana de Git Bash donde corre el servidor.
+Volver a ejecutar el comando no pisa lo que ya cambiaste: solo fija la contraseña cuando la cuenta no existe y solo agrega lo que falta. Si ya tienes tus propios usuarios en la base, no hace falta ejecutarlo.
+
+### Recuperar la contraseña
+
+En la pantalla de ingreso, *¿Olvidaste tu contraseña?*: escribes el correo de la cuenta, llega un código de 6 dígitos que vale **2 minutos** y se usa una sola vez (reenvío cada 45 segundos, 5 intentos por código y hasta 5 códigos por hora), y después eliges la contraseña nueva.
+
+- Sin `EMAIL_HOST` en el `.env`, el correo no sale: se imprime en la terminal donde corre el servidor (las cuentas demo tienen un correo `usuario@sgr.example`).
+- Con `EMAIL_HOST` configurado, llega un correo HTML con los colores del portal y el código en grande. Cada cuenta necesita un correo propio y distinto (se edita en *Control de usuarios*).
+
+## Configuración
+
+La configuración se lee desde el archivo `.env`, que se crea a partir de `.env.example` y **nunca se sube al repositorio** (está en `.gitignore`). Las variables principales:
+
+| Variable | Uso |
+|---|---|
+| `DEBUG` | `True` en desarrollo y `False` en producción |
+| `SECRET_KEY` | clave secreta propia; con `DEBUG=False` es obligatoria (el sistema no arranca con la de ejemplo) |
+| `ALLOWED_HOSTS` | dominios o IP desde los que se accede, separados por coma |
+| `DB_ENGINE` | `sqlite` (por defecto) o `mysql` (sirve para MariaDB) |
+| `DB_NAME`, `DB_USER`, `DB_PASSWORD`, `DB_HOST`, `DB_PORT` | conexión a MariaDB/MySQL |
+| `EMAIL_HOST`, `EMAIL_PORT`, `EMAIL_HOST_USER`, `EMAIL_HOST_PASSWORD`, `EMAIL_USE_TLS`, `DEFAULT_FROM_EMAIL` | correo de la recuperación de contraseña |
+| `CSRF_TRUSTED_ORIGINS`, `HTTPS`, `BEHIND_PROXY` | publicación detrás de Apache o nginx con HTTPS |
+| `CACHE_BACKEND`, `REDIS_URL` | caché de los intentos de recuperación (`locmem`, `redis` o `db`) |
+
+### Ejemplo de configuración sin secretos
+
+Para desarrollo (`.env`):
+
+```ini
+DEBUG=True
+SECRET_KEY=cambia-esto-por-una-clave-secreta-propia
+ALLOWED_HOSTS=localhost,127.0.0.1
+DB_ENGINE=sqlite
+DB_NAME=db.sqlite3
+EMAIL_HOST=
+```
+
+Para MariaDB/MySQL, reemplaza el bloque de base de datos:
+
+```ini
+DB_ENGINE=mysql
+DB_NAME=sgr_django
+DB_USER=sgr_user
+DB_PASSWORD=<la-clave-de-tu-base>
+DB_HOST=localhost
+DB_PORT=3306
+```
+
+y descomenta `mysqlclient` en `requirements.txt`. Para enviar el correo de recuperación con Gmail (la contraseña es una *contraseña de aplicación* de la misma cuenta, no la de ingreso):
+
+```ini
+EMAIL_HOST=smtp.gmail.com
+EMAIL_PORT=587
+EMAIL_USE_TLS=True
+EMAIL_HOST_USER=<tu-cuenta>@gmail.com
+EMAIL_HOST_PASSWORD=<contraseña-de-aplicación>
+DEFAULT_FROM_EMAIL=<tu-cuenta>@gmail.com
+```
+
+Las plantillas completas para el servidor están en `deploy/sgr.env.example` y `deploy/al2023/sgr.env.example`, siempre con los secretos en blanco.
+
+## Base de datos: migraciones y scripts
+
+El esquema se crea con las **migraciones de Django**, que vienen en el repositorio (`python manage.py migrate`):
+
+| Aplicación | Migraciones |
+|---|---|
+| `core` | `0001_initial` (auditoría) |
+| `accounts` | `0001_initial`, `0002_roleprofile`, `0003_create_role_profiles`, `0004_userroledelegation` |
+| `organization` | `0001_initial`, `0002_delegation_color`, `0003_delegation_address_commune_item_description` |
+| `planning` | `0001_initial` |
+| `operations` | `0001_initial` |
+| `evidence` | `0001_initial` |
+
+Comandos de datos (`python manage.py <comando>`):
+
+| Comando | Para qué |
+|---|---|
+| `seed_roles` | Crea los roles Coordinación, Jefatura, Funcionario, Verificador y Consulta con sus permisos |
+| `seed_management_types` | Crea los tipos de gestión |
+| `seed_demo_data` | Datos ficticios y las 7 cuentas de prueba (solo para demostración) |
+| `cargar_volumen_estres` | Carga un volumen grande de registros para las pruebas de estrés |
+| `exportar_registro_pruebas` | Genera `docs/pruebas/registro_pruebas_funcionales.csv` y `.xlsx` |
+
+La carpeta `sql/` guarda los scripts SQL del modelo relacional (`sgr_v3_modelo_relacional_completo.sql`, `sgr_v5_modelo_relacional_completo.sql` con su diagrama `sgr_v5_mer.png`, y los de paso entre versiones `sgr_v3_a_v5_alter.sql` y `sgr_v5_a_v3_revertir.sql`). `sgr_django_estructura_mariadb.sql` es la estructura real de la base del servidor (32 tablas, exportada desde phpMyAdmin, sin datos ni contraseñas). El script con todos los campos actuales, en inglés, es `sgr_v9_modelo_relacional_completo_en.sql`; se ejecuta en DBeaver para tener el diagrama al día. **Cuidado:** ese script borra y vuelve a crear una base llamada `sgr_db` (no `sgr_django`), así que sirve para el diagrama y para pruebas, no para actualizar la base del servidor: ahí las tablas las crea `migrate`.
+
+**Zonas horarias en MariaDB:** los informes agrupan por fecha en hora de Chile y necesitan las tablas de zonas horarias del motor. Se cargan una vez con:
+
+```bash
+mysql_tzinfo_to_sql /usr/share/zoneinfo | mysql -u root -p mysql
+```
+
+## Despliegue en Amazon Linux 2023
+
+El sistema se publica en una instancia EC2 con Amazon Linux 2023 (la AMI LAMP de AWS, con Apache, PHP, MariaDB y phpMyAdmin). La guía completa, con los comandos paso a paso, está en [`docs/aws/DESPLIEGUE_AL2023.md`](docs/aws/DESPLIEGUE_AL2023.md). La versión genérica con nginx está en `docs/aws/DESPLIEGUE_AWS.md`.
+
+### Cómo encaja cada pieza
+
+| Pieza | Para qué |
+|---|---|
+| Apache | Recibe los puertos 80 y 443, pone el certificado, sirve `/static/` y `/phpMyAdmin`, y le pasa el resto a gunicorn (`deploy/al2023/apache-http.conf` y `apache-https.conf`) |
+| gunicorn (servicio `sgr`) | Ejecuta Django en `127.0.0.1:8000`, con un proceso y 8 hilos (`deploy/gunicorn.conf.py`, `deploy/sgr.service`) |
+| MariaDB 10.11 | Base de datos `sgr_django` con el usuario `sgr_user`. Django 6.1 no se conecta a la 10.5 que instala el tutorial LAMP: hay que instalar `mariadb1011-server` |
+| certbot (`/opt/certbot`) | Certificado de Let's Encrypt para la IP pública o un dominio, con renovación automática (`sgr-certbot.timer`) |
+
+Rutas en el servidor: aplicación en `/opt/sgr/app`, entorno virtual en `/opt/sgr/venv`, variables en `/etc/sgr/sgr.env` (permiso 600, dueño `sgr`).
+
+Grupo de seguridad: puerto 22 solo desde tu IP; 80 y 443 abiertos; el 3306 no se abre.
+
+### Pasos resumidos
+
+1. **MariaDB 10.11:** `sudo dnf install -y mariadb1011-server mariadb1011-devel`, `sudo systemctl enable --now mariadb`, `sudo mysql_secure_installation`.
+2. **Base de datos** (en phpMyAdmin, pestaña SQL):
+   ```sql
+   CREATE DATABASE sgr_django CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
+   CREATE USER 'sgr_user'@'localhost' IDENTIFIED BY '<clave>';
+   GRANT ALL PRIVILEGES ON sgr_django.* TO 'sgr_user'@'localhost';
+   ```
+3. **Instalar** (clona el repositorio, crea el usuario `sgr`, el entorno virtual, `/etc/sgr/sgr.env` con una `SECRET_KEY` nueva, el servicio y Apache):
+   ```bash
+   git clone -b <rama> --single-branch https://github.com/yuudhar/proyecto-sgr.git && cd proyecto-sgr
+   sudo bash deploy/al2023/instalar_al2023.sh https://github.com/yuudhar/proyecto-sgr.git <rama> <ip-o-dominio>
+   ```
+4. **Migrar y arrancar:** `cd /opt/sgr/app && sudo bash deploy/actualizar.sh <rama>`. Hace `check --deploy`, `migrate`, `collectstatic` y reinicia el servicio.
+5. **Cuentas:** para una demostración, `seed_demo_data` (como root, con las variables de `/etc/sgr/sgr.env` cargadas); para una instalación real, `seed_roles`, `seed_management_types` y `createsuperuser`.
+6. **HTTPS:** `sudo bash deploy/al2023/https_certificado.sh <ip-o-dominio> <correo>`. Con `--prueba` ensaya contra el entorno de pruebas de Let's Encrypt sin tocar el sitio. Deja `HTTPS=True`, redirige el 80 al 443 y crea el temporizador de renovación.
+7. **Comprobar:** `curl https://<ip-o-dominio>/salud/` (responde con la versión desplegada) y `systemctl list-timers sgr-certbot.timer`.
+
+### Actualizar a una versión nueva
+
+```bash
+cd /opt/sgr/app && sudo bash deploy/actualizar.sh <rama-o-etiqueta>
+```
+
+### Producción: lo que ya está configurado
+
+`DEBUG=False`, `SECRET_KEY` propia, `ALLOWED_HOSTS`, `CSRF_TRUSTED_ORIGINS`, cookies seguras y redirección a HTTPS, archivos estáticos servidos por Apache, y una sola instancia de gunicorn para que el límite de intentos de la recuperación sea válido (con más procesos hace falta Redis: `CACHE_BACKEND=redis`). phpMyAdmin queda detrás del mismo HTTPS y se puede limitar a una IP en `/etc/httpd/conf.d/00-sgr.conf`.
+
+## Estado de cada módulo
+
+Todos los módulos leen y escriben en la base de datos real, con permisos por rol y alcance por delegación.
+
+| Módulo | Dónde está en el menú | Estado | Notas |
+|---|---|---|---|
+| Ingreso, login y sesión | Pantalla de ingreso | Operativo | Usuario o correo; rechaza cuentas inactivas sin decir qué dato falló |
+| Recuperar contraseña | Pantalla de ingreso | Operativo | Código de 6 dígitos de 120 s; correo real por SMTP |
+| Atención (ingreso) | Atención | Operativo | Tipo y sub atención dependientes; identificador `ATN00001`… |
+| Dashboard | Dashboard | Operativo | Promedios y semáforo con las metas guardadas |
+| Actividades, Gestiones, Agenda colectiva | Operación | Operativo | Ligadas a la atención y a la delegación de quien las crea |
+| Evidencias y validación | Operación | Operativo | El verificador aprueba, rechaza u observa, y la evidencia cambia de estado |
+| Tablero de delegación, Informes, Indicadores | Resultados | Operativo | Informes en CSV y Excel |
+| Delegaciones, Funcionarios, Territorios, Cargos, Ítems de cargo | Administración › Organización | Operativo | Ver, crear, editar y archivar en ventana modal |
+| Períodos, Metas, Ajustes | Administración › Planificación | Operativo | Semáforo con los umbrales del período |
+| Servicios, Ítems y metas, Tipos de atención, Sub atención, Tipos de gestión, Beneficiarios | Administración › Catálogos | Operativo | Todos con búsqueda, filtros y Excel |
+| Control de usuarios y Roles | Administración › Sistema | Operativo | Matriz de permisos, alcance y delegaciones adicionales por usuario |
+| Auditoría | Administración › Sistema | Operativo | Quién, cuándo y valor anterior y nuevo |
+| Selector de delegaciones | Franja superior | Operativo | Solo ofrece las autorizadas; el servidor lo revalida en cada petición (403 si lo alteran) |
+| Exportar a Excel | Todos los listados | Operativo | `.xlsx`, hasta 10.000 filas, queda en la auditoría |
+| Despliegue en AWS | `deploy/` | Operativo en HTTP; HTTPS con script listo | Ver la sección de despliegue |
+
+## Funciones operativas, simuladas y pendientes
+
+### Operativas: funcionan con datos reales
+
+Todo lo de esta tabla lee y escribe en la base de datos del proyecto; nada es una maqueta.
+
+| Función | Qué hace de verdad | Dónde comprobarlo |
+|---|---|---|
+| Login y sesión | Entra con usuario o correo y contraseña; rechaza la cuenta inactiva y no dice cuál dato falló. La sesión queda en la tabla `django_session` y al salir se borra. | Pantalla de ingreso; `accounts/test_backends.py`, `core/test_access_flow.py` |
+| Recuperar contraseña | Código de 6 dígitos que vale 120 s, se reenvía cada 45 s, falla a los 5 intentos y se pide hasta 5 veces por hora. El código no se guarda, solo su huella, y cada envío queda en la auditoría. | Tres pantallas de recuperación; `accounts/test_recovery.py` |
+| Contraseñas | Las revisan los validadores de Django (largo mínimo, no común, no solo números, no parecida a los datos del usuario) al crear usuarios, al cambiarla en *Mi perfil* y al recuperarla. | *Mi perfil*, *Control de usuarios*; `core/test_users.py`, `core/test_workspace.py` |
+| Roles y alcance | Cada rol trae su descripción, su alcance (su delegación o todas), su estado y su matriz de permisos. El menú, los botones y el servidor (403) siguen esa matriz. | Roles y permisos; `core/test_a1.py`, `core/test_permissions.py` |
+| Selector de delegaciones | Cada usuario trabaja en la delegación de su funcionario y, si tiene filas en `Usuario_Rol_Delegacion` (se marcan en Control de usuarios), elige otras en la franja de arriba; quienes ven todas pueden elegir también «Todas». Al cambiar se actualizan listados, filtros, exportaciones y formularios. | Franja de arriba con `supervision1`; `core/test_a2.py` |
+| Mantenedores | Delegaciones, Roles, Usuarios, Ítems y metas, Tipo de Atención y Sub Atención, más Funcionarios, Territorios, Cargos, Períodos, Metas, Ajustes, Servicios, Tipos de gestión y Beneficiarios: ver, crear, editar y eliminar en ventana modal. «Eliminar» archiva el registro y se puede restaurar; solo Roles se borra de verdad. | Menú Administración; `core/test_catalogs.py`, `core/test_edits.py` |
+| Tabla, búsqueda y Excel | Cada listado tiene búsqueda por palabras, filtros, orden, paginador y Exportar a Excel (`.xlsx`, hasta 10.000 filas, queda en la auditoría). | Cualquier listado; `core/test_search.py`, `core/test_export.py` |
+| Ingreso de atención | Solicitante por RUT o nombre, tipo y sub atención, descripción obligatoria; la delegación sale del contexto activo y el responsable es el funcionario del usuario (en otra delegación se elige uno de ella), la fecha es automática y el identificador es `ATN00001`. | Atención; `core/test_intake.py` |
+| Gestiones, Agenda y Evidencias | Registros ligados a la atención y a la delegación de quien los crea. | Menú Operación; `core/test_portal.py` |
+| Validar evidencias | El verificador aprueba, rechaza u observa la evidencia y puede dejar una observación; queda su decisión y la evidencia cambia de estado. | Validar evidencias; `core/test_portal.py` |
+| Dashboard, Tablero e Informes | Calculan promedios y semáforos con las metas y los indicadores guardados; los informes se bajan en CSV o Excel. | Menú Resultados; `core/test_scope.py`, `core/test_portal.py` |
+| Auditoría | Cada alta, edición, archivo, exportación y recuperación guarda quién, cuándo y el valor anterior y el nuevo. | Menú Sistema, Auditoría; `core/test_edits.py`, `core/test_scope.py` |
+| Validaciones | Cada regla se revisa en la pantalla, con aviso de SweetAlert2, y otra vez en el servidor. | `core/test_rules.py`, `core/test_flash.py` |
+
+### Simuladas o limitadas
+
+Estas funciones existen y se pueden mostrar, pero con menos alcance que en un sistema en producción.
+
+| Función | Cómo funciona hoy | Para que sea real |
+|---|---|---|
+| Correo de recuperación | Sin `EMAIL_HOST` en el `.env` el mensaje no sale: se imprime en la consola donde corre el servidor. Con `EMAIL_HOST` (Gmail, Mailtrap u otro SMTP) se envía de verdad, en HTML con los colores del portal. Las pruebas automáticas revisan el mensaje en memoria. | Configurar el SMTP en el `.env` del servidor |
+| Datos de demostración | `seed_demo_data` carga una sola vez usuarios (contraseña de partida `Hola123!`), las delegaciones Norte y Sur, atenciones, evidencias e indicadores ficticios. Después son registros normales de la base (se ven y editan en phpMyAdmin o en el portal), no dependen del comando. | En una instalación real no se ejecuta, o se borran los datos ficticios y se cambian las contraseñas |
+| Archivos de evidencia | Se guarda el nombre, la ruta o el vínculo del archivo (por ejemplo de Google Drive), como pide el modelo de datos. El sistema no sube ni almacena el archivo. | Un campo de archivo en el modelo, que hoy no existe en el diagrama |
+| Indicadores | El avance, el cumplimiento y la ponderación se ingresan a mano en Indicadores. El semáforo sí se calcula con los umbrales del período. No se calculan solos desde las atenciones registradas. | Definir la fórmula de cada ítem |
+| Límite de intentos del código | El contador usa la caché de Django, que por defecto vive en la memoria de cada proceso. Con varios procesos el límite no se comparte. | Una caché compartida (Redis), o un solo proceso |
+| Base de datos | SQLite por defecto; MariaDB o MySQL se activa con `DB_ENGINE` en el `.env`. Las pruebas automáticas corren sobre SQLite. | Probar con el motor que use AWS (ya es MariaDB en el servidor) |
+| Diseño del municipio | Estilo inspirado en la Municipalidad de La Serena, con Arial y el rojo `#920000` que declara su sitio; el lugar del escudo está listo, pero falta el archivo oficial. El pie de página dice que no es un sitio oficial. | El escudo oficial y el código exacto del color de las normas gráficas |
+
+### Pendientes
+
+- **Entrega (A4):** HTTPS con certificado en la URL final, etiqueta Git de la entrega, evidencias (capturas o video) tomadas sobre la URL real y pruebas de estrés sobre el servidor desplegado.
+- **Diagrama de la base de datos:** pasar los seis campos nuevos al diagrama; el script SQL en inglés v9 ya los trae, solo falta ejecutarlo en DBeaver.
+
+| Tabla del diagrama | Campo nuevo | Tipo | En el proyecto |
+|---|---|---|---|
+| Delegacion (Delegation) | `direccion` (address) | `VARCHAR(200) NOT NULL DEFAULT ''` | `organization_delegation.address` |
+| Delegacion (Delegation) | `comuna` (commune) | `VARCHAR(100) NOT NULL DEFAULT ''` | `organization_delegation.commune` |
+| Item | `descripcion` (description) | `VARCHAR(255) NOT NULL DEFAULT ''` | `organization_item.description` |
+| Rol (Role) | `descripcion` (description) | `VARCHAR(255) NOT NULL DEFAULT ''` | `accounts_roleprofile.description` |
+| Rol (Role) | `alcance` (scope): `own` = su delegación, `all` = todas | `VARCHAR(10) NOT NULL DEFAULT 'own'` | `accounts_roleprofile.scope` |
+| Rol (Role) | `estado` (status): `active` o `inactive` | `VARCHAR(20) NOT NULL DEFAULT 'active'` | `accounts_roleprofile.status` |
+
+El nombre del rol sigue en el grupo de Django, así que Role equivale a la suma de `auth_group` y `accounts_roleprofile`. La tabla `Usuario_Rol_Delegacion` ya estaba en el diagrama; en Django suma las columnas técnicas `id`, `created_at`, `updated_at` y `deleted_at`, igual que las otras tablas.
+
+## Instrucciones de pruebas
+
+### Pruebas automáticas
+
+```bash
+python manage.py test                 # toda la suite
+python manage.py test --parallel 4    # más rápido
+python manage.py test accounts        # una aplicación
+python manage.py test core.test_rules # un archivo
+```
+
+Son más de 700 pruebas sobre SQLite en memoria, sin tocar tu base de datos. Cada prueba tiene su descripción y el requisito que cubre en `core/qa/`; una prueba sin registrar hace fallar la suite.
+
+### Probar a mano por rol
+
+1. Ejecuta `python manage.py seed_demo_data` y entra con cada cuenta de la tabla de cuentas de prueba.
+2. Con `admin` revisa todos los menús; con `consulta1` comprueba que solo ve y no puede crear (los botones no aparecen y las rutas devuelven 403).
+3. Con `supervision1` cambia de delegación en la franja de arriba y mira cómo cambian los listados.
+4. Con `matias.cavieres` ingresa una atención en *Atención*, sube una evidencia y valídala con el mismo usuario (Funcionario y Verificador).
+5. Prueba la recuperación de contraseña con una cuenta que tenga correo propio.
+
+La matriz de menús por rol está en `docs/evidencias/matriz_menus_por_rol.md`.
+
+### Registro de pruebas, estrés y evidencias
+
+| Qué | Cómo |
+|---|---|
+| Registro de pruebas funcionales | `python manage.py exportar_registro_pruebas` → `docs/pruebas/registro_pruebas_funcionales.csv` y `.xlsx` |
+| Pruebas de estrés | `python tools/estres/estres.py --url <URL> --etapas 1,5,10,20 --duracion 60` (solo biblioteca estándar); opcionalmente `python manage.py cargar_volumen_estres` para tener volumen de datos. El plan y los resultados están en `docs/pruebas/estres/` |
+| Capturas de evidencia | `python tools/evidencias/capturar.py --url <URL>` (requiere `pip install playwright && playwright install chromium`); salen en `docs/evidencias/capturas/` |
+| Revisión de despliegue | `python manage.py check --deploy` con las variables de producción cargadas |
+
+## Entrega y evidencias (A4)
+
+| Dato | Valor |
+|---|---|
+| URL de AWS | `http://32.198.200.215/` (IP elástica de la instancia EC2); pasa a `https://32.198.200.215/` al activar el certificado |
+| Versión desplegada | `https://<url>/salud/` muestra el commit y la etiqueta que está corriendo, para comprobar que es la versión entregada |
+| Repositorio | `https://github.com/yuudhar/proyecto-sgr` (rama `proyecto-sgr-v13` y la etiqueta de la entrega) |
+| Acceso de evaluación | Cuentas de la tabla de cuentas de prueba (el docente recibe la contraseña por el canal acordado) |
+| Secretos | Ninguno en el repositorio: `.env` y `db.sqlite3` están fuera de Git; el servidor guarda sus claves en `/etc/sgr/sgr.env` |
+
+Dónde está cada punto de la lista de verificación:
+
+| N° | Evidencia requerida | Dónde está |
+|---|---|---|
+| 1 | Login y recuperación completa de contraseña | `docs/evidencias/capturas/EV1_*`; sección de recuperación |
+| 2 | Seis CRUD (Delegaciones, Roles, Usuarios, Ítems y metas, Tipo de Atención, Sub Atención) | `docs/evidencias/capturas/EV2_*` |
+| 3 | Ingreso de atención con catálogos dependientes y contexto de delegación | `docs/evidencias/capturas/EV3_*` |
+| 4 | Tabla, paginador, búsqueda y Exportar a Excel | `docs/evidencias/capturas/EV4_*` |
+| 5 | Normas gráficas, identificación de delegación, usuario y rol, alcance por perfil | `docs/evidencias/capturas/EV5_*` y `docs/evidencias/matriz_menus_por_rol.md` |
+| 6 | Validaciones y mensajes SweetAlert2 | `docs/evidencias/capturas/EV6_*` |
+| 7 | URL AWS, repositorio Git y versión inequívoca | Esta sección y `/salud/` |
+| 8 | Resultados de pruebas funcionales y de estrés, evidencias y correcciones | `docs/pruebas/` (registro de pruebas, estrés y resultados) |
+| 9 | Resumen de funciones operativas, simuladas y pendientes | La sección [Funciones operativas, simuladas y pendientes](#funciones-operativas-simuladas-y-pendientes) |
 
 ## Estructura del proyecto
 
 ```
 sgr_project/    configuración de Django
-core/           portal, menús, búsqueda, exportación a Excel y auditoría
+core/           portal, menús, búsqueda, reglas de validación, exportación a Excel y auditoría
 accounts/       ingreso, recuperación de contraseña, roles y delegaciones
 organization/   delegaciones, funcionarios, cargos, territorios y beneficiarios
 planning/       períodos, metas e indicadores
 operations/     atenciones, actividades, compromisos y seguimientos
 evidence/       evidencias y su validación
-templates/      plantillas HTML
+templates/      plantillas HTML (incluye el correo de recuperación)
 sql/            scripts de la base de datos
-deploy/         archivos para publicar en un servidor
-docs/           documentación y evidencias
-tools/          herramientas de pruebas
+deploy/         archivos para publicar en un servidor (nginx y Amazon Linux 2023 con Apache)
+docs/           documentación del despliegue, registro de pruebas y evidencias
+tools/          herramientas de pruebas de estrés y de capturas
 ```
-
-## Configuración
-
-La configuración se lee desde el archivo `.env`, que se crea a partir de `.env.example` y no se sube al repositorio. Las variables principales son:
-
-| Variable | Uso |
-|---|---|
-| `DEBUG` | `True` en desarrollo y `False` en producción |
-| `SECRET_KEY` | clave secreta propia; en producción es obligatoria |
-| `ALLOWED_HOSTS` | dominios o IP desde los que se accede |
-| `DB_ENGINE` y `DB_*` | base de datos: `sqlite` (por defecto) o `mysql` |
-| `EMAIL_HOST` y `EMAIL_*` | servidor de correo para la recuperación de contraseña |
-
-## Base de datos
-
-El esquema se crea con las migraciones de Django (`python manage.py migrate`), que vienen incluidas en el repositorio. La carpeta `sql/` guarda además los scripts y el diagrama entidad-relación de versiones anteriores del modelo.
-
-Para usar MySQL en lugar de SQLite, completa las variables `DB_*` del `.env` y activa `mysqlclient` en `requirements.txt`.
-
-## Estado del proyecto
-
-Todos los módulos descritos arriba funcionan con base de datos real, permisos por rol y alcance por delegación. Los datos de demostración son ficticios, y mientras no se configure un servidor de correo el código de recuperación se muestra en la consola.
-
-Quedan pendientes la aplicación de las normas gráficas oficiales (escudo y código de color), la publicación del sistema en AWS y el envío de correos reales.
