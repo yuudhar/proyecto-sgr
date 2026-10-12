@@ -1,0 +1,74 @@
+[
+ [
+  "Mezcla integrada (lectura, exportación y escritura)",
+  1,
+  21.0,
+  236,
+  11.23,
+  79.8,
+  89.1,
+  "0 (0.0 %)",
+  "ENSAYO LOCAL, no AWS: contenedor de 2 vCPU, Python 3.13, gunicorn 2 procesos x 2 hilos, SQLite en modo WAL, cach",
+  "Cumple (umbral p95 ≤ 1500 ms, errores ≤ 1.0 %)"
+ ],
+ [
+  "Mezcla integrada (lectura, exportación y escritura)",
+  2,
+  21.0,
+  267,
+  12.71,
+  143.8,
+  1473.0,
+  "0 (0.0 %)",
+  "ENSAYO LOCAL, no AWS: contenedor de 2 vCPU, Python 3.13, gunicorn 2 procesos x 2 hilos, SQLite en modo WAL, cach",
+  "Cumple (umbral p95 ≤ 1500 ms, errores ≤ 1.0 %)"
+ ],
+ [
+  "Mezcla integrada (lectura, exportación y escritura)",
+  5,
+  22.0,
+  300,
+  13.63,
+  318.7,
+  1169.5,
+  "0 (0.0 %)",
+  "ENSAYO LOCAL, no AWS: contenedor de 2 vCPU, Python 3.13, gunicorn 2 procesos x 2 hilos, SQLite en modo WAL, cach",
+  "Cumple (umbral p95 ≤ 1500 ms, errores ≤ 1.0 %)"
+ ],
+ [
+  "Mezcla integrada (lectura, exportación y escritura)",
+  10,
+  21.0,
+  397,
+  18.9,
+  471.1,
+  2839.5,
+  "0 (0.0 %)",
+  "ENSAYO LOCAL, no AWS: contenedor de 2 vCPU, Python 3.13, gunicorn 2 procesos x 2 hilos, SQLite en modo WAL, cach",
+  "No cumple (umbral p95 ≤ 1500 ms, errores ≤ 1.0 %)"
+ ],
+ [
+  "Mezcla integrada (lectura, exportación y escritura)",
+  20,
+  24.0,
+  260,
+  10.83,
+  1570.7,
+  4879.6,
+  "0 (0.0 %)",
+  "ENSAYO LOCAL, no AWS: contenedor de 2 vCPU, Python 3.13, gunicorn 2 procesos x 2 hilos, SQLite en modo WAL, cach",
+  "No cumple (umbral p95 ≤ 1500 ms, errores ≤ 1.0 %)"
+ ],
+ [
+  "Mezcla integrada (lectura, exportación y escritura)",
+  40,
+  28.0,
+  347,
+  12.39,
+  2406.7,
+  10014.5,
+  "0 (0.0 %)",
+  "ENSAYO LOCAL, no AWS: contenedor de 2 vCPU, Python 3.13, gunicorn 2 procesos x 2 hilos, SQLite en modo WAL, cach",
+  "No cumple (umbral p95 ≤ 1500 ms, errores ≤ 1.0 %)"
+ ]
+]

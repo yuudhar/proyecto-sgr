@@ -1,0 +1,1 @@
+{% load core_ui %}{# Escudo oficial de La Serena (normas gráficas): se muestra solo si su archivo está en core/static/core/img/ (ver core/templatetags/core_ui.py). #}{% escudo_url as escudo %}{% if escudo %}<img class="escudo{% if cls %} {{ cls }}{% endif %}" src="{{ escudo }}" alt="Escudo de la {{ institution }}" height="48">{% endif %}

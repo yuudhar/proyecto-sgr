@@ -1,63 +1,114 @@
-# SGR · Programación Back End
+# SGR · Sistema de Gestión de Resultados
 
-Proyecto SGR (Sistema de Gestión de Resultados) hecho en Django para Programación Back End. La gestión se hace desde el Django Admin.
+Aplicación web hecha en Django para registrar y dar seguimiento al trabajo de las delegaciones municipales: atención de público, actividades, compromisos, evidencias, planificación e informes. Cada persona ve solo lo que su rol y sus delegaciones le permiten.
 
-## Cómo correrlo en linux
+Es un proyecto académico de Programación Back End. Todos los datos son ficticios y no representa un sitio oficial de la Municipalidad de La Serena.
 
-Necesitas Python 3.12 o superior y Git. Usa SQLite, así que no hay que instalar ni configurar ninguna base de datos. Estos comandos son para Linux o macOS, los de Windows están más abajo.
+## Integrantes
+
+- Matías Quiroz
+- Matías Cavieres
+- Sakty Argandoña
+
+## Qué permite hacer
+
+- **Atención:** buscar a una persona por RUT o nombre e ingresar una atención con su tipo y sub atención.
+- **Dashboard, tablero de delegación e informes:** indicadores del período, semáforo de metas y exportación a Excel.
+- **Mantenedores:** delegaciones, funcionarios, cargos, territorios, beneficiarios, catálogo de servicios, períodos, metas, ítems, tipos de atención y sub atención.
+- **Operación y evidencias:** actividades, compromisos, seguimientos, evidencias y su validación.
+- **Usuarios y permisos:** roles con permisos por módulo, delegaciones autorizadas por usuario y recuperación de contraseña con código de seis dígitos.
+- **Auditoría:** cada cambio queda registrado con quién, cuándo y qué se modificó.
+
+Todos los listados incluyen búsqueda (sin distinguir mayúsculas ni tildes), paginador, filtros y exportación a Excel. Los formularios se abren en ventanas modales, validan los datos y avisan con SweetAlert2.
+
+## Tecnologías
+
+- Python 3.12 o superior y Django
+- SQLite (MySQL opcional)
+- Bootstrap 5 y SweetAlert2 (incluidos en el proyecto, funciona sin internet)
+- openpyxl para los archivos de Excel
+- gunicorn y nginx para el despliegue en un servidor
+
+## Instalación
+
+Necesitas Python 3.12 o superior. Abre Git Bash dentro de la carpeta del proyecto (la que contiene `manage.py`) y ejecuta:
 
 ```bash
-git clone https://github.com/yuudhar/proyecto-sgr.git
-cd proyecto-sgr
-
-python3 -m venv venv
-source venv/bin/activate
+python -m venv venv
+source venv/Scripts/activate
 python -m pip install -r requirements.txt
 
 cp .env.example .env
 
-python manage.py check
 python manage.py migrate
 python manage.py seed_demo_data
 python manage.py runserver
 ```
 
-Después se entra a http://127.0.0.1:8000/admin/ con alguna de las cuentas de más abajo.
+Luego abre `http://127.0.0.1:8000/` en el navegador.
 
-`seed_demo_data` es el que carga los roles, los datos de ejemplo y las cuentas de prueba, así que hay que correrlo antes de entrar. Las migraciones ya vienen en el repositorio, no hace falta `makemigrations`.
+En Linux o macOS la activación del entorno es `source venv/bin/activate` y el comando de Python es `python3`.
 
-## Cómo correrlo en Windows
+Las próximas veces solo hacen falta dos comandos:
 
-Instala Python 3.12 o superior (en el instalador marca «Add python.exe to PATH») y Git para Windows. Es lo mismo que arriba, cambian solo tres líneas: `python` en vez de `python3`, la activación del entorno virtual y el copiado del `.env`. Abre PowerShell y corre:
-
-```powershell
-git clone https://github.com/yuudhar/proyecto-sgr.git
-cd proyecto-sgr
-
-python -m venv venv
-venv\Scripts\Activate.ps1
-python -m pip install -r requirements.txt
-
-copy .env.example .env
-
-python manage.py check
-python manage.py migrate
-python manage.py seed_demo_data
+```bash
+source venv/Scripts/activate
 python manage.py runserver
 ```
-
-Después también se entra a http://127.0.0.1:8000/admin/ con las cuentas de más abajo.
-
-Si `python` no se reconoce (o se abre la Microsoft Store), prueba con `py`, por ejemplo `py -m venv venv`. Si usas CMD en vez de PowerShell, el entorno se activa con `venv\Scripts\activate.bat`. Si PowerShell dice que la ejecución de scripts está deshabilitada, corre `Set-ExecutionPolicy -Scope Process -ExecutionPolicy RemoteSigned` y activa el entorno otra vez. Eso solo vale para esa ventana.
 
 ## Cuentas de prueba
 
-Las crea `seed_demo_data`. Son solo para la demo, no son cuentas reales, y todas tienen la misma contraseña. En la demo se entra primero con `admin` y después con `matias.quiroz`, que es el usuario limitado y solo ve la Delegación Sur.
+Las crea `seed_demo_data`. Se ingresa con el **usuario** (no con el correo) y todas tienen la contraseña `Hola123!`.
 
-| Usuario | Contraseña | Rol |
-|---|---|---|
-| `admin` | `Hola123!` | Superusuario, ve todo (las dos delegaciones) |
-| `matias.cavieres` | `Hola123!` | Funcionario y Verificador de la Delegación Norte, solo ve lo de Norte |
-| `matias.quiroz` | `Hola123!` | Funcionario y Verificador de la Delegación Sur, solo ve lo de Sur |
-| `coordinacion1` | `Hola123!` | Coordinación, sin funcionario asociado. Ve los catálogos, la planificación y los funcionarios y territorios de las dos delegaciones |
-| `jefatura1` | `Hola123!` | Jefatura de la Delegación Norte, igual que un funcionario (solo ve Norte) |
+| Usuario | Rol |
+|---|---|
+| `admin` | Super Usuario, ve todo |
+| `coordinacion1` | Coordinación: catálogos y planificación |
+| `jefatura1` | Jefatura de la Delegación Norte |
+| `supervision1` | Jefatura con las delegaciones Norte y Sur |
+| `matias.cavieres` | Funcionario y Verificador, Delegación Norte |
+| `matias.quiroz` | Funcionario y Verificador, Delegación Sur |
+| `consulta1` | Solo lectura |
+
+Para recuperar una contraseña, cada cuenta tiene un correo con la forma `usuario@sgr.example`. Como ese dominio no existe, el código no se envía: aparece en la ventana de Git Bash donde corre el servidor.
+
+## Estructura del proyecto
+
+```
+sgr_project/    configuración de Django
+core/           portal, menús, búsqueda, exportación a Excel y auditoría
+accounts/       ingreso, recuperación de contraseña, roles y delegaciones
+organization/   delegaciones, funcionarios, cargos, territorios y beneficiarios
+planning/       períodos, metas e indicadores
+operations/     atenciones, actividades, compromisos y seguimientos
+evidence/       evidencias y su validación
+templates/      plantillas HTML
+sql/            scripts de la base de datos
+deploy/         archivos para publicar en un servidor
+docs/           documentación y evidencias
+tools/          herramientas de pruebas
+```
+
+## Configuración
+
+La configuración se lee desde el archivo `.env`, que se crea a partir de `.env.example` y no se sube al repositorio. Las variables principales son:
+
+| Variable | Uso |
+|---|---|
+| `DEBUG` | `True` en desarrollo y `False` en producción |
+| `SECRET_KEY` | clave secreta propia; en producción es obligatoria |
+| `ALLOWED_HOSTS` | dominios o IP desde los que se accede |
+| `DB_ENGINE` y `DB_*` | base de datos: `sqlite` (por defecto) o `mysql` |
+| `EMAIL_HOST` y `EMAIL_*` | servidor de correo para la recuperación de contraseña |
+
+## Base de datos
+
+El esquema se crea con las migraciones de Django (`python manage.py migrate`), que vienen incluidas en el repositorio. La carpeta `sql/` guarda además los scripts y el diagrama entidad-relación de versiones anteriores del modelo.
+
+Para usar MySQL en lugar de SQLite, completa las variables `DB_*` del `.env` y activa `mysqlclient` en `requirements.txt`.
+
+## Estado del proyecto
+
+Todos los módulos descritos arriba funcionan con base de datos real, permisos por rol y alcance por delegación. Los datos de demostración son ficticios, y mientras no se configure un servidor de correo el código de recuperación se muestra en la consola.
+
+Quedan pendientes la aplicación de las normas gráficas oficiales (escudo y código de color), la publicación del sistema en AWS y el envío de correos reales.

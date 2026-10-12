@@ -1,0 +1,91 @@
+{% extends "base.html" %}
+{% load core_ui %}
+{% block title %}Mi perfil{% endblock %}
+
+{% block content %}
+<section class="page-head">
+  <div>
+    <h1 class="page-title"><i class="bi bi-person-circle" aria-hidden="true"></i>Mi perfil</h1>
+    <p class="page-sub">Tus datos en el sistema, tu delegación, tus perfiles y el cambio de contraseña.</p>
+  </div>
+</section>
+
+<div class="profile-grid">
+  <div class="stack">
+    <section class="panel" aria-label="Datos de la cuenta">
+      <div class="panel-head"><h2 class="panel-title">Cuenta</h2></div>
+      <dl class="facts">
+        <div class="facts-row"><dt>Nombre</dt><dd>{{ me_name }}</dd></div>
+        <div class="facts-row"><dt>Usuario</dt><dd>{{ me.get_username }}</dd></div>
+        <div class="facts-row"><dt>Correo</dt><dd>{% if me.email %}{{ me.email }}{% else %}<span class="muted">Sin correo</span>{% endif %}</dd></div>
+        <div class="facts-row"><dt>Ingreso actual</dt><dd>{{ me.last_login|fdatetime }}</dd></div>
+      </dl>
+    </section>
+
+    <section class="panel" aria-label="Delegación y funcionario">
+      <div class="panel-head"><h2 class="panel-title">Delegación</h2></div>
+      <dl class="facts">
+        <div class="facts-row">
+          <dt>{% if me_scope.choose %}Delegación activa{% else %}Delegación{% endif %}</dt>
+          <dd>
+            <span class="color-chip"><span class="color-swatch" style="--swatch: {{ me_scope.bg }}" aria-hidden="true"></span>{{ me_scope.name }}</span>
+            {% if me_scope.choose %}<span class="muted"> (puedes cambiarla en la franja de arriba)</span>{% endif %}
+          </dd>
+        </div>
+        {% if me_scope.all %}
+        <div class="facts-row"><dt>Delegaciones autorizadas</dt><dd>Todas las delegaciones</dd></div>
+        {% elif me_scope.choose %}
+        <div class="facts-row"><dt>Delegaciones autorizadas</dt><dd>{% for option in me_scope.options %}{{ option.label }}{% if not forloop.last %}, {% endif %}{% endfor %}</dd></div>
+        {% endif %}
+        {% if me_officer %}
+        <div class="facts-row"><dt>Funcionario</dt><dd>{{ me_officer.name }} <span class="muted">({{ me_officer.institutional_id }})</span></dd></div>
+        <div class="facts-row"><dt>Cargo</dt><dd>{{ me_officer.position }}</dd></div>
+        {% else %}
+        <div class="facts-row"><dt>Funcionario</dt><dd><span class="muted">Esta cuenta no tiene un funcionario asociado.</span></dd></div>
+        {% endif %}
+      </dl>
+    </section>
+
+    <section class="panel" aria-label="Perfiles">
+      <div class="panel-head"><h2 class="panel-title">{% if me_roles|length == 1 %}Perfil{% else %}Perfiles{% endif %}</h2></div>
+      <ul class="role-list">
+        {% for role in me_roles %}
+        <li>
+          <i class="bi {{ role.icon }}" aria-hidden="true"></i>
+          <div>
+            <p class="role-list-name">{{ role.label }}</p>
+            {% if role.description %}<p class="role-list-desc">{{ role.description }}</p>{% endif %}
+          </div>
+        </li>
+        {% empty %}
+        <li><div><p class="role-list-desc">Esta cuenta no tiene un perfil asignado. Pide a un Super Usuario que se lo asigne.</p></div></li>
+        {% endfor %}
+      </ul>
+    </section>
+  </div>
+
+  <section class="panel" aria-label="Cambiar contraseña">
+    <div class="panel-head"><h2 class="panel-title">Cambiar contraseña</h2></div>
+    <form method="post" class="panel-body" data-once data-validate data-unsaved-guard{% if form.is_bound %}="dirty"{% endif %} data-confirm-submit
+          data-confirm-title="¿Cambiar tu contraseña?"
+          data-confirm-text="Vas a cambiar la contraseña con la que ingresas al sistema. Desde ahora tendrás que usar la nueva."
+          data-confirm-button="Sí, cambiar contraseña"
+          data-cancel-title="Cambio cancelado"
+          data-cancel-text="Tu contraseña sigue siendo la misma.">
+      {% csrf_token %}
+      {% if form.errors %}
+      <div class="alert alert-danger d-flex gap-2" role="alert">
+        <i class="bi bi-x-octagon-fill" aria-hidden="true"></i>
+        <div><strong>No se cambió la contraseña.</strong> Revisa los campos marcados en rojo.</div>
+      </div>
+      {% endif %}
+      <div class="row g-3">
+        {% for field in form %}{% include "core/partials/field.html" with wide=True %}{% endfor %}
+      </div>
+      <div class="form-actions form-actions-flush">
+        <button type="submit" class="btn btn-primary"><i class="bi bi-key" aria-hidden="true"></i> Cambiar contraseña</button>
+      </div>
+    </form>
+  </section>
+</div>
+{% endblock %}

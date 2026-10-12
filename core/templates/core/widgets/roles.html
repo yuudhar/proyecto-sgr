@@ -1,0 +1,12 @@
+{# Perfiles de un usuario: una casilla por perfil con su descripción. #}
+<div class="roles-field{% if "is-invalid" in widget.attrs.class %} is-invalid{% endif %}" id="{{ widget.attrs.id }}" role="group" aria-labelledby="{{ widget.attrs.id }}_label" data-label="Perfiles" tabindex="-1">
+  {% for group, options, index in widget.optgroups %}{% for option in options %}
+  <div class="form-check role-option">
+    <input type="checkbox" name="{{ option.name }}" value="{{ option.value }}" class="form-check-input" id="{{ option.attrs.id }}"{% if option.selected %} checked{% endif %}>
+    <label class="form-check-label" for="{{ option.attrs.id }}">
+      <span class="role-name"><i class="bi {{ option.info.icon }}" aria-hidden="true"></i>{{ option.label }}</span>
+      {% if option.info.description %}<span class="role-desc">{{ option.info.description }}</span>{% endif %}
+    </label>
+  </div>
+  {% endfor %}{% endfor %}
+</div>

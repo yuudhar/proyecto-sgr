@@ -1,0 +1,41 @@
+"""Resultado esperado (en español) de las pruebas del despliegue y del propio registro de pruebas."""
+
+ESPERADO = {
+    "ProductionSettingsTests": {
+        "without_variables_nothing_changes_for_development": "Sin variables de entorno el sistema queda como en desarrollo (DEBUG, caché local, sin HTTPS forzado).",
+        "production_refuses_the_example_secret_key": "Con DEBUG=False se rechaza la SECRET_KEY de ejemplo o vacía y el arranque se detiene con un mensaje claro.",
+        "production_accepts_its_own_secret_key_and_logs_to_the_console": "Con una SECRET_KEY propia se acepta y los errores se registran en la salida estándar.",
+        "https_turns_on_secure_cookies_redirect_and_exempts_the_health_check": "HTTPS=True activa cookies seguras y redirección a HTTPS, y deja exenta la revisión de estado.",
+        "hsts_is_off_unless_asked_for": "HSTS queda apagado salvo que se pida con SECURE_HSTS_SECONDS.",
+        "behind_a_proxy_django_trusts_the_forwarded_protocol": "Detrás de nginx o balanceador, Django confía en la cabecera X-Forwarded-Proto.",
+        "trusted_origins_come_from_the_env_as_a_list": "Los orígenes de confianza CSRF se leen de la variable de entorno como lista.",
+        "whitenoise_is_optional_and_goes_right_after_the_security_middleware": "WhiteNoise es opcional y, si se activa, va justo después del middleware de seguridad.",
+        "static_files_are_collected_in_staticfiles": "Los archivos estáticos se juntan en la carpeta staticfiles.",
+        "the_shared_cache_for_recovery_attempts_is_chosen_from_the_env": "La caché compartida de los intentos de recuperación se elige por variable (redis, db o local).",
+        "an_unknown_cache_backend_stops_with_a_clear_message": "Un tipo de caché desconocido detiene el arranque con un mensaje claro.",
+        "sqlite_gets_wal_and_a_longer_wait_only_outside_development": "SQLite usa modo WAL y más espera solo fuera de desarrollo.",
+        "persistent_connections_come_from_the_env": "Las conexiones persistentes se leen del entorno y un valor no numérico se rechaza.",
+    },
+    "ConfigurationFilesTests": {
+        "the_production_env_example_has_no_secrets": "El ejemplo de variables de producción trae los secretos en blanco.",
+        "the_env_example_documents_the_production_variables_without_values": "El .env.example documenta las variables de producción sin valores secretos.",
+        "the_requirements_pin_the_server_packages": "Las dependencias del servidor (gunicorn, whitenoise, redis) están fijadas por versión.",
+        "deploy_files_exist": "Existen los archivos de despliegue (gunicorn, systemd, nginx, scripts).",
+        "secrets_stay_out_of_git": "El .gitignore deja fuera .env, la base local, los estáticos y el archivo COMMIT.",
+        "the_version_file_names_the_delivery": "El archivo VERSION nombra la versión de la entrega.",
+    },
+    "HealthCheckTests": {
+        "it_answers_without_a_session_and_says_the_version": "/salud/ responde 200 sin sesión e informa servicio, base de datos, caché y versión.",
+        "it_is_a_get_only_and_never_cached": "/salud/ solo acepta GET y nunca se guarda en caché.",
+        "it_shows_no_secrets": "/salud/ no muestra secretos ni claves.",
+        "it_reports_503_when_the_database_fails": "Si la base de datos falla, /salud/ responde 503.",
+        "it_reports_503_when_the_cache_fails": "Si la caché falla, /salud/ responde 503.",
+    },
+    "TestRegistryTests": {
+        "every_test_has_an_expected_result_in_spanish": "Cada prueba automática tiene su resultado esperado en español en el catálogo del registro.",
+        "the_catalogue_has_no_leftovers_for_tests_that_no_longer_exist": "El catálogo no conserva pruebas que ya no existen.",
+        "every_class_maps_to_known_requirements": "Cada clase de pruebas está asociada a requisitos conocidos.",
+        "every_step_list_ends_with_the_check_and_is_not_empty": "La lista de pasos de cada prueba no está vacía y termina con la comprobación.",
+        "the_summary_by_requirement_counts_each_status": "El resumen por requisito cuenta cada estado correctamente.",
+    },
+}

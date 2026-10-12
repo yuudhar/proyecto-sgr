@@ -1,19 +1,147 @@
 {% extends "base.html" %}
-
-{% block title %}Dashboard | SGR{% endblock %}
+{% load core_ui %}
+{% block title %}Inicio{% endblock %}
 
 {% block content %}
-  <h1>Ficha Personal</h1>
-  <p>Nombre: {{ funcionario.nombre }}</p>
-  <p>Cargo: {{ funcionario.cargo }}</p>
-  <p>Delegación: {{ funcionario.delegacion }}</p>
+{% if no_delegation %}
+<div class="alert alert-warning d-flex gap-2" role="alert">
+  <i class="bi bi-exclamation-triangle-fill" aria-hidden="true"></i>
+  <div>
+    <strong>Tu usuario no tiene una delegación asignada.</strong>
+    Pide a Coordinación que lo vincule a un funcionario para poder ver y registrar información.
+  </div>
+</div>
+{% else %}
 
-  <h2>Metas</h2>
-  <ul>
-    {% for meta in metas %}
-      <li>{{ meta.item }} — Avance: {{ meta.avance }} / {{ meta.meta }} — Semáforo: {{ meta.semaforo }}</li>
-    {% empty %}
-      <li>No hay metas registradas.</li>
+<section class="page-head">
+  <div>
+    <h1 class="page-title">Hola, {{ greeting_name }}</h1>
+    <p class="page-sub">
+      {% if me_officer %}{{ me_officer.position }} en {{ me_delegation }}.{% else %}Vista general del sistema.{% endif %}
+      {% if me_scope.choose %}Estás trabajando en <strong>{{ me_scope.name }}</strong>.{% endif %}
+      {% if period %}Período del {{ period.start_date|fdate }} al {{ period.end_date|fdate }}.{% endif %}
+    </p>
+    {# Valor guardado en request.session: sube con cada visita al inicio y se borra al cerrar sesión. #}
+    <p class="page-sub session-note"><i class="bi bi-clock-history" aria-hidden="true"></i> Visitas al inicio en esta sesión: <strong>{{ visits }}</strong></p>
+  </div>
+  {% if shortcuts %}
+  <div class="page-actions">
+    {% for label, url, icon in shortcuts %}
+    <a class="btn {% if forloop.first %}btn-primary{% else %}btn-outline-secondary{% endif %}" href="{{ url }}"><i class="bi {{ icon }}" aria-hidden="true"></i> {{ label }}</a>
     {% endfor %}
-  </ul>
+  </div>
+  {% endif %}
+</section>
+
+<div class="row g-4">
+  {% if me_officer or light_counts %}
+  <div class="{% if pending %}col-lg-8{% else %}col-12{% endif %}">
+    {% if me_officer %}
+    <section class="panel" aria-labelledby="titulo-metas">
+      <div class="panel-head">
+        <h2 class="panel-title" id="titulo-metas">Mis metas del período</h2>
+      </div>
+      {% if goal_lines %}
+      <ul class="goal-list">
+        {% for line in goal_lines %}
+        <li class="goal-row">
+          <div>
+            <p class="goal-name">{{ line.item }}</p>
+            <p class="goal-meta">{{ line.scope }}. Objetivo: {{ line.target }} {{ line.unit }}{% if line.indicator %}. Avance: {{ line.progress }}{% endif %}</p>
+          </div>
+          <div>
+            {% if line.indicator %}
+              {% meter line.compliance line.light period.collective_threshold period.amber_threshold %}
+            {% else %}
+              <span class="muted">Aún sin cálculo</span>
+            {% endif %}
+          </div>
+          <div>
+            {% if line.light %}<span class="chip chip-{{ line.light|tone }}"><i class="bi {{ line.light|tone_icon }}" aria-hidden="true"></i>{{ line.light|light_label }}</span>{% endif %}
+          </div>
+        </li>
+        {% endfor %}
+      </ul>
+      <p class="meter-legend">Las marcas de la barra son los umbrales del período: ámbar desde {{ period.amber_threshold|fnumber }} % y verde desde {{ period.collective_threshold|fnumber }} %.</p>
+      {% else %}
+      <div class="empty">
+        <i class="bi bi-bullseye" aria-hidden="true"></i>
+        <p>Todavía no tienes metas asignadas en este período. Coordinación las define por funcionario o por cargo.</p>
+      </div>
+      {% endif %}
+    </section>
+    {% else %}
+    <section class="panel" aria-labelledby="titulo-semaforo">
+      <div class="panel-head">
+        <h2 class="panel-title" id="titulo-semaforo">Semáforo del período{% if not me_scope.viewing_all %} · {{ me_scope.name }}{% endif %}</h2>
+        {% if perms.planning.view_indicator %}<a class="btn btn-outline-primary btn-sm" href="{% url 'core:delegation_board' %}">Ver tablero por delegación</a>{% endif %}
+      </div>
+      <div class="light-summary">
+        {% for cell in light_counts %}
+        <div class="light-cell">
+          <span class="chip chip-{{ cell.light|tone }}"><i class="bi {{ cell.light|tone_icon }}" aria-hidden="true"></i>{{ cell.label }}</span>
+          <span class="light-total">{{ cell.total }}</span>
+          <span class="light-caption">meta{{ cell.total|pluralize }} con su último indicador</span>
+        </div>
+        {% endfor %}
+      </div>
+      {% if goals_without_indicator %}<p class="meter-legend">{{ goals_without_indicator }} meta{{ goals_without_indicator|pluralize }} del período aún no tiene{{ goals_without_indicator|pluralize:",n" }} indicador calculado.</p>{% endif %}
+    </section>
+    {% endif %}
+  </div>
+  {% endif %}
+
+  {% if pending %}
+  <div class="{% if me_officer or light_counts %}col-lg-4{% else %}col-12{% endif %}">
+    <section class="panel" aria-labelledby="titulo-pendientes">
+      <div class="panel-head"><h2 class="panel-title" id="titulo-pendientes">Pendientes</h2></div>
+      <ul class="pending-list">
+        {% for item in pending %}
+        <li class="pending-item">
+          <a href="{{ item.url }}">
+            <i class="bi {{ item.icon }} pending-icon" aria-hidden="true"></i>
+            <span class="pending-label">{{ item.label }}{% if item.detail %}<span class="pending-detail">{{ item.detail }}</span>{% endif %}</span>
+            <span class="pending-count pending-count-{{ item.tone }}">{{ item.total }}</span>
+          </a>
+        </li>
+        {% endfor %}
+      </ul>
+    </section>
+  </div>
+  {% endif %}
+</div>
+
+<div class="row g-4 mt-0">
+  {% if recent_activities %}
+  <div class="col-xl-6">
+    <section class="panel" aria-labelledby="titulo-actividades">
+      <div class="panel-head">
+        <h2 class="panel-title" id="titulo-actividades">{% if me_officer %}Mis últimas actividades{% else %}Últimas actividades{% endif %}</h2>
+        <a class="btn btn-outline-secondary btn-sm" href="{{ recent_activities.list_url }}">Ver todas</a>
+      </div>
+      {% if recent_activities.rows %}
+        {% include "core/partials/mini_table.html" with columns=recent_activities.columns rows=recent_activities.rows %}
+      {% else %}
+        <div class="empty"><i class="bi bi-clipboard" aria-hidden="true"></i><p>Aún no hay actividades registradas.</p></div>
+      {% endif %}
+    </section>
+  </div>
+  {% endif %}
+  {% if upcoming_commitments %}
+  <div class="{% if recent_activities %}col-xl-6{% else %}col-12{% endif %}">
+    <section class="panel" aria-labelledby="titulo-compromisos">
+      <div class="panel-head">
+        <h2 class="panel-title" id="titulo-compromisos">Próximos compromisos</h2>
+        <a class="btn btn-outline-secondary btn-sm" href="{{ upcoming_commitments.list_url }}">Ver agenda</a>
+      </div>
+      {% if upcoming_commitments.rows %}
+        {% include "core/partials/mini_table.html" with columns=upcoming_commitments.columns rows=upcoming_commitments.rows %}
+      {% else %}
+        <div class="empty"><i class="bi bi-calendar-check" aria-hidden="true"></i><p>No hay compromisos abiertos.</p></div>
+      {% endif %}
+    </section>
+  </div>
+  {% endif %}
+</div>
+{% endif %}
 {% endblock %}

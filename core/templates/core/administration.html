@@ -1,0 +1,40 @@
+{% extends "base.html" %}
+{% load core_ui %}
+{% block title %}Administración{% endblock %}
+
+{% block content %}
+<section class="page-head">
+  <div>
+    <h1 class="page-title"><i class="bi bi-sliders" aria-hidden="true"></i>Administración</h1>
+    <p class="page-sub">Organización, planificación y catálogos del sistema. Solo aparece lo que tu cuenta tiene permiso de abrir.</p>
+  </div>
+</section>
+
+{% if period %}
+<section class="panel" aria-label="Período vigente">
+  <div class="panel-head">
+    <h2 class="panel-title">Período vigente</h2>
+    <span class="chip chip-{{ period.status|tone }}"><i class="bi {{ period.status|tone_icon }}" aria-hidden="true"></i>{{ period.get_status_display }}</span>
+  </div>
+  <dl class="facts">
+    <div class="facts-row"><dt>Fechas</dt><dd>Del {{ period.start_date|fdate }} al {{ period.end_date|fdate }} ({{ period.computable_days }} días computables)</dd></div>
+    <div class="facts-row"><dt>Umbrales</dt><dd>Verde desde {{ period.collective_threshold|fnumber }} %, ámbar desde {{ period.amber_threshold|fnumber }} %. Tope ponderado: {{ period.weighted_cap|fnumber }} %.</dd></div>
+  </dl>
+</section>
+{% endif %}
+
+{% for title, items in sections %}
+<h2 class="section-title">{{ title }}</h2>
+<div class="hub-grid">
+  {% for item in items %}
+  <a class="hub-card" href="{{ item.url }}">
+    <i class="bi {{ item.icon }} hub-icon" aria-hidden="true"></i>
+    <div>
+      <p class="hub-title">{{ item.label }}</p>
+      {% if item.description %}<p class="hub-desc">{{ item.description }}</p>{% endif %}
+    </div>
+  </a>
+  {% endfor %}
+</div>
+{% endfor %}
+{% endblock %}

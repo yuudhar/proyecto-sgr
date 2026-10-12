@@ -1,0 +1,37 @@
+{# Matriz de permisos de un perfil: una fila por módulo y una columna por acción. Son casillas normales; con JavaScript se agregan los atajos de arriba. #}
+<div class="perm-field{% if "is-invalid" in widget.attrs.class %} is-invalid{% endif %}" id="{{ widget.attrs.id }}" role="group" aria-labelledby="{{ widget.attrs.id }}_label" data-label="Permisos" tabindex="-1">
+  <div class="perm-tools" data-perm-tools hidden>
+    <span class="perm-tools-label" id="{{ widget.attrs.id }}_atajos">Atajos:</span>
+    <div class="btn-group btn-group-sm" role="group" aria-labelledby="{{ widget.attrs.id }}_atajos">
+      <button type="button" class="btn btn-outline-secondary" data-perm-set="view"><i class="bi bi-eye" aria-hidden="true"></i> Solo consulta</button>
+      <button type="button" class="btn btn-outline-secondary" data-perm-set="all"><i class="bi bi-check2-all" aria-hidden="true"></i> Marcar todo</button>
+      <button type="button" class="btn btn-outline-secondary" data-perm-set="none"><i class="bi bi-x-lg" aria-hidden="true"></i> Quitar todo</button>
+    </div>
+  </div>
+  <div class="table-responsive">
+    <table class="table perm-table align-middle">
+      <caption class="visually-hidden">Permisos del perfil por módulo y acción</caption>
+      <thead>
+        <tr>
+          <th scope="col">Módulo</th>
+          {% for action in widget.actions %}<th scope="col" class="text-center">{{ action.label }}</th>{% endfor %}
+        </tr>
+      </thead>
+      {% for section in widget.sections %}
+      <tbody>
+        <tr class="perm-section"><th scope="colgroup" colspan="{{ widget.actions|length|add:1 }}">{{ section.title }}</th></tr>
+        {% for row in section.rows %}
+        <tr>
+          <th scope="row">{{ row.label }}</th>
+          {% for cell in row.cells %}
+          <td class="text-center">
+            {% if cell.exists %}<input type="checkbox" class="form-check-input perm-check" name="{{ cell.name }}" value="{{ cell.value }}" id="{{ cell.id }}" data-action="{{ cell.action }}"{% if cell.checked %} checked{% endif %} aria-label="{{ cell.label }}: {{ row.label }}">{% else %}<span class="muted" aria-hidden="true">—</span><span class="visually-hidden">{{ cell.label }}: {{ row.label }}, no aplica</span>{% endif %}
+          </td>
+          {% endfor %}
+        </tr>
+        {% endfor %}
+      </tbody>
+      {% endfor %}
+    </table>
+  </div>
+</div>

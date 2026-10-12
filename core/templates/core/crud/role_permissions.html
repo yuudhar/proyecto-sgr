@@ -1,0 +1,33 @@
+{# Permisos del rol en la ficha: una fila por módulo con las acciones que el rol tiene. panel viene de RoleCrud.panel_context. #}
+<section class="panel" aria-label="Permisos del rol">
+  <div class="panel-head">
+    <h2 class="panel-title">Permisos del rol</h2>
+    <span class="panel-note">{{ panel.total }} permiso{{ panel.total|pluralize }}</span>
+  </div>
+  <div class="table-responsive">
+    <table class="table perm-table perm-table-read align-middle mb-0">
+      <caption class="visually-hidden">Permisos de {{ obj.name }} por módulo y acción</caption>
+      <thead>
+        <tr>
+          <th scope="col">Módulo</th>
+          {% for action in panel.actions %}<th scope="col" class="text-center">{{ action }}</th>{% endfor %}
+        </tr>
+      </thead>
+      {% for section in panel.sections %}
+      <tbody>
+        <tr class="perm-section"><th scope="colgroup" colspan="{{ panel.actions|length|add:1 }}">{{ section.title }}</th></tr>
+        {% for row in section.rows %}
+        <tr>
+          <th scope="row">{{ row.label }}</th>
+          {% for cell in row.cells %}
+          <td class="text-center">
+            {% if cell.granted %}<i class="bi bi-check-circle-fill perm-yes" aria-hidden="true"></i><span class="visually-hidden">{{ cell.label }}: sí</span>{% else %}<span class="muted" aria-hidden="true">—</span><span class="visually-hidden">{{ cell.label }}: no</span>{% endif %}
+          </td>
+          {% endfor %}
+        </tr>
+        {% endfor %}
+      </tbody>
+      {% endfor %}
+    </table>
+  </div>
+</section>

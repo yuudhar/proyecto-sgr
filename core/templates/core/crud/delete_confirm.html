@@ -1,0 +1,33 @@
+{% extends "base.html" %}
+{% block title %}Eliminar {{ crud.title|lower }}{% endblock %}
+
+{% block content %}
+<section class="page-head">
+  <div>
+    <h1 class="page-title">Eliminar {{ crud.title|lower }}</h1>
+    <p class="page-sub">{{ obj_name }}</p>
+  </div>
+</section>
+
+<section class="panel">
+  <div class="panel-body">
+    {% if blockers %}
+    <div class="alert alert-warning d-flex gap-2" role="alert">
+      <i class="bi bi-exclamation-triangle-fill" aria-hidden="true"></i>
+      <div>
+        <strong>No se puede eliminar.</strong>
+        {% for reason in blockers %}<p class="mb-0 mt-1">{{ reason }}</p>{% endfor %}
+      </div>
+    </div>
+    <a class="btn btn-outline-secondary" href="{{ cancel_url }}">Volver</a>
+    {% else %}
+    <p>{{ crud.title }} «{{ obj_name }}» se elimina definitivamente. Esta acción no se puede deshacer.</p>
+    <form method="post" class="d-flex flex-wrap gap-2" data-once>
+      {% csrf_token %}
+      <button type="submit" class="btn btn-danger"><i class="bi bi-trash3" aria-hidden="true"></i> Sí, eliminar</button>
+      <a class="btn btn-outline-secondary" href="{{ cancel_url }}">Cancelar</a>
+    </form>
+    {% endif %}
+  </div>
+</section>
+{% endblock %}

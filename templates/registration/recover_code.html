@@ -1,0 +1,48 @@
+{% extends "registration/auth_base.html" %}
+{% load static %}
+{% block title %}Ingresa el código{% endblock %}
+
+{% block auth_step %}
+<p class="auth-step"><span class="auth-steps" aria-hidden="true"><span class="on"></span><span class="on"></span><span></span></span>Paso 2 de 3</p>
+{% endblock %}
+{% block auth_title %}Ingresa el código{% endblock %}
+{% block auth_lead %}Te enviamos un código de 6 dígitos a <strong>{{ masked_email }}</strong>. Solo se puede usar una vez.{% endblock %}
+
+{% block auth_body %}
+{# Cuenta regresiva: es solo un aviso. El que decide si el código sirve es el servidor (accounts/recovery.py). Sin intentos no se muestra el reloj. #}
+<p class="countdown{% if needs_new_code %} is-over{% endif %}" data-countdown data-seconds="{{ seconds_left }}" data-over-text="El código venció. Pide uno nuevo.">
+  <i class="bi bi-hourglass-split" aria-hidden="true"></i>
+  <span data-countdown-text>{% if locked %}Ya no quedan intentos con este código. Pide uno nuevo para seguir.{% elif seconds_left %}Vence en <strong data-countdown-clock>{{ seconds_left }} s</strong>{% else %}El código venció. Pide uno nuevo.{% endif %}</span>
+  <span class="visually-hidden" role="status" data-countdown-status></span>
+</p>
+
+{# Con JavaScript, el campo del código se ve como seis casillas (code-boxes.js); el campo sigue siendo el que se envía. #}
+<form method="post" data-once data-validate data-error-title="No se pudo validar el código">
+  {% csrf_token %}
+  <div class="row g-3">
+    {% for field in form %}{% include "core/partials/field.html" with wide=True %}{% endfor %}
+  </div>
+  <button type="submit" class="btn btn-primary w-100 mt-4"><i class="bi bi-shield-check" aria-hidden="true"></i> Validar código</button>
+</form>
+
+{# Reenvío: pide otro código y los anteriores de la cuenta dejan de servir. La espera la hace respetar el servidor; el reloj del botón solo la avisa. #}
+<form method="post" action="{% url 'accounts:recover_resend' %}" class="resend" data-once>
+  {% csrf_token %}
+  <p class="resend-help">¿No te llegó el correo? Revisa la carpeta de spam o pide otro código: el anterior deja de servir.</p>
+  <button type="submit" class="btn {% if needs_new_code %}btn-primary{% else %}btn-outline-primary{% endif %} btn-sm" data-resend data-new-code data-seconds="{{ resend_seconds }}" data-ready-text="Ya puedes reenviar el código.">
+    <i class="bi bi-arrow-repeat" aria-hidden="true"></i>
+    <span data-resend-text>Reenviar código{% if resend_seconds %} (en {{ resend_seconds }} s){% endif %}</span>
+  </button>
+  <span class="visually-hidden" role="status" data-resend-status></span>
+</form>
+
+<p class="auth-links">
+  <a href="{% url 'accounts:recover' %}">Usar otro correo</a>
+  <a href="{% url 'core:login' %}"><i class="bi bi-arrow-left" aria-hidden="true"></i> Volver a ingresar</a>
+</p>
+{% endblock %}
+
+{% block extra_js %}
+<script src="{% static 'core/js/code-boxes.js' %}"></script>
+<script src="{% static 'core/js/countdown.js' %}"></script>
+{% endblock %}

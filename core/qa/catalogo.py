@@ -1,0 +1,176 @@
+"""A qué requisito y módulo pertenece cada clase de pruebas, y qué se espera de cada prueba."""
+
+from core.qa.esperado_acceso import ESPERADO as _ACCESO
+from core.qa.esperado_despliegue import ESPERADO as _DESPLIEGUE
+from core.qa.esperado_ingreso_contexto import ESPERADO as _INGRESO
+from core.qa.esperado_listados_portal import ESPERADO as _LISTADOS
+from core.qa.esperado_mantenedores import ESPERADO as _MANTENEDORES
+
+# Requisitos del PDF «Requisitos y plan de pruebas de la segunda evaluación». El código es el que usa el registro.
+REQUISITOS = {
+    "A1-01": ("A1", "Login: usuario o correo más contraseña, validación y acceso según perfil"),
+    "A1-02": ("A1", "Recuperar contraseña: solicitud de código por el correo de la cuenta"),
+    "A1-03": ("A1", "Validar código: vigencia, reenvío y tratamiento de intentos fallidos"),
+    "A1-04": ("A1", "Crear nueva contraseña: clave, confirmación, requisitos y retorno al login"),
+    "A1-05": ("A1", "CRUD Delegaciones: código, nombre, dirección, comuna y estado"),
+    "A1-06": ("A1", "CRUD Roles: nombre, descripción, permisos y alcance autorizado"),
+    "A1-07": ("A1", "CRUD Usuarios: nombre, correo, rol, delegaciones autorizadas y estado"),
+    "A1-08": ("A1", "CRUD Ítems y metas: código, nombre, descripción y estado"),
+    "A1-09": ("A1", "CRUD Tipo de Atención: código, nombre, descripción y estado"),
+    "A1-10": ("A1", "CRUD Sub Atención: código, nombre, Tipo de Atención asociado y estado"),
+    "A1-11": ("A1", "Ingreso de atención: solicitante, tipo, sub atención, descripción, delegación, responsable y fecha"),
+    "A2-01": ("A2", "Normas gráficas institucionales (tipografía, color, escudo)"),
+    "A2-02": ("A2", "Estructura de cada mantenedor: crear, consultar, listar, editar y eliminar o desactivar"),
+    "A2-03": ("A2", "Tabla, paginador, total de resultados y búsqueda parcial"),
+    "A2-04": ("A2", "Filtros conservados al cambiar de página"),
+    "A2-05": ("A2", "Estados de carga, listado vacío, sin coincidencias y errores"),
+    "A2-06": ("A2", "Buscador inteligente (sin IA): tildes, mayúsculas, RUT y teléfono"),
+    "A2-07": ("A2", "Exportar a Excel del filtro aplicado, sin campos internos"),
+    "A2-08": ("A2", "Template consistente: formularios, botones, menú, campos obligatorios, Guardar/Cancelar"),
+    "A2-09": ("A2", "Cabecera permanente con delegación, usuario y rol"),
+    "A2-10": ("A2", "Contexto fijo con una delegación y selector con varias autorizadas"),
+    "A2-11": ("A2", "Delegación y permisos validados en el servidor"),
+    "A2-12": ("A2", "La atención conserva delegación y responsable"),
+    "A2-13": ("A2", "Ingreso: Tipo y Sub Atención dependientes"),
+    "A2-14": ("A2", "Ingreso: delegación, responsable, fecha y hora automáticos"),
+    "A2-15": ("A2", "Ingreso: confirmación con identificador al guardar"),
+    "A2-16": ("A2", "Ingreso: cancelar no crea registros"),
+    "A3-01": ("A3", "SweetAlert2 en alertas, confirmaciones y resultados"),
+    "A3-02": ("A3", "Validaciones en la interfaz y en el servidor"),
+    "A3-03": ("A3", "Acceso: ingreso correcto e incorrecto, campos vacíos, cuenta inactiva, cierre de sesión y rutas protegidas"),
+    "A3-04": ("A3", "Recuperación sin revelar si el correo existe"),
+    "A3-05": ("A3", "Código válido, incorrecto, vencido, reutilizado y reenvío"),
+    "A3-06": ("A3", "Nueva contraseña solo tras una verificación válida"),
+    "A3-07": ("A3", "Tras guardar: código invalidado, ingreso con la nueva clave y rechazo de la anterior"),
+    "A3-08": ("A3", "Los seis CRUD: requeridos, formatos, longitudes, duplicados y restricciones por relaciones"),
+    "A3-09": ("A3", "Listados: buscar, paginar, combinar filtros y exportar; tabla y Excel coinciden"),
+    "A3-10": ("A3", "Tipo y Sub Atención: asociación válida y tipos con sub atenciones relacionadas"),
+    "A3-11": ("A3", "Ingreso de atención: solicitante, obligatorios, dependencia, guardado, cancelación y doble envío"),
+    "A3-12": ("A3", "Perfil y delegación: distintivo correcto, contexto autorizado y rechazo de otras delegaciones"),
+    "A3-13": ("A3", "SweetAlert2: éxito real, validación fallida, error de servidor, confirmación y cancelación"),
+    "A3-14": ("A3", "Registro de cada prueba funcional (requisito, módulo, pasos, esperado y obtenido, estado, evidencia)"),
+    "A4-01": ("A4", "Revisión de estado y versión inequívoca del despliegue"),
+    "A4-02": ("A4", "Ajustes de producción: DEBUG, SECRET_KEY, ALLOWED_HOSTS, CSRF, estáticos y caché compartida"),
+    "A4-05": ("A4", "Migraciones y ejemplo de configuración sin secretos"),
+    "C2": ("Anexo C", "Validación de código y nueva contraseña (casillas, mostrar/ocultar contraseña)"),
+    "IMP-01": ("Importante", "Plantillas de los demás módulos con diseño coherente"),
+    "IMP-02": ("Importante", "Interfaces por rol con sus permisos"),
+    "IMP-03": ("Importante", "Cada usuario ve solo los menús, módulos y opciones de su rol"),
+}
+
+# clase de pruebas -> (requisitos, módulo, precondición propia de la clase)
+_SEMILLA = "Base de datos de prueba con las cuentas de demostración (seed_demo_data)"
+_SIN_BD = "No necesita base de datos: prueba una función aislada"
+
+CLASES = {
+    # accounts
+    "EmailOrUsernameLoginTests": (["A1-01", "A3-03"], "Login", _SEMILLA),
+    "RecoveryRequestTests": (["A1-02", "A3-04"], "Recuperar contraseña", _SEMILLA + "; caché limpia"),
+    "RecoveryCodeTests": (["A1-03", "A3-05"], "Validar código", _SEMILLA + "; recuperación iniciada"),
+    "RecoveryPasswordTests": (["A1-04", "A3-06", "A3-07"], "Crear nueva contraseña", _SEMILLA + "; código validado"),
+    "RecoveryResendTests": (["A1-03", "A3-05"], "Validar código (reenvío)", _SEMILLA + "; recuperación iniciada"),
+    "RecoveryVoidedCodeTests": (["A3-05"], "Validar código (anulación)", _SEMILLA + "; recuperación iniciada"),
+    "RecoveryCodeBoxesTests": (["C2"], "Validar código (seis casillas)", _SEMILLA),
+    "RecoveryHelperTests": (["A3-05"], "Recuperación (funciones internas)", _SIN_BD),
+    "RecoveryBlankEmailTests": (["A3-04"], "Recuperar contraseña", "Cuentas sin correo en la base de prueba"),
+    # core · A1
+    "DelegationFieldsTests": (["A1-05", "A3-08"], "CRUD Delegaciones", _SEMILLA + "; sesión del Super Usuario"),
+    "ItemDescriptionTests": (["A1-08", "A1-09", "A3-08"], "CRUD Ítems y Tipo de Atención", _SEMILLA + "; sesión del Super Usuario"),
+    "RoleProfileTests": (["A1-06", "A3-08"], "CRUD Roles", _SEMILLA + "; sesión del Super Usuario"),
+    "GlobalRoleScopeTests": (["A1-06", "A2-10"], "CRUD Roles (alcance)", _SEMILLA),
+    "RoleCrudTests": (["A1-06", "A3-08"], "CRUD Roles", _SEMILLA),
+    "AttentionCatalogTests": (["A1-09", "A1-10", "A3-10"], "CRUD Tipo de Atención y Sub Atención", _SEMILLA),
+    "DelegationFormTests": (["A1-05", "A3-02"], "CRUD Delegaciones (formulario)", _SEMILLA),
+    "ColorTests": (["A2-09"], "Distintivo de delegación (color)", _SIN_BD),
+    "UserAccessTests": (["A1-07", "IMP-02"], "CRUD Usuarios", _SEMILLA),
+    "UserListTests": (["A1-07", "A2-03"], "CRUD Usuarios", _SEMILLA),
+    "UserCreateTests": (["A1-07", "A3-08"], "CRUD Usuarios", _SEMILLA + "; sesión del Super Usuario"),
+    "UserEditTests": (["A1-07", "A3-08"], "CRUD Usuarios", _SEMILLA + "; sesión del Super Usuario"),
+    "UserDelegationsFormTests": (["A1-07", "A2-10"], "CRUD Usuarios (delegaciones autorizadas)", _SEMILLA + "; tercera delegación sin usuarios"),
+    # core · ingreso de atención
+    "RequesterTests": (["A1-11", "A3-11"], "Ingreso de atención (solicitante)", _SEMILLA + "; sesión de Matías Cavieres (Norte)"),
+    "AttentionTypeTests": (["A2-13", "A3-11"], "Ingreso de atención (tipo y sub atención)", _SEMILLA + "; sesión de Matías Cavieres (Norte)"),
+    "FixedProfileTests": (["A2-14", "A2-12", "A3-11"], "Ingreso de atención (datos automáticos)", _SEMILLA + "; sesión de Matías Cavieres (Norte)"),
+    "SuperuserIntakeTests": (["A2-12", "A3-11"], "Ingreso de atención (Super Usuario)", _SEMILLA + "; sesión del Super Usuario"),
+    "IdentifierTests": (["A2-15"], "Ingreso de atención (confirmación e identificador)", _SEMILLA + "; sesión de Matías Cavieres (Norte)"),
+    "IntakeModalTests": (["A1-11", "A2-15"], "Ingreso de atención (ventana modal)", _SEMILLA + "; sesión de Matías Cavieres (Norte)"),
+    "IntakePermissionTests": (["A1-11", "IMP-02"], "Ingreso de atención (permisos)", _SEMILLA),
+    "PrefilledPersonTests": (["A1-11"], "Ingreso de atención (persona precargada)", _SEMILLA + "; sesión de Matías Cavieres (Norte)"),
+    "EditStaysTheSameTests": (["A1-11"], "Ingreso de atención (edición)", _SEMILLA + "; sesión de Matías Cavieres (Norte)"),
+    "AtencionTests": (["A1-11", "A2-03"], "Pantalla Atención", _SEMILLA),
+    # core · A2 contexto e interfaz
+    "AuthorizedDelegationsTests": (["A2-10"], "Selector de delegaciones", _SEMILLA + "; tercera delegación sin usuarios"),
+    "SwitchContextTests": (["A2-10", "A2-11"], "Selector de delegaciones (cambio de contexto)", _SEMILLA + "; tercera delegación sin usuarios"),
+    "ContextFollowsEverywhereTests": (["A2-10", "A3-12"], "Contexto de delegación en listados, Excel y dashboard", _SEMILLA + "; tercera delegación sin usuarios"),
+    "ContextInFormsTests": (["A2-10", "A2-12"], "Contexto de delegación en formularios", _SEMILLA + "; tercera delegación sin usuarios"),
+    "LegacyBehaviourTests": (["A2-10"], "Selector de delegaciones (compatibilidad)", _SEMILLA),
+    "GraphicNormsTests": (["A2-01"], "Normas gráficas", _SEMILLA),
+    "HeaderTests": (["A2-09", "A3-12"], "Cabecera con delegación, usuario y rol", _SEMILLA),
+    "LoadingStateMarkupTests": (["A2-05", "A3-11"], "Estados de carga y doble envío", _SEMILLA),
+    "PasswordToggleTests": (["C2"], "Mostrar/ocultar contraseña", _SEMILLA),
+    "ModalFormTests": (["A2-02", "A2-08"], "Formularios en ventana modal", _SEMILLA),
+    "ModalLinksTests": (["A2-02", "A2-08"], "Formularios en ventana modal (enlaces)", _SEMILLA),
+    "SidebarTests": (["A2-09", "IMP-03"], "Menú lateral", _SEMILLA),
+    "ProfilePageTests": (["A3-12"], "Mi perfil", _SEMILLA),
+    "AdministrationHubTests": (["IMP-03"], "Administración (portal)", _SEMILLA),
+    "UiHelperTests": (["A2-08"], "Ayudas de interfaz", _SIN_BD),
+    # core · acceso
+    "AuthRoutesTests": (["A1-01", "A3-03"], "Login (rutas de acceso)", _SEMILLA),
+    "AccessFlowTests": (["A1-01", "A3-03"], "Login y rutas protegidas", _SEMILLA),
+    "NavigationTests": (["A3-03", "IMP-03"], "Navegación según sesión", _SEMILLA),
+    "SessionValueTests": (["A3-03"], "Sesión", _SEMILLA),
+    "LoginTests": (["A1-01", "A3-03"], "Login", _SEMILLA),
+    "CacheHeaderTests": (["A3-03"], "Pantallas sin caché del navegador", _SEMILLA),
+    "EmailSettingsTests": (["A4-05"], "Configuración de correo", _SIN_BD),
+    # despliegue y registro
+    "ProductionSettingsTests": (["A4-02"], "Ajustes de producción", _SIN_BD),
+    "ConfigurationFilesTests": (["A4-05", "A4-02"], "Archivos de configuración y despliegue", _SIN_BD),
+    "HealthCheckTests": (["A4-01"], "Revisión de estado (/salud/)", _SEMILLA),
+    "TestRegistryTests": (["A3-14"], "Registro de pruebas", _SIN_BD),
+    # core · listados
+    "PageSizeTests": (["A2-03"], "Listados (filas por página)", _SEMILLA),
+    "WordPatternTests": (["A2-06"], "Buscador inteligente", _SIN_BD),
+    "ListSearchTests": (["A2-03", "A2-06"], "Listados (búsqueda)", _SEMILLA),
+    "PagerTests": (["A2-03", "A2-04"], "Listados (paginador)", _SEMILLA),
+    "SearchLimitTests": (["A2-06"], "Buscador inteligente", _SEMILLA),
+    "WorkbookTests": (["A2-07"], "Exportar a Excel (libro)", _SIN_BD),
+    "ListExportTests": (["A2-07", "A3-09"], "Exportar a Excel (listados)", _SEMILLA),
+    "ReportExportTests": (["A2-07", "IMP-01"], "Exportar a Excel (informes)", _SEMILLA),
+    # core · avisos
+    "NoticeScriptsTests": (["A3-01"], "SweetAlert2 (scripts)", _SEMILLA),
+    "NoticeMarkupTests": (["A3-01", "A3-13"], "SweetAlert2 (avisos)", _SEMILLA),
+    "ConfirmationMarkupTests": (["A3-01", "A3-13", "A2-16"], "SweetAlert2 (confirmaciones)", _SEMILLA),
+    # core · permisos y alcance
+    "RoleMatrixTests": (["IMP-02", "A2-11"], "Matriz de permisos por rol", _SEMILLA),
+    "PermissionLabelsTests": (["IMP-02"], "Matriz de permisos por rol", _SEMILLA),
+    "RoleTests": (["IMP-02", "IMP-03"], "Interfaces por rol", _SEMILLA),
+    "ScopingTests": (["A2-11", "A3-12"], "Alcance por delegación", _SEMILLA),
+    "ForgedFormTests": (["A2-11", "A2-12"], "Envíos manipulados", _SEMILLA),
+    "SweepTests": (["IMP-02", "IMP-03"], "Todas las pantallas por rol", _SEMILLA),
+    "ReviewScopeTests": (["A2-11", "IMP-02"], "Validar evidencias (alcance)", _SEMILLA),
+    "IndicatorScopeTests": (["A2-11", "IMP-01"], "Indicadores (alcance)", _SEMILLA),
+    "EditPermissionConsistencyTests": (["A2-11"], "Edición según delegación", _SEMILLA),
+    "AdminRegressionTests": (["A2-11"], "Django Admin", "Base de datos de prueba vacía; las pruebas crean lo que usan"),
+    # core · otros módulos del portal
+    "CrudFlowTests": (["A2-02", "A3-08"], "Gestiones (CRUD de referencia)", _SEMILLA),
+    "PlanningRuleTests": (["IMP-01"], "Planificación (períodos, metas, indicadores)", _SEMILLA),
+    "PlanningFormRuleTests": (["IMP-01"], "Planificación (formularios)", _SEMILLA),
+    "ValidationFlowTests": (["IMP-01"], "Validar evidencias", _SEMILLA),
+    "EvidenceEditTests": (["IMP-01"], "Evidencias", _SEMILLA),
+    "BoardAndReportTests": (["IMP-01"], "Tablero e informes", _SEMILLA),
+    "ExactAverageTests": (["IMP-01"], "Tablero (semáforo)", _SEMILLA),
+    "ReportAdjustmentTests": (["IMP-01", "IMP-02"], "Informes (ajustes)", _SEMILLA),
+    "AuditPageTests": (["IMP-01"], "Auditoría", _SEMILLA),
+    "AuditTests": (["A3-08"], "Auditoría de cambios", _SEMILLA),
+    "ConcurrentEditTests": (["A2-02"], "Edición concurrente", _SEMILLA),
+    "IdParameterTests": (["A3-02"], "Parámetros de la dirección", _SEMILLA),
+    # core · reglas de formato
+    "RuleTests": (["A3-02"], "Reglas de validación (funciones)", _SIN_BD),
+    "FormRuleTests": (["A3-02"], "Reglas de validación (formularios)", _SEMILLA),
+}
+
+# Unión de los resultados esperados: clase -> método (sin «test_») -> texto.
+ESPERADO = {}
+for _grupo in (_ACCESO, _MANTENEDORES, _INGRESO, _LISTADOS, _DESPLIEGUE):
+    for _clase, _metodos in _grupo.items():
+        ESPERADO.setdefault(_clase, {}).update(_metodos)

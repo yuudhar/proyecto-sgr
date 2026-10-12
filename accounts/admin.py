@@ -4,7 +4,7 @@ from django.contrib.auth.models import User
 
 from core.admin_mixins import SoftDeleteAdminMixin
 
-from .models import UserProfile
+from .models import UserProfile, UserRoleDelegation
 
 
 class UserProfileInline(admin.StackedInline):
@@ -39,3 +39,13 @@ class UserProfileAdmin(SoftDeleteAdminMixin, admin.ModelAdmin):
     list_filter = ("status",)
     list_select_related = ("user", "officer")
     autocomplete_fields = ("officer",)
+
+
+@admin.register(UserRoleDelegation)
+class UserRoleDelegationAdmin(SoftDeleteAdminMixin, admin.ModelAdmin):
+    """Delegaciones adicionales de cada usuario (tabla Usuario_Rol_Delegacion): las que ofrece el selector de arriba."""
+
+    list_display = ("user", "role", "delegation")
+    search_fields = ("user__username", "role__name", "delegation__name")
+    list_filter = ("role", "delegation")
+    list_select_related = ("user", "role", "delegation")

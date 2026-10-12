@@ -1,0 +1,10 @@
+{# Campo de texto con lista de sugerencias; con JavaScript la lupa abre una ventana para buscar en la lista. #}
+<div class="lookup-field" data-lookup-field{% if widget.search_label %} data-search-label="{{ widget.search_label }}"{% endif %}>
+  <div class="input-group">
+    {% include "django/forms/widgets/input.html" %}
+    <button type="button" class="btn btn-outline-secondary" data-lookup-open hidden title="Buscar en la lista" aria-label="Buscar en la lista"><i class="bi bi-search" aria-hidden="true"></i></button>
+  </div>
+  <datalist id="{{ widget.list_id }}">
+    {% for value, detail in widget.options %}<option value="{{ value }}" label="{{ detail }}"></option>{% endfor %}
+  </datalist>
+</div>

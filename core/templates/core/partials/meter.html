@@ -1,0 +1,9 @@
+<div class="meter{% if compact %} meter-compact{% endif %} meter-{{ tone }}" role="meter" aria-label="{{ label }}" aria-valuemin="0" aria-valuemax="100" aria-valuenow="{{ raw }}" aria-valuetext="{{ text }}">
+  <div class="meter-track">
+    <div class="meter-fill" style="width: {{ width }}%"></div>
+    {% for mark in marks %}
+    <span class="meter-mark" style="left: {{ mark.left }}%" title="Umbral {{ mark.name }}: {{ mark.text }} %"><span class="meter-mark-label" aria-hidden="true">{{ mark.text }}</span></span>
+    {% endfor %}
+  </div>
+  <span class="meter-value">{{ text }}</span>
+</div>

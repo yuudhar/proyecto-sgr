@@ -7,6 +7,7 @@ from django.core.management.base import BaseCommand
 from django.db import transaction
 from django.utils import timezone
 
+from accounts.delegations import sync_extra_delegations
 from accounts.models import UserProfile
 from core.models import AuditLog
 from evidence.models import Evidence, Validation
@@ -38,14 +39,62 @@ COORDINACION_PASSWORD = "Hola123!"
 JEFATURA_USERNAME = "jefatura1"
 JEFATURA_PASSWORD = "Hola123!"
 
+# Jefatura con dos delegaciones autorizadas (Norte, la de su funcionario, y Sur): sirve para demostrar el selector de
+# delegaciones de la franja de arriba, que muestra solo las que la persona tiene autorizadas (A2).
+SUPERVISION_USERNAME = "supervision1"
+SUPERVISION_PASSWORD = "Hola123!"
+
+# Cuenta de solo lectura (rol Consulta): sirve para demostrar que view no permite crear, editar ni eliminar.
+CONSULTA_USERNAME = "consulta1"
+CONSULTA_PASSWORD = "Hola123!"
+
+# Cada cuenta de prueba tiene un correo (con él recupera su contraseña): usuario@sgr.example.
+# sgr.example es un dominio reservado para ejemplos, no existe de verdad.
+DEMO_EMAIL_DOMAIN = "sgr.example"
+
 
 class Command(BaseCommand):
     help = (
         "Carga datos de demostración reproducibles: 2 delegaciones/contextos, "
-        "5 usuarios de prueba con permisos distintos y registros operacionales "
+        "7 usuarios de prueba con permisos distintos y registros operacionales "
         "suficientes para comprobar auditoría (created_at/updated_at/deleted_at) "
         "y seguridad (scoping por delegación)."
     )
+
+    def get_delegation(self, name, scope, color, manager, address, commune):
+        """Crea la delegación con su color, su encargado y su dirección; si ya existía sin ellos, se los pone."""
+        delegation, created = Delegation.objects.get_or_create(
+            name=name,
+            defaults={
+                "status": Delegation.Status.ACTIVE,
+                "scope": scope,
+                "color": color,
+                "managers": manager,
+                "address": address,
+                "commune": commune,
+            },
+        )
+        if not created:
+            if delegation.color == Delegation._meta.get_field("color").default:
+                delegation.color = color
+            if not delegation.managers:
+                delegation.managers = manager
+            if not delegation.address:
+                delegation.address = address
+            if not delegation.commune:
+                delegation.commune = commune
+            delegation.save()
+        return delegation
+
+    def get_item(self, name, description, **defaults):
+        """Crea el ítem con su descripción; si ya existía sin ella, se la pone."""
+        item, created = Item.objects.get_or_create(
+            name=name, defaults={"description": description, **defaults}
+        )
+        if not created and not item.description:
+            item.description = description
+            item.save()
+        return item
 
     @transaction.atomic
     def handle(self, *args, **options):
@@ -55,13 +104,11 @@ class Command(BaseCommand):
 
         today = date.today()
 
-        north, _ = Delegation.objects.get_or_create(
-            name="Delegación Norte",
-            defaults={"status": Delegation.Status.ACTIVE, "scope": "Sector norte"},
+        north = self.get_delegation(
+            "Delegación Norte", "Sector norte", "#1D4E89", "Diego Fuentes", "Av. Cuatro Esquinas 1200", "La Serena"
         )
-        south, _ = Delegation.objects.get_or_create(
-            name="Delegación Sur",
-            defaults={"status": Delegation.Status.ACTIVE, "scope": "Sector sur"},
+        south = self.get_delegation(
+            "Delegación Sur", "Sector sur", "#2E7D5B", "Ignacio Vidal", "Av. Juan Bohón 850", "La Serena"
         )
 
         position_social, _ = Position.objects.get_or_create(
@@ -80,31 +127,32 @@ class Command(BaseCommand):
             defaults={"valid_from": today - timedelta(days=180)},
         )
 
-        item_social, _ = Item.objects.get_or_create(
-            name="Atención Social",
-            defaults={"calculation_type": Item.CalculationType.QUALITATIVE},
+        item_social = self.get_item(
+            "Atención Social",
+            "Atención a vecinos y vecinas que piden apoyo social: orientación, visitas y seguimiento.",
+            calculation_type=Item.CalculationType.QUALITATIVE,
         )
-        item_home_visit, _ = Item.objects.get_or_create(
-            name="Visita Domiciliaria",
-            defaults={
-                "parent_item": item_social,
-                "calculation_type": Item.CalculationType.QUALITATIVE,
-            },
+        item_home_visit = self.get_item(
+            "Visita Domiciliaria",
+            "Visita al domicilio del vecino para conocer su situación.",
+            parent_item=item_social,
+            calculation_type=Item.CalculationType.QUALITATIVE,
         )
-        item_phone_followup, _ = Item.objects.get_or_create(
-            name="Seguimiento Telefónico",
-            defaults={
-                "parent_item": item_social,
-                "calculation_type": Item.CalculationType.QUALITATIVE,
-            },
+        item_phone_followup = self.get_item(
+            "Seguimiento Telefónico",
+            "Llamado de seguimiento a un caso que ya fue atendido.",
+            parent_item=item_social,
+            calculation_type=Item.CalculationType.QUALITATIVE,
         )
-        item_aid_delivery, _ = Item.objects.get_or_create(
-            name="Entrega de Ayudas Sociales",
-            defaults={"calculation_type": Item.CalculationType.QUANTITATIVE},
+        item_aid_delivery = self.get_item(
+            "Entrega de Ayudas Sociales",
+            "Entrega de ayudas sociales a quienes cumplen los requisitos.",
+            calculation_type=Item.CalculationType.QUANTITATIVE,
         )
-        item_territorial_coordination, _ = Item.objects.get_or_create(
-            name="Coordinación Territorial",
-            defaults={"calculation_type": Item.CalculationType.QUALITATIVE},
+        item_territorial_coordination = self.get_item(
+            "Coordinación Territorial",
+            "Coordinación con las organizaciones y dirigentes del territorio.",
+            calculation_type=Item.CalculationType.QUALITATIVE,
         )
 
         for position in (position_social, position_coord, position_jefatura):
@@ -247,12 +295,31 @@ class Command(BaseCommand):
                 "position": position_social,
             },
         )
+        officer_north_reader, _ = Officer.objects.get_or_create(
+            institutional_id="F-1005",
+            defaults={
+                "name": "Consulta Delegación Norte",
+                "status": Officer.Status.ACTIVE,
+                "delegation": north,
+                # Un cargo sin metas: quien solo consulta no entra en los promedios de la delegación.
+                "position": position_jefatura,
+            },
+        )
         officer_south_jefatura, _ = Officer.objects.get_or_create(
             institutional_id="F-2005",
             defaults={
                 "name": "Jefatura Sur",
                 "status": Officer.Status.ACTIVE,
                 "delegation": south,
+                "position": position_jefatura,
+            },
+        )
+        officer_north_supervision, _ = Officer.objects.get_or_create(
+            institutional_id="F-1006",
+            defaults={
+                "name": "Supervisión Zonal",
+                "status": Officer.Status.ACTIVE,
+                "delegation": north,
                 "position": position_jefatura,
             },
         )
@@ -336,6 +403,52 @@ class Command(BaseCommand):
                 "status": UserProfile.Status.ACTIVE,
             },
         )
+
+        supervision_user, supervision_created = User.objects.get_or_create(
+            username=SUPERVISION_USERNAME,
+            defaults={
+                "first_name": "Supervisión",
+                "last_name": "Zonal",
+                "is_staff": True,
+                "is_superuser": False,
+            },
+        )
+        if supervision_created:
+            supervision_user.set_password(SUPERVISION_PASSWORD)
+            supervision_user.save()
+        supervision_user.groups.add(group_leadership)
+        UserProfile.objects.get_or_create(
+            user=supervision_user,
+            defaults={"officer": officer_north_supervision, "status": UserProfile.Status.ACTIVE},
+        )
+        if supervision_created:
+            # Su delegación es la Norte (la de su funcionario); la Sur se le agrega como delegación adicional.
+            sync_extra_delegations(supervision_user, [south])
+
+        group_reader, _ = Group.objects.get_or_create(name="Consulta")
+        reader_user, reader_created = User.objects.get_or_create(
+            username=CONSULTA_USERNAME,
+            defaults={
+                "first_name": "Consulta",
+                "last_name": "Norte",
+                "is_staff": False,
+                "is_superuser": False,
+            },
+        )
+        if reader_created:
+            reader_user.set_password(CONSULTA_PASSWORD)
+            reader_user.save()
+        reader_user.groups.add(group_reader)
+        UserProfile.objects.get_or_create(
+            user=reader_user,
+            defaults={"officer": officer_north_reader, "status": UserProfile.Status.ACTIVE},
+        )
+
+        # Un usuario que ya existía sin correo (de una carga anterior) lo recibe ahora.
+        for demo_user in (admin_user, north_user, south_user, coordination_user, leadership_user, supervision_user, reader_user):
+            if not demo_user.email:
+                demo_user.email = f"{demo_user.username}@{DEMO_EMAIL_DOMAIN}"
+                demo_user.save(update_fields=["email"])
 
         period, _ = Period.objects.get_or_create(
             start_date=today.replace(month=1, day=1),
@@ -809,6 +922,19 @@ class Command(BaseCommand):
         self.stdout.write(
             f"  Jefatura Delegación Norte       -> "
             f"{JEFATURA_USERNAME} / {JEFATURA_PASSWORD}"
+        )
+        self.stdout.write(
+            f"  Jefatura Norte con acceso a Sur -> "
+            f"{SUPERVISION_USERNAME} / {SUPERVISION_PASSWORD} (elige delegación arriba)"
+        )
+        self.stdout.write(
+            f"  Consulta (solo lectura) Norte   -> "
+            f"{CONSULTA_USERNAME} / {CONSULTA_PASSWORD}"
+        )
+        self.stdout.write(
+            f"\nCada cuenta tiene el correo <usuario>@{DEMO_EMAIL_DOMAIN} (por ejemplo "
+            f"{ADMIN_USERNAME}@{DEMO_EMAIL_DOMAIN}). Con él se prueba «¿Olvidaste tu contraseña?»: "
+            "el código llega a la terminal donde corre runserver."
         )
         self.stdout.write(
             "\nPara comprobar el scoping: inicia sesión con cada usuario de "

@@ -1,0 +1,69 @@
+{% extends "base.html" %}
+{% load core_ui %}
+{% block title %}{{ crud.list_title }}{% endblock %}
+
+{% block content %}
+<section class="page-head">
+  <div>
+    <h1 class="page-title"><i class="bi {{ crud.icon }}" aria-hidden="true"></i>{{ crud.list_title }}</h1>
+    {% if crud.description %}<p class="page-sub">{{ crud.description }}</p>{% endif %}
+  </div>
+  {% if can_add %}
+  <div class="page-actions">
+    <a class="btn btn-primary" href="{{ create_url }}" data-modal-form><i class="bi bi-plus-lg" aria-hidden="true"></i> {{ crud.new_label }}</a>
+  </div>
+  {% endif %}
+</section>
+
+<section class="panel" aria-label="Listado de {{ crud.title_plural|lower }}">
+  <form method="get" class="filters" role="search" data-loading>
+    {% if crud.search_fields %}
+    <div class="field field-search">
+      <label for="filtro-q">Buscar</label>
+      <input type="search" class="form-control" id="filtro-q" name="q" value="{{ q }}" placeholder="Escribe una o más palabras" maxlength="100">
+    </div>
+    {% endif %}
+    {% for filter in filters %}
+    <div class="field">
+      <label for="filtro-{{ filter.name }}">{{ filter.label }}</label>
+      <select class="form-select" id="filtro-{{ filter.name }}" name="{{ filter.name }}">
+        <option value="">Todos</option>
+        {% for value, label in filter.options %}
+        <option value="{{ value }}"{% if value == filter.selected %} selected{% endif %}>{{ label }}</option>
+        {% endfor %}
+      </select>
+    </div>
+    {% endfor %}
+    {% if archived %}<input type="hidden" name="archivados" value="1">{% endif %}
+    {% if sort %}<input type="hidden" name="orden" value="{{ sort }}"><input type="hidden" name="dir" value="{{ direction }}">{% endif %}
+    <div class="filters-actions">
+      <button type="submit" class="btn btn-primary"><i class="bi bi-search" aria-hidden="true"></i> {% if crud.search_fields %}Buscar{% else %}Filtrar{% endif %}</button>
+      {% if has_filters %}<a class="btn btn-outline-secondary" href="{{ request.path }}">Limpiar</a>{% endif %}
+      <button type="submit" class="btn btn-outline-success" name="formato" value="xlsx" data-no-busy{% if not rows %} disabled{% endif %}><i class="bi bi-file-earmark-excel" aria-hidden="true"></i> Exportar a Excel</button>
+    </div>
+  </form>
+
+  <div class="result-line">
+    <span>{{ page.paginator.count }} resultado{{ page.paginator.count|pluralize }}{% if archived %}, incluidos los archivados{% endif %}</span>
+    {% if crud.archivable %}
+    <a href="{{ archived_url }}">{% if archived %}<i class="bi bi-eye-slash" aria-hidden="true"></i> Ocultar archivados{% else %}<i class="bi bi-archive" aria-hidden="true"></i> Incluir archivados{% endif %}</a>
+    {% endif %}
+    {% if rows %}{% include "core/partials/page_size.html" %}{% endif %}
+  </div>
+
+  {% if rows %}
+  {% include "core/partials/data_table.html" %}
+  {% include "core/partials/pagination.html" %}
+  {% else %}
+  <div class="empty">
+    <i class="bi {{ crud.icon }}" aria-hidden="true"></i>
+    {% if has_filters %}
+      <p>No hay {{ crud.title_plural|lower }} que coincidan con la búsqueda. Prueba con otras palabras o quita los filtros.</p>
+    {% else %}
+      <p>Aún no hay {{ crud.title_plural|lower }} registrad{% if crud.gender == "f" %}as{% else %}os{% endif %}.</p>
+      {% if can_add %}<a class="btn btn-primary" href="{{ create_url }}" data-modal-form><i class="bi bi-plus-lg" aria-hidden="true"></i> {{ crud.new_label }}</a>{% endif %}
+    {% endif %}
+  </div>
+  {% endif %}
+</section>
+{% endblock %}

@@ -1,0 +1,11 @@
+{# Filas por página. La elección se guarda en la sesión (request.session) y vale para todos los listados hasta cerrar sesión. #}
+<form method="post" action="{% url 'core:page_size' %}" class="page-size">
+  {% csrf_token %}
+  <input type="hidden" name="next" value="{{ page_size_next }}">
+  <span class="page-size-label" id="filas-titulo">Filas por página</span>
+  <span class="btn-group btn-group-sm" role="group" aria-labelledby="filas-titulo">
+    {% for size in page_sizes %}
+    <button type="submit" name="filas" value="{{ size }}" class="btn {% if size == page_size %}btn-primary{% else %}btn-outline-secondary{% endif %}"{% if size == page_size %} aria-pressed="true"{% endif %}>{{ size }}</button>
+    {% endfor %}
+  </span>
+</form>
