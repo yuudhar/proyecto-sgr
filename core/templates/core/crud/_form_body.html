@@ -1,0 +1,36 @@
+{# Contenido de un formulario de mantenedor, sin los botones. Lo usan la página (form.html) y la ventana modal (form_modal.html). #}
+<p class="required-note">Los campos con <span class="required-mark">*</span> son obligatorios.</p>
+
+{% if form.errors %}
+<div class="alert alert-danger d-flex gap-2" role="alert">
+  <i class="bi bi-x-octagon-fill" aria-hidden="true"></i>
+  <div>
+    <strong>No se pudo guardar.</strong> Revisa los campos marcados en rojo.
+    {% for error in form.non_field_errors %}<p class="mb-0 mt-1" data-form-error>{{ error }}</p>{% endfor %}
+  </div>
+</div>
+{% endif %}
+
+<div class="row g-3">
+  {% if crud.show_id %}
+  <div class="col-md-3">
+    <label class="form-label" for="campo-id">Id {{ crud.title|lower }}</label>
+    <input type="text" class="form-control" id="campo-id" value="{% if obj %}{{ obj.pk }}{% else %}Se asigna al guardar{% endif %}" disabled>
+  </div>
+  {% endif %}
+  {% for field in form %}
+    {% if field.widget_type != "checkbox" %}{% include "core/partials/field.html" %}{% endif %}
+  {% endfor %}
+  {% if form.note %}
+  <div class="col-12"><p class="form-note">{{ form.note }}</p></div>
+  {% endif %}
+  {% if has_checks %}
+  <div class="col-12">
+    <div class="check-group">
+      {% for field in form %}
+        {% if field.widget_type == "checkbox" %}{% include "core/partials/check.html" %}{% endif %}
+      {% endfor %}
+    </div>
+  </div>
+  {% endif %}
+</div>

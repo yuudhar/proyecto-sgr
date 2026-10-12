@@ -1,0 +1,22 @@
+{# El mismo formulario de form.html, pero como contenido de la ventana modal (ver core/static/core/js/crud-modal.js). #}
+<form method="post" action="{{ request.get_full_path }}" class="modal-content" data-validate data-modal-body>
+  {% csrf_token %}
+  {% if version %}<input type="hidden" name="_version" value="{{ version }}">{% endif %}
+  <div class="modal-header">
+    <div>
+      <h2 class="modal-title" id="sgr-modal-title">{{ heading }}</h2>
+      {% if obj_name %}<p class="modal-sub">{{ obj_name }}</p>{% endif %}
+    </div>
+    <button type="button" class="btn-close" data-dialog-close data-cancel-form="{% if creating %}create{% else %}edit{% endif %}" aria-label="Cerrar"></button>
+  </div>
+  <div class="modal-body">
+    {% include "core/crud/_form_body.html" %}
+  </div>
+  <div class="modal-footer">
+    <button type="submit" class="btn btn-primary"><i class="bi bi-check-lg" aria-hidden="true"></i> {{ save_label }}</button>
+    {% if can_add_another %}<button type="submit" class="btn btn-outline-primary" name="_addanother" value="1"><i class="bi bi-plus-lg" aria-hidden="true"></i> {{ save_label }} y agregar otro</button>{% endif %}
+    {% if archive_url %}{% include "core/partials/delete_link.html" with url=archive_url kind="archive" blocked=archive_blocked name=obj_name cls="btn btn-outline-danger" %}{% endif %}
+    {% if delete_url %}{% include "core/partials/delete_link.html" with url=delete_url kind="remove" blocked=delete_blocked name=obj_name cls="btn btn-outline-danger" %}{% endif %}
+    <button type="button" class="btn btn-outline-secondary" data-dialog-close data-cancel-form="{% if creating %}create{% else %}edit{% endif %}">Cancelar</button>
+  </div>
+</form>

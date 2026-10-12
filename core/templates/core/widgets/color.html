@@ -1,0 +1,6 @@
+{# Campo de color: muestra, texto #RRGGBB y, si hay JavaScript, el selector de color del navegador. #}
+<div class="color-field" data-color-field>
+  <span class="color-swatch"{% if widget.swatch %} style="--swatch: {{ widget.swatch }}"{% endif %} aria-hidden="true"></span>
+  {% include "django/forms/widgets/input.html" %}
+  <input type="color" class="color-picker" value="{% if widget.swatch %}{{ widget.swatch }}{% else %}#920000{% endif %}" data-color-picker hidden aria-label="Elegir el color con el selector" title="Elegir color">
+</div>

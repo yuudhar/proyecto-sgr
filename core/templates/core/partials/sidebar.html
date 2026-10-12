@@ -1,0 +1,59 @@
+{% load static %}
+{# Barra lateral: marca, delegación con su color, perfiles y menú. En pantallas chicas se abre como panel. #}
+<aside class="sidebar offcanvas-lg offcanvas-start" id="barra-lateral" tabindex="-1" aria-labelledby="barra-lateral-titulo">
+  <div class="offcanvas-header">
+    <span class="offcanvas-title" id="barra-lateral-titulo">Menú</span>
+    <button type="button" class="btn-close" data-bs-dismiss="offcanvas" data-bs-target="#barra-lateral" aria-label="Cerrar el menú"></button>
+  </div>
+  <div class="offcanvas-body sidebar-body">
+    <div class="sidebar-sticky">
+      <a class="brand sidebar-brand" href="{% url 'core:dashboard' %}">
+        <img class="brand-mark" src="{% static 'core/img/sgr-mark.svg' %}" alt="" width="40" height="40">
+        <span class="brand-text">
+          <span class="brand-name">{{ brand_name }}</span>
+          <span class="brand-sub">{{ brand_subtitle }}</span>
+        </span>
+      </a>
+
+      <section class="scope-card" style="--scope-bg: {{ me_scope.bg }}; --scope-fg: {{ me_scope.fg }}; --scope-shade: {{ me_scope.shade }}" aria-label="Tu delegación y tus perfiles">
+        <p class="scope-label">Delegación</p>
+        <p class="scope-name">{{ me_scope.name }}</p>
+        {% if me_scope.note %}<p class="scope-note">{{ me_scope.note }}</p>{% endif %}
+        <p class="scope-label scope-label-roles" id="perfiles-titulo">{% if me_roles|length == 1 %}Perfil{% else %}Perfiles{% endif %}</p>
+        <ul class="scope-roles" aria-labelledby="perfiles-titulo">
+          {% for role in me_roles %}
+          <li class="scope-role"><i class="bi {{ role.icon }}" aria-hidden="true"></i>{{ role.label }}</li>
+          {% empty %}
+          <li class="scope-role">Sin perfil asignado</li>
+          {% endfor %}
+        </ul>
+      </section>
+
+      <nav class="side-nav" aria-label="Menú principal">
+        <ul class="side-list">
+          {% for item in menu_top %}
+          <li><a class="side-link{% if item.active %} active{% endif %}"{% if item.active %} aria-current="page"{% endif %} href="{{ item.url }}"><i class="bi {{ item.icon }}" aria-hidden="true"></i>{{ item.label }}</a></li>
+          {% endfor %}
+        </ul>
+        {% for group in menu_groups %}
+        <div class="side-group">
+          <button class="side-group-toggle{% if not group.open %} collapsed{% endif %}" type="button" data-bs-toggle="collapse" data-bs-target="#grupo-{{ group.key }}" aria-expanded="{% if group.open %}true{% else %}false{% endif %}" aria-controls="grupo-{{ group.key }}">
+            <span><i class="bi {{ group.icon }}" aria-hidden="true"></i>{{ group.label }}</span>
+            <i class="bi bi-chevron-down side-chevron" aria-hidden="true"></i>
+          </button>
+          <div class="collapse{% if group.open %} show{% endif %}" id="grupo-{{ group.key }}">
+            {% for title, items in group.sections %}
+            {% if title %}<p class="side-section">{{ title }}</p>{% endif %}
+            <ul class="side-list">
+              {% for item in items %}
+              <li><a class="side-link{% if item.active %} active{% endif %}"{% if item.active %} aria-current="page"{% endif %} href="{{ item.url }}"><i class="bi {{ item.icon }}" aria-hidden="true"></i>{{ item.label }}</a></li>
+              {% endfor %}
+            </ul>
+            {% endfor %}
+          </div>
+        </div>
+        {% endfor %}
+      </nav>
+    </div>
+  </div>
+</aside>

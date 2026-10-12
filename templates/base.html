@@ -1,22 +1,77 @@
-<!doctype html>
+{% load static %}<!doctype html>
 <html lang="es">
 <head>
   <meta charset="utf-8">
-  <title>{% block title %}SGR{% endblock %}</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#920000">
+  <meta name="csrf-token" content="{{ csrf_token }}">
+  <title>{% block title %}Inicio{% endblock %} · {{ brand_name }}</title>
+  <link rel="icon" type="image/svg+xml" href="{% static 'core/img/sgr-mark.svg' %}">
+  <link rel="stylesheet" href="{% static 'core/vendor/bootstrap/bootstrap.min.css' %}">
+  <link rel="stylesheet" href="{% static 'core/vendor/bootstrap-icons/bootstrap-icons.min.css' %}">
+  <link rel="stylesheet" href="{% static 'core/vendor/sweetalert2/sweetalert2.min.css' %}">
+  <link rel="stylesheet" href="{% static 'core/css/sgr.css' %}">
+  {# Marca que hay JavaScript, antes de dibujar la página: los avisos de Django salen como ventanas de SweetAlert2 y no parpadean arriba. #}
+  <script src="{% static 'core/js/has-js.js' %}"></script>
+  {% block extra_head %}{% endblock %}
 </head>
-<body>
-  <nav>
-    <a href="{% url 'core:login' %}">Login</a>
-    <a href="{% url 'core:dashboard' %}">Dashboard</a>
-    <a href="{% url 'core:registrar_actividad' %}">Registrar Actividad</a>
-    <a href="{% url 'core:cargar_evidencia' %}">Cargar Evidencia</a>
-    <a href="{% url 'core:validar_evidencia' %}">Validar Evidencia</a>
-    <a href="{% url 'core:agenda_colectiva' %}">Agenda Colectiva</a>
-    <a href="{% url 'core:tablero_delegacion' %}">Tablero Delegación</a>
-    <a href="{% url 'core:administracion' %}">Administración</a>
-    <a href="{% url 'core:informes' %}">Informes</a>
-    <a href="{% url 'core:catalogo_servicios' %}">Catálogo Servicios</a>
-  </nav>
-  <main>{% block content %}{% endblock %}</main>
+<body class="{% block body_class %}{% endblock %}">
+<a class="skip-link" href="#contenido">Saltar al contenido</a>
+{% block shell %}
+{# La navegación depende de quién mira la página: con la sesión iniciada (user.is_authenticated) salen la barra lateral y la franja con el nombre y «Cerrar sesión»; sin sesión, solo la marca y el acceso para ingresar. #}
+{% if user.is_authenticated %}
+<div class="app-shell">
+  {% include "core/partials/sidebar.html" %}
+  <div class="app-main">
+    {% include "core/partials/topbar.html" %}
+{% else %}
+{# Sin sesión iniciada (páginas de error, por ejemplo): solo la marca y el acceso. #}
+{% include "core/partials/public_head.html" %}
+{% endif %}
+    <main id="contenido" class="page" tabindex="-1">
+      <div class="content">
+        {% if breadcrumbs %}
+        <nav class="crumbs" aria-label="Ruta de navegación">
+          <ol class="breadcrumb">
+            {% for label, url in breadcrumbs %}
+            {% if forloop.last or not url %}
+            <li class="breadcrumb-item active" aria-current="page">{{ label }}</li>
+            {% else %}
+            <li class="breadcrumb-item"><a href="{{ url }}">{{ label }}</a></li>
+            {% endif %}
+            {% endfor %}
+          </ol>
+        </nav>
+        {% endif %}
+
+        {% include "core/partials/flash.html" %}
+
+        {% block content %}{% endblock %}
+      </div>
+    </main>
+    {% include "core/partials/footer.html" %}
+{% if user.is_authenticated %}
+  </div>
+</div>
+{% endif %}
+{% endblock shell %}
+
+{% if user.is_authenticated %}
+{# Ventana modal compartida: en ella se abren los formularios de Nuevo y Editar y el buscador de las listas (core/js/dialog.js). #}
+<div class="modal fade" id="sgr-modal" tabindex="-1" aria-labelledby="sgr-modal-title" aria-hidden="true">
+  <div class="modal-dialog modal-lg modal-dialog-scrollable modal-fullscreen-sm-down"></div>
+</div>
+{% endif %}
+
+<script src="{% static 'core/vendor/bootstrap/bootstrap.bundle.min.js' %}"></script>
+<script src="{% static 'core/js/sgr.js' %}"></script>
+<script type="module" src="{% static 'core/js/busy.js' %}"></script>
+<script type="module" src="{% static 'core/js/validation.js' %}"></script>
+<script type="module" src="{% static 'core/js/widgets.js' %}"></script>
+<script type="module" src="{% static 'core/js/crud-modal.js' %}"></script>
+<script type="module" src="{% static 'core/js/confirm.js' %}"></script>
+<script type="module" src="{% static 'core/js/context.js' %}"></script>
+<script type="module" src="{% static 'core/js/flash.js' %}"></script>
+{% block extra_js %}{% endblock %}
 </body>
 </html>

@@ -1,0 +1,52 @@
+{% extends "base.html" %}
+{% load static %}
+{# Marco de las pantallas para quien aún no ingresa: ingreso y recuperación de contraseña. Cada una completa los bloques de abajo. #}
+{% block body_class %}login-body{% endblock %}
+
+{% block shell %}
+<div class="login-shell">
+  <aside class="login-aside">
+    <div class="login-top">
+      {% include "core/partials/escudo.html" with cls="escudo-login" %}
+      <div class="brand">
+        <img class="brand-mark" src="{% static 'core/img/sgr-mark-white.svg' %}" alt="" width="46" height="46">
+        <span class="brand-text">
+          <span class="brand-name">{{ brand_name }}</span>
+          <span class="brand-sub">{{ brand_subtitle }}</span>
+        </span>
+      </div>
+    </div>
+    <div>
+      <p class="login-lead">Registra, valida y mide la gestión de las delegaciones.</p>
+      <ul class="login-points">
+        <li><i class="bi bi-clipboard-check" aria-hidden="true"></i><span>Actividades, gestiones y compromisos de terreno en un solo lugar.</span></li>
+        <li><i class="bi bi-patch-check" aria-hidden="true"></i><span>Evidencias revisadas por un verificador de cada delegación.</span></li>
+        <li><i class="bi bi-speedometer2" aria-hidden="true"></i><span>Metas con semáforo para cada funcionario y cada delegación.</span></li>
+      </ul>
+    </div>
+    <p class="login-foot">{{ institution }}. Proyecto académico INACAP con datos ficticios.</p>
+  </aside>
+
+  <main id="contenido" class="login-main" tabindex="-1">
+    <div class="login-card panel">
+      <div class="panel-body">
+        {% block auth_step %}{% endblock %}
+        <h1 class="login-title">{% block auth_title %}{% endblock %}</h1>
+        <p class="muted mb-4">{% block auth_lead %}{% endblock %}</p>
+
+        {# Avisos de Django (messages): «Cerraste tu sesión», «Cambiaste tu contraseña»... Sobreviven a la redirección que los antecede. #}
+        {% include "core/partials/flash.html" %}
+
+        {% if form.non_field_errors %}
+        <div class="alert alert-danger d-flex gap-2" role="alert">
+          <i class="bi bi-x-octagon-fill" aria-hidden="true"></i>
+          <div>{% for error in form.non_field_errors %}<p class="mb-0" data-form-error>{{ error }}</p>{% endfor %}</div>
+        </div>
+        {% endif %}
+
+        {% block auth_body %}{% endblock %}
+      </div>
+    </div>
+  </main>
+</div>
+{% endblock %}

@@ -1,0 +1,12 @@
+{# Avisos de la sesión (mensajes de Django). Con JavaScript los muestra SweetAlert2 (core/static/core/js/flash.js) y esta franja se esconde; sin JavaScript se ven aquí. Los de éxito e información se cierran solos. #}
+{% if messages %}
+<div class="flash">
+  {% for message in messages %}
+  <div class="alert alert-{% if message.level_tag == 'error' %}danger{% else %}{{ message.level_tag }}{% endif %} alert-dismissible fade show" role="{% if message.level_tag == 'error' or message.level_tag == 'warning' %}alert{% else %}status{% endif %}" data-flash="{{ message.level_tag }}" data-flash-tags="{{ message.extra_tags }}">
+    <i class="bi {% if message.level_tag == 'success' %}bi-check-circle-fill{% elif message.level_tag == 'error' %}bi-x-octagon-fill{% elif message.level_tag == 'warning' %}bi-exclamation-triangle-fill{% else %}bi-info-circle-fill{% endif %}" aria-hidden="true"></i>
+    <span data-flash-text>{{ message }}</span>
+    <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Cerrar aviso"></button>
+  </div>
+  {% endfor %}
+</div>
+{% endif %}

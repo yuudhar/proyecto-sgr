@@ -1,0 +1,10 @@
+{% extends "base.html" %}
+{% block title %}Sin permiso{% endblock %}
+{% block content %}
+<div class="error-page">
+  <p class="error-code">403</p>
+  <h1 class="page-title mb-3">No tienes permiso para esto</h1>
+  <p class="muted">{% if exception %}{{ exception }}{% else %}Tu cuenta no tiene acceso a esta pantalla. Si crees que debería tenerlo, pide a Coordinación que revise tu rol.{% endif %}</p>
+  <p class="mt-4"><a class="btn btn-primary" href="{% url 'core:dashboard' %}"><i class="bi bi-house-door" aria-hidden="true"></i> Volver al inicio</a></p>
+</div>
+{% endblock %}

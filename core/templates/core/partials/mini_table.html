@@ -1,0 +1,15 @@
+{# Listado corto: columns, rows y, si hay filas, la primera celda enlaza a la ficha. #}
+<div class="table-responsive">
+  <table class="table data-table data-table-compact align-middle mb-0">
+    <thead>
+      <tr>{% for column in columns %}<th scope="col"{% if column.kind == "number" or column.kind == "percent" %} class="num"{% endif %}>{{ column.label }}</th>{% endfor %}</tr>
+    </thead>
+    <tbody>
+      {% for row in rows %}
+      <tr>
+        {% for cell in row.cells %}<td{% if cell.kind == "number" %} class="num"{% elif cell.together %} class="nowrap"{% endif %}>{% include "core/partials/cell.html" with url=row.detail_url %}</td>{% endfor %}
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>

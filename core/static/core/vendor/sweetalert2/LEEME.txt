@@ -1,0 +1,13 @@
+SweetAlert2 11.26.25 (licencia MIT, ver LICENSE).
+Sitio: https://sweetalert2.github.io/  ·  Código: https://github.com/sweetalert2/sweetalert2
+
+Estos dos archivos se generaron a partir del código fuente oficial de esa versión
+(carpeta src/ del repositorio), sin cambios en la lógica:
+
+  sweetalert2.esm.min.js  módulos de src/ empaquetados en un solo archivo (bun build --format=esm --minify)
+  sweetalert2.min.css     src/sweetalert2.scss traducido a CSS
+
+Para usar los archivos ya compilados del paquete npm basta con copiar dist/sweetalert2.esm.js sobre
+sweetalert2.esm.min.js y dist/sweetalert2.min.css sobre sweetalert2.min.css (con esos mismos nombres).
+Se cargan desde core/js/alerts.js, el único script que importa SweetAlert2: los demás usan lo que
+exporta alerts.js (la ventana de avisos con los textos en español).

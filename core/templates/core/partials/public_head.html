@@ -1,0 +1,17 @@
+{% load static %}
+{# Cabecera simple de las páginas que se ven sin sesión iniciada. #}
+<header class="public-head">
+  <div class="content public-head-inner">
+    <div class="public-head-brand">
+      {% include "core/partials/escudo.html" with cls="escudo-public" %}
+      <a class="brand" href="{% url 'core:login' %}">
+        <img class="brand-mark" src="{% static 'core/img/sgr-mark.svg' %}" alt="" width="46" height="46">
+        <span class="brand-text">
+          <span class="brand-name">{{ brand_name }}</span>
+          <span class="brand-sub">{{ brand_subtitle }}</span>
+        </span>
+      </a>
+    </div>
+    <a class="btn btn-outline-primary btn-sm" href="{% url 'core:login' %}">Ingresar</a>
+  </div>
+</header>

@@ -1,6 +1,7 @@
 from django.contrib import admin, messages
 from django.utils import timezone
 
+from core.access import has_global_role
 from core.admin_utils import get_user_delegation
 
 
@@ -76,9 +77,9 @@ class DelegationScopedAdminMixin(SoftDeleteAdminMixin):
 
     def get_queryset(self, request):
         qs = super().get_queryset(request)
-        if request.user.is_superuser or request.user.groups.filter(
-            name="Coordinación"
-        ).exists():
+        # Misma regla que las pantallas web (core/access.py): el superusuario y los roles con alcance sobre
+        # todas las delegaciones, como Coordinación, ven todo.
+        if request.user.is_superuser or has_global_role(request.user):
             return qs
         delegation = get_user_delegation(request)
         if delegation is None:

@@ -1,0 +1,10 @@
+{% extends "base.html" %}
+{% block title %}No encontrado{% endblock %}
+{% block content %}
+<div class="error-page">
+  <p class="error-code">404</p>
+  <h1 class="page-title mb-3">No encontramos esa página</h1>
+  <p class="muted">La dirección no existe o el registro no está disponible para tu cuenta.</p>
+  <p class="mt-4"><a class="btn btn-primary" href="{% url 'core:dashboard' %}"><i class="bi bi-house-door" aria-hidden="true"></i> Volver al inicio</a></p>
+</div>
+{% endblock %}

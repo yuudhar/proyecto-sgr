@@ -1,0 +1,620 @@
+{
+ "fecha": "2026-10-11 21:27",
+ "url": "http://127.0.0.1:8000",
+ "herramienta": "tools/estres/estres.py (Python, biblioteca estándar)",
+ "entorno": "ENSAYO LOCAL (no es AWS): contenedor de 2 vCPU, Python 3.13, gunicorn 2 procesos x 2 hilos, SQLite en modo WAL, caché local, 5.006 atenciones y 1.000 beneficiarios; el generador de carga corre en la misma máquina",
+ "usuario": "matias.cavieres",
+ "umbrales": {
+  "p95_ms": 1500.0,
+  "errores_pct": 1.0
+ },
+ "mezcla": [
+  {
+   "escenario": "Dashboard",
+   "peso": 20,
+   "tipo": "lectura"
+  },
+  {
+   "escenario": "Atención: últimas",
+   "peso": 15,
+   "tipo": "lectura"
+  },
+  {
+   "escenario": "Atención: búsqueda",
+   "peso": 15,
+   "tipo": "lectura"
+  },
+  {
+   "escenario": "Listado de atenciones",
+   "peso": 15,
+   "tipo": "lectura"
+  },
+  {
+   "escenario": "Listado con búsqueda y página 2",
+   "peso": 10,
+   "tipo": "lectura"
+  },
+  {
+   "escenario": "Listado de funcionarios",
+   "peso": 4,
+   "tipo": "lectura"
+  },
+  {
+   "escenario": "Listado de territorios",
+   "peso": 4,
+   "tipo": "lectura"
+  },
+  {
+   "escenario": "Mi perfil",
+   "peso": 5,
+   "tipo": "lectura"
+  },
+  {
+   "escenario": "Exportar atenciones a Excel",
+   "peso": 4,
+   "tipo": "exportación"
+  },
+  {
+   "escenario": "Registrar atención",
+   "peso": 10,
+   "tipo": "escritura"
+  }
+ ],
+ "etapas": [
+  {
+   "concurrencia": 1,
+   "duracion_s": 21.0,
+   "solicitudes": 236,
+   "rps": 11.23,
+   "promedio_ms": 79.8,
+   "p50_ms": 39.1,
+   "p95_ms": 89.1,
+   "p99_ms": 1691.0,
+   "max_ms": 1756.0,
+   "errores": 0,
+   "errores_pct": 0.0,
+   "cpu_pct": 48.9,
+   "carga_max": 1.08,
+   "memoria_usada_pct_max": 8.7,
+   "por_escenario": {
+    "Atención: búsqueda": {
+     "solicitudes": 40,
+     "promedio_ms": 72.3,
+     "p95_ms": 102.7,
+     "errores": 0
+    },
+    "Dashboard": {
+     "solicitudes": 50,
+     "promedio_ms": 41.2,
+     "p95_ms": 56.6,
+     "errores": 0
+    },
+    "Atención: últimas": {
+     "solicitudes": 35,
+     "promedio_ms": 33.6,
+     "p95_ms": 41.6,
+     "errores": 0
+    },
+    "Listado de atenciones": {
+     "solicitudes": 32,
+     "promedio_ms": 36.3,
+     "p95_ms": 46.3,
+     "errores": 0
+    },
+    "Registrar atención": {
+     "solicitudes": 25,
+     "promedio_ms": 54.4,
+     "p95_ms": 67.8,
+     "errores": 0
+    },
+    "Listado de territorios": {
+     "solicitudes": 15,
+     "promedio_ms": 18.2,
+     "p95_ms": 28.8,
+     "errores": 0
+    },
+    "Mi perfil": {
+     "solicitudes": 12,
+     "promedio_ms": 15.7,
+     "p95_ms": 20.6,
+     "errores": 0
+    },
+    "Listado con búsqueda y página 2": {
+     "solicitudes": 18,
+     "promedio_ms": 72.8,
+     "p95_ms": 105.6,
+     "errores": 0
+    },
+    "Exportar atenciones a Excel": {
+     "solicitudes": 5,
+     "promedio_ms": 1659.7,
+     "p95_ms": 1756.0,
+     "errores": 0
+    },
+    "Listado de funcionarios": {
+     "solicitudes": 4,
+     "promedio_ms": 24.5,
+     "p95_ms": 36.5,
+     "errores": 0
+    }
+   },
+   "cumple": true
+  },
+  {
+   "concurrencia": 2,
+   "duracion_s": 21.0,
+   "solicitudes": 267,
+   "rps": 12.71,
+   "promedio_ms": 143.8,
+   "p50_ms": 45.8,
+   "p95_ms": 1473.0,
+   "p99_ms": 1906.1,
+   "max_ms": 2035.3,
+   "errores": 0,
+   "errores_pct": 0.0,
+   "cpu_pct": 87.6,
+   "carga_max": 1.4,
+   "memoria_usada_pct_max": 9.1,
+   "por_escenario": {
+    "Listado de territorios": {
+     "solicitudes": 13,
+     "promedio_ms": 17.7,
+     "p95_ms": 22.8,
+     "errores": 0
+    },
+    "Listado con búsqueda y página 2": {
+     "solicitudes": 27,
+     "promedio_ms": 84.1,
+     "p95_ms": 140.6,
+     "errores": 0
+    },
+    "Atención: búsqueda": {
+     "solicitudes": 36,
+     "promedio_ms": 157.5,
+     "p95_ms": 430.1,
+     "errores": 0
+    },
+    "Exportar atenciones a Excel": {
+     "solicitudes": 13,
+     "promedio_ms": 1746.0,
+     "p95_ms": 2035.3,
+     "errores": 0
+    },
+    "Listado de atenciones": {
+     "solicitudes": 47,
+     "promedio_ms": 36.9,
+     "p95_ms": 55.5,
+     "errores": 0
+    },
+    "Atención: últimas": {
+     "solicitudes": 37,
+     "promedio_ms": 40.2,
+     "p95_ms": 72.3,
+     "errores": 0
+    },
+    "Mi perfil": {
+     "solicitudes": 11,
+     "promedio_ms": 16.8,
+     "p95_ms": 24.0,
+     "errores": 0
+    },
+    "Listado de funcionarios": {
+     "solicitudes": 11,
+     "promedio_ms": 22.2,
+     "p95_ms": 33.3,
+     "errores": 0
+    },
+    "Dashboard": {
+     "solicitudes": 35,
+     "promedio_ms": 46.5,
+     "p95_ms": 97.1,
+     "errores": 0
+    },
+    "Registrar atención": {
+     "solicitudes": 37,
+     "promedio_ms": 60.7,
+     "p95_ms": 106.2,
+     "errores": 0
+    }
+   },
+   "cumple": true
+  },
+  {
+   "concurrencia": 5,
+   "duracion_s": 22.0,
+   "solicitudes": 300,
+   "rps": 13.63,
+   "promedio_ms": 318.7,
+   "p50_ms": 153.9,
+   "p95_ms": 1169.5,
+   "p99_ms": 3369.7,
+   "max_ms": 3969.8,
+   "errores": 0,
+   "errores_pct": 0.0,
+   "cpu_pct": 90.4,
+   "carga_max": 1.96,
+   "memoria_usada_pct_max": 9.4,
+   "por_escenario": {
+    "Listado de atenciones": {
+     "solicitudes": 39,
+     "promedio_ms": 179.5,
+     "p95_ms": 530.2,
+     "errores": 0
+    },
+    "Atención: últimas": {
+     "solicitudes": 38,
+     "promedio_ms": 115.5,
+     "p95_ms": 218.1,
+     "errores": 0
+    },
+    "Listado de territorios": {
+     "solicitudes": 12,
+     "promedio_ms": 84.1,
+     "p95_ms": 199.6,
+     "errores": 0
+    },
+    "Listado con búsqueda y página 2": {
+     "solicitudes": 29,
+     "promedio_ms": 286.0,
+     "p95_ms": 589.6,
+     "errores": 0
+    },
+    "Registrar atención": {
+     "solicitudes": 34,
+     "promedio_ms": 302.1,
+     "p95_ms": 726.9,
+     "errores": 0
+    },
+    "Dashboard": {
+     "solicitudes": 63,
+     "promedio_ms": 229.4,
+     "p95_ms": 1130.4,
+     "errores": 0
+    },
+    "Atención: búsqueda": {
+     "solicitudes": 44,
+     "promedio_ms": 245.7,
+     "p95_ms": 443.9,
+     "errores": 0
+    },
+    "Mi perfil": {
+     "solicitudes": 16,
+     "promedio_ms": 93.4,
+     "p95_ms": 220.4,
+     "errores": 0
+    },
+    "Listado de funcionarios": {
+     "solicitudes": 12,
+     "promedio_ms": 125.1,
+     "p95_ms": 326.1,
+     "errores": 0
+    },
+    "Exportar atenciones a Excel": {
+     "solicitudes": 13,
+     "promedio_ms": 2800.0,
+     "p95_ms": 3969.8,
+     "errores": 0
+    }
+   },
+   "cumple": true
+  },
+  {
+   "concurrencia": 10,
+   "duracion_s": 21.0,
+   "solicitudes": 397,
+   "rps": 18.9,
+   "promedio_ms": 471.1,
+   "p50_ms": 296.7,
+   "p95_ms": 2839.5,
+   "p99_ms": 3977.8,
+   "max_ms": 4227.9,
+   "errores": 0,
+   "errores_pct": 0.0,
+   "cpu_pct": 94.7,
+   "carga_max": 2.17,
+   "memoria_usada_pct_max": 9.7,
+   "por_escenario": {
+    "Atención: últimas": {
+     "solicitudes": 52,
+     "promedio_ms": 221.0,
+     "p95_ms": 460.6,
+     "errores": 0
+    },
+    "Dashboard": {
+     "solicitudes": 84,
+     "promedio_ms": 392.1,
+     "p95_ms": 743.7,
+     "errores": 0
+    },
+    "Listado con búsqueda y página 2": {
+     "solicitudes": 36,
+     "promedio_ms": 531.0,
+     "p95_ms": 3977.8,
+     "errores": 0
+    },
+    "Listado de atenciones": {
+     "solicitudes": 55,
+     "promedio_ms": 436.0,
+     "p95_ms": 3121.5,
+     "errores": 0
+    },
+    "Registrar atención": {
+     "solicitudes": 39,
+     "promedio_ms": 668.3,
+     "p95_ms": 4207.4,
+     "errores": 0
+    },
+    "Atención: búsqueda": {
+     "solicitudes": 62,
+     "promedio_ms": 429.5,
+     "p95_ms": 741.5,
+     "errores": 0
+    },
+    "Listado de funcionarios": {
+     "solicitudes": 18,
+     "promedio_ms": 167.7,
+     "p95_ms": 391.1,
+     "errores": 0
+    },
+    "Listado de territorios": {
+     "solicitudes": 17,
+     "promedio_ms": 234.6,
+     "p95_ms": 434.6,
+     "errores": 0
+    },
+    "Mi perfil": {
+     "solicitudes": 23,
+     "promedio_ms": 252.1,
+     "p95_ms": 547.6,
+     "errores": 0
+    },
+    "Exportar atenciones a Excel": {
+     "solicitudes": 11,
+     "promedio_ms": 3091.3,
+     "p95_ms": 3933.6,
+     "errores": 0
+    }
+   },
+   "cumple": false
+  },
+  {
+   "concurrencia": 20,
+   "duracion_s": 24.0,
+   "solicitudes": 260,
+   "rps": 10.83,
+   "promedio_ms": 1570.7,
+   "p50_ms": 822.7,
+   "p95_ms": 4879.6,
+   "p99_ms": 7543.2,
+   "max_ms": 8205.7,
+   "errores": 0,
+   "errores_pct": 0.0,
+   "cpu_pct": 94.7,
+   "carga_max": 2.52,
+   "memoria_usada_pct_max": 10.0,
+   "por_escenario": {
+    "Listado de funcionarios": {
+     "solicitudes": 9,
+     "promedio_ms": 484.2,
+     "p95_ms": 1047.8,
+     "errores": 0
+    },
+    "Listado de territorios": {
+     "solicitudes": 12,
+     "promedio_ms": 846.7,
+     "p95_ms": 4392.0,
+     "errores": 0
+    },
+    "Atención: últimas": {
+     "solicitudes": 35,
+     "promedio_ms": 1358.1,
+     "p95_ms": 4445.3,
+     "errores": 0
+    },
+    "Listado de atenciones": {
+     "solicitudes": 44,
+     "promedio_ms": 929.4,
+     "p95_ms": 2468.0,
+     "errores": 0
+    },
+    "Dashboard": {
+     "solicitudes": 43,
+     "promedio_ms": 1006.1,
+     "p95_ms": 2931.5,
+     "errores": 0
+    },
+    "Atención: búsqueda": {
+     "solicitudes": 36,
+     "promedio_ms": 1879.5,
+     "p95_ms": 5237.1,
+     "errores": 0
+    },
+    "Listado con búsqueda y página 2": {
+     "solicitudes": 24,
+     "promedio_ms": 1030.0,
+     "p95_ms": 2799.8,
+     "errores": 0
+    },
+    "Exportar atenciones a Excel": {
+     "solicitudes": 17,
+     "promedio_ms": 4489.3,
+     "p95_ms": 8205.7,
+     "errores": 0
+    },
+    "Mi perfil": {
+     "solicitudes": 12,
+     "promedio_ms": 1626.2,
+     "p95_ms": 4179.0,
+     "errores": 0
+    },
+    "Registrar atención": {
+     "solicitudes": 28,
+     "promedio_ms": 2641.5,
+     "p95_ms": 7214.3,
+     "errores": 0
+    }
+   },
+   "cumple": false
+  },
+  {
+   "concurrencia": 40,
+   "duracion_s": 28.0,
+   "solicitudes": 347,
+   "rps": 12.39,
+   "promedio_ms": 2406.7,
+   "p50_ms": 1364.5,
+   "p95_ms": 10014.5,
+   "p99_ms": 10118.8,
+   "max_ms": 11557.8,
+   "errores": 0,
+   "errores_pct": 0.0,
+   "cpu_pct": 80.1,
+   "carga_max": 2.82,
+   "memoria_usada_pct_max": 10.3,
+   "por_escenario": {
+    "Mi perfil": {
+     "solicitudes": 13,
+     "promedio_ms": 3322.6,
+     "p95_ms": 6402.2,
+     "errores": 0
+    },
+    "Listado de atenciones": {
+     "solicitudes": 52,
+     "promedio_ms": 2567.0,
+     "p95_ms": 10019.3,
+     "errores": 0
+    },
+    "Dashboard": {
+     "solicitudes": 64,
+     "promedio_ms": 2203.4,
+     "p95_ms": 5964.2,
+     "errores": 0
+    },
+    "Atención: búsqueda": {
+     "solicitudes": 46,
+     "promedio_ms": 1830.7,
+     "p95_ms": 6374.6,
+     "errores": 0
+    },
+    "Atención: últimas": {
+     "solicitudes": 57,
+     "promedio_ms": 1935.5,
+     "p95_ms": 9976.1,
+     "errores": 0
+    },
+    "Listado con búsqueda y página 2": {
+     "solicitudes": 39,
+     "promedio_ms": 2248.3,
+     "p95_ms": 10097.1,
+     "errores": 0
+    },
+    "Listado de territorios": {
+     "solicitudes": 10,
+     "promedio_ms": 940.9,
+     "p95_ms": 4083.9,
+     "errores": 0
+    },
+    "Exportar atenciones a Excel": {
+     "solicitudes": 13,
+     "promedio_ms": 5393.3,
+     "p95_ms": 10276.2,
+     "errores": 0
+    },
+    "Registrar atención": {
+     "solicitudes": 40,
+     "promedio_ms": 2821.6,
+     "p95_ms": 8634.7,
+     "errores": 0
+    },
+    "Listado de funcionarios": {
+     "solicitudes": 13,
+     "promedio_ms": 3293.3,
+     "p95_ms": 10063.0,
+     "errores": 0
+    }
+   },
+   "cumple": false
+  }
+ ],
+ "recuperacion": {
+  "concurrencia": 1,
+  "duracion_s": 16.0,
+  "solicitudes": 185,
+  "rps": 11.56,
+  "promedio_ms": 75.1,
+  "p50_ms": 41.2,
+  "p95_ms": 94.4,
+  "p99_ms": 1708.4,
+  "max_ms": 1894.3,
+  "errores": 0,
+  "errores_pct": 0.0,
+  "cpu_pct": 48.3,
+  "carga_max": 2.46,
+  "memoria_usada_pct_max": 10.3,
+  "por_escenario": {
+   "Mi perfil": {
+    "solicitudes": 9,
+    "promedio_ms": 17.9,
+    "p95_ms": 21.3,
+    "errores": 0
+   },
+   "Registrar atención": {
+    "solicitudes": 24,
+    "promedio_ms": 65.1,
+    "p95_ms": 124.6,
+    "errores": 0
+   },
+   "Dashboard": {
+    "solicitudes": 48,
+    "promedio_ms": 41.4,
+    "p95_ms": 56.7,
+    "errores": 0
+   },
+   "Atención: búsqueda": {
+    "solicitudes": 23,
+    "promedio_ms": 77.5,
+    "p95_ms": 94.4,
+    "errores": 0
+   },
+   "Listado con búsqueda y página 2": {
+    "solicitudes": 15,
+    "promedio_ms": 80.1,
+    "p95_ms": 114.1,
+    "errores": 0
+   },
+   "Listado de atenciones": {
+    "solicitudes": 26,
+    "promedio_ms": 36.1,
+    "p95_ms": 47.3,
+    "errores": 0
+   },
+   "Atención: últimas": {
+    "solicitudes": 25,
+    "promedio_ms": 36.6,
+    "p95_ms": 48.2,
+    "errores": 0
+   },
+   "Listado de funcionarios": {
+    "solicitudes": 3,
+    "promedio_ms": 18.0,
+    "p95_ms": 19.3,
+    "errores": 0
+   },
+   "Listado de territorios": {
+    "solicitudes": 9,
+    "promedio_ms": 18.0,
+    "p95_ms": 21.9,
+    "errores": 0
+   },
+   "Exportar atenciones a Excel": {
+    "solicitudes": 3,
+    "promedio_ms": 1712.1,
+    "p95_ms": 1894.3,
+    "errores": 0
+   }
+  },
+  "recuperado": true
+ },
+ "limite_seguro_usuarios": 5,
+ "primera_etapa_con_degradacion": 10
+}

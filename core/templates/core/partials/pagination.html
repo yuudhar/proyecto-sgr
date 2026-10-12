@@ -1,0 +1,26 @@
+{% if page.paginator.num_pages > 1 %}
+<nav class="pager" aria-label="Páginas del listado">
+  <p class="pager-info">Mostrando {{ page.start_index }}–{{ page.end_index }} de {{ page.paginator.count }}</p>
+  <ul class="pagination mb-0">
+    {% if page.has_previous %}
+    <li class="page-item"><a class="page-link" href="{{ page_query }}{% if page_query != '?' %}&amp;{% endif %}page={{ page.previous_page_number }}" aria-label="Página anterior"><i class="bi bi-chevron-left" aria-hidden="true"></i></a></li>
+    {% else %}
+    <li class="page-item disabled"><span class="page-link" aria-hidden="true"><i class="bi bi-chevron-left"></i></span></li>
+    {% endif %}
+    {% for number in page_range %}
+      {% if number == ellipsis %}
+      <li class="page-item disabled"><span class="page-link">…</span></li>
+      {% elif number == page.number %}
+      <li class="page-item active" aria-current="page"><span class="page-link">{{ number }}</span></li>
+      {% else %}
+      <li class="page-item"><a class="page-link" href="{{ page_query }}{% if page_query != '?' %}&amp;{% endif %}page={{ number }}">{{ number }}</a></li>
+      {% endif %}
+    {% endfor %}
+    {% if page.has_next %}
+    <li class="page-item"><a class="page-link" href="{{ page_query }}{% if page_query != '?' %}&amp;{% endif %}page={{ page.next_page_number }}" aria-label="Página siguiente"><i class="bi bi-chevron-right" aria-hidden="true"></i></a></li>
+    {% else %}
+    <li class="page-item disabled"><span class="page-link" aria-hidden="true"><i class="bi bi-chevron-right"></i></span></li>
+    {% endif %}
+  </ul>
+</nav>
+{% endif %}

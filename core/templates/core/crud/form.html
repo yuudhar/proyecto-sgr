@@ -1,0 +1,26 @@
+{% extends "base.html" %}
+{% block title %}{{ heading }}{% endblock %}
+
+{% block content %}
+<section class="page-head">
+  <div>
+    <h1 class="page-title">{{ heading }}</h1>
+    {% if obj_name %}<p class="page-sub">{{ obj_name }}</p>{% endif %}
+  </div>
+</section>
+
+<form method="post" class="panel" data-once data-validate data-unsaved-guard{% if form.is_bound %}="dirty"{% endif %}>
+  {% csrf_token %}
+  {% if version %}<input type="hidden" name="_version" value="{{ version }}">{% endif %}
+  <div class="panel-body">
+    {% include "core/crud/_form_body.html" %}
+  </div>
+  <div class="form-actions">
+    <button type="submit" class="btn btn-primary"><i class="bi bi-check-lg" aria-hidden="true"></i> {{ save_label }}</button>
+    {% if can_add_another %}<button type="submit" class="btn btn-outline-primary" name="_addanother" value="1"><i class="bi bi-plus-lg" aria-hidden="true"></i> {{ save_label }} y agregar otro</button>{% endif %}
+    {% if archive_url %}{% include "core/partials/delete_link.html" with url=archive_url kind="archive" blocked=archive_blocked name=obj_name cls="btn btn-outline-danger" %}{% endif %}
+    {% if delete_url %}{% include "core/partials/delete_link.html" with url=delete_url kind="remove" blocked=delete_blocked name=obj_name cls="btn btn-outline-danger" %}{% endif %}
+    <a class="btn btn-outline-secondary" href="{{ cancel_url }}" data-cancel-form="{% if creating %}create{% else %}edit{% endif %}">Cancelar</a>
+  </div>
+</form>
+{% endblock %}

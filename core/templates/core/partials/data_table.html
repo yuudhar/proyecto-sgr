@@ -1,0 +1,43 @@
+{# Tabla de resultados de un listado: columnas con orden, filas y botones de cada fila. #}
+{% load core_ui %}
+<div class="table-responsive">
+  <table class="table data-table align-middle">
+    <caption class="visually-hidden">{{ crud.list_title }}</caption>
+    <thead>
+      <tr>
+        {% for column in columns %}
+        <th scope="col"{% if column.sort_dir %} aria-sort="{% if column.sort_dir == 'asc' %}ascending{% else %}descending{% endif %}"{% endif %}{% if column.kind == "number" or column.kind == "percent" %} class="num"{% endif %}>
+          {% if column.sort_url %}
+          <a class="sort-link" href="{{ column.sort_url }}">{{ column.label }}<i class="bi {% if column.sort_dir == 'asc' %}bi-caret-up-fill{% elif column.sort_dir == 'desc' %}bi-caret-down-fill{% else %}bi-chevron-expand{% endif %}" aria-hidden="true"></i></a>
+          {% else %}{{ column.label }}{% endif %}
+        </th>
+        {% endfor %}
+        <th scope="col" class="text-end">Acciones</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for row in rows %}
+      <tr{% if row.archived %} class="is-archived"{% endif %}>
+        {% for cell in row.cells %}
+        <td class="{% if cell.kind == "number" %}num{% elif cell.together or cell.kind != "text" %}nowrap{% else %}wrap{% endif %}">{% include "core/partials/cell.html" with url=row.detail_url %}{% if forloop.first and row.archived %} <span class="chip chip-neutral"><i class="bi bi-archive" aria-hidden="true"></i>Archivado</span>{% endif %}</td>
+        {% endfor %}
+        <td>
+          <div class="row-actions">
+            {% if with_new and create_url and row.obj.beneficiary_id %}<a class="act" href="{{ create_url }}?beneficiary={{ row.obj.beneficiary_id }}" data-modal-form title="Nueva atención para esta persona" aria-label="Nueva atención para {{ row.obj.beneficiary.name }}"><i class="bi bi-plus-circle" aria-hidden="true"></i> Nueva</a>{% endif %}
+            <a class="act" href="{{ row.detail_url }}" title="Ver" aria-label="Ver {{ row.obj|hd }}"><i class="bi bi-eye" aria-hidden="true"></i> Ver</a>
+            {% if row.edit_url %}<a class="act" href="{{ row.edit_url }}" data-modal-form title="Editar" aria-label="Editar {{ row.obj|hd }}"><i class="bi bi-pencil-square" aria-hidden="true"></i> Editar</a>{% endif %}
+            {% if row.archive_url %}{% include "core/partials/delete_link.html" with url=row.archive_url kind="archive" blocked=row.archive_blocked name=row.obj|hd cls="act act-danger" %}{% endif %}
+            {% if row.delete_url %}{% include "core/partials/delete_link.html" with url=row.delete_url kind="remove" blocked=row.delete_blocked name=row.obj|hd cls="act act-danger" %}{% endif %}
+            {% if row.restore_url %}
+            <form method="post" action="{{ row.restore_url }}" class="d-inline">
+              {% csrf_token %}
+              <button type="submit" class="act" title="Restaurar" aria-label="Restaurar {{ row.obj|hd }}"><i class="bi bi-arrow-counterclockwise" aria-hidden="true"></i> Restaurar</button>
+            </form>
+            {% endif %}
+          </div>
+        </td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>

@@ -1,0 +1,25 @@
+{% extends "registration/auth_base.html" %}
+{# Es la plantilla que usa LoginView por defecto (registration/login.html). #}
+{% block title %}Ingresar{% endblock %}
+{% block auth_title %}Ingresar{% endblock %}
+{% block auth_lead %}Usa la cuenta que te entregó Coordinación.{% endblock %}
+
+{% block auth_body %}
+<form method="post" data-once data-validate>
+  {# Sin este token Django rechaza el formulario (protección CSRF). #}
+  {% csrf_token %}
+  <input type="hidden" name="next" value="{{ next }}">
+  <div class="mb-3">
+    <label class="form-label" for="{{ form.username.id_for_label }}">{{ form.username.label }}</label>
+    {{ form.username }}
+    <div class="invalid-feedback{% if form.username.errors %} d-block{% endif %}" id="{{ form.username.auto_id }}_error">{{ form.username.errors|join:" " }}</div>
+  </div>
+  <div class="mb-4">
+    <label class="form-label" for="{{ form.password.id_for_label }}">{{ form.password.label }}</label>
+    {{ form.password }}
+    <div class="invalid-feedback{% if form.password.errors %} d-block{% endif %}" id="{{ form.password.auto_id }}_error">{{ form.password.errors|join:" " }}</div>
+  </div>
+  <button type="submit" class="btn btn-primary w-100"><i class="bi bi-box-arrow-in-right" aria-hidden="true"></i> Ingresar</button>
+</form>
+<p class="auth-links"><a href="{% url 'accounts:recover' %}">¿Olvidaste tu contraseña?</a></p>
+{% endblock %}

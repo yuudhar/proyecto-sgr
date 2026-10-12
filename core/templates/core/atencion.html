@@ -1,0 +1,62 @@
+{% extends "base.html" %}
+{% load core_ui %}
+{% block title %}Atención{% endblock %}
+
+{% block content %}
+<section class="page-head">
+  <div>
+    <h1 class="page-title"><i class="bi bi-headset" aria-hidden="true"></i>Atención</h1>
+    <p class="page-sub">Busca a la persona por RUT, nombre u otro dato. Si no aparece, registra una atención nueva.</p>
+  </div>
+  {% if can_add %}
+  <div class="page-actions">
+    <a class="btn btn-primary" href="{{ create_url }}" data-modal-form><i class="bi bi-plus-lg" aria-hidden="true"></i> Registrar atención</a>
+  </div>
+  {% endif %}
+</section>
+
+<section class="panel mb-4" aria-label="Búsqueda de atenciones">
+  <form method="get" class="atencion-search" role="search" data-validate data-loading>
+    <label class="form-label" for="atencion-q">RUT / nombre / otro</label>
+    <div class="atencion-row">
+      <div class="input-group input-group-lg">
+        <span class="input-group-text" aria-hidden="true"><i class="bi bi-search"></i></span>
+        <input type="search" class="form-control" id="atencion-q" name="q" value="{{ q }}" placeholder="Ej.: 11.111.111-1, María Pérez o +56 9 1111 1111" autocomplete="off" maxlength="100" required data-label="Lo que quieres buscar">
+      </div>
+      <button type="submit" class="btn btn-primary btn-lg"><i class="bi bi-search" aria-hidden="true"></i> Buscar</button>
+      <button type="submit" class="btn btn-outline-success btn-lg" name="formato" value="xlsx" formnovalidate data-skip-validate data-no-busy{% if not rows %} disabled{% endif %}><i class="bi bi-file-earmark-excel" aria-hidden="true"></i> Exportar a Excel</button>
+    </div>
+    <div class="invalid-feedback" id="atencion-q_error"></div>
+    {% if wrong_rut %}
+    <div class="alert alert-warning d-flex gap-2 mt-3 mb-0" role="status">
+      <i class="bi bi-exclamation-triangle-fill" aria-hidden="true"></i>
+      <div>El dígito verificador de ese RUT no calza. Revisa el número; igual se buscó tal como lo escribiste.</div>
+    </div>
+    {% endif %}
+  </form>
+</section>
+
+<section class="panel" aria-label="Resultados de la búsqueda">
+  <div class="panel-head">
+    <h2 class="panel-title">{% if q %}Resultados para «{{ q }}»{% else %}Últimas atenciones{% endif %}</h2>
+    <div class="panel-head-side">
+      <span class="muted">{{ page.paginator.count }} resultado{{ page.paginator.count|pluralize }}</span>
+      {% if rows %}{% include "core/partials/page_size.html" %}{% endif %}
+    </div>
+  </div>
+  {% if rows %}
+  {% include "core/partials/data_table.html" with with_new=can_add %}
+  {% include "core/partials/pagination.html" %}
+  {% else %}
+  <div class="empty">
+    <i class="bi bi-headset" aria-hidden="true"></i>
+    {% if q %}
+      <p>No encontramos atenciones para «{{ q }}». Revisa cómo está escrito o registra una atención nueva.</p>
+    {% else %}
+      <p>Aún no hay atenciones registradas.</p>
+    {% endif %}
+    {% if can_add %}<a class="btn btn-primary" href="{{ create_url }}" data-modal-form><i class="bi bi-plus-lg" aria-hidden="true"></i> Registrar atención</a>{% endif %}
+  </div>
+  {% endif %}
+</section>
+{% endblock %}

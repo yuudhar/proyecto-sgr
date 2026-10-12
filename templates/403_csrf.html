@@ -1,0 +1,10 @@
+{% extends "base.html" %}
+{% block title %}La pantalla venció{% endblock %}
+{% block content %}
+<div class="error-page">
+  <p class="error-code">403</p>
+  <h1 class="page-title mb-3">Esta pantalla ya no es válida</h1>
+  <p class="muted">Volviste a iniciar sesión o la pantalla estuvo abierta demasiado tiempo. No se guardó nada: vuelve al inicio y repite la acción.</p>
+  <p class="mt-4"><a class="btn btn-primary" href="{% url 'core:dashboard' %}"><i class="bi bi-house-door" aria-hidden="true"></i> Volver al inicio</a></p>
+</div>
+{% endblock %}

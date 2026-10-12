@@ -1,0 +1,64 @@
+{% extends "base.html" %}
+{% block title %}{{ obj_name }}{% endblock %}
+
+{% block content %}
+{% if archived %}
+<div class="archived-banner" role="status">
+  <i class="bi bi-archive" aria-hidden="true"></i>
+  Este registro está archivado: no aparece en los listados normales y no se puede editar hasta restaurarlo.
+</div>
+{% endif %}
+
+<section class="page-head">
+  <div>
+    <h1 class="page-title">{{ obj_name }}</h1>
+    <p class="page-sub">{{ crud.title }}</p>
+  </div>
+  <div class="page-actions">
+    {% for label, url, icon in extra_actions %}
+    <a class="btn btn-outline-primary" href="{{ url }}"><i class="bi {{ icon }}" aria-hidden="true"></i> {{ label }}</a>
+    {% endfor %}
+    {% if can_edit %}<a class="btn btn-primary" href="{{ edit_url }}" data-modal-form><i class="bi bi-pencil-square" aria-hidden="true"></i> Editar</a>{% endif %}
+    {% if can_archive and not archived %}{% include "core/partials/delete_link.html" with url=archive_url kind="archive" blocked=archive_blocked name=obj_name cls="btn btn-outline-danger" %}{% endif %}
+    {% if can_delete %}{% include "core/partials/delete_link.html" with url=delete_url kind="remove" blocked=delete_blocked name=obj_name cls="btn btn-outline-danger" %}{% endif %}
+    {% if can_archive and archived %}
+    <form method="post" action="{{ restore_url }}" data-once>
+      {% csrf_token %}
+      <button type="submit" class="btn btn-primary"><i class="bi bi-arrow-counterclockwise" aria-hidden="true"></i> Restaurar</button>
+    </form>
+    {% endif %}
+  </div>
+</section>
+
+<div class="stack">
+  <section class="panel" aria-label="Datos del registro">
+    <dl class="facts">
+      {% for label, cell in pairs %}
+      <div class="facts-row">
+        <dt>{{ label }}</dt>
+        <dd>{% if cell.text %}{% include "core/partials/cell.html" %}{% else %}<span class="muted">Sin dato</span>{% endif %}</dd>
+      </div>
+      {% endfor %}
+    </dl>
+  </section>
+
+  {% if panel_template %}{% include panel_template %}{% endif %}
+
+  {% for block in blocks %}
+  <section class="panel" aria-label="{{ block.title }}">
+    <div class="panel-head">
+      <h2 class="panel-title">{{ block.title }}</h2>
+      {% if block.add_url %}<a class="btn btn-outline-primary btn-sm" href="{{ block.add_url }}" data-modal-form><i class="bi bi-plus-lg" aria-hidden="true"></i> {{ block.add_label }}</a>{% endif %}
+    </div>
+    {% if block.rows %}
+      {% include "core/partials/mini_table.html" with columns=block.columns rows=block.rows %}
+      {% if block.total > block.rows|length %}<p class="panel-foot mb-0">Se muestran {{ block.rows|length }} de {{ block.total }}.</p>{% endif %}
+    {% else %}
+      <p class="panel-body muted mb-0">Sin registros.</p>
+    {% endif %}
+  </section>
+  {% endfor %}
+</div>
+
+<p class="record-meta">{{ record_meta }}</p>
+{% endblock %}

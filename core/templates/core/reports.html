@@ -1,0 +1,104 @@
+{% extends "base.html" %}
+{% load core_ui %}
+{% block title %}Informes{% endblock %}
+
+{% block content %}
+<section class="page-head">
+  <div>
+    <h1 class="page-title"><i class="bi bi-file-earmark-bar-graph" aria-hidden="true"></i>Informes</h1>
+    <p class="page-sub">Resumen por funcionario: actividades, evidencias y cumplimiento del período{% if with_adjustment %}, con sus ajustes{% endif %}.</p>
+  </div>
+  {% if rows %}
+  <div class="page-actions">
+    <a class="btn btn-primary" href="{{ xlsx_url }}"><i class="bi bi-file-earmark-excel" aria-hidden="true"></i> Exportar a Excel</a>
+    <a class="btn btn-outline-secondary" href="{{ csv_url }}"><i class="bi bi-filetype-csv" aria-hidden="true"></i> Descargar CSV</a>
+    <button type="button" class="btn btn-outline-secondary" data-print><i class="bi bi-printer" aria-hidden="true"></i> Imprimir</button>
+  </div>
+  {% endif %}
+</section>
+
+<section class="panel mb-4" aria-label="Filtros del informe">
+  <form method="get" class="filters" data-loading>
+    <div class="field field-period">
+      <label for="sel-periodo">Período</label>
+      <select class="form-select" id="sel-periodo" name="periodo">
+        {% for option in periods %}<option value="{{ option.pk }}"{% if option == period %} selected{% endif %}>{{ option.start_date|fdate }} al {{ option.end_date|fdate }} ({{ option.get_status_display }})</option>{% endfor %}
+      </select>
+    </div>
+    {% if can_pick_delegation %}
+    <div class="field">
+      <label for="sel-delegacion">Delegación</label>
+      <select class="form-select" id="sel-delegacion" name="delegacion">
+        <option value="todas"{% if not delegation %} selected{% endif %}>Todas las delegaciones</option>
+        {% for option in delegations %}<option value="{{ option.pk }}"{% if option == delegation %} selected{% endif %}>{{ option.name }}</option>{% endfor %}
+      </select>
+    </div>
+    {% endif %}
+    <div class="filters-actions">
+      <button type="submit" class="btn btn-primary"><i class="bi bi-funnel" aria-hidden="true"></i> Ver informe</button>
+    </div>
+  </form>
+</section>
+
+{% if not period %}
+<section class="panel"><div class="empty"><i class="bi bi-calendar-range" aria-hidden="true"></i><p>Todavía no hay períodos creados, así que no hay nada que informar.</p></div></section>
+{% else %}
+<section class="panel" aria-label="Informe por funcionario">
+  <div class="panel-head">
+    <h2 class="panel-title">{{ scope_label }}</h2>
+    <span class="muted">Período del {{ period.start_date|fdate }} al {{ period.end_date|fdate }}</span>
+  </div>
+  {% if rows %}
+  <div class="table-responsive">
+    <table class="table data-table data-table-compact align-middle">
+      <caption class="visually-hidden">Informe por funcionario</caption>
+      <thead>
+        <tr>
+          <th scope="col" rowspan="2">Funcionario</th>
+          <th scope="col" rowspan="2">Delegación</th>
+          <th scope="col" rowspan="2">Cargo</th>
+          <th scope="col" rowspan="2" class="num">Actividades</th>
+          <th scope="colgroup" colspan="3" class="num group-head">Evidencias</th>
+          <th scope="col" rowspan="2">Cumplimiento promedio</th>
+          {% if with_adjustment %}<th scope="col" rowspan="2" class="num">Ajuste neto</th>{% endif %}
+        </tr>
+        <tr>
+          <th scope="col" class="num sub-head">Aprobadas</th>
+          <th scope="col" class="num sub-head">Pendientes</th>
+          <th scope="col" class="num sub-head">Rechazadas</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for row in rows %}
+        <tr>
+          <td class="fw-semibold nowrap">{{ row.officer.name }}</td>
+          <td class="nowrap">{{ row.officer.delegation }}</td>
+          <td class="nowrap">{{ row.officer.position }}</td>
+          <td class="num">{{ row.activities }}</td>
+          <td class="num">{{ row.approved }}</td>
+          <td class="num">{{ row.pending }}</td>
+          <td class="num">{{ row.rejected }}</td>
+          <td>{% if row.average is not None %}{% meter row.average row.light period.collective_threshold period.amber_threshold compact=True %}{% else %}<span class="muted">Sin indicadores</span>{% endif %}</td>
+          {% if with_adjustment %}<td class="num">{% if row.adjustment > 0 %}+{% endif %}{{ row.adjustment|fnumber }} %</td>{% endif %}
+        </tr>
+        {% endfor %}
+      </tbody>
+      <tfoot>
+        <tr class="table-total">
+          <td colspan="3">Total</td>
+          <td class="num">{{ totals.activities }}</td>
+          <td class="num">{{ totals.approved }}</td>
+          <td class="num">{{ totals.pending }}</td>
+          <td class="num">{{ totals.rejected }}</td>
+          <td colspan="{% if with_adjustment %}2{% else %}1{% endif %}"></td>
+        </tr>
+      </tfoot>
+    </table>
+  </div>
+  <p class="meter-legend">Las actividades y evidencias son las registradas dentro de las fechas del período. El cumplimiento promedio usa el último indicador de cada meta del funcionario y de su cargo.{% if with_adjustment %} El ajuste neto es la suma de bonificaciones menos penalizaciones.{% endif %}</p>
+  {% else %}
+  <div class="empty"><i class="bi bi-people" aria-hidden="true"></i><p>No hay funcionarios activos para este informe.</p></div>
+  {% endif %}
+</section>
+{% endif %}
+{% endblock %}

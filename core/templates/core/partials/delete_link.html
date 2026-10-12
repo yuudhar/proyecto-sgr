@@ -1,0 +1,2 @@
+{# Enlace «Eliminar» de un registro. Lleva a la página de confirmación; con JavaScript la confirmación sale en una ventana de SweetAlert2 (core/js/confirm.js). url, kind ("archive" o "remove"), blocked (por qué no se puede, si no se puede), name y cls vienen del include. #}
+<a class="{{ cls }}" href="{{ url }}" data-delete="{{ name }}" data-delete-kind="{{ kind }}"{% if blocked %} data-blocked="{{ blocked }}"{% endif %} aria-label="Eliminar {{ name }}"><i class="bi bi-trash3" aria-hidden="true"></i> Eliminar</a>

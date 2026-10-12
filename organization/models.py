@@ -1,4 +1,5 @@
 from django.core.exceptions import ValidationError
+from django.core.validators import RegexValidator
 from django.db import models
 
 from core.models import BaseModel
@@ -20,6 +21,34 @@ class Delegation(BaseModel):
     )
     scope = models.CharField(
         max_length=100, blank=True, null=True, verbose_name="ámbito"
+    )
+    # Dónde queda la delegación (A1: «Código, nombre, dirección, comuna y estado»). Vacíos en las delegaciones
+    # que existían antes; el formulario de las pantallas los pide.
+    address = models.CharField(
+        max_length=200,
+        blank=True,
+        default="",
+        verbose_name="dirección",
+        help_text="Calle y número de la oficina de la delegación.",
+    )
+    commune = models.CharField(
+        max_length=100,
+        blank=True,
+        default="",
+        verbose_name="comuna",
+    )
+    # Color con que las pantallas identifican a la delegación (barra lateral y fichas).
+    color = models.CharField(
+        max_length=7,
+        default="#920000",
+        validators=[
+            RegexValidator(
+                r"^#[0-9A-Fa-f]{6}\Z",
+                "Escribe el color como #RRGGBB, por ejemplo #920000.",
+            )
+        ],
+        verbose_name="color",
+        help_text="Formato #RRGGBB. Identifica a la delegación en las pantallas.",
     )
 
     class Meta:
@@ -63,6 +92,13 @@ class Item(BaseModel):
         verbose_name="ítem padre (tipo de atención)",
     )
     name = models.CharField(max_length=150, verbose_name="nombre")
+    # Qué mide o qué atiende el ítem (A1: «Código, nombre, descripción y estado»). Opcional.
+    description = models.CharField(
+        max_length=255,
+        blank=True,
+        default="",
+        verbose_name="descripción",
+    )
     calculation_type = models.CharField(
         max_length=20,
         choices=CalculationType.choices,

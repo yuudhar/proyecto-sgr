@@ -1,0 +1,68 @@
+{% extends "base.html" %}
+{% load core_ui %}
+{% block title %}Validar evidencias{% endblock %}
+
+{% block content %}
+<section class="page-head">
+  <div>
+    <h1 class="page-title"><i class="bi bi-patch-check" aria-hidden="true"></i>Validar evidencias</h1>
+    <p class="page-sub">Evidencias pendientes, de la más antigua a la más reciente. Las observadas siguen en esta lista hasta que se aprueben o se rechacen.</p>
+  </div>
+</section>
+
+<section class="panel" aria-label="Evidencias por revisar">
+  {% if items %}
+  <div class="table-responsive">
+    <table class="table data-table align-middle">
+      <caption class="visually-hidden">Evidencias por revisar</caption>
+      <thead>
+        <tr>
+          <th scope="col">Código</th>
+          <th scope="col">Actividad</th>
+          <th scope="col">Funcionario autor</th>
+          <th scope="col">Cargada</th>
+          <th scope="col">Estado</th>
+          <th scope="col" class="text-end"><span class="visually-hidden">Acción</span></th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for item in items %}
+        <tr>
+          <td><a class="cell-link" href="{{ item.detail_url }}">{{ item.evidence.unique_code }}</a></td>
+          <td>{{ item.evidence.activity|hd }}</td>
+          <td>{{ item.evidence.author_officer }}</td>
+          <td>{{ item.uploaded }}</td>
+          <td>
+            {% if item.flagged %}
+            <span class="chip chip-warn"><i class="bi bi-flag-fill" aria-hidden="true"></i>Observada</span>
+            {% if item.last_result %}<span class="board-note">{{ item.last_result }}</span>{% endif %}
+            {% else %}
+            <span class="chip chip-neutral"><i class="bi bi-clock-history" aria-hidden="true"></i>Por revisar</span>
+            {% endif %}
+          </td>
+          <td class="text-end"><a class="btn btn-primary btn-sm" href="{{ item.review_url }}" aria-label="Revisar la evidencia {{ item.evidence.unique_code }}">Revisar</a></td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% else %}
+  <div class="empty">
+    <i class="bi bi-patch-check" aria-hidden="true"></i>
+    <p>No hay evidencias por revisar. Cuando un funcionario cargue una nueva, aparecerá aquí.</p>
+  </div>
+  {% endif %}
+</section>
+
+{% if recent %}
+<h2 class="section-title">Últimas validaciones</h2>
+<section class="panel" aria-label="Últimas validaciones">
+  {% if recent.rows %}
+    {% include "core/partials/mini_table.html" with columns=recent.columns rows=recent.rows %}
+    <p class="panel-foot mb-0"><a href="{{ recent.list_url }}">Ver el historial completo</a></p>
+  {% else %}
+    <p class="panel-body muted mb-0">Todavía no hay validaciones registradas.</p>
+  {% endif %}
+</section>
+{% endif %}
+{% endblock %}
