@@ -27,7 +27,7 @@ Todos los listados incluyen búsqueda (sin distinguir mayúsculas ni tildes), pa
 - SQLite (MySQL opcional)
 - Bootstrap 5 y SweetAlert2 (incluidos en el proyecto, funciona sin internet)
 - openpyxl para los archivos de Excel
-- gunicorn y nginx para el despliegue en un servidor
+- gunicorn con nginx o con Apache para el despliegue en un servidor
 
 ## Instalación
 

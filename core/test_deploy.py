@@ -146,6 +146,58 @@ class ConfigurationFilesTests(SimpleTestCase):
         for archivo in ("gunicorn.conf.py", "sgr.service", "nginx-sgr.conf", "instalar_ec2.sh", "actualizar.sh"):
             self.assertTrue((self.base / "deploy" / archivo).is_file(), archivo)
 
+    def test_the_al2023_deploy_files_exist(self):
+        for archivo in ("instalar_al2023.sh", "https_certificado.sh", "apache-http.conf", "apache-https.conf", "sgr.env.example"):
+            self.assertTrue((self.base / "deploy" / "al2023" / archivo).is_file(), archivo)
+
+    def test_the_al2023_env_example_has_no_secrets_and_every_key_the_scripts_set(self):
+        carpeta = self.base / "deploy" / "al2023"
+        lineas = (carpeta / "sgr.env.example").read_text(encoding="utf-8").splitlines()
+        for nombre in ("SECRET_KEY", "DB_PASSWORD", "EMAIL_HOST_PASSWORD", "ALLOWED_HOSTS", "CSRF_TRUSTED_ORIGINS"):
+            self.assertIn(f"{nombre}=", lineas, f"{nombre} debe ir en blanco en el ejemplo")
+        claves = {linea.split("=")[0] for linea in lineas if "=" in linea and not linea.startswith("#")}
+        for script in ("instalar_al2023.sh", "https_certificado.sh"):
+            for clave in re.findall(r"(?m)^\s*fijar ([A-Z_]+) ", (carpeta / script).read_text(encoding="utf-8")):
+                self.assertIn(clave, claves, f"{script} fija {clave}, que no está en el ejemplo")
+
+    def test_the_apache_files_proxy_to_gunicorn_and_leave_phpmyadmin_and_the_certificate_check_out(self):
+        carpeta = self.base / "deploy" / "al2023"
+        gunicorn = (self.base / "deploy" / "gunicorn.conf.py").read_text(encoding="utf-8")
+        self.assertIn("127.0.0.1:8000", gunicorn)
+        for nombre in ("apache-http.conf", "apache-https.conf"):
+            texto = (carpeta / nombre).read_text(encoding="utf-8")
+            self.assertIn("ProxyPass / http://127.0.0.1:8000/", texto, nombre)
+            self.assertIn("ProxyPass /phpMyAdmin !", texto, nombre)
+            self.assertIn("ProxyPass /static/ !", texto, nombre)
+            self.assertIn("/.well-known/acme-challenge/", texto, nombre)
+            self.assertIn("__HOST__", texto, nombre)
+        https = (carpeta / "apache-https.conf").read_text(encoding="utf-8")
+        self.assertIn('RequestHeader set X-Forwarded-Proto "https"', https)
+        self.assertIn("/etc/letsencrypt/live/__HOST__/fullchain.pem", https)
+        self.assertIn("RewriteRule ^ https://__HOST__", https)
+
+    def test_the_al2023_scripts_use_dnf_check_the_mariadb_version_and_ask_for_certbot_5_4(self):
+        carpeta = self.base / "deploy" / "al2023"
+        instalar = (carpeta / "instalar_al2023.sh").read_text(encoding="utf-8")
+        self.assertNotIn("apt-get", instalar)
+        self.assertIn("dnf install", instalar)
+        self.assertIn("mariadb105-server", instalar)
+        self.assertIn("python3.13", instalar)
+        https = (carpeta / "https_certificado.sh").read_text(encoding="utf-8")
+        self.assertIn("certbot>=5.4", https)
+        self.assertIn("--ip-address", https)
+        self.assertIn("--preferred-profile shortlived", https)
+
+    def test_the_al2023_shell_scripts_have_valid_syntax(self):
+        import shutil
+        import subprocess
+
+        if not shutil.which("bash"):
+            self.skipTest("no hay bash")
+        for script in ("instalar_al2023.sh", "https_certificado.sh"):
+            resultado = subprocess.run(["bash", "-n", str(self.base / "deploy" / "al2023" / script)], capture_output=True, text=True)
+            self.assertEqual(resultado.returncode, 0, resultado.stderr)
+
     def test_secrets_stay_out_of_git(self):
         ignorados = (self.base / ".gitignore").read_text(encoding="utf-8").splitlines()
         for linea in (".env", "db.sqlite3", "staticfiles/", "COMMIT"):

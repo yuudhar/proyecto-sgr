@@ -1,5 +1,7 @@
 # Despliegue del SGR en AWS
 
+Guía para Ubuntu + nginx. Para Amazon Linux 2023 con Apache (AMI LAMP) y HTTPS, ver `DESPLIEGUE_AL2023.md`.
+
 Guía para dejar el SGR funcionando en una instancia EC2 y para actualizarlo. Todo lo que se menciona está en la carpeta `deploy/` del repositorio. Los pasos se escribieron y se verificaron en un entorno Linux equivalente (gunicorn, Redis local, colección de estáticos, `/salud/`), pero **no se ejecutaron en una cuenta real de AWS**: el despliegue y su URL los debe hacer el equipo (ver «Qué falta por hacer»).
 
 ## 1. Servicios y componentes
@@ -33,7 +35,7 @@ Guía para dejar el SGR funcionando en una instancia EC2 y para actualizarlo. To
    - `CACHE_BACKEND=redis` y `REDIS_URL=redis://127.0.0.1:6379/1`
    - Correo real: `EMAIL_HOST`, `EMAIL_PORT`, `EMAIL_HOST_USER`, `EMAIL_HOST_PASSWORD`, `DEFAULT_FROM_EMAIL` (por ejemplo, SES o un buzón de pruebas).
    - Con HTTPS: `HTTPS=True` y, una vez comprobado, `SECURE_HSTS_SECONDS=3600` (subirlo después).
-   - Si se usa RDS: `DB_ENGINE=mysql`, `DB_NAME`, `DB_USER`, `DB_PASSWORD`, `DB_HOST`, `DB_PORT` (y `pip install mysqlclient`, que requiere `libmysqlclient-dev`). El esquema se crea con `migrate`; los scripts de `sql/` son alternativos.
+   - Si se usa RDS: `DB_ENGINE=mysql`, `DB_NAME`, `DB_USER`, `DB_PASSWORD`, `DB_HOST`, `DB_PORT` (y `pip install mysqlclient`, que requiere `libmysqlclient-dev`). El esquema se crea con `migrate`; los scripts de `sql/` no sirven para eso (crean otras tablas que las que usa Django).
 4. **Instalar los archivos del servicio:**
    ```bash
    sudo cp deploy/sgr.service /etc/systemd/system/
