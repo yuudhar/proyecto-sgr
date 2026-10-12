@@ -1,13 +1,14 @@
 {% autoescape off %}Hola {{ name }},
 
-Pediste recuperar la contraseña de tu cuenta en el SGR. Tu código es:
+Aquí tienes tu código de recuperación para la contraseña de tu cuenta en el SGR:
 
     {{ code }}
 
-Vale {{ seconds }} segundos (hasta las {{ expires_at|time:"H:i:s" }}) y solo se puede usar una vez.
+Tienes {{ duration }} para usarlo: vale {{ seconds }} segundos (hasta las {{ expires_at|time:"H:i:s" }}, hora de Chile) y solo se puede usar una vez.
 Si pides otro código, este deja de servir: usa siempre el último que te llegó.
 
 Si no lo pediste tú, ignora este correo: tu contraseña no cambia mientras nadie use el código.
+Nunca compartas este código: el equipo del SGR no te lo va a pedir.
 
 SGR - Sistema de Gestión de Resultados
 Proyecto académico con datos ficticios.

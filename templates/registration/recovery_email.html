@@ -1,0 +1,92 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="color-scheme" content="light">
+  <title>Tu código para recuperar la contraseña del SGR</title>
+</head>
+<body style="margin:0; padding:0; background-color:#f3f2ef;">
+  {# Texto de vista previa: lo que muestra la bandeja antes de abrir el correo. #}
+  <div style="display:none; max-height:0; overflow:hidden; opacity:0; color:#f3f2ef; font-size:1px; line-height:1px;">
+    Aquí tienes tu código de recuperación. Tienes {{ duration }} para usarlo.
+  </div>
+
+  <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="background-color:#f3f2ef;">
+    <tr>
+      <td align="center" style="padding:28px 12px;">
+
+        <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="max-width:520px; background-color:#ffffff; border:1px solid #dad7d1; border-radius:6px;">
+
+          {# Franja de marca, del mismo vino del portal (#920000). #}
+          <tr>
+            <td align="center" style="background-color:#920000; border-radius:6px 6px 0 0; padding:22px 24px;">
+              <div style="font-family:Arial, 'Liberation Sans', Helvetica, sans-serif; font-size:26px; font-weight:bold; letter-spacing:3px; color:#ffffff; line-height:1;">SGR</div>
+              <div style="font-family:Arial, 'Liberation Sans', Helvetica, sans-serif; font-size:13px; color:#f0d4d4; padding-top:6px;">Sistema de Gestión de Resultados</div>
+            </td>
+          </tr>
+
+          <tr>
+            <td style="padding:30px 32px 8px 32px; font-family:Arial, 'Liberation Sans', Helvetica, sans-serif; color:#26221f;">
+              <p style="margin:0 0 14px 0; font-size:18px; font-weight:bold; color:#26221f;">Hola {{ name }},</p>
+              <p style="margin:0; font-size:15px; line-height:1.5; color:#26221f;">
+                Aquí tienes tu código de recuperación. Tienes <strong>{{ duration }}</strong> para usarlo.
+              </p>
+            </td>
+          </tr>
+
+          {# El código, grande y al centro. #}
+          <tr>
+            <td align="center" style="padding:18px 32px 10px 32px;">
+              <table role="presentation" cellpadding="0" cellspacing="0" border="0" style="width:100%;">
+                <tr>
+                  <td align="center" style="background-color:#f7ecec; border:1px solid #e3c3c3; border-radius:6px; padding:22px 12px;">
+                    <div style="font-family:Arial, 'Liberation Sans', Helvetica, sans-serif; font-size:12px; font-weight:bold; letter-spacing:1.5px; text-transform:uppercase; color:#6d0000; padding-bottom:8px;">Tu código</div>
+                    <div style="font-family:Arial, 'Liberation Sans', Helvetica, sans-serif; font-size:44px; font-weight:bold; letter-spacing:10px; color:#920000; line-height:1.1; padding-left:10px;">{{ code }}</div>
+                  </td>
+                </tr>
+              </table>
+            </td>
+          </tr>
+
+          <tr>
+            <td align="center" style="padding:6px 32px 18px 32px; font-family:Arial, 'Liberation Sans', Helvetica, sans-serif; font-size:14px; line-height:1.5; color:#5a554f;">
+              Vence a las <strong style="color:#26221f;">{{ expires_at|time:"H:i:s" }}</strong> (hora de Chile) y solo se puede usar una vez.
+            </td>
+          </tr>
+
+          <tr>
+            <td style="padding:0 32px 6px 32px; font-family:Arial, 'Liberation Sans', Helvetica, sans-serif; font-size:14px; line-height:1.55; color:#26221f;">
+              <p style="margin:0 0 10px 0;">Escríbelo en la pantalla de recuperación del SGR para elegir tu contraseña nueva.</p>
+              <p style="margin:0 0 10px 0;">Si pides otro código, este deja de servir: usa siempre el último que te llegó.</p>
+            </td>
+          </tr>
+
+          {# Aviso de seguridad. #}
+          <tr>
+            <td style="padding:6px 32px 28px 32px;">
+              <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0">
+                <tr>
+                  <td style="background-color:#fcefcf; border:1px solid #e8cc8a; border-radius:6px; padding:12px 14px; font-family:Arial, 'Liberation Sans', Helvetica, sans-serif; font-size:13px; line-height:1.5; color:#6f4700;">
+                    <strong>¿No lo pediste tú?</strong> Ignora este correo: tu contraseña no cambia mientras nadie use el código.
+                    Nunca compartas este código; el equipo del SGR no te lo va a pedir.
+                  </td>
+                </tr>
+              </table>
+            </td>
+          </tr>
+
+          <tr>
+            <td align="center" style="background-color:#f3f2ef; border-top:1px solid #dad7d1; border-radius:0 0 6px 6px; padding:16px 24px; font-family:Arial, 'Liberation Sans', Helvetica, sans-serif; font-size:12px; line-height:1.5; color:#5a554f;">
+              SGR · Sistema de Gestión de Resultados<br>
+              Proyecto académico con datos ficticios.
+            </td>
+          </tr>
+
+        </table>
+
+      </td>
+    </tr>
+  </table>
+</body>
+</html>

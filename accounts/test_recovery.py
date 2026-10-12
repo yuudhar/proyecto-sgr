@@ -11,6 +11,7 @@ import re
 from datetime import timedelta
 from smtplib import SMTPException
 from unittest import mock
+from zoneinfo import ZoneInfo
 
 from django.apps import apps
 from django.conf import settings
@@ -85,6 +86,40 @@ class RecoveryRequestTests(RecoveryTestCase):
         self.assertRegex(self.last_code(), r"^\d{6}$")
         self.assertIn("120 segundos", message.body)
         self.assertIn("solo se puede usar una vez", message.body)
+
+    def test_the_message_also_comes_as_html_with_the_code_big_and_the_portal_colours(self):
+        with mock.patch("accounts.recovery.new_code", return_value="482915"):
+            self.ask_for_code()
+        message = mail.outbox[0]
+        [(html, mimetype)] = message.alternatives
+        self.assertEqual(mimetype, "text/html")
+        self.assertIn("Aquí tienes tu código de recuperación", html)
+        self.assertIn("Tienes <strong>2 minutos</strong> para usarlo", html)
+        self.assertIn("482915", html)
+        self.assertIn("font-size:44px", html)  # el código va grande
+        self.assertIn('align="center"', html)  # y al centro
+        for colour in ("#920000", "#f7ecec", "#f3f2ef"):  # vino, fondo del código y fondo del portal
+            self.assertIn(colour, html)
+        self.assertIn("hora de Chile", html)
+        self.assertIn("solo se puede usar una vez", html)
+
+    def test_the_plain_text_version_keeps_the_code_alone_on_its_line_and_says_two_minutes(self):
+        self.ask_for_code()
+        body = mail.outbox[0].body
+        self.assertRegex(body, r"(?m)^ {4}\d{6}$")
+        self.assertIn("Aquí tienes tu código de recuperación", body)
+        self.assertIn("Tienes 2 minutos para usarlo", body)
+        self.assertIn("120 segundos", body)
+
+    def test_the_html_message_shows_the_expiry_in_chile_time_and_escapes_the_name(self):
+        User.objects.filter(username=self.username).update(first_name="<b>Matías</b>", last_name="")
+        with mock.patch("accounts.recovery.timezone.now", return_value=self.start):
+            self.ask_for_code()
+        html = mail.outbox[0].alternatives[0].content
+        self.assertNotIn("<b>Matías</b>", html)
+        self.assertIn("&lt;b&gt;Matías&lt;/b&gt;", html)
+        expires = (self.start + timedelta(seconds=120)).astimezone(ZoneInfo("America/Santiago"))
+        self.assertIn(expires.strftime("%H:%M:%S"), html)
 
     def test_the_code_stays_in_the_session_as_a_fingerprint_and_lasts_120_seconds(self):
         with (
@@ -734,6 +769,12 @@ class RecoveryHelperTests(SimpleTestCase):
     def setUp(self):
         cache.clear()
         self.addCleanup(cache.clear)
+
+    def test_the_duration_is_said_in_minutes_when_it_is_whole_minutes(self):
+        self.assertEqual(recovery.describe_duration(120), "2 minutos")
+        self.assertEqual(recovery.describe_duration(60), "1 minuto")
+        self.assertEqual(recovery.describe_duration(90), "90 segundos")
+        self.assertEqual(recovery.describe_duration(45), "45 segundos")
 
     def test_codes_have_six_digits_and_keep_the_leading_zeros(self):
         for _ in range(200):

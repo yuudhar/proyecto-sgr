@@ -20,6 +20,9 @@ ESPERADO = {
     },
     "RecoveryRequestTests": {
         "a_registered_email_gets_one_message_with_a_six_digit_code": "Un correo registrado recibe un único mensaje con un código de 6 dígitos.",
+        "the_message_also_comes_as_html_with_the_code_big_and_the_portal_colours": "El correo también llega en HTML, con los colores del portal, el código grande al centro y el aviso «Tienes 2 minutos para usarlo».",
+        "the_plain_text_version_keeps_the_code_alone_on_its_line_and_says_two_minutes": "La versión en texto simple deja el código solo en su línea y dice que hay 2 minutos para usarlo.",
+        "the_html_message_shows_the_expiry_in_chile_time_and_escapes_the_name": "El correo en HTML muestra la hora de vencimiento en hora de Chile y escapa el nombre de la persona.",
         "the_code_stays_in_the_session_as_a_fingerprint_and_lasts_120_seconds": "En la sesión solo queda una huella del código (no el código) y vale 120 segundos.",
         "the_recovery_adds_no_table_to_the_data_model": "La recuperación no agrega tablas al modelo de datos.",
         "an_unknown_email_gets_the_same_answer_and_no_message": "Un correo inexistente recibe la misma respuesta y no se envía ningún mensaje.",
@@ -91,6 +94,7 @@ ESPERADO = {
         "the_code_field_is_marked_to_become_six_boxes_and_still_works_without_scripts": "El campo del código se convierte en 6 casillas y sigue funcionando sin JavaScript.",
     },
     "RecoveryHelperTests": {
+        "the_duration_is_said_in_minutes_when_it_is_whole_minutes": "La duración se dice en minutos cuando son minutos enteros (120 s: «2 minutos») y en segundos si no.",
         "codes_have_six_digits_and_keep_the_leading_zeros": "Los códigos tienen 6 dígitos y conservan los ceros iniciales.",
         "masking_keeps_only_the_start_and_the_domain": "El enmascarado del correo deja solo el inicio y el dominio.",
         "the_fingerprint_depends_on_the_account_the_shipment_and_the_code": "La huella depende de la cuenta, el envío y el código.",

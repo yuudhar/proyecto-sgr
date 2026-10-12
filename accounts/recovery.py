@@ -32,6 +32,7 @@ import secrets
 from dataclasses import dataclass
 from datetime import timedelta
 from math import ceil
+from zoneinfo import ZoneInfo
 
 from django.conf import settings
 from django.contrib.auth import get_user_model
@@ -167,22 +168,35 @@ def live_code_id(user):
     return last[0] if last is not None and last[1] == SENT_EVENT else None
 
 
+def describe_duration(seconds):
+    """Cuánto dura el código dicho como lo diría una persona: 120 -> «2 minutos», 60 -> «1 minuto», 45 -> «45 segundos»."""
+    if seconds % 60 == 0:
+        minutes = seconds // 60
+        return f"{minutes} minuto" if minutes == 1 else f"{minutes} minutos"
+    return f"{seconds} segundos"
+
+
 def send_code(user, code, expires_at):
-    """Envía el correo con el código. Con el correo de consola (sin EMAIL_HOST) sale en la terminal."""
-    body = render_to_string(
-        "registration/recovery_email.txt",
-        {
-            "name": user.get_full_name() or user.get_username(),
-            "code": code,
-            "seconds": settings.RECOVERY_CODE_SECONDS,
-            "expires_at": timezone.localtime(expires_at),
-        },
-    )
+    """Envía el correo con el código. Con el correo de consola (sin EMAIL_HOST) sale en la terminal.
+
+    Va en dos versiones dentro del mismo mensaje: el texto simple (lo que muestra un lector que no sabe de HTML y lo
+    que se ve en la consola) y la versión con los colores del portal, con el código grande al centro. El lector de
+    correo elige la que sepa mostrar.
+    """
+    context = {
+        "name": user.get_full_name() or user.get_username(),
+        "code": code,
+        "seconds": settings.RECOVERY_CODE_SECONDS,
+        "duration": describe_duration(settings.RECOVERY_CODE_SECONDS),
+        # La hora de vencimiento va siempre en hora de Chile, esté o no activada la zona horaria del portal.
+        "expires_at": timezone.localtime(expires_at, ZoneInfo(settings.PORTAL_TIME_ZONE)),
+    }
     send_mail(
         "Tu código para recuperar la contraseña del SGR",
-        body,
+        render_to_string("registration/recovery_email.txt", context),
         settings.DEFAULT_FROM_EMAIL,
         [user.email],
+        html_message=render_to_string("registration/recovery_email.html", context),
     )
 
 
