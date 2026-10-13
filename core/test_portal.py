@@ -545,7 +545,9 @@ class CrudFlowTests(PortalTestCase):
         base = {
             "activity": activity.pk,
             "management_type": ManagementType.objects.first().pk,
-            "date": "2026-10-02",
+            # El día de la atención: la fecha de una gestión no puede ser anterior (los datos de demostración usan fechas
+            # relativas a hoy, así que una fecha fija dejaría de servir con el paso de los días).
+            "date": activity.date.isoformat(),
             "result": "Se llamó por teléfono.",
         }
         # La gestión 1 ya existe: no puede repetirse (restricción uq_activity_followup).

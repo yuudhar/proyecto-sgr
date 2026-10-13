@@ -10,9 +10,11 @@ Clases que respaldan cada prueba:
     cambios sin guardar.
 """
 
+import struct
 import tempfile
 from io import BytesIO
 from pathlib import Path
+from unittest import mock
 
 from django.contrib.auth.models import Group, User
 from django.contrib.staticfiles import finders
@@ -925,28 +927,31 @@ class GraphicNormsTests(ContextTestCase):
         for url in (reverse("core:login"), reverse("accounts:recover")):
             self.assertContains(self.client.get(url), '<meta name="theme-color" content="#920000">')
 
-    def test_the_arms_are_not_drawn_here_and_appear_once_the_official_file_is_added(self):
-        for url in (reverse("core:login"), "/no-existe-esta-pagina/", reverse("accounts:recover")):
-            self.assertNotContains(self.client.get(url), 'class="escudo', status_code=self.client.get(url).status_code)
-        self.login_as("matias.cavieres")
-        self.assertNotContains(self.client.get(reverse("core:dashboard")), 'class="escudo')
+    def test_the_official_arms_file_is_the_one_given_and_is_not_redrawn(self):
+        path = Path(finders.find("core/img/escudo-la-serena.png"))
+        data = path.read_bytes()
+        self.assertTrue(data.startswith(b"\x89PNG\r\n\x1a\n"))  # es el PNG oficial, no un dibujo hecho aquí
+        width, height = struct.unpack(">II", data[16:24])
+        self.assertEqual((width, height), (554, 554))  # tal como vino: sin recortar ni reescalar
 
-        with tempfile.TemporaryDirectory() as folder:
-            target = Path(folder) / "core" / "img"
-            target.mkdir(parents=True)
-            (target / "escudo-la-serena.svg").write_text('<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 10 10"/>')
-            with override_settings(STATICFILES_DIRS=[folder]):
-                self.client.logout()
-                login = self.client.get(reverse("core:login"))
-                self.assertContains(login, '<img class="escudo escudo-login"')
-                self.assertContains(login, "Escudo de la Ilustre Municipalidad de La Serena")
-                self.assertContains(login, "core/img/escudo-la-serena.svg")
-                public = self.client.get("/no-existe-esta-pagina/")
-                self.assertContains(public, '<img class="escudo escudo-public"', status_code=404)
-                self.assertContains(self.client.get(reverse("accounts:recover")), '<img class="escudo escudo-login"')
-                self.login_as("matias.cavieres")
-                for url in (reverse("core:dashboard"), reverse("core:actividades_list"), reverse("core:actividades_create")):
-                    self.assertContains(self.client.get(url), '<img class="escudo escudo-topbar"')
+    def test_the_arms_appear_on_the_login_the_recovery_the_public_pages_and_the_header(self):
+        login = self.client.get(reverse("core:login"))
+        self.assertContains(login, '<img class="escudo escudo-login"')
+        self.assertContains(login, "Escudo de la Ilustre Municipalidad de La Serena")
+        self.assertContains(login, "core/img/escudo-la-serena.png")
+        self.assertContains(self.client.get(reverse("accounts:recover")), '<img class="escudo escudo-login"')
+        self.assertContains(self.client.get("/no-existe-esta-pagina/"), '<img class="escudo escudo-public"', status_code=404)
+        self.login_as("matias.cavieres")
+        for url in (reverse("core:dashboard"), reverse("core:actividades_list"), reverse("core:actividades_create")):
+            self.assertContains(self.client.get(url), '<img class="escudo escudo-topbar"')
+
+    def test_without_the_arms_file_nothing_is_drawn_in_its_place(self):
+        with mock.patch("core.templatetags.core_ui.finders.find", return_value=None):
+            for url in (reverse("core:login"), "/no-existe-esta-pagina/", reverse("accounts:recover")):
+                response = self.client.get(url)
+                self.assertNotContains(response, 'class="escudo', status_code=response.status_code)
+            self.login_as("matias.cavieres")
+            self.assertNotContains(self.client.get(reverse("core:dashboard")), 'class="escudo')
 
     def test_the_arms_keep_their_proportions_and_free_space(self):
         css = self.css()

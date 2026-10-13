@@ -16,9 +16,9 @@ PENDIENTES = [
     (
         "PEN-02",
         "A2 · Normas gráficas oficiales",
-        "Archivo oficial del escudo y código exacto del color de las normas gráficas de La Serena.",
-        "El archivo y el código deben venir de la fuente oficial (laserena.cl); no se inventan ni se dibujan. Hoy el sistema usa Arial y #920000 y deja el lugar del escudo. La página de laserena.cl declara #920000 como color del tema en sus metadatos, lo que coincide con el sistema, pero no es el manual de normas gráficas (no se pudo obtener el escudo en alta resolución ni los códigos Pantone/CMYK).",
-        "Copiar el escudo como core/static/core/img/escudo-la-serena.svg (o .png): aparece solo. Si el color oficial es otro, cambiar la variable de color en core/static/core/css/sgr.css.",
+        "Confirmar el código exacto del color con el manual de normas gráficas de La Serena.",
+        "El escudo oficial ya está en el sistema (core/static/core/img/escudo-la-serena.png, 554 × 554, tal como se recibió: no se redibujó ni se recortó) y se ve en el ingreso, la recuperación, las páginas sin sesión y la franja de arriba. Falta el código del color: el sistema usa #920000 (el color de tema que declara laserena.cl) y el fondo del archivo del escudo mide #990100 (153, 1, 0), casi #990000; no se cambió sin una fuente oficial.",
+        "Con el manual a mano, cambiar la variable de color en core/static/core/css/sgr.css (--bs-primary y --wine) y la prueba test_the_institutional_color_is_the_one_of_the_browser_and_the_theme.",
         "Pendiente",
     ),
     (

@@ -311,7 +311,7 @@ Estas funciones existen y se pueden mostrar, pero con menos alcance que en un si
 | Indicadores | El avance, el cumplimiento y la ponderación se ingresan a mano en Indicadores. El semáforo sí se calcula con los umbrales del período. No se calculan solos desde las atenciones registradas. | Definir la fórmula de cada ítem |
 | Límite de intentos del código | El contador usa la caché de Django, que por defecto vive en la memoria de cada proceso. Con varios procesos el límite no se comparte. | Una caché compartida (Redis), o un solo proceso |
 | Base de datos | SQLite por defecto; MariaDB o MySQL se activa con `DB_ENGINE` en el `.env`. Las pruebas automáticas corren sobre SQLite. | Probar con el motor que use AWS (ya es MariaDB en el servidor) |
-| Diseño del municipio | Estilo inspirado en la Municipalidad de La Serena, con Arial y el rojo `#920000` que declara su sitio; el lugar del escudo está listo, pero falta el archivo oficial. El pie de página dice que no es un sitio oficial. | El escudo oficial y el código exacto del color de las normas gráficas |
+| Diseño del municipio | Estilo inspirado en la Municipalidad de La Serena, con Arial, el rojo `#920000` que declara su sitio y el escudo oficial (en el ingreso, la recuperación y la franja de arriba). El pie de página dice que no es un sitio oficial. | Confirmar el código exacto del color con el manual de normas gráficas |
 
 ### Pendientes
 

@@ -304,7 +304,7 @@ a {
   display: block;
   flex: none;
   width: auto;
-  height: 2.75rem;
+  height: 3rem;
   min-height: 2.25rem;
   object-fit: contain;
 }
@@ -326,7 +326,7 @@ a {
   }
 }
 
-/* En el ingreso va sobre un recuadro blanco, que es el fondo que le corresponde al escudo en colores. */
+/* En el ingreso va más grande y sin recuadro: el escudo oficial trae su propio fondo rojo y su nombre, y no se toca. */
 .login-top {
   display: flex;
   flex-direction: column;
@@ -335,11 +335,8 @@ a {
 }
 
 .escudo-login {
-  box-sizing: content-box;
-  height: 3.5rem;
-  padding: 0.75rem;
+  height: 7rem;
   border-radius: var(--radius);
-  background: #fff;
 }
 
 /* Barra lateral. En pantallas chicas es el panel de Bootstrap (offcanvas); desde 992 px queda fija. */
