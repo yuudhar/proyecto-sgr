@@ -367,7 +367,7 @@ La matriz de menús por rol está en `docs/evidencias/matriz_menus_por_rol.md`.
 |---|---|
 | URL de AWS | `http://32.198.200.215/` (IP elástica de la instancia EC2); pasa a `https://32.198.200.215/` al activar el certificado |
 | Versión desplegada | `https://<url>/salud/` muestra el commit y la etiqueta que está corriendo, para comprobar que es la versión entregada |
-| Repositorio | `https://github.com/yuudhar/proyecto-sgr` (rama `proyecto-sgr-v14` y la etiqueta de la entrega) |
+| Repositorio | `https://github.com/yuudhar/proyecto-sgr` (rama `main` y la etiqueta `entrega-2`) |
 | Acceso de evaluación | Cuentas de la tabla de cuentas de prueba (el docente recibe la contraseña por el canal acordado) |
 | Secretos | Ninguno en el repositorio: `.env` y `db.sqlite3` están fuera de Git; el servidor guarda sus claves en `/etc/sgr/sgr.env` |
 
