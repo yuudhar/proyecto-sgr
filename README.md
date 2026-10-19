@@ -4,6 +4,8 @@ Aplicación web hecha en Django para registrar y dar seguimiento al trabajo de l
 
 Es un proyecto académico de **Programación Back End / Proyecto Integrado (INACAP)**. Todos los datos son ficticios y no representa un sitio oficial de la Municipalidad de La Serena.
 
+Qué hace cada parte del código (módulos, clases, funciones, modelos, plantillas, JavaScript, estilos y despliegue) está explicado en [`DOCUMENTACION_CODIGO.md`](DOCUMENTACION_CODIGO.md); el código fuente no lleva comentarios.
+
 ## Índice
 
 1. [Integrantes](#integrantes)
@@ -45,7 +47,7 @@ Todos los listados incluyen búsqueda (sin distinguir mayúsculas ni tildes), pa
 - **Contraseñas:** de 8 a 128 caracteres, con al menos una minúscula, una mayúscula, un número y un símbolo (por ejemplo `! # $ %`); además, que no sea de uso común, que no sea solo de números y que no se parezca a los datos del usuario. El mensaje dice exactamente qué le falta. Se revisan al crear un usuario, al cambiar la contraseña desde *Mi perfil* y al recuperarla.
 - **Formatos:** RUT con dígito verificador, teléfono, correo, nombres, códigos, usuario y color (`#RRGGBB`) tienen una regla propia en `core/rules.py`, que usan igual el servidor y el navegador.
 
-Los cambios de la versión 16 (archivos de evidencia, foto de perfil, alta única de funcionario y pantalla Atención única) están resumidos en [`docs/CAMBIOS_v16.md`](docs/CAMBIOS_v16.md). En la versión 17, a un funcionario que todavía no tiene usuario se le puede dar el acceso desde su propia pantalla «Editar», sin pasar por Control de usuarios, y su ficha indica con qué usuario ingresa. En la versión 18 los listados y la pantalla Atención buscan mientras se escribe (con una pausa breve) y al cambiar un filtro, sin apretar «Buscar»; el botón y la tecla Enter siguen funcionando.
+Los cambios de la versión 16 (archivos de evidencia, foto de perfil, alta única de funcionario y pantalla Atención única) están resumidos en [`docs/CAMBIOS_v16.md`](docs/CAMBIOS_v16.md). En la versión 17, a un funcionario que todavía no tiene usuario se le puede dar el acceso desde su propia pantalla «Editar», sin pasar por Control de usuarios, y su ficha indica con qué usuario ingresa. En la versión 18 los listados y la pantalla Atención buscan mientras se escribe (con una pausa breve) y al cambiar un filtro, sin apretar «Buscar»; el botón y la tecla Enter siguen funcionando. La versión 19 no cambia el sistema ni la base: quita los datos de demostración y deja los scripts de la base al día (ver [`docs/CAMBIOS_v19.md`](docs/CAMBIOS_v19.md)).
 
 ## Requisitos
 
@@ -74,7 +76,9 @@ python -m pip install -r requirements.txt
 cp .env.example .env
 
 python manage.py migrate
-python manage.py seed_demo_data
+python manage.py seed_roles              # crea los 5 roles con sus permisos
+python manage.py seed_management_types   # crea los tipos de gestión
+python manage.py createsuperuser         # tu propia cuenta de administrador
 python manage.py runserver
 ```
 
@@ -88,26 +92,23 @@ python -m pip install -r requirements.txt
 cp .env.example .env
 
 python manage.py migrate
-python manage.py seed_demo_data
+python manage.py seed_roles              # crea los 5 roles con sus permisos
+python manage.py seed_management_types   # crea los tipos de gestión
+python manage.py createsuperuser         # tu propia cuenta de administrador
 python manage.py runserver
 ```
 
 Luego abre `http://127.0.0.1:8000/`. Las próximas veces solo hacen falta la activación del entorno y `python manage.py runserver`.
 
-### Instalación sin datos de demostración (limpia)
+### Sin datos de demostración
 
-`migrate` solo crea las tablas, sin datos. Para una instalación real:
+`migrate` solo crea las tablas, sin datos. El sistema no trae datos ficticios ni cuentas de partida: los roles, los tipos de gestión y tu superusuario se crean con los tres comandos de arriba, y todo lo demás se registra desde el portal o directamente en la base (phpMyAdmin). Los datos que usan las pruebas automáticas están en `core/datos_prueba.py` y solo se cargan en la base temporal de las pruebas.
 
-```bash
-python manage.py migrate
-python manage.py seed_roles              # crea los 5 roles con sus permisos
-python manage.py seed_management_types   # crea los tipos de gestión
-python manage.py createsuperuser         # tu propia cuenta de administrador
-```
+### Cuentas
 
-### Cuentas de prueba
+Las cuentas son registros de la base (en el servidor, MariaDB: phpMyAdmin, base `sgr_django`, tabla `auth_user`; la contraseña se guarda cifrada, nunca en texto). Se ingresa con el **usuario** (o con el correo). Se crean, se editan y se desactivan en *Control de usuarios*, y cada persona cambia su contraseña en *Mi perfil*. **La política de contraseña solo se exige en los formularios: las cuentas creadas con `createsuperuser`, `set_password` o `changepassword` no pasan por ella.**
 
-`seed_demo_data` las crea **una sola vez** y desde ahí son datos de la base: en el servidor viven en MariaDB y se ven en phpMyAdmin (`sgr_django`, tabla `auth_user`; la contraseña se guarda cifrada, nunca en texto). Se ingresa con el **usuario** (o con el correo) y las cuentas parten con la contraseña `Hola123!`, que cumple esas reglas. Desde ahí se administran como cualquier dato: se editan, se desactivan o se crean otras en *Control de usuarios*, y cada persona cambia su contraseña en *Mi perfil*. **La política de contraseña solo se exige en los formularios: las cuentas creadas con `seed_demo_data`, `set_password` o `changepassword` no pasan por ella.** **En un servidor real cambia las claves de partida** (o crea tus propias cuentas y no ejecutes el seed) con `python manage.py changepassword <usuario>`.
+Los roles de la tabla siguiente son los que usan las pruebas automáticas y la guía de pruebas por rol (en el servidor existen las cuentas que el equipo haya creado):
 
 | Usuario | Rol |
 |---|---|
@@ -118,8 +119,6 @@ python manage.py createsuperuser         # tu propia cuenta de administrador
 | `matias.cavieres` | Funcionario y Verificador, Delegación Norte |
 | `matias.quiroz` | Funcionario y Verificador, Delegación Sur |
 | `consulta1` | Solo lectura |
-
-Volver a ejecutar el comando no pisa lo que ya cambiaste: solo fija la contraseña cuando la cuenta no existe y solo agrega lo que falta. Si ya tienes tus propios usuarios en la base, no hace falta ejecutarlo.
 
 ### Recuperar la contraseña
 
@@ -200,11 +199,10 @@ Comandos de datos (`python manage.py <comando>`):
 |---|---|
 | `seed_roles` | Crea los roles Coordinación, Jefatura, Funcionario, Verificador y Consulta con sus permisos |
 | `seed_management_types` | Crea los tipos de gestión |
-| `seed_demo_data` | Datos ficticios y las 7 cuentas de prueba (solo para demostración) |
-| `cargar_volumen_estres` | Carga un volumen grande de registros para las pruebas de estrés |
+| `cargar_volumen_estres` | Carga un volumen grande de registros marcados como prueba (`--limpiar` los borra); necesita funcionarios e ítems ya creados |
 | `exportar_registro_pruebas` | Genera `docs/pruebas/registro_pruebas_funcionales.csv` y `.xlsx` |
 
-La carpeta `sql/` guarda los scripts SQL del modelo relacional (`sgr_v3_modelo_relacional_completo.sql`, `sgr_v5_modelo_relacional_completo.sql` con su diagrama `sgr_v5_mer.png`, y los de paso entre versiones `sgr_v3_a_v5_alter.sql` y `sgr_v5_a_v3_revertir.sql`). `sgr_django_estructura_mariadb.sql` es la estructura real de la base del servidor (32 tablas, exportada desde phpMyAdmin, sin datos ni contraseñas). El script con todos los campos actuales, en inglés, es `sgr_v10_modelo_relacional_completo_en.sql` (el v9 se conserva sin cambios); se ejecuta en DBeaver para tener el diagrama al día. Los cambios de la v16 sobre la base del servidor están en `sgr_v13_a_v16_alter.sql`, que no hace falta ejecutar porque `migrate` los aplica. **Cuidado:** ese script borra y vuelve a crear una base llamada `sgr_db` (no `sgr_django`), así que sirve para el diagrama y para pruebas, no para actualizar la base del servidor: ahí las tablas las crea `migrate`.
+La carpeta `sql/` guarda los scripts SQL de la base. **`sgr_django_v19.sql`** es la estructura real de la base del servidor (`sgr_django`, 32 tablas, MariaDB 10.11, exportada desde phpMyAdmin y puesta al día; sin datos ni contraseñas). **`sgr_django_v19_dbeaver.sql`** es el mismo esquema, pero crea una base aparte (`sgr_django_der`) y la vuelve a crear si ya existe: se abre en DBeaver con *Ejecutar script* (Alt+X) para generar los diagramas ER sin tocar la base real. `sgr_v19_modelo_relacional_completo_en.sql` es el diseño relacional de 22 tablas en inglés (el v9 se conserva sin cambios), y `sgr_v3_modelo_relacional_completo.sql` y `sgr_v5_modelo_relacional_completo.sql` (con su diagrama `sgr_v5_mer.png`) son los diseños originales, con los scripts de paso `sgr_v3_a_v5_alter.sql` y `sgr_v5_a_v3_revertir.sql`. Los cambios de la v16 sobre la base del servidor están en `sgr_v13_a_v16_alter.sql`, que no hace falta ejecutar porque `migrate` los aplica. **Cuidado:** el script en inglés borra y vuelve a crear una base llamada `sgr_db` (no `sgr_django`), así que sirve para el diagrama y para pruebas, no para actualizar la base del servidor: ahí las tablas las crea `migrate`. La v17, la v18 y la v19 no cambian ninguna tabla.
 
 **Zonas horarias en MariaDB:** los informes agrupan por fecha en hora de Chile y necesitan las tablas de zonas horarias del motor. Se cargan una vez con:
 
@@ -244,7 +242,7 @@ Grupo de seguridad: puerto 22 solo desde tu IP; 80 y 443 abiertos; el 3306 no se
    sudo bash deploy/al2023/instalar_al2023.sh https://github.com/yuudhar/proyecto-sgr.git <rama> <ip-o-dominio>
    ```
 4. **Migrar y arrancar:** `cd /opt/sgr/app && sudo bash deploy/actualizar.sh <rama>`. Hace `check --deploy`, `migrate`, `collectstatic` y reinicia el servicio.
-5. **Cuentas:** para una demostración, `seed_demo_data` (como root, con las variables de `/etc/sgr/sgr.env` cargadas); para una instalación real, `seed_roles`, `seed_management_types` y `createsuperuser`.
+5. **Cuentas:** solo si la base está vacía, `seed_roles`, `seed_management_types` y `createsuperuser` (como root, con las variables de `/etc/sgr/sgr.env` cargadas). Si la base ya tiene datos, no se hace nada.
 6. **HTTPS:** `sudo bash deploy/al2023/https_certificado.sh <ip-o-dominio> <correo>`. Con `--prueba` ensaya contra el entorno de pruebas de Let's Encrypt sin tocar el sitio. Deja `HTTPS=True`, redirige el 80 al 443 y crea el temporizador de renovación.
 7. **Comprobar:** `curl https://<ip-o-dominio>/salud/` (responde con la versión desplegada) y `systemctl list-timers sgr-certbot.timer`.
 
@@ -309,7 +307,7 @@ Estas funciones existen y se pueden mostrar, pero con menos alcance que en un si
 | Función | Cómo funciona hoy | Para que sea real |
 |---|---|---|
 | Correo de recuperación | Sin `EMAIL_HOST` en el `.env` el mensaje no sale: se imprime en la consola donde corre el servidor. Con `EMAIL_HOST` (Gmail, Mailtrap u otro SMTP) se envía de verdad, en HTML con los colores del portal. Las pruebas automáticas revisan el mensaje en memoria. | Configurar el SMTP en el `.env` del servidor |
-| Datos de demostración | `seed_demo_data` carga una sola vez usuarios (contraseña de partida `Hola123!`), las delegaciones Norte y Sur, atenciones, evidencias e indicadores ficticios. Después son registros normales de la base (se ven y editan en phpMyAdmin o en el portal), no dependen del comando. | En una instalación real no se ejecuta, o se borran los datos ficticios y se cambian las contraseñas |
+| Datos de la base | El sistema no trae datos ficticios: lo que hay en la base (usuarios, delegaciones, atenciones, evidencias, indicadores) son registros normales que se ven y editan en el portal o en phpMyAdmin. Las pruebas automáticas usan sus propios datos (`core/datos_prueba.py`) en una base temporal. | Respaldar la base con la exportación de phpMyAdmin |
 | Archivos de evidencia y fotos | Se suben a la carpeta de archivos del servidor (`MEDIA_ROOT`, por defecto `media/`; en AWS `/opt/sgr/app/media`), con un nombre propio. Se aceptan PDF, PNG, JPG, Word y Excel de hasta 10 MB (fotos: PNG o JPG de hasta 2 MB) y se revisa que el contenido corresponda a la extensión. Los metadatos (nombre original, tipo, tamaño y huella SHA-256) los arma el sistema. Los archivos no tienen dirección pública: se entregan solo a quien puede ver esa evidencia. | Respaldar la carpeta de archivos junto con la base de datos |
 | Indicadores | El avance, el cumplimiento y la ponderación se ingresan a mano en Indicadores. El semáforo sí se calcula con los umbrales del período. No se calculan solos desde las atenciones registradas. | Definir la fórmula de cada ítem |
 | Límite de intentos del código | El contador usa la caché de Django, que por defecto vive en la memoria de cada proceso. Con varios procesos el límite no se comparte. | Una caché compartida (Redis), o un solo proceso |
@@ -350,7 +348,7 @@ Son más de 700 pruebas sobre SQLite en memoria, sin tocar tu base de datos. Cad
 
 ### Probar a mano por rol
 
-1. Ejecuta `python manage.py seed_demo_data` y entra con cada cuenta de la tabla de cuentas de prueba.
+1. Entra con una cuenta de cada rol (créalas en *Control de usuarios* si no existen; ver la tabla de cuentas).
 2. Con `admin` revisa todos los menús; con `consulta1` comprueba que solo ve y no puede crear (los botones no aparecen y las rutas devuelven 403).
 3. Con `supervision1` cambia de delegación en la franja de arriba y mira cómo cambian los listados.
 4. Con `matias.cavieres` ingresa una atención en *Atención* y sube una evidencia con un archivo PDF. La valida otra persona (`matias.cavieres` revisa las evidencias de su delegación que subió el otro funcionario, porque nadie revisa la suya).

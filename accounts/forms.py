@@ -1,5 +1,3 @@
-"""Formularios de la recuperación de contraseña (uno por pantalla)."""
-
 from django import forms
 from django.contrib.auth.forms import SetPasswordForm
 
@@ -9,7 +7,6 @@ from core.rules import get_rule
 
 
 class RecoveryEmailForm(BootstrapFormMixin, forms.Form):
-    """Paso 1: el correo de la cuenta."""
 
     email = forms.EmailField(
         label="Correo de tu cuenta",
@@ -29,7 +26,6 @@ class RecoveryEmailForm(BootstrapFormMixin, forms.Form):
         self.style_fields()
 
     def clean_email(self):
-        # Mismo formato que exigen los formularios de usuarios; en minúsculas porque el correo no distingue.
         value, error = get_rule("email").apply(self.cleaned_data["email"])
         if error:
             raise forms.ValidationError(error)
@@ -37,11 +33,10 @@ class RecoveryEmailForm(BootstrapFormMixin, forms.Form):
 
 
 class RecoveryCodeForm(BootstrapFormMixin, forms.Form):
-    """Paso 2: el código de 6 dígitos que llegó por correo."""
 
     code = forms.CharField(
         label="Código de 6 dígitos",
-        max_length=12,  # deja espacio para un código escrito con espacios; la regla lo arregla
+        max_length=12,
         widget=forms.TextInput(
             attrs={
                 "autofocus": True,
@@ -49,7 +44,6 @@ class RecoveryCodeForm(BootstrapFormMixin, forms.Form):
                 "inputmode": "numeric",
                 "placeholder": "000000",
                 "class": "code-input",
-                # Con JavaScript el campo se cambia por seis casillas (core/static/core/js/code-boxes.js).
                 "data-code-boxes": str(CODE_LENGTH),
                 **get_rule("recovery_code").attrs(),
             }
@@ -68,7 +62,6 @@ class RecoveryCodeForm(BootstrapFormMixin, forms.Form):
 
 
 class RecoveryPasswordForm(BootstrapFormMixin, SetPasswordForm):
-    """Paso 3: la contraseña nueva, con las mismas exigencias de siempre (AUTH_PASSWORD_VALIDATORS)."""
 
     error_messages = {
         **SetPasswordForm.error_messages,
@@ -87,5 +80,4 @@ class RecoveryPasswordForm(BootstrapFormMixin, SetPasswordForm):
         self.style_fields()
 
     def validate_password_for_user(self, user, password_field_name="new_password2"):
-        # El aviso de una contraseña débil va en el campo de la contraseña nueva, no en el de repetirla.
         super().validate_password_for_user(user, "new_password1")

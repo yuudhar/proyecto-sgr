@@ -15,8 +15,6 @@ class Evidence(BaseModel):
     unique_code = models.CharField(
         max_length=50, unique=True, verbose_name="código único"
     )
-    # La columna sigue llamándose file_link (varchar 255): ahora guarda la ruta del archivo
-    # subido dentro de la carpeta de archivos del sistema, no un texto libre.
     file_link = models.FileField(
         upload_to=evidence_path,
         max_length=255,
@@ -70,8 +68,6 @@ class Validation(BaseModel):
         Evidence, on_delete=models.PROTECT, related_name="validations",
         verbose_name="evidencia",
     )
-    # Vacío cuando revisó el Super Usuario, que no es un funcionario: el registro de
-    # auditoría guarda igualmente qué usuario hizo la revisión.
     reviewer_officer = models.ForeignKey(
         Officer, on_delete=models.PROTECT, related_name="performed_validations",
         verbose_name="funcionario verificador", null=True, blank=True,

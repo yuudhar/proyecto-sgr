@@ -1,8 +1,3 @@
-"""Pruebas del despliegue (A4): ajustes de producción por variables de entorno, revisión de estado y registro de pruebas.
-
-Los ajustes se cargan otra vez desde settings.py con variables de entorno de prueba, igual que en EmailSettingsTests.
-"""
-
 import importlib.util
 import os
 import re
@@ -36,7 +31,6 @@ CLAVE_BUENA = "clave-de-prueba-" + "x" * 50
 
 
 def cargar(**env):
-    """Carga settings.py de nuevo con estas variables de entorno y devuelve el módulo."""
     ruta = settings.BASE_DIR / "sgr_project" / "settings.py"
     spec = importlib.util.spec_from_file_location("settings_de_despliegue", ruta)
     modulo = importlib.util.module_from_spec(spec)
@@ -52,7 +46,7 @@ class ProductionSettingsTests(SimpleTestCase):
         self.assertEqual(m.CSRF_TRUSTED_ORIGINS, [])
         self.assertFalse(getattr(m, "SESSION_COOKIE_SECURE", False))
         self.assertFalse(getattr(m, "SECURE_SSL_REDIRECT", False))
-        self.assertFalse(hasattr(m, "CACHES"))  # caché local por defecto
+        self.assertFalse(hasattr(m, "CACHES"))
         self.assertFalse(hasattr(m, "LOGGING"))
         self.assertNotIn("whitenoise.middleware.WhiteNoiseMiddleware", m.MIDDLEWARE)
         self.assertNotIn("OPTIONS", m.DATABASES["default"])
@@ -239,7 +233,6 @@ class HealthCheckTests(TestCase):
 
 
 class TestRegistryTests(SimpleTestCase):
-    """El registro de pruebas del A3 cubre todas las pruebas automáticas, sin huecos ni sobrantes."""
 
     @classmethod
     def setUpClass(cls):

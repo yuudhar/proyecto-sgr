@@ -1,97 +1,8 @@
--- WARNING: this deletes the sgr_db database (if it exists) and recreates it empty.
 DROP DATABASE IF EXISTS sgr_db;
 CREATE DATABASE sgr_db CHARACTER SET utf8mb4;
 USE sgr_db;
 
--- RESULTS MANAGEMENT SYSTEM (SGR) - Relational Model (ENGLISH VERSION)
--- PROJECT VERSION: v16  (script v10; base model: v4 of Analysis and Design)
--- 22 tables - To run in DBeaver (MySQL / MariaDB)
---
--- This is the same script as sgr_v3_modelo_relacional_completo.sql, with
--- table names, column names, constraint names and default values translated
--- to English (table names match the Django models of the project).
--- Structure, data types, relationships and seed data are exactly the same,
--- except for the AUDIT FIELDS and the FIELDS ADDED BY THE DJANGO PROJECT
--- described below.
---
--- ENGLISH SCRIPT v3 = v2 + audit fields: created_at, updated_at and deleted_at
--- (soft delete) are added to the 20 tables that are Django models (BaseModel).
--- User corresponds to UserProfile in Django.
---
--- ENGLISH SCRIPT v9 = v3 + the fields the Django project added afterwards.
--- Each one is marked in the code with NEW v5 / NEW v8 (A1) / NEW v9 (A2):
---   Delegation  -> address, commune                                (v8, A1)
---               -> color, with a CHECK so it is written as #RRGGBB (v5)
---   Item        -> description                                     (v8, A1)
---   Role        -> description, scope and status                   (v8, A1)
---                  scope: 'own' = its delegation, 'all' = every delegation
---                  Role corresponds to Group + RoleProfile in Django.
---   Role and User_Role_Delegation also carry the three audit fields now
---   (in Django both are BaseModel tables: RoleProfile since v8 and
---   UserRoleDelegation since v9), so all 22 tables have created_at,
---   updated_at and deleted_at.
--- The CHECK on Delegation.color is only enforced by MySQL 8.0.16+ or
--- MariaDB 10.2.1+ (older MySQL versions accept it but ignore it).
---
--- ENGLISH SCRIPT v10 = v9 + the three changes of project version v16
--- (the v9 script is kept untouched next to this one):
---   User        -> photo VARCHAR(255) NULL   profile picture; stores the path
---                  of the uploaded PNG/JPG (Django: accounts_userprofile.photo)
---   Validation  -> Officer_id_reviewer is now NULL-able: a review made by the
---                  Super User (who is not an officer) has no officer.
---                  (Django: evidence_validation.reviewer_officer_id)
---   Evidence    -> file_link keeps its name and VARCHAR(255) type, but now
---                  stores the path of the uploaded file (PDF, PNG, JPG, DOCX
---                  or XLSX up to 10 MB) instead of free text; metadata is
---                  filled by the system (original name, type, size, SHA-256).
---   The server database gets these changes with `python manage.py migrate`
---   (evidence 0002 and 0003, accounts 0005), not with this script.
---
--- CHANGE WITH RESPECT TO THE ORIGINAL MODEL (still 22 tables):
---   Beneficiary.address  -> street and number of the home (a single
---   field, optional: it stays empty if unknown).
--- Everything else stays exactly the same.
---
--- v4: 19 base tables (checked against the 11 minimum entities of
---     Guia_Proyecto_Software_SGR_Alumnos.pdf) + Beneficiary,
---     Territory and Management_Type, added after the exhaustive
---     cross-check against the 20 slides of the real SGR Matrix (PPT).
--- Final verification: the 19 screenshots embedded in the PPT were
--- reviewed (not only the text) and the redundant text column
--- territory in Commitment was removed (rubric: design oriented to
--- avoiding unnecessary redundancies).
---
--- NAME EQUIVALENCE (Spanish -> English):
---   Delegacion -> Delegation          Cargo -> Position
---   Funcionario -> Officer            Usuario -> User
---   Rol -> Role                       Usuario_Rol_Delegacion -> User_Role_Delegation
---   Item -> Item                      Servicio -> Service
---   Tipo_Gestion -> Management_Type   Beneficiario -> Beneficiary
---   Territorio -> Territory           Cargo_Item -> Position_Item
---   Periodo -> Period                 Meta -> Goal
---   Indicador -> Indicator            Ajuste -> Adjustment
---   Actividad -> Activity             Gestion_Atencion -> Followup
---   Evidencia -> Evidence             Validacion -> Validation
---   Compromiso -> Commitment          Auditoria -> Audit_Log
--- =====================================================================
-
-
--- NOTE: Position is also the name of a MySQL function, so every reference
--- to it is written with a space: REFERENCES Position (id_position).
-
--- NOTE: the first lines of this script delete the current sgr_db database
--- (the Spanish version too, with all its data) and recreate it with the 22
--- tables in English. The data is test data and can be lost.
--- If the Django .env file also points to sgr_db (DB_ENGINE=mysql), this also
--- deletes the Django tables and users. In that case use another name for
--- Django (e.g. DB_NAME=sgr_django).
--- =====================================================================
-
 SET FOREIGN_KEY_CHECKS = 0;
-
--- ---------------------------------------------------------------------
--- ORGANIZATION AND SECURITY
--- ---------------------------------------------------------------------
 
 CREATE TABLE Delegation (
     id_delegation INT AUTO_INCREMENT PRIMARY KEY,
@@ -99,10 +10,10 @@ CREATE TABLE Delegation (
     status        VARCHAR(20)  NOT NULL DEFAULT 'active',
     managers      VARCHAR(255),
     scope         VARCHAR(100),
-    address       VARCHAR(200) NOT NULL DEFAULT '',          -- NEW v8 (A1): street and number of the office (empty if unknown)
-    commune       VARCHAR(100) NOT NULL DEFAULT '',          -- NEW v8 (A1)
-    color         VARCHAR(7)   NOT NULL DEFAULT '#920000',  -- NEW v5: #RRGGBB, identifies the delegation on screen
-    created_at    DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,   -- AUDIT
+    address       VARCHAR(200) NOT NULL DEFAULT '',
+    commune       VARCHAR(100) NOT NULL DEFAULT '',
+    color         VARCHAR(7)   NOT NULL DEFAULT '#920000',
+    created_at    DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
     updated_at    DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
     deleted_at    DATETIME NULL,
     CONSTRAINT chk_delegation_color CHECK (color REGEXP '^#[0-9A-Fa-f]{6}$')
@@ -113,7 +24,7 @@ CREATE TABLE Position (
     name        VARCHAR(100) NOT NULL,
     valid_from  DATE NOT NULL,
     valid_until DATE,
-    created_at  DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,   -- AUDIT
+    created_at  DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
     updated_at  DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
     deleted_at  DATETIME NULL
 ) ENGINE=InnoDB;
@@ -125,7 +36,7 @@ CREATE TABLE Officer (
     status                   VARCHAR(20) NOT NULL DEFAULT 'active',
     Delegation_id_delegation INT NOT NULL,
     Position_id_position     INT NOT NULL,
-    created_at               DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,   -- AUDIT
+    created_at               DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
     updated_at               DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
     deleted_at               DATETIME NULL,
     CONSTRAINT fk_officer_delegation FOREIGN KEY (Delegation_id_delegation) REFERENCES Delegation(id_delegation),
@@ -137,9 +48,9 @@ CREATE TABLE User (
     email              VARCHAR(150) NOT NULL UNIQUE,
     password_hash      VARCHAR(255) NOT NULL,
     status             VARCHAR(20) NOT NULL DEFAULT 'active',
-    photo              VARCHAR(255) NULL,                              -- NEW v10 (v16): profile picture (file path)
+    photo              VARCHAR(255) NULL,
     Officer_id_officer INT,
-    created_at         DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,   -- AUDIT
+    created_at         DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
     updated_at         DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
     deleted_at         DATETIME NULL,
     CONSTRAINT fk_user_officer FOREIGN KEY (Officer_id_officer) REFERENCES Officer(id_officer)
@@ -148,10 +59,10 @@ CREATE TABLE User (
 CREATE TABLE Role (
     id_role     INT AUTO_INCREMENT PRIMARY KEY,
     name        VARCHAR(50) NOT NULL UNIQUE,
-    description VARCHAR(255) NOT NULL DEFAULT '',          -- NEW v8 (A1)
-    scope       VARCHAR(10)  NOT NULL DEFAULT 'own',       -- NEW v8 (A1): 'own' = its delegation, 'all' = every delegation
-    status      VARCHAR(20)  NOT NULL DEFAULT 'active',    -- NEW v8 (A1)
-    created_at  DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,   -- AUDIT (NEW v8)
+    description VARCHAR(255) NOT NULL DEFAULT '',
+    scope       VARCHAR(10)  NOT NULL DEFAULT 'own',
+    status      VARCHAR(20)  NOT NULL DEFAULT 'active',
+    created_at  DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
     updated_at  DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
     deleted_at  DATETIME NULL
 ) ENGINE=InnoDB;
@@ -161,7 +72,7 @@ CREATE TABLE User_Role_Delegation (
     User_id_user             INT NOT NULL,
     Role_id_role             INT NOT NULL,
     Delegation_id_delegation INT NULL,
-    created_at               DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,   -- AUDIT (NEW v9, A2)
+    created_at               DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
     updated_at               DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
     deleted_at               DATETIME NULL,
     CONSTRAINT fk_urd_user FOREIGN KEY (User_id_user) REFERENCES User(id_user),
@@ -170,17 +81,13 @@ CREATE TABLE User_Role_Delegation (
     UNIQUE KEY uq_user_role_delegation (User_id_user, Role_id_role, Delegation_id_delegation)
 ) ENGINE=InnoDB;
 
--- ---------------------------------------------------------------------
--- CATALOGS
--- ---------------------------------------------------------------------
-
 CREATE TABLE Item (
     id_item             INT AUTO_INCREMENT PRIMARY KEY,
-    Item_id_parent_item INT NULL,                                             -- NEW v3: CARE_TYPE -> CARE_SUBTYPE
+    Item_id_parent_item INT NULL,
     name                VARCHAR(150) NOT NULL,
-    description         VARCHAR(255) NOT NULL DEFAULT '',                         -- NEW v8 (A1)
+    description         VARCHAR(255) NOT NULL DEFAULT '',
     calculation_type    VARCHAR(20) NOT NULL DEFAULT 'quantitative',
-    created_at          DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,   -- AUDIT
+    created_at          DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
     updated_at          DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
     deleted_at          DATETIME NULL,
     CONSTRAINT fk_item_parent FOREIGN KEY (Item_id_parent_item) REFERENCES Item(id_item)
@@ -190,43 +97,35 @@ CREATE TABLE Service (
     id_service INT AUTO_INCREMENT PRIMARY KEY,
     name       VARCHAR(100) NOT NULL,
     status     VARCHAR(20) NOT NULL DEFAULT 'active',
-    created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,   -- AUDIT
+    created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
     updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
     deleted_at DATETIME NULL
 ) ENGINE=InnoDB;
 
--- NEW in v2: catalog of management types (Social Area: in person,
--- field visit, report delivery, benefit delivery, etc.)
 CREATE TABLE Management_Type (
     id_management_type INT AUTO_INCREMENT PRIMARY KEY,
     name               VARCHAR(80) NOT NULL UNIQUE,
-    created_at         DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,   -- AUDIT
+    created_at         DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
     updated_at         DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
     deleted_at         DATETIME NULL
 ) ENGINE=InnoDB;
 
--- NEW in v4: the neighbour/user served (RUT, name, phone).
--- Own table (not loose columns) because the same RUT repeats
--- across several activities over time.
--- v3: the home address is added (street and number).
 CREATE TABLE Beneficiary (
     id_beneficiary INT AUTO_INCREMENT PRIMARY KEY,
     rut            VARCHAR(12) NOT NULL UNIQUE,
     name           VARCHAR(150) NOT NULL,
     phone          VARCHAR(20),
-    address        VARCHAR(200) NOT NULL DEFAULT '',   -- NEW v3: street and number (empty if unknown)
-    created_at     DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,   -- AUDIT
+    address        VARCHAR(200) NOT NULL DEFAULT '',
+    created_at     DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
     updated_at     DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
     deleted_at     DATETIME NULL
 ) ENGINE=InnoDB;
 
--- NEW in v4: geographic subdivision inside a delegation
--- (Latorre, Toqui, Zorrilla...), seen in the collective agenda.
 CREATE TABLE Territory (
     id_territory             INT AUTO_INCREMENT PRIMARY KEY,
     name                     VARCHAR(100) NOT NULL,
     Delegation_id_delegation INT NOT NULL,
-    created_at               DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,   -- AUDIT
+    created_at               DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
     updated_at               DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
     deleted_at               DATETIME NULL,
     CONSTRAINT fk_territory_delegation FOREIGN KEY (Delegation_id_delegation) REFERENCES Delegation(id_delegation),
@@ -240,18 +139,14 @@ CREATE TABLE Position_Item (
     weight               DECIMAL(5,2) NOT NULL,
     valid_from           DATE NOT NULL,
     valid_until          DATE,
-    kind                 ENUM('NORMAL','BONUS','PENALTY') NOT NULL DEFAULT 'NORMAL',  -- NEW v2
-    max_cap              DECIMAL(10,2) NULL,                                  -- NEW v2
-    created_at           DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,   -- AUDIT
+    kind                 ENUM('NORMAL','BONUS','PENALTY') NOT NULL DEFAULT 'NORMAL',
+    max_cap              DECIMAL(10,2) NULL,
+    created_at           DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
     updated_at           DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
     deleted_at           DATETIME NULL,
     CONSTRAINT fk_positionitem_position FOREIGN KEY (Position_id_position) REFERENCES Position (id_position),
     CONSTRAINT fk_positionitem_item FOREIGN KEY (Item_id_item) REFERENCES Item(id_item)
 ) ENGINE=InnoDB;
-
--- ---------------------------------------------------------------------
--- MEASUREMENT
--- ---------------------------------------------------------------------
 
 CREATE TABLE Period (
     id_period            INT AUTO_INCREMENT PRIMARY KEY,
@@ -263,7 +158,7 @@ CREATE TABLE Period (
     amber_threshold      DECIMAL(5,2) NOT NULL DEFAULT 60.00,
     weighted_cap         DECIMAL(5,2) NOT NULL DEFAULT 150.00,
     parameters_version   VARCHAR(20) NOT NULL DEFAULT '1',
-    created_at           DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,   -- AUDIT
+    created_at           DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
     updated_at           DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
     deleted_at           DATETIME NULL
 ) ENGINE=InnoDB;
@@ -278,7 +173,7 @@ CREATE TABLE Goal (
     Officer_id_officer   INT NULL,
     Position_id_position INT NULL,
     Period_id_period     INT NOT NULL,
-    created_at           DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,   -- AUDIT
+    created_at           DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
     updated_at           DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
     deleted_at           DATETIME NULL,
     CONSTRAINT fk_goal_item FOREIGN KEY (Item_id_item) REFERENCES Item(id_item),
@@ -296,7 +191,7 @@ CREATE TABLE Indicator (
     status_light  VARCHAR(20) NOT NULL,
     calculated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
     Goal_id_goal  INT NOT NULL,
-    created_at    DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,   -- AUDIT
+    created_at    DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
     updated_at    DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
     deleted_at    DATETIME NULL,
     CONSTRAINT fk_indicator_goal FOREIGN KEY (Goal_id_goal) REFERENCES Goal(id_goal)
@@ -311,17 +206,13 @@ CREATE TABLE Adjustment (
     Officer_id_officer  INT NOT NULL,
     Period_id_period    INT NOT NULL,
     User_id_responsible INT NOT NULL,
-    created_at          DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,   -- AUDIT
+    created_at          DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
     updated_at          DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
     deleted_at          DATETIME NULL,
     CONSTRAINT fk_adjustment_officer FOREIGN KEY (Officer_id_officer) REFERENCES Officer(id_officer),
     CONSTRAINT fk_adjustment_period FOREIGN KEY (Period_id_period) REFERENCES Period(id_period),
     CONSTRAINT fk_adjustment_user FOREIGN KEY (User_id_responsible) REFERENCES User(id_user)
 ) ENGINE=InnoDB;
-
--- ---------------------------------------------------------------------
--- OPERATIONS
--- ---------------------------------------------------------------------
 
 CREATE TABLE Activity (
     id_activity                INT AUTO_INCREMENT PRIMARY KEY,
@@ -330,15 +221,15 @@ CREATE TABLE Activity (
     action_taken               TEXT,
     contact_name               VARCHAR(100),
     phone                      VARCHAR(20),
-    Beneficiary_id_beneficiary INT NULL,                                      -- NEW v4
+    Beneficiary_id_beneficiary INT NULL,
     status                     VARCHAR(30) NOT NULL DEFAULT 'registered',
-    requires_visit             BOOLEAN NOT NULL DEFAULT FALSE,                -- NEW v2
-    added_to_pipeline          BOOLEAN NOT NULL DEFAULT FALSE,                -- NEW v2
+    requires_visit             BOOLEAN NOT NULL DEFAULT FALSE,
+    added_to_pipeline          BOOLEAN NOT NULL DEFAULT FALSE,
     Item_id_item               INT NOT NULL,
     Service_id_service         INT NULL,
     Delegation_id_delegation   INT NOT NULL,
     Officer_id_author          INT NOT NULL,
-    created_at                 DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,   -- AUDIT
+    created_at                 DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
     updated_at                 DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
     deleted_at                 DATETIME NULL,
     CONSTRAINT fk_activity_item FOREIGN KEY (Item_id_item) REFERENCES Item(id_item),
@@ -351,15 +242,15 @@ CREATE TABLE Activity (
 CREATE TABLE Followup (
     id_followup                        INT AUTO_INCREMENT PRIMARY KEY,
     sequence_number                    TINYINT NOT NULL,
-    Management_Type_id_management_type INT NULL,                              -- NEW v2
+    Management_Type_id_management_type INT NULL,
     date                               DATE NOT NULL,
     result                             VARCHAR(255) NOT NULL,
-    scheduled_visit_date               DATE NULL,                             -- NEW v2
-    visit_date                         DATE NULL,                             -- NEW v2
-    report_delivery_date               DATE NULL,                             -- NEW v2
-    benefit_delivery_date              DATE NULL,                             -- NEW v2
+    scheduled_visit_date               DATE NULL,
+    visit_date                         DATE NULL,
+    report_delivery_date               DATE NULL,
+    benefit_delivery_date              DATE NULL,
     Activity_id_activity               INT NOT NULL,
-    created_at                         DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,   -- AUDIT
+    created_at                         DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
     updated_at                         DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
     deleted_at                         DATETIME NULL,
     CONSTRAINT fk_followup_activity FOREIGN KEY (Activity_id_activity) REFERENCES Activity(id_activity),
@@ -371,13 +262,13 @@ CREATE TABLE Followup (
 CREATE TABLE Evidence (
     id_evidence          INT AUTO_INCREMENT PRIMARY KEY,
     unique_code          VARCHAR(50) NOT NULL UNIQUE,
-    file_link            VARCHAR(255) NOT NULL,   -- v16: path of the uploaded file
+    file_link            VARCHAR(255) NOT NULL,
     uploaded_at          DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
     review_status        VARCHAR(30) NOT NULL DEFAULT 'pending',
     metadata             TEXT,
     Activity_id_activity INT NOT NULL,
     Officer_id_author    INT NOT NULL,
-    created_at           DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,   -- AUDIT
+    created_at           DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
     updated_at           DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
     deleted_at           DATETIME NULL,
     CONSTRAINT fk_evidence_activity FOREIGN KEY (Activity_id_activity) REFERENCES Activity(id_activity),
@@ -392,8 +283,8 @@ CREATE TABLE Validation (
     result               VARCHAR(50),
     version              VARCHAR(20) NOT NULL DEFAULT '1',
     Evidence_id_evidence INT NOT NULL,
-    Officer_id_reviewer  INT NULL,        -- v16: NULL when the Super User reviews
-    created_at           DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,   -- AUDIT
+    Officer_id_reviewer  INT NULL,
+    created_at           DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
     updated_at           DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
     deleted_at           DATETIME NULL,
     CONSTRAINT fk_validation_evidence FOREIGN KEY (Evidence_id_evidence) REFERENCES Evidence(id_evidence),
@@ -403,28 +294,24 @@ CREATE TABLE Validation (
 CREATE TABLE Commitment (
     id_commitment            INT AUTO_INCREMENT PRIMARY KEY,
     source                   VARCHAR(100),
-    request_date             DATE NULL,                                       -- NEW v3
-    description              TEXT NULL,                                       -- NEW v3
+    request_date             DATE NULL,
+    description              TEXT NULL,
     requester                VARCHAR(100) NOT NULL,
-    requester_type           ENUM('INTERNAL','EXTERNAL') NOT NULL DEFAULT 'EXTERNAL',  -- NEW v2
-    Territory_id_territory   INT NOT NULL,                                    -- NEW v4 (replaces the text column territory, avoids redundancy)
+    requester_type           ENUM('INTERNAL','EXTERNAL') NOT NULL DEFAULT 'EXTERNAL',
+    Territory_id_territory   INT NOT NULL,
     due_date                 DATE NOT NULL,
     support                  VARCHAR(100),
     status                   VARCHAR(30) NOT NULL DEFAULT 'entered',
     notes                    TEXT,
     Officer_id_responsible   INT NOT NULL,
     Delegation_id_delegation INT NOT NULL,
-    created_at               DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,   -- AUDIT
+    created_at               DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
     updated_at               DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
     deleted_at               DATETIME NULL,
     CONSTRAINT fk_commitment_officer FOREIGN KEY (Officer_id_responsible) REFERENCES Officer(id_officer),
     CONSTRAINT fk_commitment_delegation FOREIGN KEY (Delegation_id_delegation) REFERENCES Delegation(id_delegation),
     CONSTRAINT fk_commitment_territory FOREIGN KEY (Territory_id_territory) REFERENCES Territory(id_territory)
 ) ENGINE=InnoDB;
-
--- ---------------------------------------------------------------------
--- AUDIT
--- ---------------------------------------------------------------------
 
 CREATE TABLE Audit_Log (
     id_audit_log    BIGINT AUTO_INCREMENT PRIMARY KEY,
@@ -435,13 +322,12 @@ CREATE TABLE Audit_Log (
     previous_value  TEXT,
     new_value       TEXT,
     User_id_user    INT NOT NULL,
-    created_at      DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,   -- AUDIT
+    created_at      DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
     updated_at      DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
     deleted_at      DATETIME NULL,
     CONSTRAINT fk_audit_log_user FOREIGN KEY (User_id_user) REFERENCES User(id_user)
 ) ENGINE=InnoDB;
 
--- Seed of the Management_Type catalog
 INSERT INTO Management_Type (name) VALUES
     ('In-person user service'),
     ('Field visit'),
@@ -451,10 +337,3 @@ INSERT INTO Management_Type (name) VALUES
     ('Other tasks');
 
 SET FOREIGN_KEY_CHECKS = 1;
-
--- =====================================================================
--- END - project v9 (model v4): 22 tables created
--- (19 base tables checked against the professors official guide +
---  Beneficiary + Territory + Management_Type, from the exhaustive
---  cross-check against the 20 slides of the real SGR Matrix)
--- =====================================================================

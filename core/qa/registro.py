@@ -1,5 +1,3 @@
-"""Arma el registro de pruebas funcionales (A3) y lo escribe como Excel y CSV."""
-
 import csv
 import json
 from collections import Counter, OrderedDict
@@ -35,12 +33,10 @@ COLUMNAS = [
 
 
 def identificador(modulo, clase, metodo):
-    """Nombre completo de la prueba, el mismo que usa Django: ``core.test_a1.Clase.test_metodo``."""
     return f"{modulo}.{clase}.test_{metodo}"
 
 
 def pruebas_del_proyecto(base):
-    """Todas las pruebas automáticas: lista de (archivo, clase, método) en el orden de los archivos."""
     indice = Indice(base)
     pruebas = []
     for clase, metodos in ESPERADO.items():
@@ -51,7 +47,6 @@ def pruebas_del_proyecto(base):
 
 
 def filas(base, resultados, responsable, fecha, archivo_ejecucion):
-    """Una fila por prueba. ``resultados`` mapea el id de Django a ``{"estado": ..., "detalle": ...}``."""
     indice, pruebas = pruebas_del_proyecto(base)
     salida = []
     for numero, (archivo, clase, metodo) in enumerate(pruebas, start=1):
@@ -122,7 +117,6 @@ def _hoja_tabla(libro, titulo, encabezados, anchos, datos, wrap=True):
 
 
 def escribir(salida, registro, meta, extras):
-    """Escribe ``registro_pruebas_funcionales.xlsx`` y ``.csv`` en ``salida`` (carpeta)."""
     salida = Path(salida)
     salida.mkdir(parents=True, exist_ok=True)
     cuentas = resumen_por_requisito(registro)

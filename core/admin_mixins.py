@@ -77,8 +77,6 @@ class DelegationScopedAdminMixin(SoftDeleteAdminMixin):
 
     def get_queryset(self, request):
         qs = super().get_queryset(request)
-        # Misma regla que las pantallas web (core/access.py): el superusuario y los roles con alcance sobre
-        # todas las delegaciones, como Coordinación, ven todo.
         if request.user.is_superuser or has_global_role(request.user):
             return qs
         delegation = get_user_delegation(request)

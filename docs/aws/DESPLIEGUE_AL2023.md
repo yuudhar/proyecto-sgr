@@ -22,7 +22,7 @@ Grupo de seguridad: 22 solo desde tu IP; 80 y 443 abiertos. El 3306 no se abre.
    git clone -b <rama> --single-branch https://github.com/yuudhar/proyecto-sgr.git && cd proyecto-sgr
    sudo bash deploy/al2023/instalar_al2023.sh https://github.com/yuudhar/proyecto-sgr.git <rama> <ip-o-dominio>
    ```
-4. **Migrar y arrancar:** `cd /opt/sgr/app && sudo bash deploy/actualizar.sh <rama>`. Datos de demostración, solo la primera vez: `set -a; . /etc/sgr/sgr.env; set +a; sudo -E -u sgr /opt/sgr/venv/bin/python manage.py seed_demo_data`, y después cambiar las claves de las cuentas (`manage.py changepassword`).
+4. **Migrar y arrancar:** `cd /opt/sgr/app && sudo bash deploy/actualizar.sh <rama>`. Solo si la base está vacía: `set -a; . /etc/sgr/sgr.env; set +a; sudo -E -u sgr /opt/sgr/venv/bin/python manage.py seed_roles` y lo mismo con `seed_management_types` y `createsuperuser`. Si la base ya tiene datos (se administra desde phpMyAdmin), no se hace nada.
 5. **HTTPS:** `sudo bash deploy/al2023/https_certificado.sh <ip-o-dominio> <correo>`. Con `--prueba` ensaya contra el entorno de pruebas de Let's Encrypt sin tocar el sitio. Deja HTTPS=True, redirige 80 a 443 y crea el temporizador `sgr-certbot.timer`.
 6. **Comprobar:** `curl https://<ip-o-dominio>/salud/` y `systemctl list-timers sgr-certbot.timer`. Renovación de ensayo: `sudo /opt/certbot/bin/certbot renew --dry-run`.
 

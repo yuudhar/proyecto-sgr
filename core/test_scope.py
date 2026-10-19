@@ -1,8 +1,3 @@
-"""Pruebas de alcance por delegación y de lo que muestran el tablero y los informes.
-
-Parten de los datos de demostración (seed_demo_data), igual que test_portal.py.
-"""
-
 from decimal import Decimal
 
 from django.urls import reverse
@@ -16,18 +11,12 @@ from planning.models import Goal, Indicator, Period
 
 
 class ReviewScopeTests(PortalTestCase):
-    """Quien revisa evidencias solo ve las de la delegación de su funcionario.
-
-    Coordinación ve todas las delegaciones en los listados, pero el formulario de
-    validación del Admin igual la limita a la suya; las pantallas hacen lo mismo.
-    """
 
     def setUp(self):
         reviewer = self.make_user(
             "coord.verificador", ["Coordinación", "Verificador"], self.officer("F-1002")
         )
         self.client.force_login(reviewer)
-        # La evidencia pendiente del Norte la subió el otro funcionario de la delegación; quien la sube no la revisa.
         Evidence.objects.filter(unique_code="EVD-NORTE-0001").update(author_officer=self.officer("F-1001"))
 
     def test_validation_list_only_has_evidence_of_the_reviewers_delegation(self):
@@ -63,7 +52,7 @@ class IndicatorScopeTests(PortalTestCase):
         return {row.obj.goal.officer for row in response.context["rows"] if row.obj.goal.officer_id}
 
     def test_delegation_users_only_see_indicators_of_their_own_officers(self):
-        self.login_as("jefatura1")  # Delegación Norte
+        self.login_as("jefatura1")
         response = self.client.get(reverse("core:indicadores_list"))
         officers = self.indicator_officers(response)
         self.assertTrue(officers)
@@ -87,10 +76,8 @@ class IndicatorScopeTests(PortalTestCase):
 
 
 class EditPermissionConsistencyTests(PortalTestCase):
-    """El listado, la ficha y la edición responden lo mismo sobre quién puede modificar."""
 
     def test_global_user_cannot_edit_other_delegation_records_anywhere(self):
-        # Coordinación (ve todo) con además el rol Funcionario de la Delegación Norte.
         user = self.make_user("coord.funcionario", ["Coordinación", "Funcionario"], self.officer("F-1002"))
         self.client.force_login(user)
         south = self.activity("Ana Rojas")
@@ -124,7 +111,6 @@ class EditPermissionConsistencyTests(PortalTestCase):
 
 
 class ReportAdjustmentTests(PortalTestCase):
-    """El ajuste neto solo aparece para quien puede consultar los ajustes."""
 
     def csv_header(self, response):
         return response.content.decode("utf-8-sig").splitlines()[0]
@@ -148,7 +134,6 @@ class ReportAdjustmentTests(PortalTestCase):
 
 
 class ExactAverageTests(PortalTestCase):
-    """El semáforo se decide con el promedio exacto; el redondeo es solo para mostrarlo."""
 
     def give_goals(self, officer, compliances):
         period = Period.objects.get(status="active")
@@ -163,7 +148,7 @@ class ExactAverageTests(PortalTestCase):
 
     def test_officer_average_just_below_the_threshold_stays_amber(self):
         diego = Officer.objects.get(name="Diego Fuentes")
-        self.give_goals(diego, ["79.95", "79.97"])  # promedio exacto 79,96 → se ve como 80,0
+        self.give_goals(diego, ["79.95", "79.97"])
         self.login_as("admin")
         response = self.client.get(reverse("core:delegation_board"), {"delegacion": self.north.pk})
         row = next(r for r in response.context["results"] if r["officer"] == diego)
@@ -176,7 +161,6 @@ class ExactAverageTests(PortalTestCase):
         self.assertEqual(line["light"], "amber")
 
     def test_delegation_average_just_below_the_threshold_stays_red(self):
-        # Norte: 40 y 10 más este funcionario dan un promedio exacto de 59,98 (se ve como 60,0).
         diego = Officer.objects.get(name="Diego Fuentes")
         self.give_goals(diego, ["129.93", "129.95"])
         self.login_as("admin")

@@ -1,4 +1,4 @@
-{# Filas por página. La elección se guarda en la sesión (request.session) y vale para todos los listados hasta cerrar sesión. #}
+
 <form method="post" action="{% url 'core:page_size' %}" class="page-size">
   {% csrf_token %}
   <input type="hidden" name="next" value="{{ page_size_next }}">

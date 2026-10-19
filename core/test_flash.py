@@ -1,9 +1,3 @@
-"""Pruebas de los avisos con SweetAlert2: lo que el servidor deja listo para el navegador (flash.js y confirm.js).
-
-El comportamiento de las ventanas se prueba en el navegador; aquí se comprueba que la página trae lo que esos
-scripts necesitan y que, sin JavaScript, los avisos siguen viéndose como siempre.
-"""
-
 import re
 
 from django.contrib.staticfiles import finders
@@ -20,9 +14,8 @@ class NoticeScriptsTests(PortalTestCase):
         self.login_as("matias.cavieres")
         html = self.client.get(reverse("core:dashboard")).content.decode()
         head = html.split("</head>")[0]
-        self.assertIn("core/js/has-js.js", head)  # antes de dibujar: los avisos no parpadean arriba de la página
+        self.assertIn("core/js/has-js.js", head)
         self.assertNotIn("core/js/flash.js", head)
-        # La validación corre primero, luego las confirmaciones y al final los avisos de Django.
         order = [html.index(f"core/js/{name}.js") for name in ("validation", "confirm", "flash")]
         self.assertEqual(order, sorted(order))
 
@@ -43,7 +36,6 @@ class NoticeScriptsTests(PortalTestCase):
 
 
 class NoticeMarkupTests(PortalTestCase):
-    """Cada aviso de Django lleva su nivel, sus etiquetas y su texto: flash.js los toma de ahí."""
 
     def page_size(self, value):
         return self.client.post(reverse("core:page_size"), {"filas": value, "next": reverse("core:dashboard")}, follow=True)
@@ -76,14 +68,14 @@ class NoticeMarkupTests(PortalTestCase):
         level, tags, text = self.notice(self.page_size(7))
         self.assertEqual(level, "error")
         self.assertEqual(text, "Esa cantidad de filas no está disponible.")
-        self.assertNotIn(SESSION_PAGE_SIZE, self.client.session)  # el error no cambió nada
+        self.assertNotIn(SESSION_PAGE_SIZE, self.client.session)
 
     def test_a_warning_and_an_info_keep_their_level(self):
         self.login_as("admin")
         archived = Activity.objects.filter(deleted_at__isnull=False).first()
         warning = self.client.get(reverse("core:actividades_update", args=[archived.pk]), follow=True)
         self.assertEqual(self.notice(warning)[0], "warning")
-        info = self.client.post(reverse("core:logout"), follow=True)  # cerrar sesión es un POST
+        info = self.client.post(reverse("core:logout"), follow=True)
         self.assertEqual(self.notice(info)[0], "info")
 
     def test_the_text_of_the_notice_is_escaped(self):
@@ -103,7 +95,7 @@ class NoticeMarkupTests(PortalTestCase):
         self.assertIn('class="flash"', html)
         self.assertIn('data-bs-dismiss="alert"', html)
         css = open(finders.find("core/css/sgr.css"), encoding="utf-8").read()
-        self.assertIn(".has-js .flash", css)  # solo se esconde cuando hay JavaScript
+        self.assertIn(".has-js .flash", css)
 
 
 class ConfirmationMarkupTests(PortalTestCase):

@@ -1,10 +1,3 @@
-"""Pantallas especiales: ingreso, perfil, atención, inicio, validación de evidencias, tablero e informes.
-
-Las pantallas de listado, ficha y formulario de cada modelo están en core/crud.py;
-aquí van las que no calzan con ese esquema. Todas respetan las mismas reglas de
-acceso del Django Admin: permisos por modelo y alcance por delegación.
-"""
-
 import csv
 from decimal import ROUND_HALF_UP, Decimal
 from urllib.parse import urlsplit
@@ -43,25 +36,13 @@ from organization.models import Delegation, Officer
 from planning.models import Adjustment, Goal, Indicator, Period
 
 
-# ---------------------------------------------------------------------------
-# Ingreso y salida
-# ---------------------------------------------------------------------------
-
-
 class PortalLoginView(auth_views.LoginView):
-    """Ingreso. Usa la plantilla por defecto de LoginView: templates/registration/login.html."""
 
     authentication_form = PortalAuthenticationForm
     redirect_authenticated_user = True
 
 
 class PortalLogoutView(auth_views.LogoutView):
-    """Cierra la sesión. Solo acepta POST, así que el botón de arriba es un formulario.
-
-    Cerrar la sesión borra todo lo que había en request.session: otra persona que use el mismo
-    navegador no hereda nada. El aviso se agrega después, ya con la sesión vacía, y se muestra en
-    la pantalla de ingreso a la que se redirige.
-    """
 
     def post(self, request, *args, **kwargs):
         response = super().post(request, *args, **kwargs)
@@ -71,7 +52,6 @@ class PortalLogoutView(auth_views.LogoutView):
 
 @login_required
 def profile(request):
-    """Mi perfil: los datos de la cuenta, la foto de perfil y el cambio de contraseña."""
     action = request.POST.get("accion", "") if request.method == "POST" else ""
     form = PortalPasswordChangeForm(request.user, request.POST if action == "" and request.method == "POST" else None)
     photo_form = ProfilePhotoForm(request.POST if action == "foto" else None, request.FILES if action == "foto" else None)
@@ -98,7 +78,7 @@ def profile(request):
             return redirect("core:profile")
         if action == "" and form.is_valid():
             user = form.save()
-            update_session_auth_hash(request, user)  # la sesión actual sigue abierta con la contraseña nueva
+            update_session_auth_hash(request, user)
             log_event(user, "Contraseña cambiada", user)
             messages.success(request, "Cambiaste tu contraseña.")
             return redirect("core:profile")
@@ -115,7 +95,6 @@ def profile(request):
 
 @login_required
 def profile_photo(request, user_id):
-    """Entrega la foto de perfil de un usuario a cualquier persona con la sesión iniciada."""
     account = get_object_or_404(UserProfile, user_id=user_id)
     name = account.photo.name if account.photo else ""
     if not name or not account.photo.storage.exists(name):
@@ -129,12 +108,6 @@ def profile_photo(request, user_id):
 @login_required
 @require_POST
 def set_page_size(request):
-    """Guarda en la sesión cuántas filas por página quiere ver la persona y la devuelve a donde estaba.
-
-    Es el ejemplo de estado temporal de la sesión: no es un dato permanente (no va a la base de
-    datos), vale para todos los listados y se olvida al cerrar sesión. Después de guardar, el aviso
-    de éxito (messages) se muestra en la página a la que se redirige.
-    """
     try:
         size = int(request.POST.get("filas", ""))
     except ValueError:
@@ -146,7 +119,7 @@ def set_page_size(request):
         messages.success(
             request,
             f"Listo: los listados muestran {size} filas por página mientras dure tu sesión.",
-            extra_tags="toast",  # un cambio de preferencia: aviso corto en la esquina, no una ventana al centro
+            extra_tags="toast",
         )
     target = request.POST.get("next", "")
     if not url_has_allowed_host_and_scheme(target, allowed_hosts={request.get_host()}, require_https=request.is_secure()):
@@ -155,19 +128,12 @@ def set_page_size(request):
 
 
 def context_label(delegation):
-    """«DEL01 · Delegación Norte», o «Todas las delegaciones» si no hay una delegación."""
     if delegation is None:
         return "Todas las delegaciones"
     return f"{registry.get('delegaciones').code_of(delegation)} · {delegation.name}"
 
 
 def context_return_url(request):
-    """A dónde volver después de cambiar de delegación.
-
-    A la misma pantalla de donde se vino, sin su búsqueda ni su página (eran de la delegación anterior). Si la persona
-    estaba mirando o editando un registro, ese registro puede no existir en la delegación nueva: vuelve al listado del
-    módulo. Solo se aceptan direcciones de este mismo sitio y del portal.
-    """
     home = reverse("core:dashboard")
     target = request.POST.get("next", "")
     if not target or not url_has_allowed_host_and_scheme(target, allowed_hosts={request.get_host()}, require_https=request.is_secure()):
@@ -192,14 +158,6 @@ def context_return_url(request):
 @login_required
 @require_POST
 def set_context(request):
-    """Cambia la delegación en la que trabaja la persona (el selector de la franja de arriba).
-
-    La elegida se guarda en la sesión (Clase 6: estado temporal de quien inició sesión, como las filas por página),
-    pero a diferencia de ese ajuste decide qué datos se ven y dónde se puede cambiar algo, así que el servidor
-    comprueba cada vez que esté autorizada para esta persona (Clase 7: ocultar una opción no es control de acceso).
-    Un id enviado a mano que no corresponda responde 403 y queda en la auditoría. Todas las pantallas leen la
-    delegación activa desde core/access.py, de modo que listados, filtros, exportaciones y formularios cambian juntos.
-    """
     raw = request.POST.get("delegacion", "")
     allowed, chosen = delegation_choice(request, raw)
     if not allowed:
@@ -230,18 +188,7 @@ def set_context(request):
     return redirect(context_return_url(request))
 
 
-# ---------------------------------------------------------------------------
-# Atención
-# ---------------------------------------------------------------------------
-
-
 class AtencionView(CrudListView):
-    """Atención: se busca a la persona por RUT, nombre u otro dato y salen sus atenciones.
-
-    Es el listado de Actividades con una pantalla pensada para atender: un cuadro de
-    búsqueda grande, el botón para registrar una atención nueva y, en cada fila, otro
-    para volver a atender a la misma persona. Sin búsqueda muestra las últimas atenciones.
-    """
 
     template_name = "core/atencion.html"
     export_title = "Atención"
@@ -259,7 +206,7 @@ class AtencionView(CrudListView):
             "status",
         ]
         if active_delegation(request) is None:
-            specs.insert(-1, "delegation")  # quien mira todas las delegaciones necesita saber de cuál es cada atención
+            specs.insert(-1, "delegation")
         return self.crud.resolve_columns(specs)
 
     def extra_context(self, request):
@@ -270,19 +217,12 @@ class AtencionView(CrudListView):
         }
 
 
-# ---------------------------------------------------------------------------
-# Datos compartidos por varias pantallas
-# ---------------------------------------------------------------------------
-
-
 def current_period():
-    """Período vigente; si no hay ninguno, el más reciente."""
     periods = Period.objects.filter(deleted_at__isnull=True).order_by("-start_date")
     return periods.filter(status=Period.Status.ACTIVE).first() or periods.first()
 
 
 def latest_indicators(goal_ids):
-    """Último indicador calculado de cada meta: {id de meta: indicador}."""
     latest = {}
     indicators = Indicator.objects.filter(
         goal_id__in=goal_ids, deleted_at__isnull=True
@@ -293,7 +233,6 @@ def latest_indicators(goal_ids):
 
 
 def goals_of(officer, goals):
-    """Metas que le corresponden a un funcionario: las suyas y las de su cargo."""
     return [
         goal
         for goal in goals
@@ -303,7 +242,6 @@ def goals_of(officer, goals):
 
 
 def mean(values):
-    """Promedio sin redondear; None si no hay valores. Con este valor se decide el semáforo."""
     values = list(values)
     if not values:
         return None
@@ -311,21 +249,18 @@ def mean(values):
 
 
 def rounded(value):
-    """El valor con un decimal (.05 sube), tal como se muestra en pantalla; None se queda en None."""
     if value is None:
         return None
     return value.quantize(Decimal("0.1"), rounding=ROUND_HALF_UP)
 
 
 def light_of(value, period):
-    """Semáforo de un promedio con los umbrales del período; vacío si no hay promedio."""
     if value is None:
         return ""
     return ui.light_for_compliance(value, period.collective_threshold, period.amber_threshold)
 
 
 def pick_period(request):
-    """Período elegido con ?periodo=<id>; por defecto el vigente. Devuelve (período, opciones)."""
     periods = list(Period.objects.filter(deleted_at__isnull=True).order_by("-start_date"))
     chosen = request.GET.get("periodo", "")
     for period in periods:
@@ -336,12 +271,6 @@ def pick_period(request):
 
 
 def pick_delegation(request, allow_all=False):
-    """Delegación a mostrar. Devuelve (delegación o None, opciones, puede_elegir).
-
-    Sigue la delegación en que trabaja la persona (el selector de la franja de arriba). Solo quien mira todas las
-    delegaciones elige además aquí con ?delegacion=<id> (o "todas" si allow_all); sin delegación asignada se
-    responde el 403 del Admin.
-    """
     active = active_delegation(request)
     if active is not None:
         return active, [active], False
@@ -359,7 +288,6 @@ def pick_delegation(request, allow_all=False):
 
 
 def mini_table(crud, request, queryset, paths, limit=5):
-    """Columnas y filas de un listado corto, con las mismas celdas del mantenedor."""
     by_path = {column.path: column for column in crud.columns}
     columns = [by_path[path] for path in paths]
     rows = [
@@ -367,19 +295,12 @@ def mini_table(crud, request, queryset, paths, limit=5):
         for obj in queryset[:limit]
     ]
     for row in rows:
-        # La primera celda lleva a la ficha, salvo que el listado ya marque otra columna.
         if row.cells and not any(cell.link for cell in row.cells):
             row.cells[0].link = True
     return columns, rows
 
 
-# ---------------------------------------------------------------------------
-# Inicio
-# ---------------------------------------------------------------------------
-
-
 def goal_lines(goals, indicators):
-    """Una línea por meta con su último indicador, lista para dibujar."""
     lines = []
     for goal in goals:
         indicator = indicators.get(goal.pk)
@@ -403,9 +324,6 @@ def goal_lines(goals, indicators):
 def dashboard(request):
     user = request.user
 
-    # Cuántas veces entró la persona al inicio durante esta sesión. request.session se usa como un
-    # diccionario: get trae el valor anterior (0 la primera vez) y la asignación lo guarda. El número
-    # sigue ahí al refrescar o cambiar de página, y se pierde al cerrar la sesión.
     visits = request.session.get("dashboard_visits", 0) + 1
     request.session["dashboard_visits"] = visits
 
@@ -420,7 +338,6 @@ def dashboard(request):
         "breadcrumbs": None,
     }
 
-    # Alcance: quien no tiene ninguna delegación autorizada (y no ve todas) no puede consultar datos.
     if not is_global_user(request) and not authorized_delegations(request):
         context["no_delegation"] = True
         return render(request, "core/dashboard.html", context)
@@ -429,7 +346,6 @@ def dashboard(request):
     evidences = registry.get("evidencias")
     commitments = registry.get("agenda")
 
-    # Metas del funcionario en el período vigente.
     if officer is not None and period is not None:
         goals = list(
             Goal.objects.filter(deleted_at__isnull=True, period=period)
@@ -439,8 +355,6 @@ def dashboard(request):
         )
         context["goal_lines"] = goal_lines(goals, latest_indicators([g.pk for g in goals]))
 
-    # Semáforo general: para quienes ven todas las delegaciones; con una elegida arriba, solo las metas de esa
-    # (más las metas por cargo, que son de todas, igual que en el mantenedor de Indicadores).
     if period is not None and is_global_user(request) and user.has_perm("planning.view_indicator"):
         goals = Goal.objects.filter(deleted_at__isnull=True, period=period)
         chosen = active_delegation(request)
@@ -457,7 +371,6 @@ def dashboard(request):
         ]
         context["goals_without_indicator"] = len(goals) - len(indicators)
 
-    # Pendientes (solo lo que el usuario puede ver).
     pending = []
     if activities.has_perm(user, "view"):
         activity_qs = activities.get_queryset(request)
@@ -489,7 +402,6 @@ def dashboard(request):
         label = "Evidencias pendientes de revisión"
         if user.has_perm("evidence.add_validation"):
             try:
-                # Se cuentan las mismas evidencias que aparecen en la pantalla de validación.
                 to_review = reviewable_evidence(request)[1]
                 url, label = reverse("core:validate_list"), "Evidencias por revisar"
             except PermissionDenied:
@@ -521,7 +433,6 @@ def dashboard(request):
         )
     context["pending"] = pending
 
-    # Atajos según permisos.
     shortcuts = []
     if activities.can_add(user):
         shortcuts.append(("Registrar atención", activities.url("create"), "bi-plus-circle"))
@@ -536,7 +447,6 @@ def dashboard(request):
         shortcuts.append(("Informes", reverse("core:reports"), "bi-file-earmark-bar-graph"))
     context["shortcuts"] = shortcuts
 
-    # Listados cortos.
     if activities.has_perm(user, "view"):
         recent = activities.get_queryset(request).order_by("-date", "-pk")
         if officer is not None:
@@ -559,12 +469,6 @@ def dashboard(request):
     return render(request, "core/dashboard.html", context)
 
 
-# ---------------------------------------------------------------------------
-# Validación de evidencias
-# ---------------------------------------------------------------------------
-
-# Estado de la evidencia después de cada decisión: observar no la aprueba ni la rechaza,
-# queda pendiente hasta que el funcionario la corrija y se vuelva a revisar.
 STATUS_AFTER_DECISION = {
     Validation.Decision.APPROVED: Evidence.ReviewStatus.APPROVED,
     Validation.Decision.REJECTED: Evidence.ReviewStatus.REJECTED,
@@ -579,12 +483,6 @@ DECISION_DONE = {
 
 
 def reviewable_evidence(request, exclude_own=True):
-    """Mantenedor de evidencias y las evidencias que el usuario puede revisar.
-
-    Quien revisa solo ve las de la delegación en que trabaja: la que eligió arriba o, si no eligió, la de su
-    funcionario, aunque además sea de Coordinación (así lo hace el formulario de validación del Admin). El
-    superusuario que mira todas las ve todas. Sin delegación se responde 403.
-    """
     crud = registry.get("evidencias")
     if not crud.has_perm(request.user, "view"):
         raise PermissionDenied
@@ -594,13 +492,12 @@ def reviewable_evidence(request, exclude_own=True):
         evidences = evidences.filter(activity__delegation=delegation)
     officer = request_officer(request)
     if exclude_own and officer is not None:
-        evidences = evidences.exclude(author_officer=officer)  # las que subió él las revisa otra persona
+        evidences = evidences.exclude(author_officer=officer)
     return crud, evidences
 
 
 @login_required
 def evidence_file(request, pk):
-    """Entrega el archivo de una evidencia. Solo a quien puede ver esa evidencia (permiso y delegación)."""
     crud = registry.get("evidencias")
     if not crud.has_perm(request.user, "view"):
         raise PermissionDenied
@@ -609,7 +506,6 @@ def evidence_file(request, pk):
     if not name or not evidence.file_link.storage.exists(name):
         raise Http404("Esta evidencia no tiene un archivo en el sistema.")
     content_type = uploads.content_type_of(name)
-    # PDF e imágenes se ven en el navegador; el resto (Word, Excel) se descarga.
     response = FileResponse(
         evidence.file_link.open("rb"),
         content_type=content_type,
@@ -684,13 +580,10 @@ def validate_evidence(request, pk):
         pk=pk,
     )
 
-    # Quien revisa es el funcionario de quien inició sesión; no se elige. El Super Usuario no
-    # tiene uno: su revisión queda sin funcionario y se muestra como «Super Usuario».
     officer = request_officer(request)
     if officer is None and not request.user.is_superuser:
         raise PermissionDenied("Tu usuario no tiene un funcionario asociado para validar.")
 
-    # Nadie revisa su propia evidencia: la valida otra persona de la delegación.
     if officer is not None and evidence.author_officer_id == officer.pk:
         raise PermissionDenied("No puedes validar una evidencia que subiste tú: debe revisarla otra persona.")
 
@@ -716,7 +609,6 @@ def validate_evidence(request, pk):
             request,
             f"Evidencia «{evidence.unique_code}» {DECISION_DONE[validation.decision]}.",
         )
-        # Vuelve a la página de la evidencia revisada (y a la lista si no puede verla).
         if crud.has_perm(request.user, "view"):
             return redirect(crud.url("detail", evidence.pk))
         return redirect("core:validate_list")
@@ -753,13 +645,7 @@ def validate_evidence(request, pk):
     )
 
 
-# ---------------------------------------------------------------------------
-# Tablero por delegación
-# ---------------------------------------------------------------------------
-
-
 def officer_results(officers, goals, indicators, period):
-    """Resultados por funcionario: sus metas, el cumplimiento promedio y el semáforo."""
     results = []
     for officer in officers:
         own = goals_of(officer, goals)
@@ -868,19 +754,12 @@ def delegation_board(request):
     return render(request, "core/delegation_board.html", context)
 
 
-# ---------------------------------------------------------------------------
-# Informes
-# ---------------------------------------------------------------------------
-
-
 def safe_cell(value):
-    """Evita que Excel interprete como fórmula un texto que parte con =, +, - o @."""
     text = "" if value is None else str(value)
     return f"'{text}" if text[:1] in ("=", "+", "-", "@") else text
 
 
 def report_rows(delegation, period, with_adjustment):
-    """Una fila por funcionario activo: actividades, evidencias, cumplimiento y, si se pide, ajuste."""
     in_period = Q(authored_activities__deleted_at__isnull=True) & Q(
         authored_activities__date__range=(period.start_date, period.end_date)
     )
@@ -946,12 +825,11 @@ def report_rows(delegation, period, with_adjustment):
 
 
 def report_csv(rows, period, with_adjustment):
-    """Informe en CSV listo para Excel en español: separador «;» y coma decimal."""
     response = HttpResponse(content_type="text/csv; charset=utf-8")
     response["Content-Disposition"] = (
         f'attachment; filename="informe-sgr-{period.start_date:%Y-%m-%d}.csv"'
     )
-    response.write("﻿")  # marca para que Excel reconozca los acentos
+    response.write("﻿")
     writer = csv.writer(response, delimiter=";")
     header = [
         "Funcionario",
@@ -985,7 +863,6 @@ def report_csv(rows, period, with_adjustment):
 
 
 def report_xlsx(request, rows, period, delegation, with_adjustment):
-    """Informe en Excel con los mismos datos que la tabla de la pantalla."""
     headers = [
         "Funcionario",
         "Delegación",
@@ -1043,7 +920,6 @@ def reports(request):
     if period is None:
         return render(request, "core/reports.html", context)
 
-    # El ajuste neto solo lo ve quien puede consultar los ajustes.
     with_adjustment = request.user.has_perm("planning.view_adjustment")
     rows = report_rows(delegation, period, with_adjustment)
     if request.GET.get("formato") == "csv":
@@ -1069,14 +945,8 @@ def reports(request):
     return render(request, "core/reports.html", context)
 
 
-# ---------------------------------------------------------------------------
-# Administración
-# ---------------------------------------------------------------------------
-
-
 @login_required
 def administration(request):
-    """Portada de Administración: los mantenedores a los que el usuario puede entrar."""
     from core.menus import visible_entries
 
     _, groups = visible_entries(request.user)
@@ -1086,7 +956,7 @@ def administration(request):
     hub_url = reverse("core:administration")
     sections = []
     for title, items in groups[0].sections:
-        items = [item for item in items if item.url != hub_url]  # la portada no se enlaza a sí misma
+        items = [item for item in items if item.url != hub_url]
         if items:
             sections.append((title, items))
     period = current_period()

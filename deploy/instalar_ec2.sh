@@ -1,7 +1,4 @@
 #!/usr/bin/env bash
-# Primera instalación del SGR en una instancia EC2 con Ubuntu 22.04/24.04.
-# Uso (como un usuario con sudo):   bash deploy/instalar_ec2.sh https://github.com/yuudhar/proyecto-sgr.git entrega-2
-# El segundo argumento es la etiqueta (tag) o rama de la entrega. Después hay que completar /etc/sgr/sgr.env.
 set -euo pipefail
 
 REPO="${1:?Falta la URL del repositorio Git}"

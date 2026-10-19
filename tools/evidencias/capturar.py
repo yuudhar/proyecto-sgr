@@ -1,28 +1,4 @@
 #!/usr/bin/env python3
-"""Recorre el SGR con un navegador real, toma las capturas de evidencia y registra qué se comprobó.
-
-Qué hace (evidencias del A4 que se pueden sacar de un recorrido automático):
-  1  Login y recuperación completa de contraseña
-  2  Los seis CRUD (Delegaciones, Roles, Usuarios, Ítems y metas, Tipo de Atención, Sub Atención)
-  3  Ingreso de atención con Tipo/Sub Atención dependientes y delegación del contexto
-  4  Tabla, paginador, búsqueda y Exportar a Excel
-  5  Identificación de delegación, usuario y rol, y alcance por perfil (incluye la matriz de menús por rol)
-  6  Validaciones y mensajes SweetAlert2 (éxito, validación fallida, bloqueo, confirmación y cancelación)
-
-Requisitos (en tu equipo; no forman parte del proyecto):
-    pip install playwright && playwright install chromium
-
-Uso:
-    python tools/evidencias/capturar.py --url http://127.0.0.1:8000 --log-correo /ruta/al/log_del_servidor.txt
-    python tools/evidencias/capturar.py --url https://tu-sitio-en-aws          # sin log, la recuperación queda para hacerla a mano
-
-- --log-correo: archivo donde el servidor imprime el correo de recuperación (sin EMAIL_HOST el código sale por la
-  consola del servidor). En AWS con correo real, hazlo a mano y deja ese paso para la captura manual.
-- Deja las capturas en docs/evidencias/capturas/ y el resultado en docs/pruebas/resultados/navegador.json (lo lee
-  `manage.py exportar_registro_pruebas` para la hoja «Navegador»).
-- Crea registros con el prefijo «E2E» (delegación, rol, usuario, ítem, tipo y sub atención de prueba). Al terminar borra o
-  desactiva lo que puede; el usuario de prueba queda inactivo.
-"""
 
 import argparse
 import json
@@ -35,7 +11,7 @@ from pathlib import Path
 try:
     from playwright.sync_api import TimeoutError as EsperaAgotada
     from playwright.sync_api import sync_playwright
-except ImportError:  # pragma: no cover
+except ImportError:
     sys.exit("Falta Playwright: pip install playwright && playwright install chromium")
 
 CLAVE = "Hola123!"
@@ -53,15 +29,13 @@ class Corrida:
         self.sello = time.strftime("%H%M%S")
         self.n = 0
 
-    # -- utilidades ---------------------------------------------------------------------------------------------------
     def foto(self, pg, nombre, completa=False):
-        pg.wait_for_timeout(900)  # que terminen las animaciones de la ventana y de SweetAlert2
+        pg.wait_for_timeout(900)
         ruta = self.capturas / f"{nombre}.png"
         pg.screenshot(path=str(ruta), full_page=completa)
         return ruta.relative_to(self.capturas.parent.parent.parent).as_posix() if self.capturas.is_relative_to(Path.cwd()) else ruta.as_posix()
 
     def comprobar(self, requisito, prueba, pasos, esperado, funcion):
-        """Ejecuta una comprobación. ``funcion`` devuelve (texto obtenido, ruta de la captura) o lanza AssertionError."""
         self.n += 1
         ident = f"NAV-{self.n:03d}"
         estado, obtenido, evidencia = "Aprobada", "", ""
@@ -70,7 +44,7 @@ class Corrida:
             obtenido, evidencia = resultado if isinstance(resultado, tuple) else (resultado, "")
         except Saltar as e:
             estado, obtenido = "No ejecutada", str(e)
-        except (AssertionError, EsperaAgotada, Exception) as e:  # noqa: BLE001 - cualquier fallo es un resultado
+        except (AssertionError, EsperaAgotada, Exception) as e:
             estado = "Fallida"
             obtenido = f"{type(e).__name__}: {str(e).strip().splitlines()[0][:300] if str(e).strip() else ''}"
         self.resultados.append(
@@ -92,12 +66,12 @@ class Corrida:
 
 
 class Saltar(Exception):
-    """La comprobación no se puede hacer en este entorno (se registra como «No ejecutada», nunca como aprobada)."""
+    pass
 
 
 def ingresar(pg, base, usuario, clave=CLAVE):
     pg.goto(base + "/")
-    if "/dashboard" in pg.url:  # ya había una sesión: se cierra
+    if "/dashboard" in pg.url:
         pg.click("text=Cerrar sesión")
         pg.goto(base + "/")
     pg.fill("#id_username", usuario)
@@ -115,7 +89,6 @@ def salir(pg, base):
 
 
 def swal(pg, timeout=4000):
-    """Texto del SweetAlert2 visible (aviso, confirmación o error)."""
     pg.wait_for_selector(".swal2-popup", timeout=timeout)
     return " ".join(pg.inner_text(".swal2-popup").split())
 
@@ -131,12 +104,11 @@ def cerrar_swal(pg):
 
 def abrir_modal(pg, base, ruta, texto):
     pg.goto(base + ruta)
-    pg.click("main a.btn-primary")  # el botón principal del listado («Nuevo …») abre el formulario en la ventana
+    pg.click("main a.btn-primary")
     pg.wait_for_selector("#sgr-modal.show")
 
 
 def guardar_modal(pg):
-    """Guarda el formulario de la ventana. Si todo está bien, la página se recarga con el listado actualizado."""
     try:
         with pg.expect_navigation():
             pg.click("#sgr-modal button[type=submit]:not([name=_addanother])")
@@ -172,7 +144,6 @@ def correr(args):
         pg.set_default_timeout(8000)
         print(f"Recorrido de evidencias sobre {base}")
 
-        # ------------------------------------------------------------------------------------------------ EV1 · Login
         print("EV1 · Login y recuperación")
 
         def login_ok():
@@ -228,7 +199,6 @@ def correr(args):
 
         c.comprobar("A1-02, C2", "Navegación login ⇄ recuperación", ["Abrir /", "Clic en recuperar contraseña", "Clic en volver"], "Se puede ir y volver entre ambas pantallas.", enlace_recuperacion)
 
-        # ---------------------------------------------------------------------------------- EV2 · Seis CRUD (como admin)
         print("EV2 · Seis CRUD")
         ingresar(pg, base, "admin")
 
@@ -379,7 +349,6 @@ def correr(args):
 
         c.comprobar("A3-10, A3-13", "Un tipo con sub atenciones activas no se elimina", ["Tipos de Atención", "Eliminar el tipo con sub atención activa"], "SweetAlert2 explica que tiene sub atenciones activas y no elimina.", tipo_con_sub_no_se_elimina)
 
-        # ---------------------------------------------------------------------------- EV1 (cont.) · recuperación completa
         def recuperacion_completa():
             if not args.log_correo:
                 raise Saltar("falta --log-correo (el código del correo no se puede leer desde el navegador)")
@@ -405,7 +374,6 @@ def correr(args):
                     break
                 time.sleep(0.5)
             assert codigo, "no apareció el código en el log del servidor"
-            # pegar el código completo en la primera casilla
             cajas[0].focus()
             pg.evaluate(
                 """(codigo) => { const d = new DataTransfer(); d.setData('text', codigo);
@@ -449,7 +417,6 @@ def correr(args):
 
         c.comprobar("A3-04", "Recuperación no revela si el correo existe", ["Abrir /recuperar/", "Escribir un correo inexistente", "Enviar"], "Misma respuesta que con un correo real.", correo_inexistente)
 
-        # ------------------------------------------------------------------------------------------- EV3 · Ingreso de atención
         print("EV3 · Ingreso de atención")
         ingresar(pg, base, "matias.cavieres")
 
@@ -531,7 +498,6 @@ def correr(args):
 
         c.comprobar("A3-02, A3-11, A3-13", "Ingreso de atención: obligatorios con SweetAlert2", ["Registrar atención", "Guardar sin completar"], "Avisa qué campos faltan y no guarda.", ingreso_obligatorios)
 
-        # ------------------------------------------------------------------------------------ EV4 · Tabla, búsqueda y Excel
         print("EV4 · Tabla, paginador, búsqueda y Excel")
         salir(pg, base)
         ingresar(pg, base, "admin")
@@ -579,7 +545,6 @@ def correr(args):
 
         c.comprobar("A2-07, A3-09", "Exportar a Excel coincide con la tabla", ["Delegaciones", "Exportar a Excel", "Abrir el archivo y contar filas"], "El archivo trae las mismas filas que la tabla y ningún campo interno.", excel)
 
-        # --------------------------------------------------------------------------------------- EV5 · Roles y alcance
         print("EV5 · Roles, permisos y alcance")
         matriz = {}
         for cuenta in CUENTAS:
@@ -645,7 +610,6 @@ def correr(args):
 
         c.comprobar("A2-10", "Selector con varias delegaciones autorizadas", ["Ingresar como supervision1", "Mirar la franja de arriba"], "El selector ofrece solo sus delegaciones.", selector_delegaciones)
 
-        # --------------------------------------------------------------------------------------------- limpieza
         print("Limpieza de los datos E2E")
         salir(pg, base)
         ingresar(pg, base, "admin")
@@ -660,7 +624,7 @@ def correr(args):
                     swal(pg)
                     pg.click(".swal2-confirm")
                     pg.wait_for_load_state("networkidle")
-            except Exception as e:  # noqa: BLE001
+            except Exception as e:
                 print(f"  (no se pudo borrar {nombre}: {e})")
         if datos.get("usuario"):
             try:
@@ -672,11 +636,10 @@ def correr(args):
                     pg.uncheck("#id_is_active")
                     pg.click("#sgr-modal button[type=submit]:not([name=_addanother])")
                     pg.wait_for_load_state("networkidle")
-            except Exception as e:  # noqa: BLE001
+            except Exception as e:
                 print(f"  (no se pudo desactivar {datos['usuario']}: {e})")
         navegador.close()
 
-    # ---------------------------------------------------------------------------------------------- salidas
     salida = Path(args.salida_json)
     salida.parent.mkdir(parents=True, exist_ok=True)
     salida.write_text(json.dumps(c.resultados, ensure_ascii=False, indent=1), encoding="utf-8")

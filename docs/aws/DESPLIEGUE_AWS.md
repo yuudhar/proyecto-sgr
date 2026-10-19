@@ -44,13 +44,16 @@ Guía para dejar el SGR funcionando en una instancia EC2 y para actualizarlo. To
    sudo systemctl daemon-reload && sudo systemctl enable --now sgr
    sudo nginx -t && sudo systemctl reload nginx
    ```
-5. **Migrar, juntar estáticos y cargar datos de prueba** (con las variables de `sgr.env` cargadas, lo hace `actualizar.sh`):
+5. **Migrar, juntar estáticos y crear roles y superusuario** (con las variables de `sgr.env` cargadas, lo hace `actualizar.sh`):
    ```bash
    bash deploy/actualizar.sh v10
    set -a; . /etc/sgr/sgr.env; set +a
-   sudo -E -u sgr /opt/sgr/venv/bin/python manage.py seed_demo_data     # solo la primera vez
+   # solo si la base está vacía (si ya tiene datos, salta estas tres líneas):
+   sudo -E -u sgr /opt/sgr/venv/bin/python manage.py seed_roles
+   sudo -E -u sgr /opt/sgr/venv/bin/python manage.py seed_management_types
+   sudo -E -u sgr /opt/sgr/venv/bin/python manage.py createsuperuser
    ```
-   `seed_demo_data` crea los roles y las cuentas de demostración (ver README). Para la evaluación, cambia la contraseña `Hola123!` o entrega las cuentas solo al docente.
+   Las cuentas y los datos se administran desde el portal o desde phpMyAdmin (ver README). Para la evaluación, entrega las cuentas solo al docente.
 6. **HTTPS (recomendado):** `sudo apt install certbot python3-certbot-nginx && sudo certbot --nginx -d tu-dominio`. Luego `HTTPS=True` en `sgr.env` y `sudo systemctl restart sgr`.
 7. **Comprobar:**
    - `curl https://tu-dominio/salud/` responde `{"servicio": "ok", "base_de_datos": "ok", "cache": "ok", "version": "v10", "commit": "...", "entorno": "producción"}` (código 503 si la base o la caché fallan).

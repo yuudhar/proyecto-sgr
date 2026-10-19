@@ -1,17 +1,15 @@
 from django.urls import path
 from django.views.generic import RedirectView
 
-from core import registry as _mantenedores  # noqa: F401  (al importarlo se registran los mantenedores)
+from core import registry as _mantenedores
 from core import views
 from core.crud import registry
 
 app_name = "core"
 
 urlpatterns = [
-    # Ingreso y salida
     path("", views.PortalLoginView.as_view(), name="login"),
     path("salir/", views.PortalLogoutView.as_view(), name="logout"),
-    # Pantallas especiales
     path("perfil/", views.profile, name="profile"),
     path("perfil/foto/<int:user_id>/", views.profile_photo, name="profile_photo"),
     path(
@@ -28,7 +26,6 @@ urlpatterns = [
     path("tablero/delegacion/", views.delegation_board, name="delegation_board"),
     path("informes/", views.reports, name="reports"),
     path("administracion/", views.administration, name="administration"),
-    # Direcciones antiguas: redirigen a la pantalla equivalente.
     path(
         "actividades/registrar/",
         RedirectView.as_view(pattern_name="core:actividades_create"),
@@ -44,6 +41,5 @@ urlpatterns = [
         RedirectView.as_view(pattern_name="core:servicios_list"),
         name="catalogo_servicios",
     ),
-    # Listado, ficha, formulario y archivo de cada modelo (ver core/registry.py)
     *registry.urls(),
 ]

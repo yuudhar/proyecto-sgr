@@ -1,6 +1,6 @@
 {% extends "base.html" %}
 {% load static %}
-{# Marco de las pantallas para quien aún no ingresa: ingreso y recuperación de contraseña. Cada una completa los bloques de abajo. #}
+
 {% block body_class %}login-body{% endblock %}
 
 {% block shell %}
@@ -34,7 +34,6 @@
         <h1 class="login-title">{% block auth_title %}{% endblock %}</h1>
         <p class="muted mb-4">{% block auth_lead %}{% endblock %}</p>
 
-        {# Avisos de Django (messages): «Cerraste tu sesión», «Cambiaste tu contraseña»... Sobreviven a la redirección que los antecede. #}
         {% include "core/partials/flash.html" %}
 
         {% if form.non_field_errors %}

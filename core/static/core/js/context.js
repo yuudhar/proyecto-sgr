@@ -1,20 +1,8 @@
-// Selector de delegación de la franja de arriba (A2). Con JavaScript el selector cambia la delegación en cuanto se
-// elige una y el botón «Cambiar» se oculta; sin JavaScript queda el botón y todo funciona igual.
-//
-// SweetAlert2 solo avisa: la delegación elegida la guarda y la comprueba el servidor (POST a «contexto/»), que
-// responde 403 si no está autorizada para la persona. Aquí solo se evita perder lo escrito sin querer:
-//
-//   data-unsaved-guard   en un <form> de la página: si tiene datos escritos que no se guardaron, cambiar de delegación
-//                        pregunta antes, porque la pantalla se vuelve a cargar con los datos de la delegación nueva.
-//                        Con el valor «dirty» el formulario ya llega con datos (por ejemplo, tras un error).
-
 import { alerta, aviso } from "./alerts.js";
 
 const form = document.querySelector("[data-context-form]");
 const select = form ? form.querySelector("[data-context-select]") : null;
 
-// Los eventos que el propio código dispara al armar la página (listas que dependen de otra, por ejemplo) no cuentan
-// como cambios de la persona: se miran solo cuando la página terminó de cargar.
 let ready = document.readyState === "complete";
 if (!ready) {
   window.addEventListener("load", () => setTimeout(() => (ready = true), 0), { once: true });
@@ -29,7 +17,6 @@ function markDirty(event) {
 document.addEventListener("input", markDirty);
 document.addEventListener("change", markDirty);
 
-// Formularios de la página con datos escritos que todavía no se guardan.
 export function formsWithUnsavedChanges() {
   return [...document.querySelectorAll("form[data-unsaved-guard]")].filter(
     (guarded) => guarded.dataset.unsavedGuard === "dirty" || guarded.dataset.dirty === "1",

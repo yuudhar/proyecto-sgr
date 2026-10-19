@@ -1,10 +1,4 @@
 #!/usr/bin/env bash
-# Primera instalación del SGR en Amazon Linux 2023 (AMI LAMP: Apache, MariaDB y phpMyAdmin).
-# Antes: la base y su usuario ya están creados en phpMyAdmin (MariaDB 10.11 o más; ver docs/aws/DESPLIEGUE_AL2023.md).
-# Uso (como root):
-#   sudo bash deploy/al2023/instalar_al2023.sh <repositorio> <rama-o-etiqueta> <ip-pública-o-dominio>
-# Ejemplo:
-#   sudo bash deploy/al2023/instalar_al2023.sh https://github.com/yuudhar/proyecto-sgr.git proyecto-sgr-v11 32.198.200.215
 set -euo pipefail
 
 [ "$(id -u)" -eq 0 ] || { echo "Ejecútalo con sudo: sudo bash $0 ..." >&2; exit 1; }
@@ -14,10 +8,8 @@ HOST="${3:?Falta la IP pública (o el dominio) con la que se entrará al sitio}"
 APP_DIR=/opt/sgr/app
 ENV_FILE=/etc/sgr/sgr.env
 
-# fijar CLAVE VALOR: reemplaza la línea CLAVE= de sgr.env (el valor no puede llevar espacios ni «|»).
 fijar() { sed -i "s|^$1=.*|$1=$2|" "$ENV_FILE"; }
 
-# Django 6.1 no se conecta a MariaDB 10.5, que es la que instala el tutorial LAMP de AWS (mariadb105-server).
 if rpm -q mariadb105-server >/dev/null 2>&1; then
   echo "ERROR: está instalado mariadb105-server (MariaDB 10.5). Django 6.1 pide 10.11 o más: usa mariadb1011-server." >&2
   echo "       Pasos en docs/aws/DESPLIEGUE_AL2023.md, paso 1." >&2
@@ -46,7 +38,6 @@ sudo -u sgr /opt/sgr/venv/bin/pip install --upgrade pip
 sudo -u sgr /opt/sgr/venv/bin/pip install -r "$APP_DIR/requirements.txt" -r "$APP_DIR/deploy/requirements-produccion.txt"
 sudo -u sgr /opt/sgr/venv/bin/pip install mysqlclient
 
-# Apache corre como «apache» y tiene que poder llegar a los archivos estáticos (el home de sgr es 700 por defecto).
 chmod 711 /opt/sgr
 chmod 755 "$APP_DIR"
 
@@ -79,8 +70,12 @@ cat <<MSG
 
 Listo la primera parte. Siguen, en este orden:
   1) cd $APP_DIR && sudo bash deploy/actualizar.sh $VERSION        (migra, junta los estáticos y arranca el servicio)
-  2) Solo la primera vez, los datos de demostración:
-       set -a; . $ENV_FILE; set +a; sudo -E -u sgr /opt/sgr/venv/bin/python manage.py seed_demo_data
+  2) Solo si la base sgr_django está vacía (roles, tipos de gestión y tu superusuario):
+       set -a; . $ENV_FILE; set +a; cd $APP_DIR
+       sudo -E -u sgr /opt/sgr/venv/bin/python manage.py seed_roles
+       sudo -E -u sgr /opt/sgr/venv/bin/python manage.py seed_management_types
+       sudo -E -u sgr /opt/sgr/venv/bin/python manage.py createsuperuser
+     Si la base ya tiene datos (se trabaja desde phpMyAdmin), salta este paso.
   3) HTTP ya funciona en http://$HOST/ ; para HTTPS:
        sudo bash deploy/al2023/https_certificado.sh $HOST tu-correo@ejemplo.cl
 MSG

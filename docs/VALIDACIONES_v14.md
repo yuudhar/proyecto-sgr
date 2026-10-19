@@ -19,7 +19,7 @@ La v14 completa las validaciones de los formularios del portal sin tocar la base
 - El mensaje dice solo lo que falta («Le falta un número.»).
 - `Hola123!` cumple; `admin12345` se rechaza.
 - Se aplica a `password1` de *Control de usuarios*, `new_password1` de *Mi perfil* y de la recuperación.
-- **Las cuentas existentes no se afectan:** `seed_demo_data`, `set_password` y `changepassword` no pasan por los formularios, así que no validan la política.
+- **Las cuentas existentes no se afectan:** `createsuperuser`, `set_password` y `changepassword` no pasan por los formularios, así que no validan la política.
 
 ## Hallazgo extra: la meta no aceptaba el valor 0,01
 

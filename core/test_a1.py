@@ -1,12 +1,3 @@
-"""Pruebas de A1 (v8): los campos que pide el PDF «Requisitos y plan de pruebas de la segunda evaluación».
-
-- Delegaciones: código, nombre, dirección, comuna y estado.
-- Roles: nombre, descripción, permisos y alcance autorizado (más el estado de su ficha).
-- Ítems y metas, y Tipo de Atención: código, nombre, descripción y estado.
-
-Siguen las Clases 6, 7 y 8: formularios con reglas de formato, permisos por rol y catálogos con tipo y sub atención.
-"""
-
 import importlib
 from django.apps import apps as django_apps
 from django.contrib.auth.models import Group, User
@@ -23,7 +14,6 @@ from organization.models import Delegation, Item, Officer
 
 
 class DelegationFieldsTests(ExcelTestCase):
-    """CRUD Delegaciones: código, nombre, dirección, comuna y estado."""
 
     def setUp(self):
         self.login_as("admin")
@@ -63,7 +53,7 @@ class DelegationFieldsTests(ExcelTestCase):
             return sorted(row.cells[1].text for row in self.client.get(url, params).context["rows"])
 
         self.assertEqual(names(q="cuatro esquinas"), ["Delegación Norte"])
-        self.assertEqual(names(q="juan bohon"), ["Delegación Sur"])  # sin tilde
+        self.assertEqual(names(q="juan bohon"), ["Delegación Sur"])
         self.assertEqual(names(q="la serena"), ["Delegación Norte", "Delegación Sur"])
 
     def test_the_create_form_asks_for_both_fields_and_suggests_the_commune(self):
@@ -151,7 +141,6 @@ class DelegationFieldsTests(ExcelTestCase):
 
 
 class ItemDescriptionTests(ExcelTestCase):
-    """CRUD Ítems y metas y Tipo de Atención: código, nombre, descripción y estado."""
 
     def setUp(self):
         self.login_as("admin")
@@ -244,7 +233,6 @@ class ItemDescriptionTests(ExcelTestCase):
 
 
 class RoleProfileTests(ExcelTestCase):
-    """CRUD Roles: nombre, descripción, permisos y alcance autorizado, más el estado."""
 
     def setUp(self):
         self.login_as("admin")
@@ -266,14 +254,12 @@ class RoleProfileTests(ExcelTestCase):
         return Group.objects.get(name=name)
 
     def update(self, role, *labels, **changes):
-        """Guarda el rol como está, salvo lo que se indique en changes."""
         details = RoleProfile.objects.get(group=role)
         data = self.role_data(role.name, *labels)
         data.update(description=details.description, scope=details.scope, status=details.status)
         data.update(changes)
         return self.client.post(reverse("core:roles_update", args=[role.pk]), data)
 
-    # -- la ficha del rol
 
     def test_every_group_gets_its_profile_when_it_is_created(self):
         role = Group.objects.create(name="Equipo nuevo")
@@ -304,7 +290,6 @@ class RoleProfileTests(ExcelTestCase):
         self.client.post(reverse("core:roles_delete", args=[role.pk]))
         self.assertFalse(RoleProfile.objects.filter(group_id=role.pk).exists())
 
-    # -- listado
 
     def test_the_list_shows_code_name_scope_state_users_and_permissions(self):
         response = self.client.get(reverse("core:roles_list"))
@@ -339,7 +324,7 @@ class RoleProfileTests(ExcelTestCase):
     def test_the_list_sorts_by_scope(self):
         url = reverse("core:roles_list")
         ascending = [row.cells[1].text for row in self.client.get(url, {"orden": "role_profile__scope"}).context["rows"]]
-        self.assertEqual(ascending[0], "Coordinación")  # «all» va antes que «own»
+        self.assertEqual(ascending[0], "Coordinación")
         descending = [
             row.cells[1].text
             for row in self.client.get(url, {"orden": "role_profile__scope", "dir": "desc"}).context["rows"]
@@ -352,7 +337,6 @@ class RoleProfileTests(ExcelTestCase):
         self.assertIn("Todas las delegaciones", self.column(response, "Alcance"))
         self.assertEqual(set(self.column(response, "Estado")), {"Activo"})
 
-    # -- formulario
 
     def test_the_form_has_name_description_scope_state_and_permissions(self):
         response = self.client.get(reverse("core:roles_create"))
@@ -413,7 +397,6 @@ class RoleProfileTests(ExcelTestCase):
         self.assertTrue(form.fields["status"].disabled)
         self.assertFalse(form.fields["description"].disabled)
 
-    # -- estado
 
     def test_a_role_with_users_cannot_be_deactivated(self):
         role = self.create_role("Auditor", scope="own")
@@ -453,11 +436,10 @@ class RoleProfileTests(ExcelTestCase):
     def test_a_user_keeps_seeing_the_role_it_already_has_even_if_it_became_inactive(self):
         role = self.create_role("Auditor", scope="own")
         user = self.make_user("auditor1", groups=["Auditor"], officer=self.officer("F-1004"))
-        RoleProfile.objects.filter(group=role).update(status="inactive")  # por fuera de la pantalla
+        RoleProfile.objects.filter(group=role).update(status="inactive")
         form = self.client.get(reverse("core:usuarios_update", args=[user.pk])).context["form"]
         self.assertIn(role.pk, {group.pk for group in form.fields["groups"].queryset})
 
-    # -- alcance
 
     def test_a_global_role_cannot_be_limited_if_a_user_would_have_no_delegation(self):
         role = self.create_role("Auditor", scope="all")
@@ -476,7 +458,6 @@ class RoleProfileTests(ExcelTestCase):
         self.assertEqual(self.update(role, "operations.view_activity", scope="own").status_code, 302)
         self.assertEqual(RoleProfile.objects.get(group=role).scope, "own")
 
-    # -- ficha y asignación
 
     def test_the_detail_shows_description_scope_state_and_kind(self):
         role = self.create_role("Auditor", description="Mira todo.")
@@ -491,11 +472,10 @@ class RoleProfileTests(ExcelTestCase):
         self.create_role("Auditor", description="Descripción propia del auditor.")
         response = self.client.get(reverse("core:usuarios_create"))
         self.assertContains(response, "Descripción propia del auditor.")
-        self.assertContains(response, ROLES["Consulta"][1])  # y los de fábrica siguen igual
+        self.assertContains(response, ROLES["Consulta"][1])
 
 
 class GlobalRoleScopeTests(PortalTestCase):
-    """El alcance de un rol sale de su ficha: un rol propio con «Todas las delegaciones» ve lo mismo que Coordinación."""
 
     def setUp(self):
         self.role = Group.objects.create(name="Auditor")
@@ -518,7 +498,7 @@ class GlobalRoleScopeTests(PortalTestCase):
 
     def test_a_role_with_its_own_delegation_only_sees_that_one(self):
         self.set_role(scope="own")
-        self.make_user("auditor1", groups=["Auditor"], officer=self.officer("F-1004"))  # Delegación Norte, sin usuario
+        self.make_user("auditor1", groups=["Auditor"], officer=self.officer("F-1004"))
         status, total = self.total_visible("auditor1")
         self.assertEqual(status, 200)
         self.assertEqual(total, Activity.objects.filter(deleted_at__isnull=True, delegation=self.north).count())
@@ -537,15 +517,14 @@ class GlobalRoleScopeTests(PortalTestCase):
 
     def test_coordinacion_without_a_profile_is_still_recognised_by_its_name(self):
         RoleProfile.objects.filter(group__name="Coordinación").delete()
-        status, total = self.total_visible("coordinacion1", "core:funcionarios_list")  # Coordinación no ve actividades
+        status, total = self.total_visible("coordinacion1", "core:funcionarios_list")
         self.assertEqual(status, 200)
         self.assertEqual(total, Officer.objects.filter(deleted_at__isnull=True).count())
 
     def test_the_django_admin_follows_the_same_scope(self):
-        """El Django Admin aplica la misma regla: el rol con «Todas las delegaciones» ve las actividades de todas."""
         everything = Activity.objects.filter(deleted_at__isnull=True).count()
         only_north = Activity.objects.filter(deleted_at__isnull=True, delegation=self.north).count()
-        self.assertGreater(everything, only_north)  # sin esto la prueba no distinguiría los dos alcances
+        self.assertGreater(everything, only_north)
         self.set_role(scope="all")
         user = self.make_user("auditor1", groups=["Auditor"], officer=self.officer("F-1004"))
         user.is_staff = True

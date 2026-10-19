@@ -1,12 +1,8 @@
-"""Ayudas comunes de las pruebas de las pantallas web."""
-
-from io import StringIO
-
 from django.contrib.auth.models import Group, Permission, User
-from django.core.management import call_command
 from django.test import TestCase
 
 from accounts.models import UserProfile
+from core.datos_prueba import cargar_datos_prueba
 from operations.models import Activity
 from organization.models import Delegation, Item, Officer
 
@@ -15,11 +11,10 @@ ALL_USERS = ("admin", "matias.cavieres", "matias.quiroz", "coordinacion1", "jefa
 
 
 class PortalTestCase(TestCase):
-    """Datos de demostración y ayudas comunes."""
 
     @classmethod
     def setUpTestData(cls):
-        call_command("seed_demo_data", stdout=StringIO())
+        cargar_datos_prueba()
         cls.north = Delegation.objects.get(name="Delegación Norte")
         cls.south = Delegation.objects.get(name="Delegación Sur")
 
@@ -29,7 +24,6 @@ class PortalTestCase(TestCase):
         return user
 
     def give_perm(self, user, label):
-        """Agrega un permiso ("app.codename") directamente al usuario, para probar un rol con más o menos permisos."""
         app_label, codename = label.split(".")
         user.user_permissions.add(Permission.objects.get(content_type__app_label=app_label, codename=codename))
 
@@ -40,14 +34,12 @@ class PortalTestCase(TestCase):
         return Activity.objects.get(contact_name=contact_name)
 
     def menu_labels(self, response):
-        """Textos de todas las entradas del menú lateral (las de arriba y las de los grupos)."""
         labels = {item.label for item in response.context["menu_top"]}
         for group in response.context["menu_groups"]:
             labels.update(item.label for item in group.items)
         return labels
 
     def activity_data(self, **changes):
-        """Datos de un formulario de actividad válido para matias.cavieres (Norte)."""
         data = {
             "date": "2026-10-01",
             "item": Item.objects.get(name="Visita Domiciliaria").pk,
@@ -65,7 +57,6 @@ class PortalTestCase(TestCase):
         return data
 
     def intake_data(self, **changes):
-        """Datos del formulario de ingreso de atención (el de «Registrar atención») para matias.cavieres (Norte)."""
         data = {
             "requester": "Rosa Prueba",
             "phone": "",
@@ -79,7 +70,6 @@ class PortalTestCase(TestCase):
         return data
 
     def make_user(self, username, groups=(), officer=None):
-        """Crea un usuario con sus grupos y, si se indica, vinculado a un funcionario."""
         user = User.objects.create_user(username, password=PASSWORD)
         for name in groups:
             user.groups.add(Group.objects.get(name=name))
@@ -88,7 +78,6 @@ class PortalTestCase(TestCase):
         return user
 
     def activity_form_data(self, activity, **changes):
-        """Datos del formulario de edición de una actividad ya guardada, tal como los envía el navegador."""
         data = {
             "date": activity.date.isoformat(),
             "item": activity.item_id,

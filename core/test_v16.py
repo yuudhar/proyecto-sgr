@@ -1,11 +1,9 @@
-"""Pruebas de la versión 16: archivos de evidencia, foto de perfil, alta única de funcionario y pantalla Atención."""
-
 from django.contrib.auth.models import Group, User
 from django.contrib.staticfiles import finders
 from django.core.files.uploadedfile import SimpleUploadedFile
 from django.urls import reverse
 
-from core.management.commands.seed_demo_data import demo_pdf
+from core.datos_prueba import demo_pdf
 from core.models import AuditLog
 from core.testing import PASSWORD, PortalTestCase
 from evidence.models import Evidence
@@ -102,17 +100,15 @@ class EvidenceUploadTests(PortalTestCase):
     def test_the_file_is_delivered_only_through_the_view_with_permission_and_scope(self):
         evidence = Evidence.objects.get(unique_code="EVD-NORTE-0001")
         url = reverse("core:evidence_file", args=[evidence.pk])
-        self.assertEqual(self.client.get(url).status_code, 302)  # sin sesión, al ingreso
+        self.assertEqual(self.client.get(url).status_code, 302)
         self.login_as("matias.cavieres")
         response = self.client.get(url)
         self.assertEqual(response.status_code, 200)
         self.assertEqual(response["Content-Type"], "application/pdf")
         self.assertEqual(response["X-Content-Type-Options"], "nosniff")
         self.assertTrue(b"".join(response.streaming_content).startswith(b"%PDF-"))
-        # Una persona de la delegación Sur no alcanza la evidencia del Norte.
         self.login_as("matias.quiroz")
         self.assertEqual(self.client.get(url).status_code, 404)
-        # Sin el permiso de ver evidencias tampoco.
         user = self.make_user("sin.permiso")
         self.client.force_login(user)
         self.assertEqual(self.client.get(url).status_code, 403)

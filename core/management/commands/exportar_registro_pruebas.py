@@ -1,12 +1,3 @@
-"""Ejecuta las pruebas automáticas y escribe el registro de pruebas funcionales (A3).
-
-    python manage.py exportar_registro_pruebas --responsable "Nombre Apellido"
-
-Genera en docs/pruebas/: registro_pruebas_funcionales.xlsx y .csv, y en docs/pruebas/resultados/ el detalle de la
-ejecución (JSON y texto). Con --resultados se arma el registro a partir de una ejecución anterior, sin volver a correr
-las pruebas.
-"""
-
 import json
 import unittest
 from pathlib import Path
@@ -19,7 +10,6 @@ from core.qa import registro
 
 
 class _Resultado(unittest.TextTestResult):
-    """Guarda el estado de cada prueba (sirve también con --parallel)."""
 
     estados = {}
 

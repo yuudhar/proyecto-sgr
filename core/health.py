@@ -1,9 +1,3 @@
-"""Revisión de estado del servicio (/salud/): para el balanceador, para una persona o para las evidencias.
-
-No pide sesión ni muestra secretos: solo dice si el servicio, la base de datos y la caché responden, y qué versión
-está desplegada (archivo VERSION del proyecto y, si existe, COMMIT, que escribe deploy/actualizar.sh).
-"""
-
 from pathlib import Path
 
 from django.conf import settings

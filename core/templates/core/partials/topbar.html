@@ -1,4 +1,4 @@
-{# Franja de arriba, siempre a la vista: la delegación (código y nombre), quién tiene la sesión, su perfil y cerrar sesión. Con una sola delegación autorizada el contexto es fijo; con varias, un selector que muestra solo las autorizadas (A2). #}
+
 <header class="topbar">
   <button class="btn btn-outline-secondary topbar-menu d-lg-none" type="button" data-bs-toggle="offcanvas" data-bs-target="#barra-lateral" aria-controls="barra-lateral">
     <i class="bi bi-list" aria-hidden="true"></i> Menú
@@ -9,7 +9,7 @@
   </div>
   <div class="topbar-user">
     {% if me_scope.choose %}
-    {# El servidor vuelve a comprobar la delegación pedida (core/views.py: set_context); con JavaScript el selector cambia solo y el botón se oculta. #}
+
     <form method="post" action="{% url 'core:set_context' %}" class="topbar-scope topbar-context" data-context-form>
       {% csrf_token %}
       <input type="hidden" name="next" value="{{ request.get_full_path }}">

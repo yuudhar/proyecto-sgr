@@ -1,5 +1,3 @@
-"""Datos que todas las plantillas necesitan: menú, usuario, delegación y perfiles."""
-
 from django.core.exceptions import PermissionDenied
 from django.urls import reverse
 
@@ -23,7 +21,6 @@ NO_DELEGATION_LABEL = "Sin delegación asignada"
 
 
 def photo_url(user):
-    """Dirección de la foto de perfil, o vacío si la persona no subió una. El número de versión evita ver la foto vieja."""
     account = getattr(user, "profile", None)
     if account is None or not account.photo:
         return ""
@@ -31,13 +28,6 @@ def photo_url(user):
 
 
 def delegation_scope(request):
-    """La delegación en la que trabaja la persona, lista para la franja de arriba y la barra lateral.
-
-    Devuelve un diccionario con el código y el nombre de la delegación activa (o «Todas las delegaciones»), si la
-    persona puede elegir otra (A2: el selector muestra solo las autorizadas), las opciones del selector y los colores.
-    Nunca lanza PermissionDenied: las pantallas de error también la usan y una persona sin delegación asignada
-    solo ve «Sin delegación asignada».
-    """
     code_of = registry.get("delegaciones").code_of
     everything = is_global_user(request)
     try:
@@ -77,7 +67,7 @@ def delegation_scope(request):
     return {
         "code": code_of(active) if active is not None else "",
         "name": name,
-        "all": everything,  # tiene autorizadas todas las delegaciones (aunque mire solo una)
+        "all": everything,
         "viewing_all": assigned and active is None,
         "assigned": assigned,
         "choose": choose,
@@ -109,12 +99,8 @@ def portal(request):
             "me_name": user.get_full_name() or user.get_username(),
             "me_officer": officer,
             "me_photo_url": photo_url(user),
-            # La delegación de su funcionario (la «propia»): puede no ser en la que trabaja ahora (me_scope).
             "me_delegation": home_delegation(request),
             "me_roles": roles,
-            # Delegación en la que trabaja la persona: se muestra en la franja de arriba (código y nombre, con el
-            # selector si tiene más de una autorizada) y en la barra lateral (nombre y colores). El código (DEL01)
-            # sale del id, igual que en el mantenedor de Delegaciones.
             "me_scope": delegation_scope(request),
         }
     )

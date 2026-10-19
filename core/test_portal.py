@@ -1,10 +1,3 @@
-"""Pruebas de las pantallas web (Bootstrap).
-
-Comprueban que respetan las mismas reglas del Django Admin: permisos por rol,
-alcance por delegación, y que los formularios no se dejan engañar con datos
-armados a mano. Parten de los datos de demostración (seed_demo_data).
-"""
-
 import csv
 from decimal import Decimal
 from io import StringIO
@@ -23,10 +16,6 @@ from evidence.models import Evidence, Validation
 from operations.models import Activity, Commitment, Followup, ManagementType
 from organization.models import Item, Officer, Position, Territory
 from planning.models import Adjustment, Goal, Indicator, Period
-
-# ---------------------------------------------------------------------------
-# Ingreso y salida
-# ---------------------------------------------------------------------------
 
 
 class LoginTests(PortalTestCase):
@@ -53,7 +42,6 @@ class LoginTests(PortalTestCase):
         self.assertEqual(self.client.get(reverse("core:dashboard")).status_code, 302)
 
     def test_empty_fields_are_rejected_with_a_message_for_each_one(self):
-        """A3: dejar el usuario y la contraseña vacíos no entra y avisa en cada campo."""
         response = self.client.post(reverse("core:login"), {"username": "", "password": ""})
         self.assertEqual(response.status_code, 200)
         errors = response.context["form"].errors
@@ -131,11 +119,6 @@ class LoginTests(PortalTestCase):
         response = self.client.get("/admin/login/")
         self.assertEqual(response.status_code, 200)
         self.assertContains(response, "Log in")
-
-
-# ---------------------------------------------------------------------------
-# Menú y permisos por rol
-# ---------------------------------------------------------------------------
 
 
 class RoleTests(PortalTestCase):
@@ -228,8 +211,6 @@ class RoleTests(PortalTestCase):
         )
 
     def test_coordination_cannot_edit_delegation_records(self):
-        # Igual que en el Admin: Coordinación ve todas las delegaciones pero no
-        # tiene permiso sobre las actividades, así que ni siquiera las abre.
         self.login_as("coordinacion1")
         activity = self.activity("María Pérez")
         for name in ("actividades_detail", "actividades_update", "actividades_archive"):
@@ -261,11 +242,6 @@ class RoleTests(PortalTestCase):
         self.assertEqual(counts, {"green": 1, "amber": 1, "red": 1})
 
 
-# ---------------------------------------------------------------------------
-# Alcance por delegación
-# ---------------------------------------------------------------------------
-
-
 class ScopingTests(PortalTestCase):
     def contacts(self, response):
         index = [column.label for column in response.context["columns"]].index("Contacto")
@@ -291,13 +267,12 @@ class ScopingTests(PortalTestCase):
         url = reverse("core:atencion")
         self.assertEqual(self.client.get(url, {"q": "Ana"}).context["page"].paginator.count, 1)
         self.assertEqual(self.client.get(url, {"q": "Carla"}).context["page"].paginator.count, 0)
-        # Un filtro armado a mano con la otra delegación tampoco la deja pasar.
         response = self.client.get(url, {"delegation": self.north.pk})
         self.assertNotIn("María Pérez", self.contacts(response))
 
     def test_other_delegation_records_are_not_found(self):
         user = self.login_as("matias.quiroz")
-        self.give_perm(user, "operations.delete_activity")  # con el permiso, lo que frena es el alcance (404)
+        self.give_perm(user, "operations.delete_activity")
         activity = self.activity("María Pérez")
         evidence = Evidence.objects.get(unique_code="EVD-NORTE-0001")
         urls = [
@@ -318,7 +293,6 @@ class ScopingTests(PortalTestCase):
         self.assertIsNone(activity.deleted_at)
 
     def test_board_and_reports_are_limited_for_delegation_users(self):
-        # ?delegacion= solo lo respetan los usuarios que ven todas las delegaciones.
         self.login_as("jefatura1")
         board = self.client.get(reverse("core:delegation_board"), {"delegacion": self.south.pk})
         self.assertEqual(board.context["delegation"], self.north)
@@ -342,11 +316,6 @@ class ScopingTests(PortalTestCase):
         self.assertTrue(board.context["can_pick_delegation"])
 
 
-# ---------------------------------------------------------------------------
-# Formularios armados a mano
-# ---------------------------------------------------------------------------
-
-
 class ForgedFormTests(PortalTestCase):
     def setUp(self):
         self.login_as("matias.cavieres")
@@ -360,7 +329,6 @@ class ForgedFormTests(PortalTestCase):
         self.assertEqual(created.delegation, self.north)
 
     def test_activity_officer_is_always_the_one_who_registers_it(self):
-        # El ingreso no pide el responsable: un funcionario de otra delegación enviado a mano se ignora.
         response = self.client.post(
             reverse("core:actividades_create"),
             self.intake_data(author_officer=self.officer("F-2001").pk, delegation=self.south.pk),
@@ -433,7 +401,6 @@ class ForgedFormTests(PortalTestCase):
         self.assertEqual(activity.author_officer, self.officer("F-1001"))
 
     def test_form_choices_exclude_other_delegation(self):
-        # Al registrar no se elige ni la delegación ni el responsable; al editar, las listas son solo de la delegación.
         create_form = self.client.get(reverse("core:actividades_create")).context["form"]
         self.assertNotIn("author_officer", create_form.fields)
         self.assertNotIn("delegation", create_form.fields)
@@ -444,7 +411,6 @@ class ForgedFormTests(PortalTestCase):
         self.assertTrue(form.fields["delegation"].disabled)
 
     def test_model_rule_is_kept_for_the_superuser(self):
-        # El superusuario sí elige la delegación; la regla del modelo la sigue cuidando.
         self.login_as("admin")
         response = self.client.post(
             reverse("core:actividades_create"),
@@ -462,11 +428,6 @@ class ForgedFormTests(PortalTestCase):
         self.assertNotIn(archived.pk, offered)
 
 
-# ---------------------------------------------------------------------------
-# Crear, editar, archivar y restaurar
-# ---------------------------------------------------------------------------
-
-
 class CrudFlowTests(PortalTestCase):
     def test_create_update_archive_and_restore_an_activity(self):
         user = self.login_as("matias.cavieres")
@@ -479,7 +440,6 @@ class CrudFlowTests(PortalTestCase):
         )
         self.assertEqual(created.author_officer, self.officer("F-1001"))
 
-        # Editar
         response = self.client.post(
             reverse("core:actividades_update", args=[created.pk]),
             self.activity_data(contact_name="Rosa Editada"),
@@ -488,14 +448,12 @@ class CrudFlowTests(PortalTestCase):
         created.refresh_from_db()
         self.assertEqual(created.contact_name, "Rosa Editada")
 
-        # Eliminar (se archiva) es parte de delete: el Funcionario no lo tiene y ni la URL directa lo deja pasar
         archive_url = reverse("core:actividades_archive", args=[created.pk])
         self.assertEqual(self.client.get(archive_url).status_code, 403)
         self.assertEqual(self.client.post(archive_url).status_code, 403)
         created.refresh_from_db()
         self.assertIsNone(created.deleted_at)
 
-        # Con el permiso delete pide confirmación y deja registro en la auditoría
         self.give_perm(user, "operations.delete_activity")
         self.assertContains(self.client.get(archive_url), "Eliminar")
         response = self.client.post(archive_url)
@@ -506,7 +464,6 @@ class CrudFlowTests(PortalTestCase):
         self.assertEqual(log.affected_entity, "Activity")
         self.assertEqual(log.user.username, "matias.cavieres")
 
-        # Archivada: no sale en el listado normal y no se puede editar
         listing = self.client.get(reverse("core:atencion"))
         self.assertNotIn("Rosa Editada", ScopingTests.contacts(self, listing))
         with_archived = self.client.get(reverse("core:atencion"), {"archivados": "1"})
@@ -517,7 +474,6 @@ class CrudFlowTests(PortalTestCase):
             self.client.post(edit_url, self.activity_data(contact_name="Otra")).status_code, 403
         )
 
-        # Restaurar: solo con POST
         restore_url = reverse("core:actividades_restore", args=[created.pk])
         self.assertEqual(self.client.get(restore_url).status_code, 405)
         self.assertRedirects(self.client.post(restore_url), detail)
@@ -545,24 +501,19 @@ class CrudFlowTests(PortalTestCase):
         base = {
             "activity": activity.pk,
             "management_type": ManagementType.objects.first().pk,
-            # El día de la atención: la fecha de una gestión no puede ser anterior (los datos de demostración usan fechas
-            # relativas a hoy, así que una fecha fija dejaría de servir con el paso de los días).
             "date": activity.date.isoformat(),
             "result": "Se llamó por teléfono.",
         }
-        # La gestión 1 ya existe: no puede repetirse (restricción uq_activity_followup).
         response = self.client.post(
             reverse("core:gestiones_create"), {**base, "sequence_number": 1}
         )
         self.assertEqual(response.status_code, 200)
         self.assertTrue(response.context["form"].non_field_errors() or response.context["form"].errors)
-        # Solo hay hasta tres gestiones por actividad.
         response = self.client.post(
             reverse("core:gestiones_create"), {**base, "sequence_number": 4}
         )
         self.assertEqual(response.status_code, 200)
         self.assertIn("sequence_number", response.context["form"].errors)
-        # La 3 sí está libre.
         response = self.client.post(
             reverse("core:gestiones_create"), {**base, "sequence_number": 3}
         )
@@ -575,7 +526,6 @@ class CrudFlowTests(PortalTestCase):
         response = self.client.get(reverse("core:gestiones_create"), {"activity": activity.pk})
         self.assertEqual(response.context["form"].initial["activity"], str(activity.pk))
         self.assertEqual(response.context["form"].initial["sequence_number"], 3)
-        # Con una actividad de otra delegación no adelanta nada.
         foreign = self.activity("Ana Rojas")
         response = self.client.get(reverse("core:gestiones_create"), {"activity": foreign.pk})
         self.assertNotIn("sequence_number", response.context["form"].initial)
@@ -648,8 +598,6 @@ class CrudFlowTests(PortalTestCase):
 
     def test_names_with_html_are_escaped_everywhere(self):
         self.login_as("matias.cavieres")
-        # Los formularios ya rechazan < y >; el dato con HTML se fuerza por ORM
-        # (por ejemplo, un registro antiguo) para comprobar que se muestra escapado.
         self.client.post(
             reverse("core:actividades_create"),
             self.intake_data(requester="Rosa Negrita"),
@@ -664,11 +612,6 @@ class CrudFlowTests(PortalTestCase):
         ):
             with self.subTest(url=url):
                 self.assertNotContains(self.client.get(url), "<b>negrita</b>")
-
-
-# ---------------------------------------------------------------------------
-# Reglas de planificación
-# ---------------------------------------------------------------------------
 
 
 class PlanningRuleTests(PortalTestCase):
@@ -752,11 +695,10 @@ class PlanningRuleTests(PortalTestCase):
         self.assertIn("target_value", response.context["form"].errors)
 
     def test_indicator_light_is_calculated_from_the_period_thresholds(self):
-        self.login_as("admin")  # Coordinación solo consulta los indicadores
+        self.login_as("admin")
         goal = Goal.objects.filter(period__status="active", officer__isnull=False).first()
         url = reverse("core:indicadores_create")
         self.assertNotIn("status_light", self.client.get(url).context["form"].fields)
-        # Umbrales del período vigente: verde desde 80, ámbar desde 60.
         for compliance, light in (("95", "green"), ("80", "green"), ("70", "amber"), ("59.9", "red")):
             with self.subTest(compliance=compliance):
                 response = self.client.post(
@@ -782,11 +724,6 @@ class PlanningRuleTests(PortalTestCase):
         self.assertEqual(response.status_code, 302)
         indicator.refresh_from_db()
         self.assertEqual(indicator.status_light, "green")
-
-
-# ---------------------------------------------------------------------------
-# Validación de evidencias
-# ---------------------------------------------------------------------------
 
 
 class ValidationFlowTests(PortalTestCase):
@@ -815,7 +752,6 @@ class ValidationFlowTests(PortalTestCase):
             self.review_url("EVD-NORTE-0001"),
             {"decision": "approved", "result": "Evidencia conforme", "notes": ""},
         )
-        # Termina en la página de la evidencia revisada, no en la lista.
         self.assertRedirects(response, reverse("core:evidencias_detail", args=[evidence.pk]))
         evidence.refresh_from_db()
         self.assertEqual(evidence.review_status, Evidence.ReviewStatus.APPROVED)
@@ -824,7 +760,6 @@ class ValidationFlowTests(PortalTestCase):
         self.assertEqual(validation.decision, Validation.Decision.APPROVED)
         log = AuditLog.objects.get(event="Evidencia validada", record_id=evidence.pk)
         self.assertIn("review_status=approved", log.new_value)
-        # Ya no está en la lista de pendientes.
         listed = self.client.get(reverse("core:validate_list")).context["items"]
         self.assertEqual(listed, [])
 
@@ -848,7 +783,6 @@ class ValidationFlowTests(PortalTestCase):
         evidence.refresh_from_db()
         self.assertEqual(evidence.review_status, Evidence.ReviewStatus.PENDING)
         self.assertEqual(Validation.objects.count(), before + 1)
-        # Sigue en la lista, marcada como observada.
         item = self.client.get(reverse("core:validate_list")).context["items"][0]
         self.assertTrue(item["flagged"])
 
@@ -886,7 +820,6 @@ class ValidationFlowTests(PortalTestCase):
         self.login_as("matias.cavieres")
         response = self.client.get(self.review_url("EVD-NORTE-0001"))
         self.assertNotIn("reviewer_officer", response.context["form"].fields)
-        # Aunque alguien mande el campo a mano, se ignora: queda su propio funcionario.
         response = self.client.post(
             self.review_url("EVD-NORTE-0001"),
             {
@@ -932,7 +865,6 @@ class ValidationFlowTests(PortalTestCase):
         user.groups.add(Group.objects.get(name="Verificador"))
         self.client.force_login(user)
         evidence = self.evidence("EVD-NORTE-0001")
-        # Sin funcionario no tiene delegación: ni siquiera ve las evidencias.
         self.assertEqual(
             self.client.get(reverse("core:validate_evidence", args=[evidence.pk])).status_code, 403
         )
@@ -953,11 +885,6 @@ class ValidationFlowTests(PortalTestCase):
         self.assertEqual(response.status_code, 404)
 
 
-# ---------------------------------------------------------------------------
-# Tablero e informes
-# ---------------------------------------------------------------------------
-
-
 class BoardAndReportTests(PortalTestCase):
     def read_csv(self, response):
         text = response.content.decode("utf-8-sig")
@@ -969,7 +896,6 @@ class BoardAndReportTests(PortalTestCase):
         self.assertEqual(response.status_code, 200)
         by_name = {row["officer"].name: row for row in response.context["results"]}
         cavieres = by_name["Matías Cavieres"]
-        # Metas con 70 % (ámbar) y 10 % (rojo): promedio 40 %, bajo el umbral ámbar de 60 %.
         self.assertEqual(cavieres["average"], Decimal("40.0"))
         self.assertEqual(cavieres["light"], "red")
         self.assertEqual(cavieres["goal_total"], 2)
@@ -1002,7 +928,6 @@ class BoardAndReportTests(PortalTestCase):
             len(rows), Officer.objects.filter(status="active", deleted_at__isnull=True).count()
         )
         quiroz = next(row for row in rows if row["Funcionario"] == "Matías Quiroz")
-        # Coma decimal y separador «;» para abrirlo directo en Excel en español.
         self.assertEqual(quiroz["Cumplimiento promedio (%)"], "52,5")
 
     def test_csv_cells_cannot_become_spreadsheet_formulas(self):
@@ -1020,11 +945,6 @@ class BoardAndReportTests(PortalTestCase):
                 self.assertEqual(self.client.get(url).status_code, 200)
 
 
-# ---------------------------------------------------------------------------
-# Encabezados de respuesta
-# ---------------------------------------------------------------------------
-
-
 class CacheHeaderTests(PortalTestCase):
     def test_portal_pages_ask_the_browser_not_to_store_them(self):
         self.login_as("admin")
@@ -1035,17 +955,11 @@ class CacheHeaderTests(PortalTestCase):
     def test_admin_keeps_its_own_cache_rules(self):
         self.login_as("admin")
         response = self.client.get("/admin/")
-        self.assertNotEqual(response.get("Cache-Control", ""), "")  # lo define el propio Admin
+        self.assertNotEqual(response.get("Cache-Control", ""), "")
         self.assertEqual(response.status_code, 200)
 
 
-# ---------------------------------------------------------------------------
-# Recorrido general
-# ---------------------------------------------------------------------------
-
-
 class SweepTests(PortalTestCase):
-    """Cada rol abre todas sus pantallas sin errores; lo demás responde 403, nunca 500."""
 
     def test_every_page_answers_200_or_403_for_every_role(self):
         for username in ALL_USERS:
@@ -1089,11 +1003,6 @@ class SweepTests(PortalTestCase):
         self.assertFalse(detail.context["can_edit"])
 
 
-# ---------------------------------------------------------------------------
-# Ayudas de presentación
-# ---------------------------------------------------------------------------
-
-
 class UiHelperTests(SimpleTestCase):
     def test_numbers_use_comma_and_dots(self):
         self.assertEqual(ui.fmt_number(Decimal("52.50")), "52,5")
@@ -1122,7 +1031,7 @@ class UiHelperTests(SimpleTestCase):
         from core.templatetags.core_ui import meter
 
         over = meter(Decimal("150"), "green", Decimal("80"), Decimal("60"))
-        self.assertEqual(over["raw"], "100.00")  # aria-valuenow no pasa del máximo
+        self.assertEqual(over["raw"], "100.00")
         self.assertEqual(over["width"], "100.00")
         self.assertEqual(over["text"], "150 %")
         under = meter(Decimal("-5"), "red", Decimal("80"), Decimal("60"))

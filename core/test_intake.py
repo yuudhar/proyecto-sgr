@@ -1,5 +1,3 @@
-"""Pruebas del ingreso de atención (Clase 8): solicitante por RUT o nombre, Tipo → Sub atención, perfil fijo y permisos."""
-
 import json
 import re
 from zoneinfo import ZoneInfo
@@ -19,7 +17,6 @@ from organization.models import Beneficiary, Item, Service
 
 
 def portal_today():
-    """El día en la hora de Chile (la que usan las pantallas): de noche en Chile ya es «mañana» en UTC."""
     with timezone.override(ZoneInfo(settings.PORTAL_TIME_ZONE)):
         return timezone.localdate()
 
@@ -29,7 +26,6 @@ def user_named(username):
 
 
 class IntakeCase(PortalTestCase):
-    """Ayudas comunes: registrar una atención como Matías Cavieres (Norte) y mirar el resultado."""
 
     def setUp(self):
         self.login_as("matias.cavieres")
@@ -48,7 +44,6 @@ class IntakeCase(PortalTestCase):
         obj.save(update_fields=["deleted_at"])
 
     def assertSaved(self, response):
-        """La atención se guardó: la pantalla pasó a la ficha de la atención nueva."""
         created = self.newest()
         self.assertRedirects(
             response, reverse("core:actividades_detail", args=[created.pk]), fetch_redirect_response=False
@@ -56,16 +51,9 @@ class IntakeCase(PortalTestCase):
         return created
 
     def assertRejected(self, response, field, text):
-        """No se guardó nada: el formulario volvió con error en ese campo y la pantalla muestra ese texto."""
         self.assertEqual(response.status_code, 200)
         self.assertIn(field, response.context["form"].errors)
-        # Se mira la pantalla ya dibujada: es lo que ve la persona, y en su idioma.
         self.assertContains(response, text)
-
-
-# ---------------------------------------------------------------------------
-# Solicitante: RUT o nombre en un solo campo
-# ---------------------------------------------------------------------------
 
 
 class RequesterTests(IntakeCase):
@@ -73,7 +61,7 @@ class RequesterTests(IntakeCase):
         maria = self.person("11111111-1")
         created = self.assertSaved(self.register(requester="11.111.111-1"))
         self.assertEqual(created.beneficiary, maria)
-        self.assertEqual(created.contact_name, "María Pérez")  # se guarda el nombre de la persona, no el RUT
+        self.assertEqual(created.contact_name, "María Pérez")
 
     def test_a_rut_without_dots_or_dash_links_the_person(self):
         for text in ("111111111", "11111111-1", "11.111.1111", "  11.111.111-1  "):
@@ -103,7 +91,6 @@ class RequesterTests(IntakeCase):
         self.assertEqual(created.contact_name, "Rosa Prueba")
 
     def test_a_partial_name_does_not_link_anyone(self):
-        # «María» podría ser cualquiera: no se adivina, queda como contacto escrito.
         created = self.assertSaved(self.register(requester="María"))
         self.assertIsNone(created.beneficiary)
         self.assertEqual(created.contact_name, "María")
@@ -119,7 +106,6 @@ class RequesterTests(IntakeCase):
         response = self.register(requester="12.345.678-5")
         self.assertRejected(response, "requester", "No hay ninguna persona con ese RUT en Beneficiarios.")
         self.assertEqual(Activity.objects.count(), before)
-        # Matías es Funcionario: no registra beneficiarios, así que se le dice que pida que lo hagan.
         self.assertRejected(response, "requester", "Pide que la registren en Beneficiarios")
 
     def test_who_can_register_beneficiaries_is_told_to_do_it(self):
@@ -153,12 +139,12 @@ class RequesterTests(IntakeCase):
         self.assertEqual(created.beneficiary, other)
 
     def test_a_long_name_is_cut_to_the_size_of_the_contact_field(self):
-        long_name = "Ana " + "María " * 20 + "Fin"  # más de 100 letras: en Beneficiarios caben 150
+        long_name = "Ana " + "María " * 20 + "Fin"
         self.assertGreater(len(long_name), 100)
         Beneficiary.objects.create(rut="12345678-5", name=long_name)
         created = self.assertSaved(self.register(requester="12345678-5"))
         self.assertEqual(created.contact_name, long_name[:100])
-        self.assertEqual(created.beneficiary.name, long_name)  # la persona sigue completa
+        self.assertEqual(created.beneficiary.name, long_name)
 
     def test_the_field_does_not_take_more_than_the_contact_can_hold(self):
         response = self.register(requester="Ñ" * 101)
@@ -177,7 +163,6 @@ class RequesterTests(IntakeCase):
         self.assertEqual(created.phone, "+56 9 1234 5678")
 
     def test_the_person_is_only_linked_through_the_requester_field(self):
-        # Un beneficiario o un contacto enviados a mano no cuentan: el formulario no los tiene.
         juan = self.person("22222222-2")
         created = self.assertSaved(self.register(requester="Rosa Prueba", beneficiary=juan.pk, contact_name="Otro"))
         self.assertIsNone(created.beneficiary)
@@ -188,13 +173,8 @@ class RequesterTests(IntakeCase):
         response = self.client.get(reverse("core:actividades_create"))
         self.assertContains(response, "data-lookup-open")
         self.assertContains(response, '<option value="11111111-1" label="María Pérez')
-        self.assertNotContains(response, '<option value="88888888-8"')  # la archivada no se ofrece
+        self.assertNotContains(response, '<option value="88888888-8"')
         self.assertContains(response, "Buscar por RUT, nombre o dirección")
-
-
-# ---------------------------------------------------------------------------
-# Tipo de atención y Sub atención
-# ---------------------------------------------------------------------------
 
 
 class AttentionTypeTests(IntakeCase):
@@ -268,14 +248,13 @@ class AttentionTypeTests(IntakeCase):
         self.assertEqual(types, ["Atención Social", "Coordinación Territorial", "Entrega de Ayudas Sociales"])
         labels = [label for _value, label in form.fields["item"].choices if _value]
         self.assertEqual(labels, ["Atención Social · Seguimiento Telefónico", "Atención Social · Visita Domiciliaria"])
-        # La lista de sub atenciones depende de la de tipos (la filtra el navegador) y solo se exige si el tipo tiene.
         self.assertContains(response, 'data-depends-on="id_attention_type"')
         self.assertContains(response, 'data-choose-if-options="1"')
         sub = Item.objects.get(name="Visita Domiciliaria")
         self.assertContains(response, f'data-parent="{sub.parent_item_id}"')
         select = re.search(r'<select[^>]*id="id_item"[^>]*>', response.content.decode())
         self.assertIsNotNone(select)
-        self.assertNotIn("required", select.group(0))  # sin JavaScript no queda marcada como obligatoria
+        self.assertNotIn("required", select.group(0))
 
     def test_the_attention_type_and_sub_attention_are_shown_in_the_list_and_the_ficha(self):
         sub = Item.objects.get(name="Seguimiento Telefónico")
@@ -293,11 +272,6 @@ class AttentionTypeTests(IntakeCase):
         created = self.assertSaved(self.register(attention_type=kind.pk, item=""))
         self.assertEqual(attention_type_name(created), "Coordinación Territorial")
         self.assertEqual(sub_attention_name(created), "")
-
-
-# ---------------------------------------------------------------------------
-# Perfil fijo: fecha, delegación, responsable y estado
-# ---------------------------------------------------------------------------
 
 
 class FixedProfileTests(IntakeCase):
@@ -376,7 +350,6 @@ class FixedProfileTests(IntakeCase):
         self.assertEqual(created.action_taken, "")
 
     def test_the_description_is_required_to_register(self):
-        """C6 marca «Descripción de la atención» como obligatoria: sin ella no se guarda nada."""
         before = Activity.objects.count()
         for empty in ("", "   ", "\n\t "):
             response = self.register(request_description=empty)
@@ -393,7 +366,6 @@ class FixedProfileTests(IntakeCase):
         self.assertContains(response, "data-required-message=")
 
     def test_an_existing_attention_can_still_be_edited_without_a_description(self):
-        """La base de datos sigue permitiendo la descripción vacía: la regla es solo del ingreso."""
         created = self.assertSaved(self.register())
         field = Activity._meta.get_field("request_description")
         self.assertTrue(field.blank)
@@ -402,7 +374,6 @@ class FixedProfileTests(IntakeCase):
 
 
 class SuperuserIntakeTests(IntakeCase):
-    """El superusuario no tiene funcionario: elige la delegación y el funcionario de la atención."""
 
     def setUp(self):
         self.login_as("admin")
@@ -431,7 +402,6 @@ class SuperuserIntakeTests(IntakeCase):
         self.assertIn("author_officer", errors)
 
     def test_a_user_without_officer_and_without_global_role_cannot_register(self):
-        # Funcionario sin funcionario asociado: no tiene delegación, así que no puede elegir ninguna.
         self.client.logout()
         user = self.make_user("sin.funcionario", groups=["Funcionario"])
         self.client.force_login(user)
@@ -439,11 +409,6 @@ class SuperuserIntakeTests(IntakeCase):
         response = self.register(delegation=self.north.pk, author_officer=self.officer("F-1001").pk)
         self.assertNotEqual(response.status_code, 302)
         self.assertEqual(Activity.objects.count(), before)
-
-
-# ---------------------------------------------------------------------------
-# Identificador y aviso de «Atención registrada»
-# ---------------------------------------------------------------------------
 
 
 class IdentifierTests(IntakeCase):
@@ -481,11 +446,6 @@ class IdentifierTests(IntakeCase):
         self.register(requester="11.111.111-2")
         self.assertEqual(Activity.objects.count(), before)
         self.assertEqual(AuditLog.objects.count(), logs)
-
-
-# ---------------------------------------------------------------------------
-# Ventana modal
-# ---------------------------------------------------------------------------
 
 
 class IntakeModalTests(IntakeCase):
@@ -528,11 +488,6 @@ class IntakeModalTests(IntakeCase):
         self.assertEqual(list(get_messages(response.wsgi_request)), [])
 
 
-# ---------------------------------------------------------------------------
-# Permisos
-# ---------------------------------------------------------------------------
-
-
 class IntakePermissionTests(PortalTestCase):
     def test_only_who_can_add_activities_opens_the_form(self):
         url = reverse("core:actividades_create")
@@ -559,7 +514,6 @@ class IntakePermissionTests(PortalTestCase):
         self.assertEqual(self.client.post(reverse("core:actividades_create"), self.intake_data()).status_code, 302)
 
     def test_the_role_matrix_decides_it(self):
-        # Quitar «Crear» a Funcionario cierra el formulario; los permisos son los de Django, no una lista aparte.
         group = Group.objects.get(name="Funcionario")
         group.permissions.remove(Permission.objects.get(codename="add_activity", content_type__app_label="operations"))
         self.client.force_login(user_named("matias.cavieres"))
@@ -585,7 +539,6 @@ class PrefilledPersonTests(IntakeCase):
         self.assertEqual(created.phone, "+56911111111")
 
     def test_a_person_the_user_never_attended_is_not_filled_in(self):
-        # Ana Rojas se atendió en la delegación Sur: para alguien de Norte, sin permiso sobre Beneficiarios, no existe.
         ana = self.person("33333333-3")
         form = self.client.get(self.url(ana.pk)).context["form"]
         self.assertFalse(form["requester"].value())
@@ -609,11 +562,6 @@ class PrefilledPersonTests(IntakeCase):
         self.archive(maria)
         form = self.client.get(self.url(maria.pk)).context["form"]
         self.assertFalse(form["requester"].value())
-
-
-# ---------------------------------------------------------------------------
-# La edición no cambia
-# ---------------------------------------------------------------------------
 
 
 class EditStaysTheSameTests(IntakeCase):

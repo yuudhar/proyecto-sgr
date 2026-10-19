@@ -1,14 +1,3 @@
-// Estados de carga: mientras se envía un formulario, se busca en un listado o llega la ventana de un formulario, el
-// botón (o enlace) que se apretó muestra un indicador de progreso y queda desactivado. Así se ve que algo está
-// pasando y un doble clic no envía dos veces lo mismo.
-//
-//   form[data-once]       formulario que se envía (POST): los botones de enviar quedan desactivados
-//   form[data-loading]    formulario de consulta (GET: buscar, filtrar): igual, y el panel de resultados queda «ocupado»
-//   button[data-no-busy]  este botón no cambia (por ejemplo «Exportar a Excel»: descarga un archivo y la página no cambia)
-//
-// Sin JavaScript todo funciona igual, solo que sin el indicador. Si otro script frena el envío (la validación del
-// formulario, una confirmación), los botones se dejan como estaban: el indicador solo sale cuando de verdad se envía.
-
 const SPINNER_CLASS = "busy-spinner";
 const STATUS_ATTR = "data-busy-status";
 
@@ -19,7 +8,6 @@ function spinner() {
   return dot;
 }
 
-// Marca un botón o enlace como ocupado: indicador en lugar de su ícono, desactivado y con aria-busy.
 export function start(control) {
   if (!control || control.dataset.busy === "1") return;
   control.dataset.busy = "1";
@@ -30,18 +18,17 @@ export function start(control) {
     icon.before(spinner());
   } else {
     const dot = spinner();
-    dot.dataset.gap = "1"; // lleva un espacio detrás, que se quita junto con él
+    dot.dataset.gap = "1";
     control.prepend(dot, " ");
   }
   if (control.matches("button, input")) {
     control.disabled = true;
   } else {
-    control.classList.add("disabled"); // un enlace no se desactiva: se le quita el clic
+    control.classList.add("disabled");
     control.setAttribute("aria-disabled", "true");
   }
 }
 
-// Deja el botón o enlace como estaba.
 export function stop(control) {
   if (!control || control.dataset.busy !== "1") return;
   delete control.dataset.busy;
@@ -60,8 +47,6 @@ export function stop(control) {
   }
 }
 
-// Un formulario que se está enviando: todos sus botones de enviar se desactivan y el que se apretó (o el primero)
-// muestra el indicador. Un lector de pantalla recibe un aviso de «Procesando…».
 export function lock(form, submitter = null) {
   const buttons = [...form.querySelectorAll("button[type=submit]")];
   const main = submitter && buttons.includes(submitter) ? submitter : buttons[0];
@@ -78,7 +63,6 @@ export function lock(form, submitter = null) {
   return buttons;
 }
 
-// Vuelve el formulario a como estaba (el envío no llegó al servidor, o se volvió con el botón «atrás»).
 export function unlock(form) {
   form.querySelectorAll("button[type=submit]").forEach((button) => {
     stop(button);
@@ -98,8 +82,6 @@ document.addEventListener("submit", (event) => {
   if (!(form instanceof HTMLFormElement) || !(form.hasAttribute("data-once") || form.hasAttribute("data-loading"))) return;
   const submitter = event.submitter;
   if (submitter && submitter.hasAttribute("data-no-busy")) return;
-  // Se espera a que terminen los demás controladores del envío: si alguno lo frenó, no hay nada que mostrar. Los datos
-  // del formulario ya se tomaron cuando corre esto, así que desactivar los botones no los afecta.
   window.setTimeout(() => {
     if (event.defaultPrevented) return;
     lock(form, submitter);
@@ -113,8 +95,6 @@ document.addEventListener("submit", (event) => {
   }, 0);
 });
 
-// Al volver con el botón «atrás» del navegador la página puede volver tal como estaba al salir (con los botones
-// ocupados): se dejan activos otra vez.
 window.addEventListener("pageshow", (event) => {
   if (event.persisted) {
     document.querySelectorAll("form[data-once], form[data-loading]").forEach(unlock);

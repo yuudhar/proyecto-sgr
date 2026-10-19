@@ -1,6 +1,3 @@
-"""Pruebas de la franja de arriba (delegación, usuario y perfil) y de lo que la página deja listo para los estados de
-carga y para ver/ocultar la contraseña."""
-
 import re
 
 from django.contrib.staticfiles import finders
@@ -39,7 +36,7 @@ class HeaderTests(PortalTestCase):
         icons = re.findall(r'<li class="topbar-role"><i class="bi (bi-[a-z0-9-]+)" aria-hidden="true"></i>([^<]+)</li>', header)
         self.assertEqual([label for _icon, label in icons], ["Funcionario", "Verificador"])
         self.assertTrue(all(icon.startswith("bi-") for icon, _label in icons))
-        self.assertEqual(len({icon for icon, _label in icons}), 2)  # cada perfil con el suyo
+        self.assertEqual(len({icon for icon, _label in icons}), 2)
 
     def test_the_name_links_to_the_profile_screen(self):
         self.assertIn(f'href="{reverse("core:profile")}"', self.header())
@@ -71,7 +68,7 @@ class HeaderTests(PortalTestCase):
             reverse("core:actividades_create"),
             reverse("core:profile"),
             reverse("core:atencion"),
-            "/no-existe-esta-pagina/",  # la pantalla de «no encontrado» también
+            "/no-existe-esta-pagina/",
         ):
             with self.subTest(url=url):
                 self.assertContains(self.client.get(url), 'class="topbar-code"', status_code=self.client.get(url).status_code)
@@ -114,7 +111,6 @@ class LoadingStateMarkupTests(PortalTestCase):
         self.assertContains(self.client.get(reverse("core:login")), "data-once")
 
     def test_the_old_double_send_code_is_gone_from_the_classic_script(self):
-        # Ahora lo hace busy.js (con el indicador de carga); sgr.js no debe repetirlo.
         source = open(finders.find("core/js/sgr.js"), encoding="utf-8").read()
         self.assertNotIn("form[data-once]", source)
 

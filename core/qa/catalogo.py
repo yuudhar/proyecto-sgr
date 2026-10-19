@@ -1,5 +1,3 @@
-"""A qué requisito y módulo pertenece cada clase de pruebas, y qué se espera de cada prueba."""
-
 from core.qa.esperado_acceso import ESPERADO as _ACCESO
 from core.qa.esperado_despliegue import ESPERADO as _DESPLIEGUE
 from core.qa.esperado_ingreso_contexto import ESPERADO as _INGRESO
@@ -8,7 +6,6 @@ from core.qa.esperado_mantenedores import ESPERADO as _MANTENEDORES
 from core.qa.esperado_v16 import ESPERADO as _V16
 from core.qa.esperado_validaciones import ESPERADO as _VALIDACIONES
 
-# Requisitos del PDF «Requisitos y plan de pruebas de la segunda evaluación». El código es el que usa el registro.
 REQUISITOS = {
     "A1-01": ("A1", "Login: usuario o correo más contraseña, validación y acceso según perfil"),
     "A1-02": ("A1", "Recuperar contraseña: solicitud de código por el correo de la cuenta"),
@@ -60,12 +57,10 @@ REQUISITOS = {
     "IMP-03": ("Importante", "Cada usuario ve solo los menús, módulos y opciones de su rol"),
 }
 
-# clase de pruebas -> (requisitos, módulo, precondición propia de la clase)
-_SEMILLA = "Base de datos de prueba con las cuentas de demostración (seed_demo_data)"
+_SEMILLA = "Base de datos de prueba con las cuentas de prueba (core/datos_prueba.py)"
 _SIN_BD = "No necesita base de datos: prueba una función aislada"
 
 CLASES = {
-    # accounts
     "EmailOrUsernameLoginTests": (["A1-01", "A3-03"], "Login", _SEMILLA),
     "RecoveryRequestTests": (["A1-02", "A3-04"], "Recuperar contraseña", _SEMILLA + "; caché limpia"),
     "RecoveryCodeTests": (["A1-03", "A3-05"], "Validar código", _SEMILLA + "; recuperación iniciada"),
@@ -75,7 +70,6 @@ CLASES = {
     "RecoveryCodeBoxesTests": (["C2"], "Validar código (seis casillas)", _SEMILLA),
     "RecoveryHelperTests": (["A3-05"], "Recuperación (funciones internas)", _SIN_BD),
     "RecoveryBlankEmailTests": (["A3-04"], "Recuperar contraseña", "Cuentas sin correo en la base de prueba"),
-    # core · A1
     "DelegationFieldsTests": (["A1-05", "A3-08"], "CRUD Delegaciones", _SEMILLA + "; sesión del Super Usuario"),
     "ItemDescriptionTests": (["A1-08", "A1-09", "A3-08"], "CRUD Ítems y Tipo de Atención", _SEMILLA + "; sesión del Super Usuario"),
     "RoleProfileTests": (["A1-06", "A3-08"], "CRUD Roles", _SEMILLA + "; sesión del Super Usuario"),
@@ -89,7 +83,6 @@ CLASES = {
     "UserCreateTests": (["A1-07", "A3-08"], "CRUD Usuarios", _SEMILLA + "; sesión del Super Usuario"),
     "UserEditTests": (["A1-07", "A3-08"], "CRUD Usuarios", _SEMILLA + "; sesión del Super Usuario"),
     "UserDelegationsFormTests": (["A1-07", "A2-10"], "CRUD Usuarios (delegaciones autorizadas)", _SEMILLA + "; tercera delegación sin usuarios"),
-    # core · ingreso de atención
     "RequesterTests": (["A1-11", "A3-11"], "Ingreso de atención (solicitante)", _SEMILLA + "; sesión de Matías Cavieres (Norte)"),
     "AttentionTypeTests": (["A2-13", "A3-11"], "Ingreso de atención (tipo y sub atención)", _SEMILLA + "; sesión de Matías Cavieres (Norte)"),
     "FixedProfileTests": (["A2-14", "A2-12", "A3-11"], "Ingreso de atención (datos automáticos)", _SEMILLA + "; sesión de Matías Cavieres (Norte)"),
@@ -105,7 +98,6 @@ CLASES = {
     "ProfilePhotoTests": (["A3-02", "A3-12"], "Foto de perfil", _SEMILLA + "; carpeta de archivos temporal"),
     "LiveSearchTests": (["A2-03", "A2-05"], "Búsqueda en vivo en listados y Atención", _SEMILLA),
     "OfficerWithAccessTests": (["A1-07", "A3-02"], "Funcionario con su acceso en un solo formulario", _SEMILLA),
-    # core · A2 contexto e interfaz
     "AuthorizedDelegationsTests": (["A2-10"], "Selector de delegaciones", _SEMILLA + "; tercera delegación sin usuarios"),
     "SwitchContextTests": (["A2-10", "A2-11"], "Selector de delegaciones (cambio de contexto)", _SEMILLA + "; tercera delegación sin usuarios"),
     "ContextFollowsEverywhereTests": (["A2-10", "A3-12"], "Contexto de delegación en listados, Excel y dashboard", _SEMILLA + "; tercera delegación sin usuarios"),
@@ -121,7 +113,6 @@ CLASES = {
     "ProfilePageTests": (["A3-12"], "Mi perfil", _SEMILLA),
     "AdministrationHubTests": (["IMP-03"], "Administración (portal)", _SEMILLA),
     "UiHelperTests": (["A2-08"], "Ayudas de interfaz", _SIN_BD),
-    # core · acceso
     "AuthRoutesTests": (["A1-01", "A3-03"], "Login (rutas de acceso)", _SEMILLA),
     "AccessFlowTests": (["A1-01", "A3-03"], "Login y rutas protegidas", _SEMILLA),
     "NavigationTests": (["A3-03", "IMP-03"], "Navegación según sesión", _SEMILLA),
@@ -129,12 +120,10 @@ CLASES = {
     "LoginTests": (["A1-01", "A3-03"], "Login", _SEMILLA),
     "CacheHeaderTests": (["A3-03"], "Pantallas sin caché del navegador", _SEMILLA),
     "EmailSettingsTests": (["A4-05"], "Configuración de correo", _SIN_BD),
-    # despliegue y registro
     "ProductionSettingsTests": (["A4-02"], "Ajustes de producción", _SIN_BD),
     "ConfigurationFilesTests": (["A4-05", "A4-02"], "Archivos de configuración y despliegue", _SIN_BD),
     "HealthCheckTests": (["A4-01"], "Revisión de estado (/salud/)", _SEMILLA),
     "TestRegistryTests": (["A3-14"], "Registro de pruebas", _SIN_BD),
-    # core · listados
     "PageSizeTests": (["A2-03"], "Listados (filas por página)", _SEMILLA),
     "WordPatternTests": (["A2-06"], "Buscador inteligente", _SIN_BD),
     "ListSearchTests": (["A2-03", "A2-06"], "Listados (búsqueda)", _SEMILLA),
@@ -143,11 +132,9 @@ CLASES = {
     "WorkbookTests": (["A2-07"], "Exportar a Excel (libro)", _SIN_BD),
     "ListExportTests": (["A2-07", "A3-09"], "Exportar a Excel (listados)", _SEMILLA),
     "ReportExportTests": (["A2-07", "IMP-01"], "Exportar a Excel (informes)", _SEMILLA),
-    # core · avisos
     "NoticeScriptsTests": (["A3-01"], "SweetAlert2 (scripts)", _SEMILLA),
     "NoticeMarkupTests": (["A3-01", "A3-13"], "SweetAlert2 (avisos)", _SEMILLA),
     "ConfirmationMarkupTests": (["A3-01", "A3-13", "A2-16"], "SweetAlert2 (confirmaciones)", _SEMILLA),
-    # core · permisos y alcance
     "RoleMatrixTests": (["IMP-02", "A2-11"], "Matriz de permisos por rol", _SEMILLA),
     "PermissionLabelsTests": (["IMP-02"], "Matriz de permisos por rol", _SEMILLA),
     "RoleTests": (["IMP-02", "IMP-03"], "Interfaces por rol", _SEMILLA),
@@ -158,7 +145,6 @@ CLASES = {
     "IndicatorScopeTests": (["A2-11", "IMP-01"], "Indicadores (alcance)", _SEMILLA),
     "EditPermissionConsistencyTests": (["A2-11"], "Edición según delegación", _SEMILLA),
     "AdminRegressionTests": (["A2-11"], "Django Admin", "Base de datos de prueba vacía; las pruebas crean lo que usan"),
-    # core · otros módulos del portal
     "CrudFlowTests": (["A2-02", "A3-08"], "Gestiones (CRUD de referencia)", _SEMILLA),
     "PlanningRuleTests": (["IMP-01"], "Planificación (períodos, metas, indicadores)", _SEMILLA),
     "PlanningFormRuleTests": (["IMP-01"], "Planificación (formularios)", _SEMILLA),
@@ -171,7 +157,6 @@ CLASES = {
     "AuditTests": (["A3-08"], "Auditoría de cambios", _SEMILLA),
     "ConcurrentEditTests": (["A2-02"], "Edición concurrente", _SEMILLA),
     "IdParameterTests": (["A3-02"], "Parámetros de la dirección", _SEMILLA),
-    # core · reglas de formato
     "RuleTests": (["A3-02"], "Reglas de validación (funciones)", _SIN_BD),
     "FormRuleTests": (["A3-02"], "Reglas de validación (formularios)", _SEMILLA),
     "PasswordPolicyValidatorTests": (["A1-04", "A3-02", "A3-06"], "Política de contraseña (validador)", _SIN_BD),
@@ -184,7 +169,6 @@ CLASES = {
     "BrowserScriptTests": (["A3-02"], "Validaciones del navegador (validation.js)", _SIN_BD),
 }
 
-# Unión de los resultados esperados: clase -> método (sin «test_») -> texto.
 ESPERADO = {}
 for _grupo in (_ACCESO, _MANTENEDORES, _INGRESO, _LISTADOS, _DESPLIEGUE, _VALIDACIONES, _V16):
     for _clase, _metodos in _grupo.items():

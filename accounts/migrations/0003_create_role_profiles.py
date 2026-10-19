@@ -1,7 +1,5 @@
 from django.db import migrations
 
-# Los perfiles del sistema con la descripción y el alcance que tenían hasta la v7, cuando se deducían del nombre.
-# Se copian aquí (y no se importan de core/roles.py) para que la migración no cambie si esa lista cambia después.
 SYSTEM_ROLES = {
     "Coordinación": ("Define períodos, metas y ajustes, y consulta todas las delegaciones.", "all"),
     "Jefatura": ("Consulta la gestión de su delegación y actualiza los compromisos.", "own"),
@@ -12,7 +10,6 @@ SYSTEM_ROLES = {
 
 
 def create_profiles(apps, schema_editor):
-    """Una ficha para cada rol que ya existe: los de fábrica con lo suyo y los demás con alcance sobre su delegación."""
     Group = apps.get_model("auth", "Group")
     RoleProfile = apps.get_model("accounts", "RoleProfile")
     for group in Group.objects.all():
@@ -30,6 +27,5 @@ class Migration(migrations.Migration):
     ]
 
     operations = [
-        # Al deshacerla no hay nada que hacer: la tabla de fichas se borra con la migración anterior.
         migrations.RunPython(create_profiles, migrations.RunPython.noop),
     ]

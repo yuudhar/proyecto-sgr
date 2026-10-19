@@ -1,0 +1,3319 @@
+{
+ "ejecucion": {
+  "fecha": "2026-10-19 12:45",
+  "entorno": "Python 3.13.16 · Django 6.1.1 · Linux 6.18.44-fc-v139",
+  "base": "sqlite",
+  "total": 827,
+  "duracion": 300.0
+ },
+ "resultados": {
+  "accounts.test_backends.EmailOrUsernameLoginTests.test_a_wrong_password_is_refused_with_the_username_and_with_the_email": {
+   "estado": "Aprobada",
+   "detalle": ""
+  },
+  "accounts.test_backends.EmailOrUsernameLoginTests.test_an_account_without_email_enters_only_with_its_username": {
+   "estado": "Aprobada",
+   "detalle": ""
+  },
+  "accounts.test_backends.EmailOrUsernameLoginTests.test_an_email_shared_by_two_accounts_does_not_let_anyone_in_by_email": {
+   "estado": "Aprobada",
+   "detalle": ""
+  },
+  "accounts.test_backends.EmailOrUsernameLoginTests.test_an_exact_username_wins_over_the_email_of_another_account": {
+   "estado": "Aprobada",
+   "detalle": ""
+  },
+  "accounts.test_backends.EmailOrUsernameLoginTests.test_an_inactive_account_cannot_enter_by_either_way": {
+   "estado": "Aprobada",
+   "detalle": ""
+  },
+  "accounts.test_backends.EmailOrUsernameLoginTests.test_nothing_tells_which_part_failed": {
+   "estado": "Aprobada",
+   "detalle": ""
+  },
+  "accounts.test_backends.EmailOrUsernameLoginTests.test_permissions_still_come_from_the_groups": {
+   "estado": "Aprobada",
+   "detalle": ""
+  },
+  "accounts.test_backends.EmailOrUsernameLoginTests.test_the_backend_ignores_calls_without_credentials": {
+   "estado": "Aprobada",
+   "detalle": ""
+  },
+  "accounts.test_backends.EmailOrUsernameLoginTests.test_the_django_admin_accepts_both_too": {
+   "estado": "Aprobada",
+   "detalle": ""
+  },
+  "accounts.test_backends.EmailOrUsernameLoginTests.test_the_email_ignores_case_and_surrounding_spaces": {
+   "estado": "Aprobada",
+   "detalle": ""
+  },
+  "accounts.test_backends.EmailOrUsernameLoginTests.test_the_email_works": {
+   "estado": "Aprobada",
+   "detalle": ""
+  },
+  "accounts.test_backends.EmailOrUsernameLoginTests.test_the_login_screen_says_user_or_email": {
+   "estado": "Aprobada",
+   "detalle": ""
+  },
+  "accounts.test_backends.EmailOrUsernameLoginTests.test_the_session_and_the_last_login_are_set_like_with_the_username": {
+   "estado": "Aprobada",
+   "detalle": ""
+  },
+  "accounts.test_backends.EmailOrUsernameLoginTests.test_the_username_is_still_case_sensitive": {
+   "estado": "Aprobada",
+   "detalle": ""
+  },
+  "accounts.test_backends.EmailOrUsernameLoginTests.test_the_username_still_works": {
+   "estado": "Aprobada",
+   "detalle": ""
+  },
+  "accounts.test_recovery.RecoveryBlankEmailTests.test_a_blank_email_matches_nobody_even_if_some_accounts_have_no_email": {
+   "estado": "Aprobada",
+   "detalle": ""
+  },
+  "accounts.test_recovery.RecoveryCodeBoxesTests.test_the_code_field_is_marked_to_become_six_boxes_and_still_works_without_scripts": {
+   "estado": "Aprobada",
+   "detalle": ""
+  },
+  "accounts.test_recovery.RecoveryCodeTests.test_a_code_from_another_browser_session_does_not_work": {
+   "estado": "Aprobada",
+   "detalle": ""
+  },
+  "accounts.test_recovery.RecoveryCodeTests.test_a_code_of_another_account_does_not_work": {
+   "estado": "Aprobada",
+   "detalle": ""
+  },
+  "accounts.test_recovery.RecoveryCodeTests.test_a_code_works_only_once": {
+   "estado": "Aprobada",
+   "detalle": ""
+  },
+  "accounts.test_recovery.RecoveryCodeTests.test_a_correct_code_opens_the_new_password_step": {
+   "estado": "Aprobada",
+   "detalle": ""
+  },
+  "accounts.test_recovery.RecoveryCodeTests.test_a_used_code_is_refused_on_the_screen_too": {
+   "estado": "Aprobada",
+   "detalle": ""
+  },
+  "accounts.test_recovery.RecoveryCodeTests.test_a_wrong_code_is_rejected_and_counts_the_attempts": {
+   "estado": "Aprobada",
+   "detalle": ""
+  },
+  "accounts.test_recovery.RecoveryCodeTests.test_after_five_failures_not_even_the_right_code_works": {
+   "estado": "Aprobada",
+   "detalle": ""
+  },
+  "accounts.test_recovery.RecoveryCodeTests.test_an_expired_code_is_rejected_and_asking_for_a_new_one_works": {
+   "estado": "Aprobada",
+   "detalle": ""
+  },
+  "accounts.test_recovery.RecoveryCodeTests.test_attempts_are_counted_before_checking_so_parallel_requests_cannot_exceed_the_limit": {
+   "estado": "Aprobada",
+   "detalle": ""
+  },
+  "accounts.test_recovery.RecoveryCodeTests.test_codes_written_with_spaces_are_accepted_and_bad_formats_rejected": {
+   "estado": "Aprobada",
+   "detalle": ""
+  },
+  "accounts.test_recovery.RecoveryCodeTests.test_the_code_form_needs_the_csrf_token": {
+   "estado": "Aprobada",
+   "detalle": ""
+  },
+  "accounts.test_recovery.RecoveryCodeTests.test_the_code_screen_needs_the_email_step_first": {
+   "estado": "Aprobada",
+   "detalle": ""
+  },
+  "accounts.test_recovery.RecoveryCodeTests.test_the_expiry_is_checked_to_the_second": {
+   "estado": "Aprobada",
+   "detalle": ""
+  },
+  "accounts.test_recovery.RecoveryCodeTests.test_the_last_attempt_is_announced_in_singular": {
+   "estado": "Aprobada",
+   "detalle": ""
+  },
+  "accounts.test_recovery.RecoveryCodeTests.test_the_screen_shows_the_masked_email_and_the_seconds_left": {
+   "estado": "Aprobada",
+   "detalle": ""
+  },
+  "accounts.test_recovery.RecoveryCodeTests.test_the_server_rejects_an_expired_code_even_if_the_screen_lets_it_through": {
+   "estado": "Aprobada",
+   "detalle": ""
+  },
+  "accounts.test_recovery.RecoveryCodeTests.test_the_typed_code_is_hidden_from_error_reports": {
+   "estado": "Aprobada",
+   "detalle": ""
+  },
+  "accounts.test_recovery.RecoveryPasswordTests.test_a_strong_password_is_saved_and_the_person_goes_back_to_login": {
+   "estado": "Aprobada",
+   "detalle": ""
+  },
+  "accounts.test_recovery.RecoveryPasswordTests.test_the_code_cannot_be_used_again_after_the_change": {
+   "estado": "Aprobada",
+   "detalle": ""
+  },
+  "accounts.test_recovery.RecoveryPasswordTests.test_the_old_password_stops_working_and_other_open_sessions_close": {
+   "estado": "Aprobada",
+   "detalle": ""
+  },
+  "accounts.test_recovery.RecoveryPasswordTests.test_the_password_form_needs_the_csrf_token": {
+   "estado": "Aprobada",
+   "detalle": ""
+  },
+  "accounts.test_recovery.RecoveryPasswordTests.test_the_permission_to_choose_a_password_expires": {
+   "estado": "Aprobada",
+   "detalle": ""
+  },
+  "accounts.test_recovery.RecoveryPasswordTests.test_the_screen_asks_for_confirmation_before_saving_the_new_password": {
+   "estado": "Aprobada",
+   "detalle": ""
+  },
+  "accounts.test_recovery.RecoveryPasswordTests.test_the_step_needs_a_validated_code": {
+   "estado": "Aprobada",
+   "detalle": ""
+  },
+  "accounts.test_recovery.RecoveryPasswordTests.test_the_whole_flow_is_audited_without_secrets": {
+   "estado": "Aprobada",
+   "detalle": ""
+  },
+  "accounts.test_recovery.RecoveryPasswordTests.test_weak_passwords_are_rejected_and_the_person_can_try_again": {
+   "estado": "Aprobada",
+   "detalle": ""
+  },
+  "accounts.test_recovery.RecoveryRequestTests.test_a_badly_written_email_is_rejected_by_the_form": {
+   "estado": "Aprobada",
+   "detalle": ""
+  },
+  "accounts.test_recovery.RecoveryRequestTests.test_a_code_typed_for_an_unknown_email_fails_like_a_wrong_one": {
+   "estado": "Aprobada",
+   "detalle": ""
+  },
+  "accounts.test_recovery.RecoveryRequestTests.test_a_failed_send_gives_the_same_answer_and_does_not_use_up_the_hourly_limit": {
+   "estado": "Aprobada",
+   "detalle": ""
+  },
+  "accounts.test_recovery.RecoveryRequestTests.test_a_new_request_voids_the_previous_code": {
+   "estado": "Aprobada",
+   "detalle": ""
+  },
+  "accounts.test_recovery.RecoveryRequestTests.test_a_registered_email_gets_one_message_with_a_six_digit_code": {
+   "estado": "Aprobada",
+   "detalle": ""
+  },
+  "accounts.test_recovery.RecoveryRequestTests.test_accounts_sharing_an_email_each_get_their_own_code": {
+   "estado": "Aprobada",
+   "detalle": ""
+  },
+  "accounts.test_recovery.RecoveryRequestTests.test_an_unknown_email_gets_the_same_answer_and_no_message": {
+   "estado": "Aprobada",
+   "detalle": ""
+  },
+  "accounts.test_recovery.RecoveryRequestTests.test_inactive_accounts_get_no_code": {
+   "estado": "Aprobada",
+   "detalle": ""
+  },
+  "accounts.test_recovery.RecoveryRequestTests.test_people_with_a_session_are_sent_to_their_profile": {
+   "estado": "Aprobada",
+   "detalle": ""
+  },
+  "accounts.test_recovery.RecoveryRequestTests.test_requests_per_hour_are_limited_with_the_same_answer": {
+   "estado": "Aprobada",
+   "detalle": ""
+  },
+  "accounts.test_recovery.RecoveryRequestTests.test_the_code_stays_in_the_session_as_a_fingerprint_and_lasts_120_seconds": {
+   "estado": "Aprobada",
+   "detalle": ""
+  },
+  "accounts.test_recovery.RecoveryRequestTests.test_the_email_is_matched_ignoring_case_and_spaces": {
+   "estado": "Aprobada",
+   "detalle": ""
+  },
+  "accounts.test_recovery.RecoveryRequestTests.test_the_html_message_shows_the_expiry_in_chile_time_and_escapes_the_name": {
+   "estado": "Aprobada",
+   "detalle": ""
+  },
+  "accounts.test_recovery.RecoveryRequestTests.test_the_message_also_comes_as_html_with_the_code_big_and_the_portal_colours": {
+   "estado": "Aprobada",
+   "detalle": ""
+  },
+  "accounts.test_recovery.RecoveryRequestTests.test_the_plain_text_version_keeps_the_code_alone_on_its_line_and_says_two_minutes": {
+   "estado": "Aprobada",
+   "detalle": ""
+  },
+  "accounts.test_recovery.RecoveryRequestTests.test_the_recovery_adds_no_table_to_the_data_model": {
+   "estado": "Aprobada",
+   "detalle": ""
+  },
+  "accounts.test_recovery.RecoveryRequestTests.test_the_request_form_needs_the_csrf_token": {
+   "estado": "Aprobada",
+   "detalle": ""
+  },
+  "accounts.test_recovery.RecoveryResendTests.test_a_link_does_not_resend_and_the_button_needs_the_csrf_token": {
+   "estado": "Aprobada",
+   "detalle": ""
+  },
+  "accounts.test_recovery.RecoveryResendTests.test_a_resend_without_a_started_recovery_goes_back_to_the_first_step": {
+   "estado": "Aprobada",
+   "detalle": ""
+  },
+  "accounts.test_recovery.RecoveryResendTests.test_another_email_does_not_wait_for_the_first_one": {
+   "estado": "Aprobada",
+   "detalle": ""
+  },
+  "accounts.test_recovery.RecoveryResendTests.test_every_send_is_in_the_audit_log_and_the_last_one_is_the_live_code": {
+   "estado": "Aprobada",
+   "detalle": ""
+  },
+  "accounts.test_recovery.RecoveryResendTests.test_resending_after_the_wait_sends_a_new_code_and_voids_the_old_one": {
+   "estado": "Aprobada",
+   "detalle": ""
+  },
+  "accounts.test_recovery.RecoveryResendTests.test_resending_too_soon_sends_nothing_and_says_how_long_to_wait": {
+   "estado": "Aprobada",
+   "detalle": ""
+  },
+  "accounts.test_recovery.RecoveryResendTests.test_resends_count_for_the_hourly_limit": {
+   "estado": "Aprobada",
+   "detalle": ""
+  },
+  "accounts.test_recovery.RecoveryResendTests.test_the_code_screen_offers_the_resend_button_with_the_waiting_time": {
+   "estado": "Aprobada",
+   "detalle": ""
+  },
+  "accounts.test_recovery.RecoveryResendTests.test_the_last_second_of_the_wait_is_announced_in_singular": {
+   "estado": "Aprobada",
+   "detalle": ""
+  },
+  "accounts.test_recovery.RecoveryResendTests.test_the_wait_and_the_notices_are_the_same_for_an_email_nobody_has": {
+   "estado": "Aprobada",
+   "detalle": ""
+  },
+  "accounts.test_recovery.RecoveryResendTests.test_the_waiting_time_is_45_seconds": {
+   "estado": "Aprobada",
+   "detalle": ""
+  },
+  "accounts.test_recovery.RecoveryResendTests.test_typing_the_same_email_again_also_waits": {
+   "estado": "Aprobada",
+   "detalle": ""
+  },
+  "accounts.test_recovery.RecoveryVoidedCodeTests.test_a_code_for_one_account_does_not_void_the_code_of_another": {
+   "estado": "Aprobada",
+   "detalle": ""
+  },
+  "accounts.test_recovery.RecoveryVoidedCodeTests.test_a_code_requested_from_another_browser_voids_the_one_in_this_browser": {
+   "estado": "Aprobada",
+   "detalle": ""
+  },
+  "accounts.test_recovery.RecoveryVoidedCodeTests.test_a_failed_send_does_not_void_the_code_that_is_still_live": {
+   "estado": "Aprobada",
+   "detalle": ""
+  },
+  "accounts.test_recovery.RecoveryVoidedCodeTests.test_a_replaced_code_is_only_pointed_out_to_whoever_typed_it_right": {
+   "estado": "Aprobada",
+   "detalle": ""
+  },
+  "accounts.test_recovery.RecoveryVoidedCodeTests.test_a_replaced_code_still_uses_up_an_attempt": {
+   "estado": "Aprobada",
+   "detalle": ""
+  },
+  "accounts.test_recovery.RecoveryVoidedCodeTests.test_an_accepted_code_is_no_longer_live_and_stays_used": {
+   "estado": "Aprobada",
+   "detalle": ""
+  },
+  "accounts.test_recovery.RecoveryVoidedCodeTests.test_the_audit_trail_of_a_flow_is_sent_then_validated": {
+   "estado": "Aprobada",
+   "detalle": ""
+  },
+  "core.test_a1.DelegationFieldsTests.test_address_and_commune_are_required": {
+   "estado": "Aprobada",
+   "detalle": ""
+  },
+  "core.test_a1.DelegationFieldsTests.test_an_old_delegation_without_address_is_listed_and_asks_for_it_when_edited": {
+   "estado": "Aprobada",
+   "detalle": ""
+  },
+  "core.test_a1.DelegationFieldsTests.test_create_a_delegation_with_address_and_commune": {
+   "estado": "Aprobada",
+   "detalle": ""
+  },
+  "core.test_a1.DelegationFieldsTests.test_edit_changes_the_address_and_leaves_a_trace": {
+   "estado": "Aprobada",
+   "detalle": ""
+  },
+  "core.test_a1.DelegationFieldsTests.test_the_address_rejects_angle_brackets_and_long_texts": {
+   "estado": "Aprobada",
+   "detalle": ""
+  },
+  "core.test_a1.DelegationFieldsTests.test_the_commune_only_takes_letters": {
+   "estado": "Aprobada",
+   "detalle": ""
+  },
+  "core.test_a1.DelegationFieldsTests.test_the_create_form_asks_for_both_fields_and_suggests_the_commune": {
+   "estado": "Aprobada",
+   "detalle": ""
+  },
+  "core.test_a1.DelegationFieldsTests.test_the_demo_delegations_come_with_address_and_commune": {
+   "estado": "Aprobada",
+   "detalle": ""
+  },
+  "core.test_a1.DelegationFieldsTests.test_the_detail_shows_address_and_commune": {
+   "estado": "Aprobada",
+   "detalle": ""
+  },
+  "core.test_a1.DelegationFieldsTests.test_the_excel_file_has_address_and_commune": {
+   "estado": "Aprobada",
+   "detalle": ""
+  },
+  "core.test_a1.DelegationFieldsTests.test_the_list_shows_code_name_address_commune_and_state": {
+   "estado": "Aprobada",
+   "detalle": ""
+  },
+  "core.test_a1.DelegationFieldsTests.test_the_search_finds_by_address_and_commune": {
+   "estado": "Aprobada",
+   "detalle": ""
+  },
+  "core.test_a1.GlobalRoleScopeTests.test_a_role_with_all_delegations_sees_every_delegation_even_without_an_officer": {
+   "estado": "Aprobada",
+   "detalle": ""
+  },
+  "core.test_a1.GlobalRoleScopeTests.test_a_role_with_its_own_delegation_and_no_officer_gets_a_403": {
+   "estado": "Aprobada",
+   "detalle": ""
+  },
+  "core.test_a1.GlobalRoleScopeTests.test_a_role_with_its_own_delegation_only_sees_that_one": {
+   "estado": "Aprobada",
+   "detalle": ""
+  },
+  "core.test_a1.GlobalRoleScopeTests.test_an_inactive_role_does_not_give_the_wider_scope": {
+   "estado": "Aprobada",
+   "detalle": ""
+  },
+  "core.test_a1.GlobalRoleScopeTests.test_coordinacion_without_a_profile_is_still_recognised_by_its_name": {
+   "estado": "Aprobada",
+   "detalle": ""
+  },
+  "core.test_a1.GlobalRoleScopeTests.test_the_django_admin_follows_the_same_scope": {
+   "estado": "Aprobada",
+   "detalle": ""
+  },
+  "core.test_a1.GlobalRoleScopeTests.test_the_scope_shown_in_the_header_follows_the_role": {
+   "estado": "Aprobada",
+   "detalle": ""
+  },
+  "core.test_a1.GlobalRoleScopeTests.test_the_user_form_lets_a_global_role_go_without_officer_and_asks_for_it_otherwise": {
+   "estado": "Aprobada",
+   "detalle": ""
+  },
+  "core.test_a1.GlobalRoleScopeTests.test_the_user_list_says_all_delegations_for_a_global_role": {
+   "estado": "Aprobada",
+   "detalle": ""
+  },
+  "core.test_a1.ItemDescriptionTests.test_a_description_in_several_lines_is_saved_on_one_line": {
+   "estado": "Aprobada",
+   "detalle": ""
+  },
+  "core.test_a1.ItemDescriptionTests.test_create_a_type_with_a_description": {
+   "estado": "Aprobada",
+   "detalle": ""
+  },
+  "core.test_a1.ItemDescriptionTests.test_sub_attention_has_no_description_field": {
+   "estado": "Aprobada",
+   "detalle": ""
+  },
+  "core.test_a1.ItemDescriptionTests.test_the_demo_items_have_a_description": {
+   "estado": "Aprobada",
+   "detalle": ""
+  },
+  "core.test_a1.ItemDescriptionTests.test_the_description_has_a_limit_and_no_angle_brackets": {
+   "estado": "Aprobada",
+   "detalle": ""
+  },
+  "core.test_a1.ItemDescriptionTests.test_the_description_is_optional": {
+   "estado": "Aprobada",
+   "detalle": ""
+  },
+  "core.test_a1.ItemDescriptionTests.test_the_excel_file_of_the_types_has_the_description": {
+   "estado": "Aprobada",
+   "detalle": ""
+  },
+  "core.test_a1.ItemDescriptionTests.test_the_item_and_type_lists_show_the_description_but_sub_attention_does_not": {
+   "estado": "Aprobada",
+   "detalle": ""
+  },
+  "core.test_a1.ItemDescriptionTests.test_the_item_form_edits_the_description_of_any_item": {
+   "estado": "Aprobada",
+   "detalle": ""
+  },
+  "core.test_a1.ItemDescriptionTests.test_the_search_finds_by_description": {
+   "estado": "Aprobada",
+   "detalle": ""
+  },
+  "core.test_a1.RoleProfileTests.test_a_global_role_can_be_limited_when_its_users_have_an_officer_or_another_global_role": {
+   "estado": "Aprobada",
+   "detalle": ""
+  },
+  "core.test_a1.RoleProfileTests.test_a_global_role_cannot_be_limited_if_a_user_would_have_no_delegation": {
+   "estado": "Aprobada",
+   "detalle": ""
+  },
+  "core.test_a1.RoleProfileTests.test_a_role_with_users_cannot_be_deactivated": {
+   "estado": "Aprobada",
+   "detalle": ""
+  },
+  "core.test_a1.RoleProfileTests.test_a_role_without_users_can_be_deactivated_and_is_not_offered_to_users": {
+   "estado": "Aprobada",
+   "detalle": ""
+  },
+  "core.test_a1.RoleProfileTests.test_a_system_role_keeps_its_scope_and_state_but_its_description_can_change": {
+   "estado": "Aprobada",
+   "detalle": ""
+  },
+  "core.test_a1.RoleProfileTests.test_a_user_keeps_seeing_the_role_it_already_has_even_if_it_became_inactive": {
+   "estado": "Aprobada",
+   "detalle": ""
+  },
+  "core.test_a1.RoleProfileTests.test_an_inactive_role_is_not_accepted_for_a_new_user": {
+   "estado": "Aprobada",
+   "detalle": ""
+  },
+  "core.test_a1.RoleProfileTests.test_create_a_role_with_description_scope_and_state": {
+   "estado": "Aprobada",
+   "detalle": ""
+  },
+  "core.test_a1.RoleProfileTests.test_deleting_a_role_deletes_its_profile": {
+   "estado": "Aprobada",
+   "detalle": ""
+  },
+  "core.test_a1.RoleProfileTests.test_editing_the_profile_of_a_role_leaves_a_trace": {
+   "estado": "Aprobada",
+   "detalle": ""
+  },
+  "core.test_a1.RoleProfileTests.test_every_group_gets_its_profile_when_it_is_created": {
+   "estado": "Aprobada",
+   "detalle": ""
+  },
+  "core.test_a1.RoleProfileTests.test_saving_without_changing_the_profile_leaves_no_trace": {
+   "estado": "Aprobada",
+   "detalle": ""
+  },
+  "core.test_a1.RoleProfileTests.test_the_description_is_required_and_the_choices_must_be_valid": {
+   "estado": "Aprobada",
+   "detalle": ""
+  },
+  "core.test_a1.RoleProfileTests.test_the_detail_shows_description_scope_state_and_kind": {
+   "estado": "Aprobada",
+   "detalle": ""
+  },
+  "core.test_a1.RoleProfileTests.test_the_excel_file_has_scope_and_state": {
+   "estado": "Aprobada",
+   "detalle": ""
+  },
+  "core.test_a1.RoleProfileTests.test_the_form_has_name_description_scope_state_and_permissions": {
+   "estado": "Aprobada",
+   "detalle": ""
+  },
+  "core.test_a1.RoleProfileTests.test_the_list_filters_by_state_and_by_scope": {
+   "estado": "Aprobada",
+   "detalle": ""
+  },
+  "core.test_a1.RoleProfileTests.test_the_list_shows_code_name_scope_state_users_and_permissions": {
+   "estado": "Aprobada",
+   "detalle": ""
+  },
+  "core.test_a1.RoleProfileTests.test_the_list_sorts_by_scope": {
+   "estado": "Aprobada",
+   "detalle": ""
+  },
+  "core.test_a1.RoleProfileTests.test_the_migration_gives_a_profile_to_the_roles_that_already_existed": {
+   "estado": "Aprobada",
+   "detalle": ""
+  },
+  "core.test_a1.RoleProfileTests.test_the_search_finds_by_description": {
+   "estado": "Aprobada",
+   "detalle": ""
+  },
+  "core.test_a1.RoleProfileTests.test_the_system_roles_come_with_their_own_description_and_scope": {
+   "estado": "Aprobada",
+   "detalle": ""
+  },
+  "core.test_a1.RoleProfileTests.test_the_user_form_shows_the_description_written_in_the_role": {
+   "estado": "Aprobada",
+   "detalle": ""
+  },
+  "core.test_a2.AuthorizedDelegationsTests.test_a_row_for_a_role_the_user_does_not_have_is_rejected_by_the_model": {
+   "estado": "Aprobada",
+   "detalle": ""
+  },
+  "core.test_a2.AuthorizedDelegationsTests.test_a_user_who_sees_everything_gets_all_the_delegations_and_starts_in_all": {
+   "estado": "Aprobada",
+   "detalle": ""
+  },
+  "core.test_a2.AuthorizedDelegationsTests.test_a_user_with_one_delegation_has_a_fixed_context_without_selector": {
+   "estado": "Aprobada",
+   "detalle": ""
+  },
+  "core.test_a2.AuthorizedDelegationsTests.test_archived_and_inactive_delegations_are_not_offered": {
+   "estado": "Aprobada",
+   "detalle": ""
+  },
+  "core.test_a2.AuthorizedDelegationsTests.test_extra_rows_only_count_while_the_user_keeps_an_active_role": {
+   "estado": "Aprobada",
+   "detalle": ""
+  },
+  "core.test_a2.AuthorizedDelegationsTests.test_syncing_adds_removes_and_revives": {
+   "estado": "Aprobada",
+   "detalle": ""
+  },
+  "core.test_a2.AuthorizedDelegationsTests.test_the_combination_is_unique": {
+   "estado": "Aprobada",
+   "detalle": ""
+  },
+  "core.test_a2.AuthorizedDelegationsTests.test_the_list_version_agrees_with_the_query_version": {
+   "estado": "Aprobada",
+   "detalle": ""
+  },
+  "core.test_a2.AuthorizedDelegationsTests.test_the_selector_only_offers_the_authorized_delegations": {
+   "estado": "Aprobada",
+   "detalle": ""
+  },
+  "core.test_a2.ContextFollowsEverywhereTests.test_a_global_user_exporting_one_delegation_gets_only_its_rows": {
+   "estado": "Aprobada",
+   "detalle": ""
+  },
+  "core.test_a2.ContextFollowsEverywhereTests.test_a_global_user_looking_at_all_keeps_the_local_picker_of_the_board": {
+   "estado": "Aprobada",
+   "detalle": ""
+  },
+  "core.test_a2.ContextFollowsEverywhereTests.test_all_the_lists_that_belong_to_a_delegation_follow_it": {
+   "estado": "Aprobada",
+   "detalle": ""
+  },
+  "core.test_a2.ContextFollowsEverywhereTests.test_an_export_that_sees_everything_has_no_delegation_line": {
+   "estado": "Aprobada",
+   "detalle": ""
+  },
+  "core.test_a2.ContextFollowsEverywhereTests.test_the_attention_screen_shows_the_delegation_column_only_when_looking_at_all": {
+   "estado": "Aprobada",
+   "detalle": ""
+  },
+  "core.test_a2.ContextFollowsEverywhereTests.test_the_board_and_reports_follow_the_delegation": {
+   "estado": "Aprobada",
+   "detalle": ""
+  },
+  "core.test_a2.ContextFollowsEverywhereTests.test_the_dashboard_counts_follow_the_delegation": {
+   "estado": "Aprobada",
+   "detalle": ""
+  },
+  "core.test_a2.ContextFollowsEverywhereTests.test_the_dashboard_says_where_the_person_is_working": {
+   "estado": "Aprobada",
+   "detalle": ""
+  },
+  "core.test_a2.ContextFollowsEverywhereTests.test_the_delegation_filter_disappears_when_one_delegation_is_active": {
+   "estado": "Aprobada",
+   "detalle": ""
+  },
+  "core.test_a2.ContextFollowsEverywhereTests.test_the_excel_export_follows_the_delegation_and_says_which_one": {
+   "estado": "Aprobada",
+   "detalle": ""
+  },
+  "core.test_a2.ContextFollowsEverywhereTests.test_the_indicators_follow_the_delegation": {
+   "estado": "Aprobada",
+   "detalle": ""
+  },
+  "core.test_a2.ContextFollowsEverywhereTests.test_the_lists_follow_the_active_delegation": {
+   "estado": "Aprobada",
+   "detalle": ""
+  },
+  "core.test_a2.ContextFollowsEverywhereTests.test_the_other_delegation_records_are_not_found_by_address": {
+   "estado": "Aprobada",
+   "detalle": ""
+  },
+  "core.test_a2.ContextFollowsEverywhereTests.test_the_profile_lists_the_authorized_delegations": {
+   "estado": "Aprobada",
+   "detalle": ""
+  },
+  "core.test_a2.ContextFollowsEverywhereTests.test_the_validation_list_follows_the_delegation": {
+   "estado": "Aprobada",
+   "detalle": ""
+  },
+  "core.test_a2.ContextInFormsTests.test_a_forged_delegation_in_the_data_is_ignored": {
+   "estado": "Aprobada",
+   "detalle": ""
+  },
+  "core.test_a2.ContextInFormsTests.test_a_responsible_from_another_delegation_is_rejected_by_the_server": {
+   "estado": "Aprobada",
+   "detalle": ""
+  },
+  "core.test_a2.ContextInFormsTests.test_a_user_without_the_delegation_gets_a_404_not_a_403_for_foreign_records": {
+   "estado": "Aprobada",
+   "detalle": ""
+  },
+  "core.test_a2.ContextInFormsTests.test_changing_records_is_allowed_only_in_the_active_delegation": {
+   "estado": "Aprobada",
+   "detalle": ""
+  },
+  "core.test_a2.ContextInFormsTests.test_the_commitment_form_limits_its_lists_and_forces_the_delegation": {
+   "estado": "Aprobada",
+   "detalle": ""
+  },
+  "core.test_a2.ContextInFormsTests.test_the_forms_warn_about_unsaved_changes_before_switching": {
+   "estado": "Aprobada",
+   "detalle": ""
+  },
+  "core.test_a2.ContextInFormsTests.test_the_intake_in_the_own_delegation_still_fills_the_responsible_alone": {
+   "estado": "Aprobada",
+   "detalle": ""
+  },
+  "core.test_a2.ContextInFormsTests.test_the_intake_registers_in_the_active_delegation": {
+   "estado": "Aprobada",
+   "detalle": ""
+  },
+  "core.test_a2.ContextInFormsTests.test_the_selector_is_labelled_for_screen_readers": {
+   "estado": "Aprobada",
+   "detalle": ""
+  },
+  "core.test_a2.ContextInFormsTests.test_without_javascript_the_selector_keeps_its_button": {
+   "estado": "Aprobada",
+   "detalle": ""
+  },
+  "core.test_a2.GraphicNormsTests.test_no_font_file_is_downloaded_or_preloaded": {
+   "estado": "Aprobada",
+   "detalle": ""
+  },
+  "core.test_a2.GraphicNormsTests.test_the_arms_appear_on_the_login_the_recovery_the_public_pages_and_the_header": {
+   "estado": "Aprobada",
+   "detalle": ""
+  },
+  "core.test_a2.GraphicNormsTests.test_the_arms_keep_their_proportions_and_free_space": {
+   "estado": "Aprobada",
+   "detalle": ""
+  },
+  "core.test_a2.GraphicNormsTests.test_the_error_page_uses_arial_too": {
+   "estado": "Aprobada",
+   "detalle": ""
+  },
+  "core.test_a2.GraphicNormsTests.test_the_institution_name_stays_in_the_header_and_the_footer": {
+   "estado": "Aprobada",
+   "detalle": ""
+  },
+  "core.test_a2.GraphicNormsTests.test_the_institutional_color_is_the_one_of_the_browser_and_the_theme": {
+   "estado": "Aprobada",
+   "detalle": ""
+  },
+  "core.test_a2.GraphicNormsTests.test_the_official_arms_file_is_the_one_given_and_is_not_redrawn": {
+   "estado": "Aprobada",
+   "detalle": ""
+  },
+  "core.test_a2.GraphicNormsTests.test_the_whole_system_uses_arial": {
+   "estado": "Aprobada",
+   "detalle": ""
+  },
+  "core.test_a2.GraphicNormsTests.test_without_the_arms_file_nothing_is_drawn_in_its_place": {
+   "estado": "Aprobada",
+   "detalle": ""
+  },
+  "core.test_a2.LegacyBehaviourTests.test_a_global_user_with_an_officer_keeps_acting_in_the_officers_delegation_while_looking_at_all": {
+   "estado": "Aprobada",
+   "detalle": ""
+  },
+  "core.test_a2.LegacyBehaviourTests.test_a_user_with_only_extra_rows_and_no_officer_starts_in_the_first_one": {
+   "estado": "Aprobada",
+   "detalle": ""
+  },
+  "core.test_a2.LegacyBehaviourTests.test_a_user_without_delegation_sees_the_notice_and_no_selector": {
+   "estado": "Aprobada",
+   "detalle": ""
+  },
+  "core.test_a2.LegacyBehaviourTests.test_the_django_admin_keeps_working_with_the_officers_delegation": {
+   "estado": "Aprobada",
+   "detalle": ""
+  },
+  "core.test_a2.LegacyBehaviourTests.test_the_new_table_is_in_the_django_admin": {
+   "estado": "Aprobada",
+   "detalle": ""
+  },
+  "core.test_a2.SwitchContextTests.test_a_403_page_still_shows_the_header": {
+   "estado": "Aprobada",
+   "detalle": ""
+  },
+  "core.test_a2.SwitchContextTests.test_a_delegation_that_stops_being_authorized_is_forgotten_on_the_next_request": {
+   "estado": "Aprobada",
+   "detalle": ""
+  },
+  "core.test_a2.SwitchContextTests.test_a_forged_id_is_a_403_and_is_audited": {
+   "estado": "Aprobada",
+   "detalle": ""
+  },
+  "core.test_a2.SwitchContextTests.test_a_global_user_can_pick_one_delegation_and_go_back_to_all": {
+   "estado": "Aprobada",
+   "detalle": ""
+  },
+  "core.test_a2.SwitchContextTests.test_a_tampered_session_value_is_ignored": {
+   "estado": "Aprobada",
+   "detalle": ""
+  },
+  "core.test_a2.SwitchContextTests.test_a_user_with_one_delegation_cannot_switch_even_by_hand": {
+   "estado": "Aprobada",
+   "detalle": ""
+  },
+  "core.test_a2.SwitchContextTests.test_after_validating_an_evidence_screen_the_switch_goes_to_the_list": {
+   "estado": "Aprobada",
+   "detalle": ""
+  },
+  "core.test_a2.SwitchContextTests.test_choosing_the_same_delegation_changes_nothing": {
+   "estado": "Aprobada",
+   "detalle": ""
+  },
+  "core.test_a2.SwitchContextTests.test_logging_in_again_over_the_same_session_forgets_the_choice": {
+   "estado": "Aprobada",
+   "detalle": ""
+  },
+  "core.test_a2.SwitchContextTests.test_only_post_is_accepted_and_login_is_required": {
+   "estado": "Aprobada",
+   "detalle": ""
+  },
+  "core.test_a2.SwitchContextTests.test_switching_saves_the_choice_in_the_session_and_audits_it": {
+   "estado": "Aprobada",
+   "detalle": ""
+  },
+  "core.test_a2.SwitchContextTests.test_the_choice_lasts_for_the_session_and_each_login_starts_in_the_own_delegation": {
+   "estado": "Aprobada",
+   "detalle": ""
+  },
+  "core.test_a2.SwitchContextTests.test_the_csrf_token_is_required": {
+   "estado": "Aprobada",
+   "detalle": ""
+  },
+  "core.test_a2.SwitchContextTests.test_the_new_delegation_is_announced_with_a_toast": {
+   "estado": "Aprobada",
+   "detalle": ""
+  },
+  "core.test_a2.SwitchContextTests.test_where_to_go_after_switching": {
+   "estado": "Aprobada",
+   "detalle": ""
+  },
+  "core.test_a2.UserDelegationsFormTests.test_a_forged_delegation_id_in_the_form_is_rejected": {
+   "estado": "Aprobada",
+   "detalle": ""
+  },
+  "core.test_a2.UserDelegationsFormTests.test_a_user_that_sees_everything_cannot_have_extra_delegations": {
+   "estado": "Aprobada",
+   "detalle": ""
+  },
+  "core.test_a2.UserDelegationsFormTests.test_changing_the_roles_keeps_the_extra_delegations_for_the_new_roles": {
+   "estado": "Aprobada",
+   "detalle": ""
+  },
+  "core.test_a2.UserDelegationsFormTests.test_creating_a_user_saves_one_row_per_role_and_delegation_and_audits_it": {
+   "estado": "Aprobada",
+   "detalle": ""
+  },
+  "core.test_a2.UserDelegationsFormTests.test_editing_changes_the_rows_and_keeps_the_audit_of_each_change": {
+   "estado": "Aprobada",
+   "detalle": ""
+  },
+  "core.test_a2.UserDelegationsFormTests.test_only_who_can_change_users_can_change_the_authorized_delegations": {
+   "estado": "Aprobada",
+   "detalle": ""
+  },
+  "core.test_a2.UserDelegationsFormTests.test_the_form_offers_the_active_delegations_with_their_codes": {
+   "estado": "Aprobada",
+   "detalle": ""
+  },
+  "core.test_a2.UserDelegationsFormTests.test_the_list_and_the_detail_show_the_authorized_delegations": {
+   "estado": "Aprobada",
+   "detalle": ""
+  },
+  "core.test_a2.UserDelegationsFormTests.test_the_officers_own_delegation_is_not_saved_twice": {
+   "estado": "Aprobada",
+   "detalle": ""
+  },
+  "core.test_a2.UserDelegationsFormTests.test_the_user_list_does_not_query_per_user": {
+   "estado": "Aprobada",
+   "detalle": ""
+  },
+  "core.test_access_flow.AccessFlowTests.test_after_login_the_visitor_lands_on_the_address_they_wanted": {
+   "estado": "Aprobada",
+   "detalle": ""
+  },
+  "core.test_access_flow.AccessFlowTests.test_after_logout_a_private_route_asks_for_login_again": {
+   "estado": "Aprobada",
+   "detalle": ""
+  },
+  "core.test_access_flow.AccessFlowTests.test_an_anonymous_visitor_is_sent_to_login_with_the_address_they_wanted": {
+   "estado": "Aprobada",
+   "detalle": ""
+  },
+  "core.test_access_flow.AccessFlowTests.test_invalid_credentials_show_a_controlled_error": {
+   "estado": "Aprobada",
+   "detalle": ""
+  },
+  "core.test_access_flow.AccessFlowTests.test_logout_form_is_a_post_with_csrf": {
+   "estado": "Aprobada",
+   "detalle": ""
+  },
+  "core.test_access_flow.AccessFlowTests.test_logout_shows_a_notice_on_the_login_screen": {
+   "estado": "Aprobada",
+   "detalle": ""
+  },
+  "core.test_access_flow.AccessFlowTests.test_the_dashboard_is_only_for_users_with_a_session": {
+   "estado": "Aprobada",
+   "detalle": ""
+  },
+  "core.test_access_flow.AccessFlowTests.test_valid_credentials_let_the_user_in": {
+   "estado": "Aprobada",
+   "detalle": ""
+  },
+  "core.test_access_flow.AuthRoutesTests.test_accounts_login_shows_the_same_screen_and_logs_in": {
+   "estado": "Aprobada",
+   "detalle": ""
+  },
+  "core.test_access_flow.AuthRoutesTests.test_accounts_login_wrong_password_uses_the_portal_wording": {
+   "estado": "Aprobada",
+   "detalle": ""
+  },
+  "core.test_access_flow.AuthRoutesTests.test_accounts_logout_closes_the_session": {
+   "estado": "Aprobada",
+   "detalle": ""
+  },
+  "core.test_access_flow.AuthRoutesTests.test_django_auth_routes_are_available_under_accounts": {
+   "estado": "Aprobada",
+   "detalle": ""
+  },
+  "core.test_access_flow.AuthRoutesTests.test_login_form_carries_the_csrf_token_and_rejects_posts_without_it": {
+   "estado": "Aprobada",
+   "detalle": ""
+  },
+  "core.test_access_flow.AuthRoutesTests.test_login_page_links_to_the_password_recovery": {
+   "estado": "Aprobada",
+   "detalle": ""
+  },
+  "core.test_access_flow.AuthRoutesTests.test_login_uses_the_default_registration_template": {
+   "estado": "Aprobada",
+   "detalle": ""
+  },
+  "core.test_access_flow.AuthRoutesTests.test_settings_point_to_the_portal_screens": {
+   "estado": "Aprobada",
+   "detalle": ""
+  },
+  "core.test_access_flow.AuthRoutesTests.test_stock_password_screens_lead_to_the_portal_ones": {
+   "estado": "Aprobada",
+   "detalle": ""
+  },
+  "core.test_access_flow.AuthRoutesTests.test_the_login_view_does_not_name_which_credential_failed": {
+   "estado": "Aprobada",
+   "detalle": ""
+  },
+  "core.test_access_flow.NavigationTests.test_a_user_with_a_session_sees_the_menu_and_the_logout_button": {
+   "estado": "Aprobada",
+   "detalle": ""
+  },
+  "core.test_access_flow.NavigationTests.test_a_visitor_sees_the_login_link_and_no_user_menu": {
+   "estado": "Aprobada",
+   "detalle": ""
+  },
+  "core.test_access_flow.NavigationTests.test_hiding_a_link_is_not_the_protection_the_view_still_refuses": {
+   "estado": "Aprobada",
+   "detalle": ""
+  },
+  "core.test_access_flow.PageSizeTests.test_a_forged_value_in_the_session_falls_back_to_the_default": {
+   "estado": "Aprobada",
+   "detalle": ""
+  },
+  "core.test_access_flow.PageSizeTests.test_choosing_a_size_stores_it_in_the_session_and_changes_every_list": {
+   "estado": "Aprobada",
+   "detalle": ""
+  },
+  "core.test_access_flow.PageSizeTests.test_default_is_twenty_rows": {
+   "estado": "Aprobada",
+   "detalle": ""
+  },
+  "core.test_access_flow.PageSizeTests.test_excel_export_ignores_the_page_size": {
+   "estado": "Aprobada",
+   "detalle": ""
+  },
+  "core.test_access_flow.PageSizeTests.test_invalid_sizes_are_refused_and_nothing_is_stored": {
+   "estado": "Aprobada",
+   "detalle": ""
+  },
+  "core.test_access_flow.PageSizeTests.test_next_keeps_the_search_but_not_the_page": {
+   "estado": "Aprobada",
+   "detalle": ""
+  },
+  "core.test_access_flow.PageSizeTests.test_next_never_leaves_the_site": {
+   "estado": "Aprobada",
+   "detalle": ""
+  },
+  "core.test_access_flow.PageSizeTests.test_only_post_and_only_with_a_session": {
+   "estado": "Aprobada",
+   "detalle": ""
+  },
+  "core.test_access_flow.PageSizeTests.test_the_button_of_the_current_size_is_marked": {
+   "estado": "Aprobada",
+   "detalle": ""
+  },
+  "core.test_access_flow.PageSizeTests.test_the_success_notice_appears_after_the_redirect_and_only_once": {
+   "estado": "Aprobada",
+   "detalle": ""
+  },
+  "core.test_access_flow.SessionValueTests.test_dashboard_counts_visits_and_keeps_the_count_on_refresh": {
+   "estado": "Aprobada",
+   "detalle": ""
+  },
+  "core.test_access_flow.SessionValueTests.test_each_session_has_its_own_count": {
+   "estado": "Aprobada",
+   "detalle": ""
+  },
+  "core.test_access_flow.SessionValueTests.test_logout_erases_the_session_so_nobody_inherits_it": {
+   "estado": "Aprobada",
+   "detalle": ""
+  },
+  "core.test_access_flow.SessionValueTests.test_the_count_survives_changing_page": {
+   "estado": "Aprobada",
+   "detalle": ""
+  },
+  "core.test_access_flow.SessionValueTests.test_the_session_cookie_only_carries_a_key_not_the_data": {
+   "estado": "Aprobada",
+   "detalle": ""
+  },
+  "core.test_catalogs.AttentionCatalogTests.test_a_sub_attention_cannot_be_restored_under_an_archived_type": {
+   "estado": "Aprobada",
+   "detalle": ""
+  },
+  "core.test_catalogs.AttentionCatalogTests.test_a_sub_attention_needs_a_type_and_the_type_must_be_a_type": {
+   "estado": "Aprobada",
+   "detalle": ""
+  },
+  "core.test_catalogs.AttentionCatalogTests.test_a_type_can_be_deleted_once_its_sub_attentions_are_inactive": {
+   "estado": "Aprobada",
+   "detalle": ""
+  },
+  "core.test_catalogs.AttentionCatalogTests.test_a_type_with_active_sub_attentions_cannot_be_deleted": {
+   "estado": "Aprobada",
+   "detalle": ""
+  },
+  "core.test_catalogs.AttentionCatalogTests.test_a_type_with_sub_attentions_cannot_become_a_sub_attention": {
+   "estado": "Aprobada",
+   "detalle": ""
+  },
+  "core.test_catalogs.AttentionCatalogTests.test_an_archived_name_is_reported_as_archived": {
+   "estado": "Aprobada",
+   "detalle": ""
+  },
+  "core.test_catalogs.AttentionCatalogTests.test_an_item_cannot_be_its_own_parent": {
+   "estado": "Aprobada",
+   "detalle": ""
+  },
+  "core.test_catalogs.AttentionCatalogTests.test_an_item_with_active_goals_cannot_be_deleted": {
+   "estado": "Aprobada",
+   "detalle": ""
+  },
+  "core.test_catalogs.AttentionCatalogTests.test_an_item_with_history_cannot_change_its_type": {
+   "estado": "Aprobada",
+   "detalle": ""
+  },
+  "core.test_catalogs.AttentionCatalogTests.test_codes_follow_the_prefix_of_each_catalog": {
+   "estado": "Aprobada",
+   "detalle": ""
+  },
+  "core.test_catalogs.AttentionCatalogTests.test_create_a_type_and_a_sub_attention": {
+   "estado": "Aprobada",
+   "detalle": ""
+  },
+  "core.test_catalogs.AttentionCatalogTests.test_each_catalog_lists_its_own_items": {
+   "estado": "Aprobada",
+   "detalle": ""
+  },
+  "core.test_catalogs.AttentionCatalogTests.test_names_do_not_repeat_among_siblings_even_with_other_capitals": {
+   "estado": "Aprobada",
+   "detalle": ""
+  },
+  "core.test_catalogs.AttentionCatalogTests.test_roles_without_delete_see_no_delete_link_in_the_catalogs": {
+   "estado": "Aprobada",
+   "detalle": ""
+  },
+  "core.test_catalogs.AttentionCatalogTests.test_state_is_active_or_inactive_and_can_be_filtered": {
+   "estado": "Aprobada",
+   "detalle": ""
+  },
+  "core.test_catalogs.AttentionCatalogTests.test_the_catalogs_are_in_the_menu_for_who_can_see_them": {
+   "estado": "Aprobada",
+   "detalle": ""
+  },
+  "core.test_catalogs.AttentionCatalogTests.test_the_detail_shows_class_state_and_sub_attentions": {
+   "estado": "Aprobada",
+   "detalle": ""
+  },
+  "core.test_catalogs.AttentionCatalogTests.test_the_search_finds_by_code_name_and_parent": {
+   "estado": "Aprobada",
+   "detalle": ""
+  },
+  "core.test_catalogs.AttentionCatalogTests.test_the_sub_attention_form_only_offers_active_types": {
+   "estado": "Aprobada",
+   "detalle": ""
+  },
+  "core.test_catalogs.AttentionCatalogTests.test_the_type_list_counts_its_active_sub_attentions": {
+   "estado": "Aprobada",
+   "detalle": ""
+  },
+  "core.test_catalogs.RoleCrudTests.test_a_role_cannot_create_edit_or_delete_without_seeing_the_module": {
+   "estado": "Aprobada",
+   "detalle": ""
+  },
+  "core.test_catalogs.RoleCrudTests.test_a_role_in_use_cannot_be_deleted": {
+   "estado": "Aprobada",
+   "detalle": ""
+  },
+  "core.test_catalogs.RoleCrudTests.test_a_role_without_users_is_deleted_for_real_after_the_confirmation": {
+   "estado": "Aprobada",
+   "detalle": ""
+  },
+  "core.test_catalogs.RoleCrudTests.test_a_system_role_cannot_be_deleted": {
+   "estado": "Aprobada",
+   "detalle": ""
+  },
+  "core.test_catalogs.RoleCrudTests.test_a_system_role_keeps_its_name_but_its_permissions_can_change": {
+   "estado": "Aprobada",
+   "detalle": ""
+  },
+  "core.test_catalogs.RoleCrudTests.test_create_a_role_with_permissions_and_leave_a_trace": {
+   "estado": "Aprobada",
+   "detalle": ""
+  },
+  "core.test_catalogs.RoleCrudTests.test_delete_needs_the_delete_group_permission": {
+   "estado": "Aprobada",
+   "detalle": ""
+  },
+  "core.test_catalogs.RoleCrudTests.test_only_who_has_group_permissions_opens_roles": {
+   "estado": "Aprobada",
+   "detalle": ""
+  },
+  "core.test_catalogs.RoleCrudTests.test_permissions_outside_the_matrix_are_kept_when_saving": {
+   "estado": "Aprobada",
+   "detalle": ""
+  },
+  "core.test_catalogs.RoleCrudTests.test_role_names_do_not_repeat_even_with_other_capitals": {
+   "estado": "Aprobada",
+   "detalle": ""
+  },
+  "core.test_catalogs.RoleCrudTests.test_the_detail_shows_the_permissions_the_role_has": {
+   "estado": "Aprobada",
+   "detalle": ""
+  },
+  "core.test_catalogs.RoleCrudTests.test_the_form_shows_the_permission_matrix": {
+   "estado": "Aprobada",
+   "detalle": ""
+  },
+  "core.test_catalogs.RoleCrudTests.test_the_list_can_be_searched_by_code_and_name": {
+   "estado": "Aprobada",
+   "detalle": ""
+  },
+  "core.test_catalogs.RoleCrudTests.test_the_list_marks_what_cannot_be_deleted_so_the_alert_can_explain_it": {
+   "estado": "Aprobada",
+   "detalle": ""
+  },
+  "core.test_catalogs.RoleCrudTests.test_the_list_shows_code_scope_state_users_and_permissions": {
+   "estado": "Aprobada",
+   "detalle": ""
+  },
+  "core.test_catalogs.RoleCrudTests.test_users_see_the_new_role_in_their_form": {
+   "estado": "Aprobada",
+   "detalle": ""
+  },
+  "core.test_deploy.HealthCheckTests.test_it_answers_without_a_session_and_says_the_version": {
+   "estado": "Aprobada",
+   "detalle": ""
+  },
+  "core.test_deploy.HealthCheckTests.test_it_is_a_get_only_and_never_cached": {
+   "estado": "Aprobada",
+   "detalle": ""
+  },
+  "core.test_deploy.HealthCheckTests.test_it_reports_503_when_the_cache_fails": {
+   "estado": "Aprobada",
+   "detalle": ""
+  },
+  "core.test_deploy.HealthCheckTests.test_it_reports_503_when_the_database_fails": {
+   "estado": "Aprobada",
+   "detalle": ""
+  },
+  "core.test_deploy.HealthCheckTests.test_it_shows_no_secrets": {
+   "estado": "Aprobada",
+   "detalle": ""
+  },
+  "core.test_edits.AuditTests.test_creating_a_record_is_audited_with_its_name": {
+   "estado": "Aprobada",
+   "detalle": ""
+  },
+  "core.test_edits.AuditTests.test_saving_without_changes_leaves_no_audit_entry": {
+   "estado": "Aprobada",
+   "detalle": ""
+  },
+  "core.test_edits.AuditTests.test_updating_a_record_audits_each_changed_field_with_before_and_after": {
+   "estado": "Aprobada",
+   "detalle": ""
+  },
+  "core.test_edits.ConcurrentEditTests.test_edit_form_carries_the_version_it_was_opened_with": {
+   "estado": "Aprobada",
+   "detalle": ""
+  },
+  "core.test_edits.ConcurrentEditTests.test_saving_over_a_newer_version_asks_to_review_and_saves_nothing": {
+   "estado": "Aprobada",
+   "detalle": ""
+  },
+  "core.test_edits.EvidenceEditTests.test_a_change_that_does_not_alter_the_reviewed_file_keeps_the_review": {
+   "estado": "Aprobada",
+   "detalle": ""
+  },
+  "core.test_edits.EvidenceEditTests.test_changing_the_file_of_a_reviewed_evidence_sends_it_back_to_pending": {
+   "estado": "Aprobada",
+   "detalle": ""
+  },
+  "core.test_edits.EvidenceEditTests.test_unique_code_is_asked_on_creation_but_cannot_change_afterwards": {
+   "estado": "Aprobada",
+   "detalle": ""
+  },
+  "core.test_edits.IdParameterTests.test_codes_with_unexpected_numbers_do_not_break_the_suggestion": {
+   "estado": "Aprobada",
+   "detalle": ""
+  },
+  "core.test_edits.IdParameterTests.test_non_ascii_digits_are_not_taken_as_ids": {
+   "estado": "Aprobada",
+   "detalle": ""
+  },
+  "core.test_edits.PlanningFormRuleTests.test_a_valid_period_is_saved": {
+   "estado": "Aprobada",
+   "detalle": ""
+  },
+  "core.test_edits.PlanningFormRuleTests.test_adjustment_value_is_a_percentage_above_zero": {
+   "estado": "Aprobada",
+   "detalle": ""
+  },
+  "core.test_edits.PlanningFormRuleTests.test_editing_a_goal_does_not_clash_with_itself": {
+   "estado": "Aprobada",
+   "detalle": ""
+  },
+  "core.test_edits.PlanningFormRuleTests.test_goal_weight_and_version_have_limits": {
+   "estado": "Aprobada",
+   "detalle": ""
+  },
+  "core.test_edits.PlanningFormRuleTests.test_indicator_numbers_cannot_be_negative": {
+   "estado": "Aprobada",
+   "detalle": ""
+  },
+  "core.test_edits.PlanningFormRuleTests.test_only_one_period_can_be_current": {
+   "estado": "Aprobada",
+   "detalle": ""
+  },
+  "core.test_edits.PlanningFormRuleTests.test_period_thresholds_and_days_have_limits": {
+   "estado": "Aprobada",
+   "detalle": ""
+  },
+  "core.test_edits.PlanningFormRuleTests.test_the_same_goal_cannot_be_created_twice_for_an_officer_and_period": {
+   "estado": "Aprobada",
+   "detalle": ""
+  },
+  "core.test_edits.SearchLimitTests.test_only_the_first_words_of_a_long_search_are_used": {
+   "estado": "Aprobada",
+   "detalle": ""
+  },
+  "core.test_export.ListExportTests.test_a_delegation_user_only_gets_its_own_rows": {
+   "estado": "Aprobada",
+   "detalle": ""
+  },
+  "core.test_export.ListExportTests.test_anonymous_visitors_are_sent_to_the_login": {
+   "estado": "Aprobada",
+   "detalle": ""
+  },
+  "core.test_export.ListExportTests.test_download_follows_the_search_the_filters_and_the_order_of_the_screen": {
+   "estado": "Aprobada",
+   "detalle": ""
+  },
+  "core.test_export.ListExportTests.test_download_ignores_the_page_and_exports_all_the_rows": {
+   "estado": "Aprobada",
+   "detalle": ""
+  },
+  "core.test_export.ListExportTests.test_download_is_an_excel_file_named_after_the_list_and_the_day": {
+   "estado": "Aprobada",
+   "detalle": ""
+  },
+  "core.test_export.ListExportTests.test_download_is_cut_at_the_limit_and_says_so": {
+   "estado": "Aprobada",
+   "detalle": ""
+  },
+  "core.test_export.ListExportTests.test_download_needs_the_same_permission_as_the_list": {
+   "estado": "Aprobada",
+   "detalle": ""
+  },
+  "core.test_export.ListExportTests.test_every_download_is_audited_and_a_plain_visit_is_not": {
+   "estado": "Aprobada",
+   "detalle": ""
+  },
+  "core.test_export.ListExportTests.test_every_list_can_be_downloaded": {
+   "estado": "Aprobada",
+   "detalle": ""
+  },
+  "core.test_export.ListExportTests.test_numbers_and_dates_keep_their_type": {
+   "estado": "Aprobada",
+   "detalle": ""
+  },
+  "core.test_export.ListExportTests.test_sheet_has_title_author_filters_header_and_rows": {
+   "estado": "Aprobada",
+   "detalle": ""
+  },
+  "core.test_export.ListExportTests.test_texts_that_look_like_formulas_stay_text": {
+   "estado": "Aprobada",
+   "detalle": ""
+  },
+  "core.test_export.ReportExportTests.test_a_delegation_user_only_gets_its_own_officers": {
+   "estado": "Aprobada",
+   "detalle": ""
+  },
+  "core.test_export.ReportExportTests.test_report_download_is_audited": {
+   "estado": "Aprobada",
+   "detalle": ""
+  },
+  "core.test_export.ReportExportTests.test_report_workbook_has_one_row_per_officer": {
+   "estado": "Aprobada",
+   "detalle": ""
+  },
+  "core.test_export.ReportExportTests.test_the_report_page_links_to_the_excel_file": {
+   "estado": "Aprobada",
+   "detalle": ""
+  },
+  "core.test_flash.ConfirmationMarkupTests.test_other_forms_do_not_ask_for_confirmation": {
+   "estado": "Aprobada",
+   "detalle": ""
+  },
+  "core.test_flash.ConfirmationMarkupTests.test_the_cancel_buttons_say_whether_they_create_or_edit": {
+   "estado": "Aprobada",
+   "detalle": ""
+  },
+  "core.test_flash.ConfirmationMarkupTests.test_the_delete_confirmation_is_still_there": {
+   "estado": "Aprobada",
+   "detalle": ""
+  },
+  "core.test_flash.ConfirmationMarkupTests.test_the_password_change_asks_for_confirmation": {
+   "estado": "Aprobada",
+   "detalle": ""
+  },
+  "core.test_flash.ConfirmationMarkupTests.test_the_window_closes_with_the_cross_as_a_cancel_too": {
+   "estado": "Aprobada",
+   "detalle": ""
+  },
+  "core.test_flash.NoticeMarkupTests.test_a_preference_change_is_a_short_toast": {
+   "estado": "Aprobada",
+   "detalle": ""
+  },
+  "core.test_flash.NoticeMarkupTests.test_a_success_comes_with_its_level_and_text": {
+   "estado": "Aprobada",
+   "detalle": ""
+  },
+  "core.test_flash.NoticeMarkupTests.test_a_warning_and_an_info_keep_their_level": {
+   "estado": "Aprobada",
+   "detalle": ""
+  },
+  "core.test_flash.NoticeMarkupTests.test_an_error_is_marked_as_error_and_changes_nothing": {
+   "estado": "Aprobada",
+   "detalle": ""
+  },
+  "core.test_flash.NoticeMarkupTests.test_the_text_of_the_notice_is_escaped": {
+   "estado": "Aprobada",
+   "detalle": ""
+  },
+  "core.test_flash.NoticeMarkupTests.test_without_javascript_the_notice_is_a_normal_banner_with_a_close_button": {
+   "estado": "Aprobada",
+   "detalle": ""
+  },
+  "core.test_flash.NoticeScriptsTests.test_every_page_loads_the_scripts_in_the_right_order": {
+   "estado": "Aprobada",
+   "detalle": ""
+  },
+  "core.test_flash.NoticeScriptsTests.test_the_login_page_loads_them_too": {
+   "estado": "Aprobada",
+   "detalle": ""
+  },
+  "core.test_flash.NoticeScriptsTests.test_the_scripts_are_part_of_the_static_files": {
+   "estado": "Aprobada",
+   "detalle": ""
+  },
+  "core.test_flash.NoticeScriptsTests.test_the_sweetalert_files_are_served_with_the_project": {
+   "estado": "Aprobada",
+   "detalle": ""
+  },
+  "core.test_intake.AttentionTypeTests.test_a_sub_attention_cannot_be_sent_as_the_type": {
+   "estado": "Aprobada",
+   "detalle": ""
+  },
+  "core.test_intake.AttentionTypeTests.test_a_sub_attention_of_a_type_without_sub_attentions_is_rejected": {
+   "estado": "Aprobada",
+   "detalle": ""
+  },
+  "core.test_intake.AttentionTypeTests.test_a_sub_attention_of_another_type_with_sub_attentions_is_rejected": {
+   "estado": "Aprobada",
+   "detalle": ""
+  },
+  "core.test_intake.AttentionTypeTests.test_a_type_whose_sub_attentions_are_all_archived_counts_as_having_none": {
+   "estado": "Aprobada",
+   "detalle": ""
+  },
+  "core.test_intake.AttentionTypeTests.test_a_type_with_sub_attentions_asks_for_one": {
+   "estado": "Aprobada",
+   "detalle": ""
+  },
+  "core.test_intake.AttentionTypeTests.test_a_type_without_sub_attentions_is_saved_as_the_item_itself": {
+   "estado": "Aprobada",
+   "detalle": ""
+  },
+  "core.test_intake.AttentionTypeTests.test_a_type_without_sub_attentions_shows_an_empty_sub_attention_column": {
+   "estado": "Aprobada",
+   "detalle": ""
+  },
+  "core.test_intake.AttentionTypeTests.test_an_archived_sub_attention_is_not_accepted": {
+   "estado": "Aprobada",
+   "detalle": ""
+  },
+  "core.test_intake.AttentionTypeTests.test_an_archived_type_is_not_accepted": {
+   "estado": "Aprobada",
+   "detalle": ""
+  },
+  "core.test_intake.AttentionTypeTests.test_the_attention_type_and_sub_attention_are_shown_in_the_list_and_the_ficha": {
+   "estado": "Aprobada",
+   "detalle": ""
+  },
+  "core.test_intake.AttentionTypeTests.test_the_chosen_sub_attention_is_the_item_of_the_activity": {
+   "estado": "Aprobada",
+   "detalle": ""
+  },
+  "core.test_intake.AttentionTypeTests.test_the_form_offers_only_the_types_and_labels_every_sub_attention_with_its_type": {
+   "estado": "Aprobada",
+   "detalle": ""
+  },
+  "core.test_intake.AttentionTypeTests.test_the_type_is_required": {
+   "estado": "Aprobada",
+   "detalle": ""
+  },
+  "core.test_intake.EditStaysTheSameTests.test_editing_uses_the_full_form": {
+   "estado": "Aprobada",
+   "detalle": ""
+  },
+  "core.test_intake.EditStaysTheSameTests.test_the_status_is_changed_by_editing": {
+   "estado": "Aprobada",
+   "detalle": ""
+  },
+  "core.test_intake.FixedProfileTests.test_an_existing_attention_can_still_be_edited_without_a_description": {
+   "estado": "Aprobada",
+   "detalle": ""
+  },
+  "core.test_intake.FixedProfileTests.test_each_officer_registers_in_their_own_delegation": {
+   "estado": "Aprobada",
+   "detalle": ""
+  },
+  "core.test_intake.FixedProfileTests.test_forged_delegation_and_officer_are_ignored": {
+   "estado": "Aprobada",
+   "detalle": ""
+  },
+  "core.test_intake.FixedProfileTests.test_the_action_is_optional": {
+   "estado": "Aprobada",
+   "detalle": ""
+  },
+  "core.test_intake.FixedProfileTests.test_the_date_is_today_whatever_is_sent": {
+   "estado": "Aprobada",
+   "detalle": ""
+  },
+  "core.test_intake.FixedProfileTests.test_the_delegation_and_the_officer_are_the_ones_of_the_user": {
+   "estado": "Aprobada",
+   "detalle": ""
+  },
+  "core.test_intake.FixedProfileTests.test_the_description_field_says_so_on_the_screen": {
+   "estado": "Aprobada",
+   "detalle": ""
+  },
+  "core.test_intake.FixedProfileTests.test_the_description_is_required_to_register": {
+   "estado": "Aprobada",
+   "detalle": ""
+  },
+  "core.test_intake.FixedProfileTests.test_the_flags_can_be_marked_when_registering": {
+   "estado": "Aprobada",
+   "detalle": ""
+  },
+  "core.test_intake.FixedProfileTests.test_the_form_does_not_ask_for_what_it_fills_in_itself": {
+   "estado": "Aprobada",
+   "detalle": ""
+  },
+  "core.test_intake.FixedProfileTests.test_the_note_says_what_is_filled_in_and_who_is_the_responsible": {
+   "estado": "Aprobada",
+   "detalle": ""
+  },
+  "core.test_intake.FixedProfileTests.test_the_service_is_optional_and_can_be_chosen": {
+   "estado": "Aprobada",
+   "detalle": ""
+  },
+  "core.test_intake.FixedProfileTests.test_the_status_starts_as_registered_whatever_is_sent": {
+   "estado": "Aprobada",
+   "detalle": ""
+  },
+  "core.test_intake.IdentifierTests.test_every_attention_has_its_own_identifier_in_the_list": {
+   "estado": "Aprobada",
+   "detalle": ""
+  },
+  "core.test_intake.IdentifierTests.test_nothing_is_saved_or_audited_when_the_form_has_mistakes": {
+   "estado": "Aprobada",
+   "detalle": ""
+  },
+  "core.test_intake.IdentifierTests.test_the_identifier_is_derived_from_the_id_and_is_not_a_database_column": {
+   "estado": "Aprobada",
+   "detalle": ""
+  },
+  "core.test_intake.IdentifierTests.test_the_message_names_the_person_and_the_identifier": {
+   "estado": "Aprobada",
+   "detalle": ""
+  },
+  "core.test_intake.IdentifierTests.test_the_registration_is_audited": {
+   "estado": "Aprobada",
+   "detalle": ""
+  },
+  "core.test_intake.IntakeModalTests.test_a_mistake_comes_back_inside_the_window": {
+   "estado": "Aprobada",
+   "detalle": ""
+  },
+  "core.test_intake.IntakeModalTests.test_save_and_add_another_keeps_the_window_open_for_the_next_attention": {
+   "estado": "Aprobada",
+   "detalle": ""
+  },
+  "core.test_intake.IntakeModalTests.test_saving_answers_with_the_message_that_includes_the_identifier": {
+   "estado": "Aprobada",
+   "detalle": ""
+  },
+  "core.test_intake.IntakeModalTests.test_the_window_has_the_same_fields_and_the_dependent_list": {
+   "estado": "Aprobada",
+   "detalle": ""
+  },
+  "core.test_intake.IntakePermissionTests.test_anonymous_users_are_sent_to_the_login": {
+   "estado": "Aprobada",
+   "detalle": ""
+  },
+  "core.test_intake.IntakePermissionTests.test_only_who_can_add_activities_opens_the_form": {
+   "estado": "Aprobada",
+   "detalle": ""
+  },
+  "core.test_intake.IntakePermissionTests.test_the_funcionario_and_the_superuser_can": {
+   "estado": "Aprobada",
+   "detalle": ""
+  },
+  "core.test_intake.IntakePermissionTests.test_the_role_matrix_decides_it": {
+   "estado": "Aprobada",
+   "detalle": ""
+  },
+  "core.test_intake.PrefilledPersonTests.test_a_person_the_user_never_attended_is_not_filled_in": {
+   "estado": "Aprobada",
+   "detalle": ""
+  },
+  "core.test_intake.PrefilledPersonTests.test_an_archived_person_is_not_filled_in": {
+   "estado": "Aprobada",
+   "detalle": ""
+  },
+  "core.test_intake.PrefilledPersonTests.test_the_button_of_a_row_starts_the_form_with_that_person": {
+   "estado": "Aprobada",
+   "detalle": ""
+  },
+  "core.test_intake.PrefilledPersonTests.test_the_prefilled_form_links_the_person_when_saved": {
+   "estado": "Aprobada",
+   "detalle": ""
+  },
+  "core.test_intake.PrefilledPersonTests.test_who_can_see_beneficiaries_gets_any_person": {
+   "estado": "Aprobada",
+   "detalle": ""
+  },
+  "core.test_intake.PrefilledPersonTests.test_wrong_ids_are_ignored": {
+   "estado": "Aprobada",
+   "detalle": ""
+  },
+  "core.test_intake.RequesterTests.test_a_long_name_is_cut_to_the_size_of_the_contact_field": {
+   "estado": "Aprobada",
+   "detalle": ""
+  },
+  "core.test_intake.RequesterTests.test_a_name_that_is_not_in_beneficiaries_is_kept_as_a_written_contact": {
+   "estado": "Aprobada",
+   "detalle": ""
+  },
+  "core.test_intake.RequesterTests.test_a_partial_name_does_not_link_anyone": {
+   "estado": "Aprobada",
+   "detalle": ""
+  },
+  "core.test_intake.RequesterTests.test_a_rut_that_ends_in_k_is_understood": {
+   "estado": "Aprobada",
+   "detalle": ""
+  },
+  "core.test_intake.RequesterTests.test_a_rut_with_dots_and_dash_links_the_person": {
+   "estado": "Aprobada",
+   "detalle": ""
+  },
+  "core.test_intake.RequesterTests.test_a_rut_without_dots_or_dash_links_the_person": {
+   "estado": "Aprobada",
+   "detalle": ""
+  },
+  "core.test_intake.RequesterTests.test_a_valid_rut_that_is_not_registered_is_rejected_with_a_hint_for_the_user": {
+   "estado": "Aprobada",
+   "detalle": ""
+  },
+  "core.test_intake.RequesterTests.test_a_wrong_check_digit_is_rejected": {
+   "estado": "Aprobada",
+   "detalle": ""
+  },
+  "core.test_intake.RequesterTests.test_an_archived_person_is_rejected_when_typed_by_rut": {
+   "estado": "Aprobada",
+   "detalle": ""
+  },
+  "core.test_intake.RequesterTests.test_an_archived_person_typed_by_name_is_only_a_written_contact": {
+   "estado": "Aprobada",
+   "detalle": ""
+  },
+  "core.test_intake.RequesterTests.test_extra_spaces_of_a_written_contact_are_cleaned": {
+   "estado": "Aprobada",
+   "detalle": ""
+  },
+  "core.test_intake.RequesterTests.test_the_exact_name_links_the_person_ignoring_case_accents_and_extra_spaces": {
+   "estado": "Aprobada",
+   "detalle": ""
+  },
+  "core.test_intake.RequesterTests.test_the_field_does_not_take_more_than_the_contact_can_hold": {
+   "estado": "Aprobada",
+   "detalle": ""
+  },
+  "core.test_intake.RequesterTests.test_the_person_is_only_linked_through_the_requester_field": {
+   "estado": "Aprobada",
+   "detalle": ""
+  },
+  "core.test_intake.RequesterTests.test_the_phone_rule_still_applies": {
+   "estado": "Aprobada",
+   "detalle": ""
+  },
+  "core.test_intake.RequesterTests.test_the_requester_is_required": {
+   "estado": "Aprobada",
+   "detalle": ""
+  },
+  "core.test_intake.RequesterTests.test_the_rut_picks_the_right_one_when_the_name_is_repeated": {
+   "estado": "Aprobada",
+   "detalle": ""
+  },
+  "core.test_intake.RequesterTests.test_the_search_box_lists_the_active_people_to_choose_from": {
+   "estado": "Aprobada",
+   "detalle": ""
+  },
+  "core.test_intake.RequesterTests.test_two_people_with_the_same_name_ask_for_the_rut": {
+   "estado": "Aprobada",
+   "detalle": ""
+  },
+  "core.test_intake.RequesterTests.test_who_can_register_beneficiaries_is_told_to_do_it": {
+   "estado": "Aprobada",
+   "detalle": ""
+  },
+  "core.test_intake.SuperuserIntakeTests.test_a_user_without_officer_and_without_global_role_cannot_register": {
+   "estado": "Aprobada",
+   "detalle": ""
+  },
+  "core.test_intake.SuperuserIntakeTests.test_it_cannot_leave_them_empty": {
+   "estado": "Aprobada",
+   "detalle": ""
+  },
+  "core.test_intake.SuperuserIntakeTests.test_it_chooses_the_delegation_and_the_officer": {
+   "estado": "Aprobada",
+   "detalle": ""
+  },
+  "core.test_intake.SuperuserIntakeTests.test_it_saves_with_what_it_chose": {
+   "estado": "Aprobada",
+   "detalle": ""
+  },
+  "core.test_interface.HeaderTests.test_a_read_only_profile_shows_its_own_delegation_and_profile": {
+   "estado": "Aprobada",
+   "detalle": ""
+  },
+  "core.test_interface.HeaderTests.test_a_user_who_sees_every_delegation_has_no_code": {
+   "estado": "Aprobada",
+   "detalle": ""
+  },
+  "core.test_interface.HeaderTests.test_a_user_without_profile_is_told_so": {
+   "estado": "Aprobada",
+   "detalle": ""
+  },
+  "core.test_interface.HeaderTests.test_every_profile_comes_with_its_icon": {
+   "estado": "Aprobada",
+   "detalle": ""
+  },
+  "core.test_interface.HeaderTests.test_it_is_on_every_kind_of_screen": {
+   "estado": "Aprobada",
+   "detalle": ""
+  },
+  "core.test_interface.HeaderTests.test_it_shows_the_delegation_with_its_code_and_name_the_user_and_the_profiles": {
+   "estado": "Aprobada",
+   "detalle": ""
+  },
+  "core.test_interface.HeaderTests.test_the_code_is_the_one_of_the_delegations_list": {
+   "estado": "Aprobada",
+   "detalle": ""
+  },
+  "core.test_interface.HeaderTests.test_the_delegation_is_announced_to_screen_readers": {
+   "estado": "Aprobada",
+   "detalle": ""
+  },
+  "core.test_interface.HeaderTests.test_the_name_links_to_the_profile_screen": {
+   "estado": "Aprobada",
+   "detalle": ""
+  },
+  "core.test_interface.LoadingStateMarkupTests.test_the_boards_and_reports_forms_show_a_loading_state": {
+   "estado": "Aprobada",
+   "detalle": ""
+  },
+  "core.test_interface.LoadingStateMarkupTests.test_the_forms_that_send_data_do_not_allow_a_double_send": {
+   "estado": "Aprobada",
+   "detalle": ""
+  },
+  "core.test_interface.LoadingStateMarkupTests.test_the_old_double_send_code_is_gone_from_the_classic_script": {
+   "estado": "Aprobada",
+   "detalle": ""
+  },
+  "core.test_interface.LoadingStateMarkupTests.test_the_script_is_loaded_before_the_validation": {
+   "estado": "Aprobada",
+   "detalle": ""
+  },
+  "core.test_interface.LoadingStateMarkupTests.test_the_search_forms_show_a_loading_state_but_the_excel_download_does_not": {
+   "estado": "Aprobada",
+   "detalle": ""
+  },
+  "core.test_interface.PasswordToggleTests.test_every_password_screen_loads_the_widgets_and_keeps_a_plain_field_without_javascript": {
+   "estado": "Aprobada",
+   "detalle": ""
+  },
+  "core.test_interface.PasswordToggleTests.test_the_script_that_adds_the_eye_is_part_of_the_widgets": {
+   "estado": "Aprobada",
+   "detalle": ""
+  },
+  "core.test_modal.ModalFormTests.test_a_form_with_mistakes_comes_back_in_the_window_with_its_messages": {
+   "estado": "Aprobada",
+   "detalle": ""
+  },
+  "core.test_modal.ModalFormTests.test_a_saved_form_answers_with_json_and_leaves_the_notice_for_the_next_page": {
+   "estado": "Aprobada",
+   "detalle": ""
+  },
+  "core.test_modal.ModalFormTests.test_an_archived_record_is_not_opened_in_the_window": {
+   "estado": "Aprobada",
+   "detalle": ""
+  },
+  "core.test_modal.ModalFormTests.test_an_edit_over_a_newer_version_comes_back_in_the_window": {
+   "estado": "Aprobada",
+   "detalle": ""
+  },
+  "core.test_modal.ModalFormTests.test_anonymous_users_are_sent_to_the_login": {
+   "estado": "Aprobada",
+   "detalle": ""
+  },
+  "core.test_modal.ModalFormTests.test_editing_in_the_window_saves_and_audits_the_change": {
+   "estado": "Aprobada",
+   "detalle": ""
+  },
+  "core.test_modal.ModalFormTests.test_save_and_add_another_keeps_the_notice_inside_the_window": {
+   "estado": "Aprobada",
+   "detalle": ""
+  },
+  "core.test_modal.ModalFormTests.test_the_create_form_comes_as_the_content_of_the_window": {
+   "estado": "Aprobada",
+   "detalle": ""
+  },
+  "core.test_modal.ModalFormTests.test_the_edit_form_carries_its_version_and_the_four_buttons": {
+   "estado": "Aprobada",
+   "detalle": ""
+  },
+  "core.test_modal.ModalFormTests.test_the_window_posts_back_to_the_same_address_with_modal": {
+   "estado": "Aprobada",
+   "detalle": ""
+  },
+  "core.test_modal.ModalFormTests.test_without_modal_the_page_is_the_same_as_always": {
+   "estado": "Aprobada",
+   "detalle": ""
+  },
+  "core.test_modal.ModalFormTests.test_without_permission_the_window_gets_a_403_and_the_page_link_takes_over": {
+   "estado": "Aprobada",
+   "detalle": ""
+  },
+  "core.test_modal.ModalLinksTests.test_archive_links_carry_the_record_name_for_the_confirmation": {
+   "estado": "Aprobada",
+   "detalle": ""
+  },
+  "core.test_modal.ModalLinksTests.test_atencion_opens_new_attention_in_the_window": {
+   "estado": "Aprobada",
+   "detalle": ""
+  },
+  "core.test_modal.ModalLinksTests.test_every_page_has_the_shared_window_and_the_csrf_token": {
+   "estado": "Aprobada",
+   "detalle": ""
+  },
+  "core.test_modal.ModalLinksTests.test_new_and_edit_links_open_the_window": {
+   "estado": "Aprobada",
+   "detalle": ""
+  },
+  "core.test_modal.ModalLinksTests.test_the_confirmation_page_still_works_without_javascript": {
+   "estado": "Aprobada",
+   "detalle": ""
+  },
+  "core.test_modal.ModalLinksTests.test_the_detail_page_opens_edit_in_the_window_and_archive_with_a_confirmation": {
+   "estado": "Aprobada",
+   "detalle": ""
+  },
+  "core.test_modal.ModalLinksTests.test_the_lookup_button_and_suggestions_are_still_in_the_markup": {
+   "estado": "Aprobada",
+   "detalle": ""
+  },
+  "core.test_modal.ModalLinksTests.test_the_public_pages_have_no_window": {
+   "estado": "Aprobada",
+   "detalle": ""
+  },
+  "core.test_permissions.PermissionLabelsTests.test_every_matrix_permission_exists_in_the_database": {
+   "estado": "Aprobada",
+   "detalle": ""
+  },
+  "core.test_permissions.PermissionLabelsTests.test_permission_text_reads_in_spanish": {
+   "estado": "Aprobada",
+   "detalle": ""
+  },
+  "core.test_permissions.RoleMatrixTests.test_a_forbidden_response_uses_the_403_page": {
+   "estado": "Aprobada",
+   "detalle": ""
+  },
+  "core.test_permissions.RoleMatrixTests.test_anonymous_users_are_sent_to_the_login": {
+   "estado": "Aprobada",
+   "detalle": ""
+  },
+  "core.test_permissions.RoleMatrixTests.test_buttons_follow_the_permissions_of_each_role": {
+   "estado": "Aprobada",
+   "detalle": ""
+  },
+  "core.test_permissions.RoleMatrixTests.test_consulta_cannot_create_edit_or_delete_even_with_the_direct_url": {
+   "estado": "Aprobada",
+   "detalle": ""
+  },
+  "core.test_permissions.RoleMatrixTests.test_consulta_only_has_view_permissions": {
+   "estado": "Aprobada",
+   "detalle": ""
+  },
+  "core.test_permissions.RoleMatrixTests.test_delete_is_independent_from_change": {
+   "estado": "Aprobada",
+   "detalle": ""
+  },
+  "core.test_permissions.RoleMatrixTests.test_delete_with_the_permission_still_respects_the_delegation": {
+   "estado": "Aprobada",
+   "detalle": ""
+  },
+  "core.test_permissions.RoleMatrixTests.test_each_role_can_do_only_what_its_permissions_allow": {
+   "estado": "Aprobada",
+   "detalle": ""
+  },
+  "core.test_permissions.RoleMatrixTests.test_the_menu_only_shows_what_each_role_may_open": {
+   "estado": "Aprobada",
+   "detalle": ""
+  },
+  "core.test_permissions.RoleMatrixTests.test_the_seeded_roles_have_no_delete_permission": {
+   "estado": "Aprobada",
+   "detalle": ""
+  },
+  "core.test_permissions.RoleMatrixTests.test_the_server_refuses_post_without_the_permission": {
+   "estado": "Aprobada",
+   "detalle": ""
+  },
+  "core.test_portal.BoardAndReportTests.test_board_calculates_each_officers_average_and_light": {
+   "estado": "Aprobada",
+   "detalle": ""
+  },
+  "core.test_portal.BoardAndReportTests.test_board_period_choice_falls_back_to_the_current_one": {
+   "estado": "Aprobada",
+   "detalle": ""
+  },
+  "core.test_portal.BoardAndReportTests.test_csv_cells_cannot_become_spreadsheet_formulas": {
+   "estado": "Aprobada",
+   "detalle": ""
+  },
+  "core.test_portal.BoardAndReportTests.test_report_page_and_csv_for_all_delegations": {
+   "estado": "Aprobada",
+   "detalle": ""
+  },
+  "core.test_portal.BoardAndReportTests.test_report_without_periods_does_not_break": {
+   "estado": "Aprobada",
+   "detalle": ""
+  },
+  "core.test_portal.CacheHeaderTests.test_admin_keeps_its_own_cache_rules": {
+   "estado": "Aprobada",
+   "detalle": ""
+  },
+  "core.test_portal.CacheHeaderTests.test_portal_pages_ask_the_browser_not_to_store_them": {
+   "estado": "Aprobada",
+   "detalle": ""
+  },
+  "core.test_portal.CrudFlowTests.test_coordination_manages_periods_and_adjustments": {
+   "estado": "Aprobada",
+   "detalle": ""
+  },
+  "core.test_portal.CrudFlowTests.test_create_update_archive_and_restore_an_activity": {
+   "estado": "Aprobada",
+   "detalle": ""
+  },
+  "core.test_portal.CrudFlowTests.test_evidence_code_is_suggested_per_delegation": {
+   "estado": "Aprobada",
+   "detalle": ""
+  },
+  "core.test_portal.CrudFlowTests.test_followup_rules_are_checked_by_the_form": {
+   "estado": "Aprobada",
+   "detalle": ""
+  },
+  "core.test_portal.CrudFlowTests.test_get_form_from_activity_detail_preselects_the_activity": {
+   "estado": "Aprobada",
+   "detalle": ""
+  },
+  "core.test_portal.CrudFlowTests.test_list_parameters_are_safe": {
+   "estado": "Aprobada",
+   "detalle": ""
+  },
+  "core.test_portal.CrudFlowTests.test_names_with_html_are_escaped_everywhere": {
+   "estado": "Aprobada",
+   "detalle": ""
+  },
+  "core.test_portal.CrudFlowTests.test_required_fields_show_messages_and_keep_what_was_typed": {
+   "estado": "Aprobada",
+   "detalle": ""
+  },
+  "core.test_portal.CrudFlowTests.test_validations_cannot_be_created_edited_or_archived_by_url": {
+   "estado": "Aprobada",
+   "detalle": ""
+  },
+  "core.test_portal.ForgedFormTests.test_activity_delegation_is_always_the_users": {
+   "estado": "Aprobada",
+   "detalle": ""
+  },
+  "core.test_portal.ForgedFormTests.test_activity_officer_is_always_the_one_who_registers_it": {
+   "estado": "Aprobada",
+   "detalle": ""
+  },
+  "core.test_portal.ForgedFormTests.test_commitment_with_territory_of_other_delegation_is_rejected": {
+   "estado": "Aprobada",
+   "detalle": ""
+  },
+  "core.test_portal.ForgedFormTests.test_evidence_for_activity_of_other_delegation_is_rejected": {
+   "estado": "Aprobada",
+   "detalle": ""
+  },
+  "core.test_portal.ForgedFormTests.test_followup_for_activity_of_other_delegation_is_rejected": {
+   "estado": "Aprobada",
+   "detalle": ""
+  },
+  "core.test_portal.ForgedFormTests.test_form_choices_exclude_other_delegation": {
+   "estado": "Aprobada",
+   "detalle": ""
+  },
+  "core.test_portal.ForgedFormTests.test_inactive_choices_do_not_show_archived_records": {
+   "estado": "Aprobada",
+   "detalle": ""
+  },
+  "core.test_portal.ForgedFormTests.test_model_rule_is_kept_for_the_superuser": {
+   "estado": "Aprobada",
+   "detalle": ""
+  },
+  "core.test_portal.ForgedFormTests.test_update_cannot_move_the_activity_to_another_officer": {
+   "estado": "Aprobada",
+   "detalle": ""
+  },
+  "core.test_portal.LoginTests.test_a_password_without_user_is_rejected": {
+   "estado": "Aprobada",
+   "detalle": ""
+  },
+  "core.test_portal.LoginTests.test_a_valid_user_without_password_is_rejected": {
+   "estado": "Aprobada",
+   "detalle": ""
+  },
+  "core.test_portal.LoginTests.test_admin_keeps_its_own_language": {
+   "estado": "Aprobada",
+   "detalle": ""
+  },
+  "core.test_portal.LoginTests.test_anonymous_users_are_sent_to_login_everywhere": {
+   "estado": "Aprobada",
+   "detalle": ""
+  },
+  "core.test_portal.LoginTests.test_empty_fields_are_rejected_with_a_message_for_each_one": {
+   "estado": "Aprobada",
+   "detalle": ""
+  },
+  "core.test_portal.LoginTests.test_logged_user_visiting_login_goes_to_dashboard": {
+   "estado": "Aprobada",
+   "detalle": ""
+  },
+  "core.test_portal.LoginTests.test_login_page_is_in_spanish_and_public": {
+   "estado": "Aprobada",
+   "detalle": ""
+  },
+  "core.test_portal.LoginTests.test_logout_needs_post": {
+   "estado": "Aprobada",
+   "detalle": ""
+  },
+  "core.test_portal.LoginTests.test_next_parameter_never_leaves_the_site": {
+   "estado": "Aprobada",
+   "detalle": ""
+  },
+  "core.test_portal.LoginTests.test_old_mockup_addresses_still_work": {
+   "estado": "Aprobada",
+   "detalle": ""
+  },
+  "core.test_portal.LoginTests.test_valid_credentials_go_to_dashboard": {
+   "estado": "Aprobada",
+   "detalle": ""
+  },
+  "core.test_portal.LoginTests.test_wrong_password_shows_error_and_keeps_user_out": {
+   "estado": "Aprobada",
+   "detalle": ""
+  },
+  "core.test_portal.PlanningRuleTests.test_amber_threshold_must_be_below_the_collective_one": {
+   "estado": "Aprobada",
+   "detalle": ""
+  },
+  "core.test_portal.PlanningRuleTests.test_editing_the_indicator_recalculates_its_light": {
+   "estado": "Aprobada",
+   "detalle": ""
+  },
+  "core.test_portal.PlanningRuleTests.test_goal_belongs_to_one_officer_or_one_position_not_both_nor_none": {
+   "estado": "Aprobada",
+   "detalle": ""
+  },
+  "core.test_portal.PlanningRuleTests.test_goal_target_must_be_positive": {
+   "estado": "Aprobada",
+   "detalle": ""
+  },
+  "core.test_portal.PlanningRuleTests.test_indicator_light_is_calculated_from_the_period_thresholds": {
+   "estado": "Aprobada",
+   "detalle": ""
+  },
+  "core.test_portal.PlanningRuleTests.test_period_end_cannot_be_before_start": {
+   "estado": "Aprobada",
+   "detalle": ""
+  },
+  "core.test_portal.RoleTests.test_admin_panel_link_only_for_staff_users": {
+   "estado": "Aprobada",
+   "detalle": ""
+  },
+  "core.test_portal.RoleTests.test_coordination_cannot_edit_delegation_records": {
+   "estado": "Aprobada",
+   "detalle": ""
+  },
+  "core.test_portal.RoleTests.test_dashboard_shows_own_goals_and_global_semaphore": {
+   "estado": "Aprobada",
+   "detalle": ""
+  },
+  "core.test_portal.RoleTests.test_forged_posts_without_permission_are_rejected": {
+   "estado": "Aprobada",
+   "detalle": ""
+  },
+  "core.test_portal.RoleTests.test_jefatura_reads_but_cannot_change": {
+   "estado": "Aprobada",
+   "detalle": ""
+  },
+  "core.test_portal.RoleTests.test_menu_follows_each_role": {
+   "estado": "Aprobada",
+   "detalle": ""
+  },
+  "core.test_portal.RoleTests.test_pages_without_permission_answer_403": {
+   "estado": "Aprobada",
+   "detalle": ""
+  },
+  "core.test_portal.RoleTests.test_user_without_officer_gets_a_notice_and_no_data": {
+   "estado": "Aprobada",
+   "detalle": ""
+  },
+  "core.test_portal.ScopingTests.test_board_and_reports_are_limited_for_delegation_users": {
+   "estado": "Aprobada",
+   "detalle": ""
+  },
+  "core.test_portal.ScopingTests.test_global_users_choose_the_delegation": {
+   "estado": "Aprobada",
+   "detalle": ""
+  },
+  "core.test_portal.ScopingTests.test_lists_only_show_own_delegation": {
+   "estado": "Aprobada",
+   "detalle": ""
+  },
+  "core.test_portal.ScopingTests.test_other_delegation_records_are_not_found": {
+   "estado": "Aprobada",
+   "detalle": ""
+  },
+  "core.test_portal.ScopingTests.test_search_does_not_leak_other_delegation": {
+   "estado": "Aprobada",
+   "detalle": ""
+  },
+  "core.test_portal.SweepTests.test_archived_records_are_listed_only_on_request": {
+   "estado": "Aprobada",
+   "detalle": ""
+  },
+  "core.test_portal.SweepTests.test_every_page_answers_200_or_403_for_every_role": {
+   "estado": "Aprobada",
+   "detalle": ""
+  },
+  "core.test_portal.SweepTests.test_superuser_sees_every_list_with_data": {
+   "estado": "Aprobada",
+   "detalle": ""
+  },
+  "core.test_portal.ValidationFlowTests.test_approve_updates_evidence_and_records_the_reviewer": {
+   "estado": "Aprobada",
+   "detalle": ""
+  },
+  "core.test_portal.ValidationFlowTests.test_archived_evidence_cannot_be_validated": {
+   "estado": "Aprobada",
+   "detalle": ""
+  },
+  "core.test_portal.ValidationFlowTests.test_flagged_needs_a_reason_and_keeps_evidence_pending": {
+   "estado": "Aprobada",
+   "detalle": ""
+  },
+  "core.test_portal.ValidationFlowTests.test_list_shows_only_pending_evidence_of_the_delegation": {
+   "estado": "Aprobada",
+   "detalle": ""
+  },
+  "core.test_portal.ValidationFlowTests.test_nobody_validates_their_own_evidence": {
+   "estado": "Aprobada",
+   "detalle": ""
+  },
+  "core.test_portal.ValidationFlowTests.test_reject_needs_a_reason_and_marks_evidence_rejected": {
+   "estado": "Aprobada",
+   "detalle": ""
+  },
+  "core.test_portal.ValidationFlowTests.test_result_and_decision_are_required_and_limited": {
+   "estado": "Aprobada",
+   "detalle": ""
+  },
+  "core.test_portal.ValidationFlowTests.test_reviewer_is_not_chosen_it_is_the_logged_in_officer": {
+   "estado": "Aprobada",
+   "detalle": ""
+  },
+  "core.test_portal.ValidationFlowTests.test_superuser_validates_without_choosing_and_is_shown_as_super_user": {
+   "estado": "Aprobada",
+   "detalle": ""
+  },
+  "core.test_portal.ValidationFlowTests.test_user_without_validation_permission_is_refused": {
+   "estado": "Aprobada",
+   "detalle": ""
+  },
+  "core.test_portal.ValidationFlowTests.test_verifier_without_officer_cannot_validate": {
+   "estado": "Aprobada",
+   "detalle": ""
+  },
+  "core.test_rules.DelegationFormTests.test_color_must_be_a_hex_code_and_is_stored_in_capitals": {
+   "estado": "Aprobada",
+   "detalle": ""
+  },
+  "core.test_rules.DelegationFormTests.test_form_has_the_four_buttons": {
+   "estado": "Aprobada",
+   "detalle": ""
+  },
+  "core.test_rules.DelegationFormTests.test_form_shows_id_name_manager_with_lookup_and_color_picker": {
+   "estado": "Aprobada",
+   "detalle": ""
+  },
+  "core.test_rules.DelegationFormTests.test_new_delegation_gets_the_default_color_when_the_field_is_left_as_is": {
+   "estado": "Aprobada",
+   "detalle": ""
+  },
+  "core.test_rules.DelegationFormTests.test_saving_without_changes_leaves_no_audit_entry": {
+   "estado": "Aprobada",
+   "detalle": ""
+  },
+  "core.test_rules.DelegationFormTests.test_the_manager_can_be_any_text": {
+   "estado": "Aprobada",
+   "detalle": ""
+  },
+  "core.test_rules.FormRuleTests.test_a_rut_written_differently_is_still_a_duplicate": {
+   "estado": "Aprobada",
+   "detalle": ""
+  },
+  "core.test_rules.FormRuleTests.test_bad_values_show_their_message_and_save_nothing": {
+   "estado": "Aprobada",
+   "detalle": ""
+  },
+  "core.test_rules.FormRuleTests.test_blank_required_fields_are_reported": {
+   "estado": "Aprobada",
+   "detalle": ""
+  },
+  "core.test_rules.FormRuleTests.test_form_pages_carry_the_rule_attributes": {
+   "estado": "Aprobada",
+   "detalle": ""
+  },
+  "core.test_rules.FormRuleTests.test_messy_text_is_fixed_before_saving": {
+   "estado": "Aprobada",
+   "detalle": ""
+  },
+  "core.test_rules.FormRuleTests.test_officer_code_and_name_follow_their_rules": {
+   "estado": "Aprobada",
+   "detalle": ""
+  },
+  "core.test_rules.FormRuleTests.test_text_with_angle_brackets_is_still_stored_as_text_and_shown_escaped": {
+   "estado": "Aprobada",
+   "detalle": ""
+  },
+  "core.test_scope.AuditPageTests.test_detail_shows_the_record_number_without_thousands_dots": {
+   "estado": "Aprobada",
+   "detalle": ""
+  },
+  "core.test_scope.EditPermissionConsistencyTests.test_global_user_cannot_edit_other_delegation_records_anywhere": {
+   "estado": "Aprobada",
+   "detalle": ""
+  },
+  "core.test_scope.EditPermissionConsistencyTests.test_user_without_officer_sees_records_without_edit_buttons": {
+   "estado": "Aprobada",
+   "detalle": ""
+  },
+  "core.test_scope.ExactAverageTests.test_an_exact_threshold_value_gets_the_better_light": {
+   "estado": "Aprobada",
+   "detalle": ""
+  },
+  "core.test_scope.ExactAverageTests.test_delegation_average_just_below_the_threshold_stays_red": {
+   "estado": "Aprobada",
+   "detalle": ""
+  },
+  "core.test_scope.ExactAverageTests.test_officer_average_just_below_the_threshold_stays_amber": {
+   "estado": "Aprobada",
+   "detalle": ""
+  },
+  "core.test_scope.IndicatorScopeTests.test_coordination_sees_the_indicators_of_every_delegation": {
+   "estado": "Aprobada",
+   "detalle": ""
+  },
+  "core.test_scope.IndicatorScopeTests.test_delegation_users_only_see_indicators_of_their_own_officers": {
+   "estado": "Aprobada",
+   "detalle": ""
+  },
+  "core.test_scope.IndicatorScopeTests.test_indicators_of_a_position_goal_are_visible_to_every_delegation": {
+   "estado": "Aprobada",
+   "detalle": ""
+  },
+  "core.test_scope.ReportAdjustmentTests.test_coordination_sees_the_adjustment_column_in_page_and_csv": {
+   "estado": "Aprobada",
+   "detalle": ""
+  },
+  "core.test_scope.ReportAdjustmentTests.test_jefatura_does_not_get_adjustments_in_page_or_csv": {
+   "estado": "Aprobada",
+   "detalle": ""
+  },
+  "core.test_scope.ReviewScopeTests.test_dashboard_counts_what_the_validation_list_shows": {
+   "estado": "Aprobada",
+   "detalle": ""
+  },
+  "core.test_scope.ReviewScopeTests.test_evidence_of_another_delegation_cannot_be_opened_or_reviewed": {
+   "estado": "Aprobada",
+   "detalle": ""
+  },
+  "core.test_scope.ReviewScopeTests.test_validation_list_only_has_evidence_of_the_reviewers_delegation": {
+   "estado": "Aprobada",
+   "detalle": ""
+  },
+  "core.test_search.ListSearchTests.test_a_user_with_several_profiles_is_listed_once": {
+   "estado": "Aprobada",
+   "detalle": ""
+  },
+  "core.test_search.ListSearchTests.test_every_word_must_match": {
+   "estado": "Aprobada",
+   "detalle": ""
+  },
+  "core.test_search.ListSearchTests.test_odd_texts_do_not_break_the_search": {
+   "estado": "Aprobada",
+   "detalle": ""
+  },
+  "core.test_search.ListSearchTests.test_search_can_reach_archived_records_on_request": {
+   "estado": "Aprobada",
+   "detalle": ""
+  },
+  "core.test_search.ListSearchTests.test_search_finds_a_phone_with_or_without_the_plus": {
+   "estado": "Aprobada",
+   "detalle": ""
+  },
+  "core.test_search.ListSearchTests.test_search_finds_a_rut_however_it_is_written": {
+   "estado": "Aprobada",
+   "detalle": ""
+  },
+  "core.test_search.ListSearchTests.test_search_ignores_accents_and_case": {
+   "estado": "Aprobada",
+   "detalle": ""
+  },
+  "core.test_search.ListSearchTests.test_search_never_reaches_other_delegations": {
+   "estado": "Aprobada",
+   "detalle": ""
+  },
+  "core.test_search.ListSearchTests.test_users_are_searched_by_profile_and_delegation": {
+   "estado": "Aprobada",
+   "detalle": ""
+  },
+  "core.test_search.PagerTests.test_a_page_out_of_range_shows_the_last_one": {
+   "estado": "Aprobada",
+   "detalle": ""
+  },
+  "core.test_search.PagerTests.test_lists_show_one_page_at_a_time": {
+   "estado": "Aprobada",
+   "detalle": ""
+  },
+  "core.test_search.PagerTests.test_page_links_keep_the_search": {
+   "estado": "Aprobada",
+   "detalle": ""
+  },
+  "core.test_search.PagerTests.test_small_results_have_no_pager": {
+   "estado": "Aprobada",
+   "detalle": ""
+  },
+  "core.test_search.PagerTests.test_the_sort_order_applies_to_the_whole_result_not_just_the_page": {
+   "estado": "Aprobada",
+   "detalle": ""
+  },
+  "core.test_users.UserAccessTests.test_a_non_superuser_cannot_edit_or_see_another_account": {
+   "estado": "Aprobada",
+   "detalle": ""
+  },
+  "core.test_users.UserAccessTests.test_only_the_superuser_opens_the_user_screens": {
+   "estado": "Aprobada",
+   "detalle": ""
+  },
+  "core.test_users.UserAccessTests.test_the_menu_entry_is_only_for_the_superuser": {
+   "estado": "Aprobada",
+   "detalle": ""
+  },
+  "core.test_users.UserAccessTests.test_users_are_deactivated_not_archived": {
+   "estado": "Aprobada",
+   "detalle": ""
+  },
+  "core.test_users.UserCreateTests.test_a_forged_group_that_is_not_a_profile_choice_is_rejected": {
+   "estado": "Aprobada",
+   "detalle": ""
+  },
+  "core.test_users.UserCreateTests.test_a_user_needs_a_profile_or_to_be_superuser": {
+   "estado": "Aprobada",
+   "detalle": ""
+  },
+  "core.test_users.UserCreateTests.test_an_officer_can_only_belong_to_one_user": {
+   "estado": "Aprobada",
+   "detalle": ""
+  },
+  "core.test_users.UserCreateTests.test_creating_a_user_with_profile_officer_and_password": {
+   "estado": "Aprobada",
+   "detalle": ""
+  },
+  "core.test_users.UserCreateTests.test_passwords_are_required_equal_and_not_weak": {
+   "estado": "Aprobada",
+   "detalle": ""
+  },
+  "core.test_users.UserCreateTests.test_save_and_add_another_goes_back_to_an_empty_form": {
+   "estado": "Aprobada",
+   "detalle": ""
+  },
+  "core.test_users.UserCreateTests.test_the_account_follows_the_format_rules": {
+   "estado": "Aprobada",
+   "detalle": ""
+  },
+  "core.test_users.UserCreateTests.test_the_email_cannot_repeat_even_with_other_capitals": {
+   "estado": "Aprobada",
+   "detalle": ""
+  },
+  "core.test_users.UserCreateTests.test_the_email_is_required_because_the_password_recovery_depends_on_it": {
+   "estado": "Aprobada",
+   "detalle": ""
+  },
+  "core.test_users.UserCreateTests.test_the_form_lists_what_a_good_password_needs": {
+   "estado": "Aprobada",
+   "detalle": ""
+  },
+  "core.test_users.UserCreateTests.test_the_form_offers_the_profiles_and_only_free_active_officers": {
+   "estado": "Aprobada",
+   "detalle": ""
+  },
+  "core.test_users.UserCreateTests.test_the_new_user_can_log_in_and_only_sees_its_delegation": {
+   "estado": "Aprobada",
+   "detalle": ""
+  },
+  "core.test_users.UserCreateTests.test_the_officer_is_required_unless_superuser_or_coordination": {
+   "estado": "Aprobada",
+   "detalle": ""
+  },
+  "core.test_users.UserCreateTests.test_the_username_cannot_repeat_even_with_other_capitals": {
+   "estado": "Aprobada",
+   "detalle": ""
+  },
+  "core.test_users.UserEditTests.test_a_global_user_without_officer_can_be_edited": {
+   "estado": "Aprobada",
+   "detalle": ""
+  },
+  "core.test_users.UserEditTests.test_a_repeated_email_does_not_block_editing_other_data_of_an_old_account": {
+   "estado": "Aprobada",
+   "detalle": ""
+  },
+  "core.test_users.UserEditTests.test_a_weak_or_mismatched_reset_changes_nothing": {
+   "estado": "Aprobada",
+   "detalle": ""
+  },
+  "core.test_users.UserEditTests.test_an_account_cannot_take_the_email_of_another": {
+   "estado": "Aprobada",
+   "detalle": ""
+  },
+  "core.test_users.UserEditTests.test_an_account_that_has_an_email_cannot_lose_it": {
+   "estado": "Aprobada",
+   "detalle": ""
+  },
+  "core.test_users.UserEditTests.test_an_old_account_without_email_can_still_be_edited": {
+   "estado": "Aprobada",
+   "detalle": ""
+  },
+  "core.test_users.UserEditTests.test_changing_profiles_is_audited": {
+   "estado": "Aprobada",
+   "detalle": ""
+  },
+  "core.test_users.UserEditTests.test_changing_the_officer_moves_the_user_to_another_delegation": {
+   "estado": "Aprobada",
+   "detalle": ""
+  },
+  "core.test_users.UserEditTests.test_deactivating_another_user_blocks_the_login_and_marks_the_profile": {
+   "estado": "Aprobada",
+   "detalle": ""
+  },
+  "core.test_users.UserEditTests.test_editing_keeps_the_password_when_it_is_left_blank": {
+   "estado": "Aprobada",
+   "detalle": ""
+  },
+  "core.test_users.UserEditTests.test_saving_without_changes_leaves_no_audit_entry": {
+   "estado": "Aprobada",
+   "detalle": ""
+  },
+  "core.test_users.UserEditTests.test_the_edit_form_shows_the_current_profiles_and_officer": {
+   "estado": "Aprobada",
+   "detalle": ""
+  },
+  "core.test_users.UserEditTests.test_the_superuser_can_reset_a_password": {
+   "estado": "Aprobada",
+   "detalle": ""
+  },
+  "core.test_users.UserEditTests.test_the_superuser_cannot_deactivate_or_demote_their_own_account": {
+   "estado": "Aprobada",
+   "detalle": ""
+  },
+  "core.test_users.UserListTests.test_every_sortable_column_works": {
+   "estado": "Aprobada",
+   "detalle": ""
+  },
+  "core.test_users.UserListTests.test_filters_by_profile_and_by_state": {
+   "estado": "Aprobada",
+   "detalle": ""
+  },
+  "core.test_users.UserListTests.test_the_detail_shows_profiles_and_officer_and_hides_the_password": {
+   "estado": "Aprobada",
+   "detalle": ""
+  },
+  "core.test_users.UserListTests.test_the_excel_file_has_the_same_columns_and_never_the_password": {
+   "estado": "Aprobada",
+   "detalle": ""
+  },
+  "core.test_users.UserListTests.test_the_list_shows_name_profiles_and_delegation_of_each_user": {
+   "estado": "Aprobada",
+   "detalle": ""
+  },
+  "core.test_v16.AtencionScreenTests.test_a_record_page_goes_back_to_attention": {
+   "estado": "Aprobada",
+   "detalle": ""
+  },
+  "core.test_v16.AtencionScreenTests.test_the_attention_screen_can_be_filtered_without_a_search_text": {
+   "estado": "Aprobada",
+   "detalle": ""
+  },
+  "core.test_v16.AtencionScreenTests.test_the_attention_screen_has_the_filters_and_the_archive_link_of_the_old_list": {
+   "estado": "Aprobada",
+   "detalle": ""
+  },
+  "core.test_v16.AtencionScreenTests.test_the_menu_has_attention_but_no_separate_activities_entry": {
+   "estado": "Aprobada",
+   "detalle": ""
+  },
+  "core.test_v16.AtencionScreenTests.test_the_old_activities_address_leads_to_attention_keeping_the_search": {
+   "estado": "Aprobada",
+   "detalle": ""
+  },
+  "core.test_v16.EvidenceUploadTests.test_a_file_is_uploaded_and_its_metadata_are_made_by_the_system": {
+   "estado": "Aprobada",
+   "detalle": ""
+  },
+  "core.test_v16.EvidenceUploadTests.test_a_file_over_the_size_limit_is_rejected": {
+   "estado": "Aprobada",
+   "detalle": ""
+  },
+  "core.test_v16.EvidenceUploadTests.test_a_file_type_that_is_not_accepted_is_rejected": {
+   "estado": "Aprobada",
+   "detalle": ""
+  },
+  "core.test_v16.EvidenceUploadTests.test_a_file_whose_content_does_not_match_its_extension_is_rejected": {
+   "estado": "Aprobada",
+   "detalle": ""
+  },
+  "core.test_v16.EvidenceUploadTests.test_a_record_without_a_stored_file_shows_only_its_name": {
+   "estado": "Aprobada",
+   "detalle": ""
+  },
+  "core.test_v16.EvidenceUploadTests.test_editing_without_a_new_file_keeps_the_current_one": {
+   "estado": "Aprobada",
+   "detalle": ""
+  },
+  "core.test_v16.EvidenceUploadTests.test_the_detail_shows_a_link_to_the_file_and_the_metadata": {
+   "estado": "Aprobada",
+   "detalle": ""
+  },
+  "core.test_v16.EvidenceUploadTests.test_the_file_is_delivered_only_through_the_view_with_permission_and_scope": {
+   "estado": "Aprobada",
+   "detalle": ""
+  },
+  "core.test_v16.EvidenceUploadTests.test_the_file_is_required_when_creating": {
+   "estado": "Aprobada",
+   "detalle": ""
+  },
+  "core.test_v16.EvidenceUploadTests.test_the_form_asks_for_a_file_and_not_for_metadata": {
+   "estado": "Aprobada",
+   "detalle": ""
+  },
+  "core.test_v16.LiveSearchTests.test_the_atencion_screen_searches_while_typing": {
+   "estado": "Aprobada",
+   "detalle": ""
+  },
+  "core.test_v16.LiveSearchTests.test_the_list_screens_search_while_typing": {
+   "estado": "Aprobada",
+   "detalle": ""
+  },
+  "core.test_v16.LiveSearchTests.test_the_part_that_changes_has_the_number_of_results_for_the_screen_reader": {
+   "estado": "Aprobada",
+   "detalle": ""
+  },
+  "core.test_v16.LiveSearchTests.test_the_search_button_is_still_there_for_who_has_no_javascript": {
+   "estado": "Aprobada",
+   "detalle": ""
+  },
+  "core.test_v16.OfficerWithAccessTests.test_a_partly_filled_access_asks_for_the_rest_and_saves_nothing": {
+   "estado": "Aprobada",
+   "detalle": ""
+  },
+  "core.test_v16.OfficerWithAccessTests.test_an_account_without_officer_must_write_its_name": {
+   "estado": "Aprobada",
+   "detalle": ""
+  },
+  "core.test_v16.OfficerWithAccessTests.test_an_inactive_officer_cannot_be_given_access": {
+   "estado": "Aprobada",
+   "detalle": ""
+  },
+  "core.test_v16.OfficerWithAccessTests.test_an_officer_with_access_is_created_in_one_step": {
+   "estado": "Aprobada",
+   "detalle": ""
+  },
+  "core.test_v16.OfficerWithAccessTests.test_an_officer_without_access_can_get_it_from_its_own_edit_screen": {
+   "estado": "Aprobada",
+   "detalle": ""
+  },
+  "core.test_v16.OfficerWithAccessTests.test_an_officer_without_access_is_created_alone": {
+   "estado": "Aprobada",
+   "detalle": ""
+  },
+  "core.test_v16.OfficerWithAccessTests.test_editing_an_officer_that_already_has_access_does_not_show_the_access_section": {
+   "estado": "Aprobada",
+   "detalle": ""
+  },
+  "core.test_v16.OfficerWithAccessTests.test_editing_an_officer_without_access_and_leaving_it_blank_creates_no_user": {
+   "estado": "Aprobada",
+   "detalle": ""
+  },
+  "core.test_v16.OfficerWithAccessTests.test_the_access_follows_the_password_policy_and_unique_names": {
+   "estado": "Aprobada",
+   "detalle": ""
+  },
+  "core.test_v16.OfficerWithAccessTests.test_the_officer_detail_tells_how_the_person_enters": {
+   "estado": "Aprobada",
+   "detalle": ""
+  },
+  "core.test_v16.OfficerWithAccessTests.test_the_officer_form_offers_the_access_section_to_who_can_create_users": {
+   "estado": "Aprobada",
+   "detalle": ""
+  },
+  "core.test_v16.OfficerWithAccessTests.test_the_user_form_takes_the_name_from_the_officer": {
+   "estado": "Aprobada",
+   "detalle": ""
+  },
+  "core.test_v16.OfficerWithAccessTests.test_who_cannot_create_users_does_not_get_the_access_section": {
+   "estado": "Aprobada",
+   "detalle": ""
+  },
+  "core.test_v16.ProfilePhotoTests.test_a_photo_over_the_size_limit_is_rejected": {
+   "estado": "Aprobada",
+   "detalle": ""
+  },
+  "core.test_v16.ProfilePhotoTests.test_a_png_or_jpg_photo_is_saved_and_shown_in_the_header": {
+   "estado": "Aprobada",
+   "detalle": ""
+  },
+  "core.test_v16.ProfilePhotoTests.test_a_replaced_photo_removes_the_old_file": {
+   "estado": "Aprobada",
+   "detalle": ""
+  },
+  "core.test_v16.ProfilePhotoTests.test_changing_the_password_still_works_next_to_the_photo_form": {
+   "estado": "Aprobada",
+   "detalle": ""
+  },
+  "core.test_v16.ProfilePhotoTests.test_other_file_types_and_false_images_are_rejected": {
+   "estado": "Aprobada",
+   "detalle": ""
+  },
+  "core.test_v16.ProfilePhotoTests.test_the_photo_can_be_removed": {
+   "estado": "Aprobada",
+   "detalle": ""
+  },
+  "core.test_v16.ProfilePhotoTests.test_the_photo_is_only_delivered_to_people_who_signed_in": {
+   "estado": "Aprobada",
+   "detalle": ""
+  },
+  "core.test_validaciones.DateRulesTests.test_a_commitment_can_be_due_the_same_day_it_was_requested": {
+   "estado": "Aprobada",
+   "detalle": ""
+  },
+  "core.test_validaciones.DateRulesTests.test_a_commitment_cannot_be_requested_in_the_future": {
+   "estado": "Aprobada",
+   "detalle": ""
+  },
+  "core.test_validaciones.DateRulesTests.test_a_commitment_due_date_is_not_before_its_request_date": {
+   "estado": "Aprobada",
+   "detalle": ""
+  },
+  "core.test_validaciones.DateRulesTests.test_a_followup_is_not_dated_before_its_activity_or_in_the_future": {
+   "estado": "Aprobada",
+   "detalle": ""
+  },
+  "core.test_validaciones.DateRulesTests.test_a_valid_followup_is_saved": {
+   "estado": "Aprobada",
+   "detalle": ""
+  },
+  "core.test_validaciones.DateRulesTests.test_an_activity_cannot_be_dated_in_the_future": {
+   "estado": "Aprobada",
+   "detalle": ""
+  },
+  "core.test_validaciones.DateRulesTests.test_an_overdue_commitment_can_still_be_registered": {
+   "estado": "Aprobada",
+   "detalle": ""
+  },
+  "core.test_validaciones.DateRulesTests.test_no_followup_date_is_before_the_activity": {
+   "estado": "Aprobada",
+   "detalle": ""
+  },
+  "core.test_validaciones.DateRulesTests.test_the_activity_edit_page_gives_the_browser_its_limit": {
+   "estado": "Aprobada",
+   "detalle": ""
+  },
+  "core.test_validaciones.DateRulesTests.test_the_commitment_page_gives_the_browser_its_date_limits": {
+   "estado": "Aprobada",
+   "detalle": ""
+  },
+  "core.test_validaciones.DateRulesTests.test_the_demo_activities_are_not_in_the_future": {
+   "estado": "Aprobada",
+   "detalle": ""
+  },
+  "core.test_validaciones.DateRulesTests.test_the_followup_page_gives_the_browser_its_date_limits": {
+   "estado": "Aprobada",
+   "detalle": ""
+  },
+  "core.test_validaciones.DateRulesTests.test_the_report_and_the_benefit_are_not_delivered_before_the_visit": {
+   "estado": "Aprobada",
+   "detalle": ""
+  },
+  "core.test_validaciones.DateRulesTests.test_the_validity_fields_carry_the_comparison_for_the_browser": {
+   "estado": "Aprobada",
+   "detalle": ""
+  },
+  "core.test_validaciones.DateRulesTests.test_the_validity_of_a_position_ends_after_it_starts": {
+   "estado": "Aprobada",
+   "detalle": ""
+  },
+  "core.test_validaciones.DateRulesTests.test_the_validity_of_a_position_item_ends_after_it_starts": {
+   "estado": "Aprobada",
+   "detalle": ""
+  },
+  "core.test_validaciones.DateRulesTests.test_what_already_happened_is_not_in_the_future_but_a_scheduled_visit_can_be": {
+   "estado": "Aprobada",
+   "detalle": ""
+  },
+  "core.test_validaciones.LongTextTests.test_a_long_text_box_has_a_limit_in_the_server_and_in_the_browser": {
+   "estado": "Aprobada",
+   "detalle": ""
+  },
+  "core.test_validaciones.LongTextTests.test_line_breaks_count_as_one_character_like_in_the_browser": {
+   "estado": "Aprobada",
+   "detalle": ""
+  },
+  "core.test_validaciones.LongTextTests.test_the_activity_edit_form_applies_the_same_rules": {
+   "estado": "Aprobada",
+   "detalle": ""
+  },
+  "core.test_validaciones.LongTextTests.test_the_evidence_and_commitment_text_boxes_have_the_limit_on_the_page": {
+   "estado": "Aprobada",
+   "detalle": ""
+  },
+  "core.test_validaciones.LongTextTests.test_the_intake_rejects_angle_brackets_and_a_text_too_long": {
+   "estado": "Aprobada",
+   "detalle": ""
+  },
+  "core.test_validaciones.LongTextTests.test_the_intake_saves_a_multi_line_description_with_plain_line_breaks": {
+   "estado": "Aprobada",
+   "detalle": ""
+  },
+  "core.test_validaciones.LongTextTests.test_the_limit_is_2000_characters": {
+   "estado": "Aprobada",
+   "detalle": ""
+  },
+  "core.test_validaciones.LongTextTests.test_the_review_form_validates_its_texts": {
+   "estado": "Aprobada",
+   "detalle": ""
+  },
+  "core.test_validaciones.NumberRangesTests.test_a_position_item_weight_goes_above_zero_up_to_100": {
+   "estado": "Aprobada",
+   "detalle": ""
+  },
+  "core.test_validaciones.NumberRangesTests.test_bonus_and_penalty_still_need_a_cap": {
+   "estado": "Aprobada",
+   "detalle": ""
+  },
+  "core.test_validaciones.NumberRangesTests.test_the_followup_number_goes_from_1_to_3": {
+   "estado": "Aprobada",
+   "detalle": ""
+  },
+  "core.test_validaciones.NumberRangesTests.test_the_goal_target_must_be_above_zero": {
+   "estado": "Aprobada",
+   "detalle": ""
+  },
+  "core.test_validaciones.NumberRangesTests.test_the_limits_in_the_browser_match_the_server_for_the_edit_forms_too": {
+   "estado": "Aprobada",
+   "detalle": ""
+  },
+  "core.test_validaciones.NumberRangesTests.test_the_maximum_cap_of_a_position_item_is_positive": {
+   "estado": "Aprobada",
+   "detalle": ""
+  },
+  "core.test_validaciones.NumberRangesTests.test_the_numbers_reach_the_browser_with_their_limits": {
+   "estado": "Aprobada",
+   "detalle": ""
+  },
+  "core.test_validaciones.PasswordFormsTests.test_a_password_too_long_is_rejected_by_the_user_form": {
+   "estado": "Aprobada",
+   "detalle": ""
+  },
+  "core.test_validaciones.PasswordFormsTests.test_accounts_created_before_the_policy_can_still_log_in": {
+   "estado": "Aprobada",
+   "detalle": ""
+  },
+  "core.test_validaciones.PasswordFormsTests.test_editing_a_user_with_the_password_blank_keeps_it_and_does_not_complain": {
+   "estado": "Aprobada",
+   "detalle": ""
+  },
+  "core.test_validaciones.PasswordFormsTests.test_the_demo_password_is_accepted_by_the_user_form": {
+   "estado": "Aprobada",
+   "detalle": ""
+  },
+  "core.test_validaciones.PasswordFormsTests.test_the_help_lists_the_new_requirements": {
+   "estado": "Aprobada",
+   "detalle": ""
+  },
+  "core.test_validaciones.PasswordFormsTests.test_the_profile_form_applies_the_same_policy": {
+   "estado": "Aprobada",
+   "detalle": ""
+  },
+  "core.test_validaciones.PasswordFormsTests.test_the_recovery_form_applies_the_same_policy": {
+   "estado": "Aprobada",
+   "detalle": ""
+  },
+  "core.test_validaciones.PasswordFormsTests.test_the_three_password_fields_carry_the_rule_for_the_browser": {
+   "estado": "Aprobada",
+   "detalle": ""
+  },
+  "core.test_validaciones.PasswordFormsTests.test_the_user_form_accepts_a_password_that_complies": {
+   "estado": "Aprobada",
+   "detalle": ""
+  },
+  "core.test_validaciones.PasswordFormsTests.test_the_user_form_rejects_the_example_password": {
+   "estado": "Aprobada",
+   "detalle": ""
+  },
+  "core.test_validaciones.PasswordFormsTests.test_the_user_form_says_exactly_what_is_missing": {
+   "estado": "Aprobada",
+   "detalle": ""
+  },
+  "core.test_validaciones.TextFieldsTests.test_a_manager_is_a_person_name": {
+   "estado": "Aprobada",
+   "detalle": ""
+  },
+  "core.test_validaciones.TextFieldsTests.test_every_text_field_accepts_normal_text": {
+   "estado": "Aprobada",
+   "detalle": ""
+  },
+  "core.test_validaciones.TextFieldsTests.test_every_text_field_rejects_angle_brackets_with_the_message_of_its_rule": {
+   "estado": "Aprobada",
+   "detalle": ""
+  },
+  "core.test_validaciones.TextFieldsTests.test_every_text_field_rejects_control_characters": {
+   "estado": "Aprobada",
+   "detalle": ""
+  },
+  "core.test_validaciones.TextFieldsTests.test_every_text_field_tells_the_browser_its_maximum_length": {
+   "estado": "Aprobada",
+   "detalle": ""
+  },
+  "core.test_validaciones.TextFieldsTests.test_no_text_field_of_any_form_is_left_without_a_rule": {
+   "estado": "Aprobada",
+   "detalle": ""
+  },
+  "core.test_validaciones.TextFieldsTests.test_single_line_fields_collapse_extra_spaces_and_multi_line_fields_keep_their_lines": {
+   "estado": "Aprobada",
+   "detalle": ""
+  },
+  "core.test_validaciones.TextFieldsTests.test_the_rule_attributes_reach_the_rendered_page": {
+   "estado": "Aprobada",
+   "detalle": ""
+  },
+  "core.test_workspace.AdministrationHubTests.test_coordination_sees_only_its_own_maintainers": {
+   "estado": "Aprobada",
+   "detalle": ""
+  },
+  "core.test_workspace.AdministrationHubTests.test_the_hub_is_the_first_entry_of_the_administration_group": {
+   "estado": "Aprobada",
+   "detalle": ""
+  },
+  "core.test_workspace.AdministrationHubTests.test_the_hub_lists_what_the_user_can_administer_without_linking_itself": {
+   "estado": "Aprobada",
+   "detalle": ""
+  },
+  "core.test_workspace.AdministrationHubTests.test_users_with_nothing_to_administer_are_refused": {
+   "estado": "Aprobada",
+   "detalle": ""
+  },
+  "core.test_workspace.AtencionTests.test_a_blank_search_shows_the_latest_attentions_too": {
+   "estado": "Aprobada",
+   "detalle": ""
+  },
+  "core.test_workspace.AtencionTests.test_a_user_only_finds_attentions_of_its_own_delegation": {
+   "estado": "Aprobada",
+   "detalle": ""
+  },
+  "core.test_workspace.AtencionTests.test_a_wrong_check_digit_warns_but_still_searches": {
+   "estado": "Aprobada",
+   "detalle": ""
+  },
+  "core.test_workspace.AtencionTests.test_every_row_can_start_a_new_attention_for_the_same_person": {
+   "estado": "Aprobada",
+   "detalle": ""
+  },
+  "core.test_workspace.AtencionTests.test_only_global_users_see_the_delegation_column": {
+   "estado": "Aprobada",
+   "detalle": ""
+  },
+  "core.test_workspace.AtencionTests.test_search_by_rut_name_or_phone": {
+   "estado": "Aprobada",
+   "detalle": ""
+  },
+  "core.test_workspace.AtencionTests.test_the_excel_button_downloads_what_was_found": {
+   "estado": "Aprobada",
+   "detalle": ""
+  },
+  "core.test_workspace.AtencionTests.test_the_new_attention_button_is_hidden_from_read_only_profiles": {
+   "estado": "Aprobada",
+   "detalle": ""
+  },
+  "core.test_workspace.AtencionTests.test_the_screen_has_the_search_box_the_buttons_and_the_latest_attentions": {
+   "estado": "Aprobada",
+   "detalle": ""
+  },
+  "core.test_workspace.AtencionTests.test_the_search_box_is_checked_before_sending": {
+   "estado": "Aprobada",
+   "detalle": ""
+  },
+  "core.test_workspace.AtencionTests.test_without_permission_the_screen_is_refused": {
+   "estado": "Aprobada",
+   "detalle": ""
+  },
+  "core.test_workspace.ProfilePageTests.test_a_weak_new_password_is_refused": {
+   "estado": "Aprobada",
+   "detalle": ""
+  },
+  "core.test_workspace.ProfilePageTests.test_a_wrong_current_password_or_a_mismatch_changes_nothing": {
+   "estado": "Aprobada",
+   "detalle": ""
+  },
+  "core.test_workspace.ProfilePageTests.test_anonymous_visitors_are_sent_to_the_login": {
+   "estado": "Aprobada",
+   "detalle": ""
+  },
+  "core.test_workspace.ProfilePageTests.test_changing_the_password_keeps_the_session_and_is_audited": {
+   "estado": "Aprobada",
+   "detalle": ""
+  },
+  "core.test_workspace.ProfilePageTests.test_global_users_without_officer_see_a_notice": {
+   "estado": "Aprobada",
+   "detalle": ""
+  },
+  "core.test_workspace.ProfilePageTests.test_profile_shows_account_delegation_officer_and_profiles": {
+   "estado": "Aprobada",
+   "detalle": ""
+  },
+  "core.test_workspace.ProfilePageTests.test_the_form_says_contrasena": {
+   "estado": "Aprobada",
+   "detalle": ""
+  },
+  "core.test_workspace.SidebarTests.test_a_color_changed_in_the_maintainer_shows_up_in_the_menu": {
+   "estado": "Aprobada",
+   "detalle": ""
+  },
+  "core.test_workspace.SidebarTests.test_a_stored_color_that_is_not_a_color_never_reaches_the_page": {
+   "estado": "Aprobada",
+   "detalle": ""
+  },
+  "core.test_workspace.SidebarTests.test_atencion_comes_first_and_the_menu_follows_the_permissions": {
+   "estado": "Aprobada",
+   "detalle": ""
+  },
+  "core.test_workspace.SidebarTests.test_each_delegation_has_its_own_color": {
+   "estado": "Aprobada",
+   "detalle": ""
+  },
+  "core.test_workspace.SidebarTests.test_each_user_sees_its_delegation_and_its_profiles": {
+   "estado": "Aprobada",
+   "detalle": ""
+  },
+  "core.test_workspace.SidebarTests.test_the_administration_group_lists_only_what_each_user_may_open": {
+   "estado": "Aprobada",
+   "detalle": ""
+  },
+  "core.test_workspace.SidebarTests.test_the_block_says_profile_or_profiles_by_how_many_there_are": {
+   "estado": "Aprobada",
+   "detalle": ""
+  },
+  "core.test_workspace.SidebarTests.test_the_menu_does_not_show_the_official_logo_or_claim_to_be_the_municipality_site": {
+   "estado": "Aprobada",
+   "detalle": ""
+  },
+  "core.test_workspace.SidebarTests.test_the_menu_marks_the_current_screen": {
+   "estado": "Aprobada",
+   "detalle": ""
+  },
+  "core.test_workspace.SidebarTests.test_the_top_bar_has_the_user_name_a_link_to_the_profile_and_logout": {
+   "estado": "Aprobada",
+   "detalle": ""
+  },
+  "core.tests.AdminRegressionTests.test_archive_action_does_not_modify_foreign_records": {
+   "estado": "Aprobada",
+   "detalle": ""
+  },
+  "core.tests.AdminRegressionTests.test_archive_filter_is_available_on_global_catalogs": {
+   "estado": "Aprobada",
+   "detalle": ""
+  },
+  "core.tests.AdminRegressionTests.test_archived_lists_work_and_preserve_delegation_scope": {
+   "estado": "Aprobada",
+   "detalle": ""
+  },
+  "core.tests.AdminRegressionTests.test_archived_search_and_existing_filters_still_work": {
+   "estado": "Aprobada",
+   "detalle": ""
+  },
+  "core.tests.AdminRegressionTests.test_inline_accepts_reviewer_from_own_delegation": {
+   "estado": "Aprobada",
+   "detalle": ""
+  },
+  "core.tests.AdminRegressionTests.test_inline_excludes_archived_reviewers": {
+   "estado": "Aprobada",
+   "detalle": ""
+  },
+  "core.tests.AdminRegressionTests.test_inline_only_offers_reviewers_from_own_delegation": {
+   "estado": "Aprobada",
+   "detalle": ""
+  },
+  "core.tests.AdminRegressionTests.test_inline_rejects_forged_foreign_reviewer_post": {
+   "estado": "Aprobada",
+   "detalle": ""
+  },
+  "core.tests.AdminRegressionTests.test_superuser_keeps_access_to_reviewers_in_both_delegations": {
+   "estado": "Aprobada",
+   "detalle": ""
+  },
+  "accounts.test_recovery.RecoveryHelperTests.test_checking_a_session_without_a_pending_code_never_accepts": {
+   "estado": "Aprobada",
+   "detalle": ""
+  },
+  "accounts.test_recovery.RecoveryHelperTests.test_codes_have_six_digits_and_keep_the_leading_zeros": {
+   "estado": "Aprobada",
+   "detalle": ""
+  },
+  "accounts.test_recovery.RecoveryHelperTests.test_masking_keeps_only_the_start_and_the_domain": {
+   "estado": "Aprobada",
+   "detalle": ""
+  },
+  "accounts.test_recovery.RecoveryHelperTests.test_the_counter_adds_one_each_time": {
+   "estado": "Aprobada",
+   "detalle": ""
+  },
+  "accounts.test_recovery.RecoveryHelperTests.test_the_duration_is_said_in_minutes_when_it_is_whole_minutes": {
+   "estado": "Aprobada",
+   "detalle": ""
+  },
+  "accounts.test_recovery.RecoveryHelperTests.test_the_fingerprint_depends_on_the_account_the_shipment_and_the_code": {
+   "estado": "Aprobada",
+   "detalle": ""
+  },
+  "core.test_access_flow.EmailSettingsTests.test_a_port_that_is_not_a_number_stops_with_a_clear_message": {
+   "estado": "Aprobada",
+   "detalle": ""
+  },
+  "core.test_access_flow.EmailSettingsTests.test_credentials_are_not_in_the_repository": {
+   "estado": "Aprobada",
+   "detalle": ""
+  },
+  "core.test_access_flow.EmailSettingsTests.test_empty_values_in_the_env_use_the_defaults": {
+   "estado": "Aprobada",
+   "detalle": ""
+  },
+  "core.test_access_flow.EmailSettingsTests.test_the_example_env_has_the_mail_variables_blank": {
+   "estado": "Aprobada",
+   "detalle": ""
+  },
+  "core.test_access_flow.EmailSettingsTests.test_tls_and_ssl_accept_any_capitals_and_never_clash": {
+   "estado": "Aprobada",
+   "detalle": ""
+  },
+  "core.test_access_flow.EmailSettingsTests.test_with_a_mail_server_in_the_env_the_email_goes_by_smtp": {
+   "estado": "Aprobada",
+   "detalle": ""
+  },
+  "core.test_access_flow.EmailSettingsTests.test_without_a_mail_server_the_email_goes_to_the_console": {
+   "estado": "Aprobada",
+   "detalle": ""
+  },
+  "core.test_deploy.ConfigurationFilesTests.test_deploy_files_exist": {
+   "estado": "Aprobada",
+   "detalle": ""
+  },
+  "core.test_deploy.ConfigurationFilesTests.test_secrets_stay_out_of_git": {
+   "estado": "Aprobada",
+   "detalle": ""
+  },
+  "core.test_deploy.ConfigurationFilesTests.test_the_al2023_deploy_files_exist": {
+   "estado": "Aprobada",
+   "detalle": ""
+  },
+  "core.test_deploy.ConfigurationFilesTests.test_the_al2023_env_example_has_no_secrets_and_every_key_the_scripts_set": {
+   "estado": "Aprobada",
+   "detalle": ""
+  },
+  "core.test_deploy.ConfigurationFilesTests.test_the_al2023_scripts_use_dnf_check_the_mariadb_version_and_ask_for_certbot_5_4": {
+   "estado": "Aprobada",
+   "detalle": ""
+  },
+  "core.test_deploy.ConfigurationFilesTests.test_the_al2023_shell_scripts_have_valid_syntax": {
+   "estado": "Aprobada",
+   "detalle": ""
+  },
+  "core.test_deploy.ConfigurationFilesTests.test_the_apache_files_proxy_to_gunicorn_and_leave_phpmyadmin_and_the_certificate_check_out": {
+   "estado": "Aprobada",
+   "detalle": ""
+  },
+  "core.test_deploy.ConfigurationFilesTests.test_the_env_example_documents_the_production_variables_without_values": {
+   "estado": "Aprobada",
+   "detalle": ""
+  },
+  "core.test_deploy.ConfigurationFilesTests.test_the_production_env_example_has_no_secrets": {
+   "estado": "Aprobada",
+   "detalle": ""
+  },
+  "core.test_deploy.ConfigurationFilesTests.test_the_requirements_pin_the_server_packages": {
+   "estado": "Aprobada",
+   "detalle": ""
+  },
+  "core.test_deploy.ConfigurationFilesTests.test_the_version_file_names_the_delivery": {
+   "estado": "Aprobada",
+   "detalle": ""
+  },
+  "core.test_deploy.ProductionSettingsTests.test_an_unknown_cache_backend_stops_with_a_clear_message": {
+   "estado": "Aprobada",
+   "detalle": ""
+  },
+  "core.test_deploy.ProductionSettingsTests.test_behind_a_proxy_django_trusts_the_forwarded_protocol": {
+   "estado": "Aprobada",
+   "detalle": ""
+  },
+  "core.test_deploy.ProductionSettingsTests.test_hsts_is_off_unless_asked_for": {
+   "estado": "Aprobada",
+   "detalle": ""
+  },
+  "core.test_deploy.ProductionSettingsTests.test_https_turns_on_secure_cookies_redirect_and_exempts_the_health_check": {
+   "estado": "Aprobada",
+   "detalle": ""
+  },
+  "core.test_deploy.ProductionSettingsTests.test_persistent_connections_come_from_the_env": {
+   "estado": "Aprobada",
+   "detalle": ""
+  },
+  "core.test_deploy.ProductionSettingsTests.test_production_accepts_its_own_secret_key_and_logs_to_the_console": {
+   "estado": "Aprobada",
+   "detalle": ""
+  },
+  "core.test_deploy.ProductionSettingsTests.test_production_refuses_the_example_secret_key": {
+   "estado": "Aprobada",
+   "detalle": ""
+  },
+  "core.test_deploy.ProductionSettingsTests.test_sqlite_gets_wal_and_a_longer_wait_only_outside_development": {
+   "estado": "Aprobada",
+   "detalle": ""
+  },
+  "core.test_deploy.ProductionSettingsTests.test_static_files_are_collected_in_staticfiles": {
+   "estado": "Aprobada",
+   "detalle": ""
+  },
+  "core.test_deploy.ProductionSettingsTests.test_the_shared_cache_for_recovery_attempts_is_chosen_from_the_env": {
+   "estado": "Aprobada",
+   "detalle": ""
+  },
+  "core.test_deploy.ProductionSettingsTests.test_trusted_origins_come_from_the_env_as_a_list": {
+   "estado": "Aprobada",
+   "detalle": ""
+  },
+  "core.test_deploy.ProductionSettingsTests.test_whitenoise_is_optional_and_goes_right_after_the_security_middleware": {
+   "estado": "Aprobada",
+   "detalle": ""
+  },
+  "core.test_deploy.ProductionSettingsTests.test_without_variables_nothing_changes_for_development": {
+   "estado": "Aprobada",
+   "detalle": ""
+  },
+  "core.test_deploy.TestRegistryTests.test_every_class_maps_to_known_requirements": {
+   "estado": "Aprobada",
+   "detalle": ""
+  },
+  "core.test_deploy.TestRegistryTests.test_every_step_list_ends_with_the_check_and_is_not_empty": {
+   "estado": "Aprobada",
+   "detalle": ""
+  },
+  "core.test_deploy.TestRegistryTests.test_every_test_has_an_expected_result_in_spanish": {
+   "estado": "Aprobada",
+   "detalle": ""
+  },
+  "core.test_deploy.TestRegistryTests.test_the_catalogue_has_no_leftovers_for_tests_that_no_longer_exist": {
+   "estado": "Aprobada",
+   "detalle": ""
+  },
+  "core.test_deploy.TestRegistryTests.test_the_summary_by_requirement_counts_each_status": {
+   "estado": "Aprobada",
+   "detalle": ""
+  },
+  "core.test_export.WorkbookTests.test_a_cut_result_says_how_many_rows_were_left_out": {
+   "estado": "Aprobada",
+   "detalle": ""
+  },
+  "core.test_export.WorkbookTests.test_an_empty_result_still_has_its_header": {
+   "estado": "Aprobada",
+   "detalle": ""
+  },
+  "core.test_export.WorkbookTests.test_file_name_has_the_day": {
+   "estado": "Aprobada",
+   "detalle": ""
+  },
+  "core.test_export.WorkbookTests.test_header_rows_notes_and_table": {
+   "estado": "Aprobada",
+   "detalle": ""
+  },
+  "core.test_export.WorkbookTests.test_numbers_and_dates_are_typed_cells": {
+   "estado": "Aprobada",
+   "detalle": ""
+  },
+  "core.test_export.WorkbookTests.test_percent_columns_keep_the_number_and_show_a_percent_sign": {
+   "estado": "Aprobada",
+   "detalle": ""
+  },
+  "core.test_export.WorkbookTests.test_sheet_names_are_valid_for_excel": {
+   "estado": "Aprobada",
+   "detalle": ""
+  },
+  "core.test_export.WorkbookTests.test_texts_that_look_like_formulas_stay_text": {
+   "estado": "Aprobada",
+   "detalle": ""
+  },
+  "core.test_portal.UiHelperTests.test_iso_dates_become_day_month_year": {
+   "estado": "Aprobada",
+   "detalle": ""
+  },
+  "core.test_portal.UiHelperTests.test_meter_bar_stays_inside_the_scale_but_shows_the_real_value": {
+   "estado": "Aprobada",
+   "detalle": ""
+  },
+  "core.test_portal.UiHelperTests.test_numbers_use_comma_and_dots": {
+   "estado": "Aprobada",
+   "detalle": ""
+  },
+  "core.test_portal.UiHelperTests.test_semaphore_uses_the_period_thresholds": {
+   "estado": "Aprobada",
+   "detalle": ""
+  },
+  "core.test_portal.UiHelperTests.test_unknown_values_get_a_neutral_tone": {
+   "estado": "Aprobada",
+   "detalle": ""
+  },
+  "core.test_rules.RuleTests.test_attributes_for_the_browser_repeat_the_rule": {
+   "estado": "Aprobada",
+   "detalle": ""
+  },
+  "core.test_rules.RuleTests.test_check_digit_follows_modulo_11": {
+   "estado": "Aprobada",
+   "detalle": ""
+  },
+  "core.test_rules.RuleTests.test_code_has_no_spaces": {
+   "estado": "Aprobada",
+   "detalle": ""
+  },
+  "core.test_rules.RuleTests.test_email_needs_user_domain_and_extension": {
+   "estado": "Aprobada",
+   "detalle": ""
+  },
+  "core.test_rules.RuleTests.test_every_rule_uses_a_known_normalizer_and_check": {
+   "estado": "Aprobada",
+   "detalle": ""
+  },
+  "core.test_rules.RuleTests.test_free_text_cannot_carry_angle_brackets_or_control_characters": {
+   "estado": "Aprobada",
+   "detalle": ""
+  },
+  "core.test_rules.RuleTests.test_hex_color_is_written_in_capitals": {
+   "estado": "Aprobada",
+   "detalle": ""
+  },
+  "core.test_rules.RuleTests.test_only_a_dashed_rut_with_a_bad_digit_counts_as_a_typo": {
+   "estado": "Aprobada",
+   "detalle": ""
+  },
+  "core.test_rules.RuleTests.test_person_name_allows_letters_and_a_few_signs": {
+   "estado": "Aprobada",
+   "detalle": ""
+  },
+  "core.test_rules.RuleTests.test_phone_accepts_spaces_and_a_plus_but_no_other_signs": {
+   "estado": "Aprobada",
+   "detalle": ""
+  },
+  "core.test_rules.RuleTests.test_rut_is_kept_without_dots_and_with_dash": {
+   "estado": "Aprobada",
+   "detalle": ""
+  },
+  "core.test_rules.RuleTests.test_rut_with_wrong_digit_or_shape_is_rejected": {
+   "estado": "Aprobada",
+   "detalle": ""
+  },
+  "core.test_rules.RuleTests.test_the_javascript_knows_every_normalizer_and_check": {
+   "estado": "Aprobada",
+   "detalle": ""
+  },
+  "core.test_rules.RuleTests.test_username_needs_three_characters_without_spaces": {
+   "estado": "Aprobada",
+   "detalle": ""
+  },
+  "core.test_rules.RuleTests.test_version_is_short_and_simple": {
+   "estado": "Aprobada",
+   "detalle": ""
+  },
+  "core.test_search.WordPatternTests.test_a_code_with_letters_is_searched_as_written": {
+   "estado": "Aprobada",
+   "detalle": ""
+  },
+  "core.test_search.WordPatternTests.test_a_phone_is_found_with_or_without_spaces": {
+   "estado": "Aprobada",
+   "detalle": ""
+  },
+  "core.test_search.WordPatternTests.test_a_rut_ending_in_k_is_found": {
+   "estado": "Aprobada",
+   "detalle": ""
+  },
+  "core.test_search.WordPatternTests.test_a_rut_is_found_with_or_without_dots_and_dash": {
+   "estado": "Aprobada",
+   "detalle": ""
+  },
+  "core.test_search.WordPatternTests.test_accents_and_case_do_not_matter": {
+   "estado": "Aprobada",
+   "detalle": ""
+  },
+  "core.test_search.WordPatternTests.test_only_numbers_with_three_digits_or_more_ignore_separators": {
+   "estado": "Aprobada",
+   "detalle": ""
+  },
+  "core.test_search.WordPatternTests.test_special_characters_are_searched_literally": {
+   "estado": "Aprobada",
+   "detalle": ""
+  },
+  "core.test_search.WordPatternTests.test_very_long_words_are_cut": {
+   "estado": "Aprobada",
+   "detalle": ""
+  },
+  "core.test_validaciones.BrowserScriptTests.test_the_patterns_give_the_same_verdict_in_python_and_in_javascript": {
+   "estado": "Aprobada",
+   "detalle": ""
+  },
+  "core.test_validaciones.BrowserScriptTests.test_the_script_checks_date_limits_and_comparisons_between_fields": {
+   "estado": "Aprobada",
+   "detalle": ""
+  },
+  "core.test_validaciones.BrowserScriptTests.test_the_script_knows_the_new_arrangements": {
+   "estado": "Aprobada",
+   "detalle": ""
+  },
+  "core.test_validaciones.PasswordPolicyValidatorTests.test_a_password_with_several_gaps_lists_all_of_them": {
+   "estado": "Aprobada",
+   "detalle": ""
+  },
+  "core.test_validaciones.PasswordPolicyValidatorTests.test_a_short_password_is_still_stopped_by_the_minimum_length_validator": {
+   "estado": "Aprobada",
+   "detalle": ""
+  },
+  "core.test_validaciones.PasswordPolicyValidatorTests.test_a_space_is_not_a_symbol_but_accented_letters_count_as_letters": {
+   "estado": "Aprobada",
+   "detalle": ""
+  },
+  "core.test_validaciones.PasswordPolicyValidatorTests.test_each_missing_requirement_has_its_own_message": {
+   "estado": "Aprobada",
+   "detalle": ""
+  },
+  "core.test_validaciones.PasswordPolicyValidatorTests.test_the_demo_password_complies_with_the_policy": {
+   "estado": "Aprobada",
+   "detalle": ""
+  },
+  "core.test_validaciones.PasswordPolicyValidatorTests.test_the_example_weak_password_is_rejected": {
+   "estado": "Aprobada",
+   "detalle": ""
+  },
+  "core.test_validaciones.PasswordPolicyValidatorTests.test_the_help_text_names_the_requirements": {
+   "estado": "Aprobada",
+   "detalle": ""
+  },
+  "core.test_validaciones.PasswordPolicyValidatorTests.test_the_length_limit_is_128_characters": {
+   "estado": "Aprobada",
+   "detalle": ""
+  },
+  "core.test_validaciones.PasswordPolicyValidatorTests.test_the_other_validators_are_still_active": {
+   "estado": "Aprobada",
+   "detalle": ""
+  },
+  "core.test_validaciones.PasswordRuleTests.test_it_accepts_and_rejects_the_same_passwords_as_the_server_policy": {
+   "estado": "Aprobada",
+   "detalle": ""
+  },
+  "core.test_validaciones.PasswordRuleTests.test_it_does_not_touch_what_was_typed_and_only_warns_in_the_browser": {
+   "estado": "Aprobada",
+   "detalle": ""
+  },
+  "core.test_workspace.ColorTests.test_a_color_is_written_in_lowercase_or_replaced_by_the_default": {
+   "estado": "Aprobada",
+   "detalle": ""
+  },
+  "core.test_workspace.ColorTests.test_dark_backgrounds_get_white_text_and_light_ones_black": {
+   "estado": "Aprobada",
+   "detalle": ""
+  },
+  "core.test_workspace.ColorTests.test_the_text_is_readable_over_any_color": {
+   "estado": "Aprobada",
+   "detalle": ""
+  }
+ }
+}

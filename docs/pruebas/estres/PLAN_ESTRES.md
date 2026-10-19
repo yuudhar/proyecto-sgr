@@ -25,7 +25,7 @@ Cada «usuario virtual» ingresa una vez (login con CSRF, como un navegador) y d
 
 ## 3. Carga
 
-- **Datos:** `python manage.py cargar_volumen_estres` deja un volumen realista (unas 5.000 atenciones y 1.000 beneficiarios, marcados como carga de prueba). Se retira con `--limpiar`.
+- **Datos:** `python manage.py cargar_volumen_estres` (sobre una base que ya tenga funcionarios e ítems) deja un volumen realista (unas 5.000 atenciones y 1.000 beneficiarios, marcados como carga de prueba). Se retira con `--limpiar`.
 - **Concurrencia creciente (etapas):** 1, 5, 10, 20, 40, 60 y 80 usuarios simultáneos.
 - **Duración por etapa:** 60 s en AWS (20 s en el ensayo local).
 - **Recuperación:** al final, una etapa de 1 usuario para comprobar que el sistema vuelve a responder como al comienzo.

@@ -1,5 +1,3 @@
-"""Resultado esperado (en español) de las pruebas del despliegue y del propio registro de pruebas."""
-
 ESPERADO = {
     "ProductionSettingsTests": {
         "without_variables_nothing_changes_for_development": "Sin variables de entorno el sistema queda como en desarrollo (DEBUG, caché local, sin HTTPS forzado).",

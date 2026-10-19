@@ -1,5 +1,3 @@
-"""Resultado esperado (en español) de las pruebas de listados, búsqueda, Excel, avisos SweetAlert2 y los demás módulos del portal."""
-
 ESPERADO = {
     "WordPatternTests": {
         "accents_and_case_do_not_matter": "La búsqueda ignora tildes y mayúsculas.",

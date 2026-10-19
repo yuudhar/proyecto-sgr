@@ -1,13 +1,3 @@
-"""Carga (o borra) un volumen grande de atenciones de prueba para las pruebas de estrés.
-
-    python manage.py cargar_volumen_estres --atenciones 5000 --beneficiarios 1000
-    python manage.py cargar_volumen_estres --limpiar
-
-Las atenciones se marcan con «(carga de prueba)» al final de la descripción (las que crea la herramienta de estrés
-llevan el contacto «[ESTRES] …») y los beneficiarios tienen RUT desde 90.000.000, así --limpiar los encuentra y solo
-borra lo que se creó para las pruebas. Requiere haber corrido antes seed_demo_data.
-"""
-
 import random
 from datetime import date, timedelta
 
@@ -61,7 +51,7 @@ class Command(BaseCommand):
         funcionarios = list(Officer.objects.filter(deleted_at__isnull=True, delegation__isnull=False))
         items = list(Item.objects.filter(deleted_at__isnull=True))
         if not funcionarios or not items:
-            raise CommandError("Faltan funcionarios o ítems: corre antes `python manage.py seed_demo_data`.")
+            raise CommandError("Faltan funcionarios o ítems en la base: créalos primero desde el sistema.")
         azar = random.Random(2026)
 
         existentes = Beneficiary.objects.filter(rut__regex=r"^90\d{6}-").count()

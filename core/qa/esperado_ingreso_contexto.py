@@ -1,5 +1,3 @@
-"""Resultado esperado (en español) de las pruebas del ingreso de atención, el contexto de delegación y la interfaz."""
-
 ESPERADO = {
     "RequesterTests": {
         "a_rut_with_dots_and_dash_links_the_person": "Un RUT con puntos y guion enlaza a la persona de Beneficiarios.",

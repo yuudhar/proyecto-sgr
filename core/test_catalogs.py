@@ -1,9 +1,3 @@
-"""Pruebas de los mantenedores de Roles, Ítems y metas, Tipo de Atención y Sub Atención (Clases 7 y 8).
-
-Cubren la matriz de permisos del rol, los códigos (ROL01, TA001, SA001, IT001), los nombres que no se repiten
-aunque cambien las mayúsculas, la relación entre tipo y sub atención y las revisiones antes de eliminar.
-"""
-
 from django.contrib.auth.models import Group, Permission
 from django.contrib.messages import get_messages
 from django.urls import reverse
@@ -15,7 +9,6 @@ from planning.models import Goal
 
 
 def perm_ids(*labels):
-    """Ids de permisos escritos como "app.codename"."""
     ids = []
     for label in labels:
         app_label, codename = label.split(".")
@@ -54,7 +47,7 @@ class RoleCrudTests(PortalTestCase):
         self.assertEqual(rows["Coordinación"][2], "Todas las delegaciones")
         self.assertEqual(rows["Funcionario"][2], "Su delegación")
         self.assertEqual(rows["Funcionario"][3], "Activo")
-        self.assertEqual(rows["Funcionario"][4], "2")  # matias.cavieres y matias.quiroz
+        self.assertEqual(rows["Funcionario"][4], "2")
         self.assertEqual(rows["Consulta"][5], str(Group.objects.get(name="Consulta").permissions.count()))
 
     def test_the_list_can_be_searched_by_code_and_name(self):
@@ -70,7 +63,6 @@ class RoleCrudTests(PortalTestCase):
         self.assertContains(response, "perm-table")
         for text in ("Ver", "Crear", "Editar", "Eliminar", "Períodos", "Roles y permisos", "Solo consulta"):
             self.assertContains(response, text)
-        # una casilla por módulo y acción
         from core.roles import PERMISSION_MODULES
 
         modules = sum(len(items) for _title, items in PERMISSION_MODULES)
@@ -111,7 +103,7 @@ class RoleCrudTests(PortalTestCase):
         response = self.client.post(reverse("core:roles_update", args=[consulta.pk]), data)
         self.assertRedirects(response, reverse("core:roles_detail", args=[consulta.pk]))
         consulta.refresh_from_db()
-        self.assertEqual(consulta.name, "Consulta")  # las reglas de acceso lo buscan por su nombre
+        self.assertEqual(consulta.name, "Consulta")
         self.assertEqual(
             set(consulta.permissions.values_list("codename", flat=True)),
             {"view_activity", "view_followup", "view_period"},
@@ -119,7 +111,7 @@ class RoleCrudTests(PortalTestCase):
         log = AuditLog.objects.get(event="Permisos del rol modificados", record_id=consulta.pk)
         self.assertIn("Ver · Períodos", log.new_value)
         self.assertIn("Quitados:", log.previous_value)
-        self.assertIn("Ver · Agenda colectiva", log.previous_value)  # lo que tenía y ya no tiene
+        self.assertIn("Ver · Agenda colectiva", log.previous_value)
 
     def test_permissions_outside_the_matrix_are_kept_when_saving(self):
         role = Group.objects.create(name="Con permiso extra")
@@ -159,7 +151,7 @@ class RoleCrudTests(PortalTestCase):
         self.assertIn("eliminado", " ".join(str(m) for m in get_messages(response.wsgi_request)))
 
     def test_a_role_in_use_cannot_be_deleted(self):
-        role = Group.objects.get(name="Consulta")  # lo tiene consulta1; además es del sistema
+        role = Group.objects.get(name="Consulta")
         custom = Group.objects.create(name="En uso")
         user = self.make_user("alguien", groups=["En uso"])
         self.assertEqual(user.groups.count(), 1)
@@ -198,7 +190,6 @@ class RoleCrudTests(PortalTestCase):
         self.assertEqual(self.client.get(url).status_code, 403)
         self.assertEqual(self.client.post(url).status_code, 403)
         self.assertTrue(Group.objects.filter(pk=role.pk).exists())
-        # Ver y editar sí, pero la ficha no ofrece Eliminar
         self.assertNotContains(self.client.get(reverse("core:roles_detail", args=[role.pk])), "data-delete=")
 
     def test_users_see_the_new_role_in_their_form(self):
@@ -243,7 +234,7 @@ class AttentionCatalogTests(PortalTestCase):
         url = reverse("core:sub_atenciones_list")
         self.assertEqual(self.names(self.client.get(url, {"q": f"sa{self.visit.pk:03d}"})), ["Visita Domiciliaria"])
         self.assertEqual(self.names(self.client.get(url, {"q": "TELEFONICO"})), ["Seguimiento Telefónico"])
-        found = self.names(self.client.get(url, {"q": "atencion social"}))  # el tipo asociado también se busca
+        found = self.names(self.client.get(url, {"q": "atencion social"}))
         self.assertEqual(set(found), {"Visita Domiciliaria", "Seguimiento Telefónico"})
 
     def test_the_type_list_counts_its_active_sub_attentions(self):
@@ -283,7 +274,6 @@ class AttentionCatalogTests(PortalTestCase):
         url = reverse("core:sub_atenciones_create")
         response = self.client.post(url, {"name": "Sin tipo", "parent_item": "", "calculation_type": "quantitative"})
         self.assertIn("parent_item", response.context["form"].errors)
-        # otra sub atención no puede ser el tipo asociado: ni siquiera se ofrece en la lista
         offered = {item.pk for item in response.context["form"].fields["parent_item"].queryset}
         self.assertNotIn(self.visit.pk, offered)
         response = self.client.post(
@@ -302,7 +292,6 @@ class AttentionCatalogTests(PortalTestCase):
             {"name": "visita domiciliaria", "parent_item": self.social.pk, "calculation_type": "quantitative"},
         )
         self.assertIn("name", response.context["form"].errors)
-        # el mismo nombre sí puede estar bajo otro tipo
         response = self.client.post(
             reverse("core:sub_atenciones_create"),
             {"name": "Visita Domiciliaria", "parent_item": self.aid.pk, "calculation_type": "quantitative"},
@@ -324,7 +313,6 @@ class AttentionCatalogTests(PortalTestCase):
         response = self.client.get(reverse("core:sub_atenciones_create"))
         offered = {item.name for item in response.context["form"].fields["parent_item"].queryset}
         self.assertEqual(offered, {"Atención Social", "Coordinación Territorial"})
-        # y el filtro del listado ofrece solo tipos
         filters = {spec.name: [label for _value, label in spec.options] for spec in self.client.get(
             reverse("core:sub_atenciones_list")).context["filters"]}
         self.assertEqual(set(filters["parent_item"]), {"Atención Social", "Coordinación Territorial"})
@@ -340,20 +328,17 @@ class AttentionCatalogTests(PortalTestCase):
         self.assertIsNone(self.social.deleted_at)
         messages = [str(m) for m in get_messages(response.wsgi_request)]
         self.assertTrue(any("2 sub atenciones activas" in m for m in messages), messages)
-        # la lista lo avisa antes de preguntar
         row = {row.cells[1].text: row for row in self.client.get(reverse("core:tipos_de_atencion_list")).context["rows"]}
         self.assertIn("2 sub atenciones activas", row["Atención Social"].archive_blocked)
         self.assertEqual(row["Coordinación Territorial"].archive_blocked, "")
         self.assertIn("meta activa", row["Entrega de Ayudas Sociales"].archive_blocked)
 
     def test_a_type_can_be_deleted_once_its_sub_attentions_are_inactive(self):
-        # las metas de la sub atención se retiran primero (con una meta activa no se puede eliminar)
         Goal.objects.filter(item__in=(self.visit, self.phone)).update(deleted_at=self.visit.created_at)
         for sub in (self.visit, self.phone):
             self.assertEqual(self.client.post(reverse("core:sub_atenciones_archive", args=[sub.pk])).status_code, 302)
         self.visit.refresh_from_db()
         self.assertIsNotNone(self.visit.deleted_at)
-        # mientras el tipo esté en un ítem de cargo tampoco se puede eliminar
         blocked = self.client.post(reverse("core:tipos_de_atencion_archive", args=[self.social.pk]))
         self.assertRedirects(blocked, reverse("core:tipos_de_atencion_detail", args=[self.social.pk]))
         PositionItem.objects.filter(item=self.social).update(deleted_at=self.visit.deleted_at)
@@ -407,7 +392,7 @@ class AttentionCatalogTests(PortalTestCase):
         self.assertContains(response, "Sub atención")
 
     def test_roles_without_delete_see_no_delete_link_in_the_catalogs(self):
-        self.login_as("coordinacion1")  # ve ítems pero no los elimina
+        self.login_as("coordinacion1")
         response = self.client.get(reverse("core:items_list"))
         self.assertEqual(response.status_code, 200)
         self.assertNotContains(response, "data-delete=")

@@ -1,5 +1,3 @@
-"""Exportación de listados a Excel (.xlsx) con openpyxl."""
-
 import re
 from datetime import date, datetime
 from decimal import Decimal
@@ -10,23 +8,20 @@ from django.utils import timezone
 from core import ui
 
 CONTENT_TYPE = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
-EXPORT_LIMIT = 10000  # filas máximas por archivo
+EXPORT_LIMIT = 10000
 HEADER_ROW = 5
 WINE = "920000"
 
 
 def sheet_title(text):
-    """Nombre de hoja válido para Excel: hasta 31 caracteres y sin \\ / ? * [ ] :"""
     return re.sub(r"[\\/?*\[\]:]", " ", text).strip()[:31] or "Datos"
 
 
 def file_name(slug):
-    """Nombre del archivo, por ejemplo actividades-2026-10-06.xlsx."""
     return f"{slug}-{timezone.localdate().isoformat()}.xlsx"
 
 
 def as_excel_value(value):
-    """Valor listo para una celda: fechas y números quedan como tales, no como texto."""
     if isinstance(value, datetime):
         if timezone.is_aware(value):
             value = timezone.localtime(value).replace(tzinfo=None)
@@ -37,12 +32,6 @@ def as_excel_value(value):
 
 
 def build_workbook(title, headers, kinds, rows, summary, user, total):
-    """Arma el libro: título, quién lo generó y con qué filtros, y la tabla con sus encabezados.
-
-    headers y kinds van en el orden de las columnas; rows es una lista de listas de valores;
-    summary es el texto de los filtros aplicados y total la cantidad de filas del resultado
-    (si es mayor que las filas exportadas, se avisa).
-    """
     from openpyxl import Workbook
     from openpyxl.styles import Alignment, Border, Font, PatternFill, Side
     from openpyxl.utils import get_column_letter
@@ -81,7 +70,6 @@ def build_workbook(title, headers, kinds, rows, summary, user, total):
             cell = sheet.cell(row=HEADER_ROW + offset, column=index)
             value = as_excel_value(value)
             if isinstance(value, str):
-                # Un texto que parte con "=" o "+" no debe convertirse en fórmula.
                 cell.value = value
                 cell.data_type = "s"
             else:

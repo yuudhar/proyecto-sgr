@@ -1,5 +1,3 @@
-"""Pruebas de la descarga a Excel: contenido, filtros, límite, permisos y auditoría."""
-
 from datetime import datetime
 from io import BytesIO
 from types import SimpleNamespace
@@ -21,7 +19,6 @@ from organization.models import Beneficiary, Officer
 
 
 class WorkbookTests(SimpleTestCase):
-    """El libro que arma core/export.py, sin pasar por las pantallas."""
 
     def build(self, rows, total=None, **changes):
         arguments = {
@@ -99,7 +96,6 @@ class ExcelTestCase(PortalTestCase):
         return load_workbook(BytesIO(response.content)).active
 
     def table(self, sheet):
-        """Encabezados y filas de datos de la hoja."""
         rows = [list(row) for row in sheet.iter_rows(min_row=export.HEADER_ROW, values_only=True)]
         return rows[0], rows[1:]
 
@@ -113,8 +109,6 @@ class ListExportTests(ExcelTestCase):
         self.login_as("admin")
         response = self.download("core:atencion")
         self.assertEqual(response["Content-Type"], export.CONTENT_TYPE)
-        # El nombre lleva el día en la hora de Chile (la que usan las pantallas), no el día en UTC: de noche
-        # en Chile ya es "mañana" en UTC y la prueba fallaba sin que hubiera ningún error.
         with timezone.override(ZoneInfo(settings.PORTAL_TIME_ZONE)):
             today = timezone.localdate().isoformat()
         self.assertEqual(response["Content-Disposition"], f'attachment; filename="atenciones-{today}.xlsx"')
@@ -131,7 +125,7 @@ class ListExportTests(ExcelTestCase):
             headers,
             ["Identificador", "Fecha", "Contacto", "RUT", "Tipo de atención", "Sub atención", "Funcionario autor", "Delegación", "Estado"],
         )
-        self.assertEqual(len(rows), 5)  # las 6 de demostración menos la archivada
+        self.assertEqual(len(rows), 5)
         self.assertEqual(sheet.auto_filter.ref, f"A5:{get_column_letter(len(headers))}10")
 
     def test_download_follows_the_search_the_filters_and_the_order_of_the_screen(self):
@@ -173,7 +167,6 @@ class ListExportTests(ExcelTestCase):
             sheet["A4"].value,
             "Se exportaron las primeras 3 filas de 5. Agrega filtros para acotar el resultado.",
         )
-        # Sin recorte no hay aviso.
         self.assertIsNone(self.sheet(self.download("core:atencion"))["A4"].value)
 
     def test_a_delegation_user_only_gets_its_own_rows(self):
@@ -232,14 +225,13 @@ class ListExportTests(ExcelTestCase):
         self.assertEqual(percent.number_format, '0.0"%"')
 
     def test_every_list_can_be_downloaded(self):
-        """Todos los listados que se ven en el menú tienen su botón de Excel funcionando."""
         self.login_as("admin")
         for crud in registry.all():
             with self.subTest(crud=crud.slug):
                 response = self.client.get(crud.url("list"), {"formato": "xlsx"})
                 self.assertEqual(response.status_code, 200)
                 self.assertEqual(response["Content-Type"], export.CONTENT_TYPE)
-                load_workbook(BytesIO(response.content))  # el archivo se puede abrir
+                load_workbook(BytesIO(response.content))
 
 
 class ReportExportTests(ExcelTestCase):

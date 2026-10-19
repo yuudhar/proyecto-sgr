@@ -1,5 +1,3 @@
-"""Pruebas del espacio de trabajo: menú lateral con delegación y perfiles, Atención, Mi perfil y Administración."""
-
 from io import BytesIO
 
 from django.contrib.auth.models import User
@@ -26,7 +24,6 @@ class ColorTests(SimpleTestCase):
         self.assertEqual(palette("#F5E6A0")["fg"], "#000000")
 
     def test_the_text_is_readable_over_any_color(self):
-        """Contraste de al menos 4,5 (WCAG AA) para el texto, también sobre el sombreado de las etiquetas."""
         steps = range(0, 256, 51)
         for red in steps:
             for green in steps:
@@ -38,8 +35,7 @@ class ColorTests(SimpleTestCase):
 
     @staticmethod
     def shaded(colors):
-        """El fondo de una etiqueta: el color de la delegación con el sombreado encima."""
-        numbers = colors["shade"][5:-1].split(",")  # "rgba(0, 0, 0, 0.26)"
+        numbers = colors["shade"][5:-1].split(",")
         overlay = [int(value) for value in numbers[:3]]
         alpha = float(numbers[3])
         base = [int(colors["bg"][index : index + 2], 16) for index in (1, 3, 5)]
@@ -99,7 +95,7 @@ class SidebarTests(PortalTestCase):
     def test_atencion_comes_first_and_the_menu_follows_the_permissions(self):
         top = self.page("matias.cavieres").context["menu_top"]
         self.assertEqual([item.label for item in top], ["Atención", "Dashboard"])
-        top = self.page("coordinacion1").context["menu_top"]  # Coordinación no atiende público
+        top = self.page("coordinacion1").context["menu_top"]
         self.assertEqual([item.label for item in top], ["Dashboard"])
 
     def test_the_top_bar_has_the_user_name_a_link_to_the_profile_and_logout(self):
@@ -109,7 +105,6 @@ class SidebarTests(PortalTestCase):
         self.assertContains(response, f'href="{reverse("core:profile")}"')
         self.assertContains(response, f'action="{reverse("core:logout")}"')
         self.assertContains(response, "Cerrar sesión")
-        # Si la cuenta no tiene nombre, se muestra el usuario.
         self.assertEqual(self.page("admin").context["me_name"], "admin")
 
     def test_the_menu_marks_the_current_screen(self):
@@ -173,7 +168,7 @@ class AtencionTests(PortalTestCase):
         self.assertFalse(self.search("matias.cavieres", "perez").context["wrong_rut"])
 
     def test_a_user_only_finds_attentions_of_its_own_delegation(self):
-        self.assertEqual(self.names(self.search("matias.cavieres", "Ana Rojas")), [])  # Sur
+        self.assertEqual(self.names(self.search("matias.cavieres", "Ana Rojas")), [])
         self.assertEqual(self.names(self.search("matias.quiroz", "Ana Rojas")), ["Ana Rojas"])
 
     def test_only_global_users_see_the_delegation_column(self):
@@ -184,7 +179,7 @@ class AtencionTests(PortalTestCase):
         )
         columns = [c.label for c in self.search("admin").context["columns"]]
         self.assertIn("Delegación", columns)
-        self.assertEqual(columns[-1], "Estado")  # la delegación va antes del estado
+        self.assertEqual(columns[-1], "Estado")
         self.assertEqual(len(self.names(self.search("admin"))), 5)
 
     def test_every_row_can_start_a_new_attention_for_the_same_person(self):
@@ -197,7 +192,7 @@ class AtencionTests(PortalTestCase):
         self.assertEqual(form["phone"].value(), beneficiary.phone)
 
     def test_the_new_attention_button_is_hidden_from_read_only_profiles(self):
-        response = self.search("jefatura1")  # Jefatura consulta pero no registra
+        response = self.search("jefatura1")
         self.assertNotContains(response, "Registrar atención")
         self.assertNotContains(response, "Nueva atención para")
         self.assertTrue(self.names(response))
@@ -226,7 +221,7 @@ class AtencionTests(PortalTestCase):
         self.assertEqual(row[headers.index("Tipo de atención")], "Atención Social")
         self.assertEqual(row[headers.index("Sub atención")], "Visita Domiciliaria")
         self.assertEqual(row[headers.index("Identificador")], f"ATN{self.activity('María Pérez').pk:05d}")
-        self.assertIsNone(sheet.cell(row=export.HEADER_ROW + 2, column=1).value)  # una sola fila
+        self.assertIsNone(sheet.cell(row=export.HEADER_ROW + 2, column=1).value)
         log = AuditLog.objects.get(event="Listado exportado a Excel")
         self.assertEqual(log.affected_entity, "Activity")
 
@@ -234,8 +229,8 @@ class AtencionTests(PortalTestCase):
         response = self.search("matias.cavieres")
         self.assertContains(response, "data-validate")
         self.assertContains(response, 'id="atencion-q"')
-        self.assertNotContains(response, "required data-label")  # ya no es obligatorio: se puede filtrar sin escribir
-        self.assertContains(response, "data-skip-validate")  # pero el botón de Excel no lo exige
+        self.assertNotContains(response, "required data-label")
+        self.assertContains(response, "data-skip-validate")
 
 
 class ProfilePageTests(PortalTestCase):
@@ -274,11 +269,11 @@ class ProfilePageTests(PortalTestCase):
         self.assertRedirects(response, reverse("core:profile"))
         user.refresh_from_db()
         self.assertTrue(user.check_password("OtraClave#2026x"))
-        self.assertEqual(self.client.get(reverse("core:dashboard")).status_code, 200)  # sigue con la sesión abierta
+        self.assertEqual(self.client.get(reverse("core:dashboard")).status_code, 200)
         log = AuditLog.objects.get(event="Contraseña cambiada")
         self.assertEqual(log.user, user)
         self.assertEqual(log.record_id, user.pk)
-        self.assertFalse(log.new_value)  # la contraseña no queda en ninguna parte
+        self.assertFalse(log.new_value)
 
     def test_a_wrong_current_password_or_a_mismatch_changes_nothing(self):
         user = self.login_as("matias.cavieres")

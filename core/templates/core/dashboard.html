@@ -21,7 +21,7 @@
       {% if me_scope.choose %}Estás trabajando en <strong>{{ me_scope.name }}</strong>.{% endif %}
       {% if period %}Período del {{ period.start_date|fdate }} al {{ period.end_date|fdate }}.{% endif %}
     </p>
-    {# Valor guardado en request.session: sube con cada visita al inicio y se borra al cerrar sesión. #}
+
     <p class="page-sub session-note"><i class="bi bi-clock-history" aria-hidden="true"></i> Visitas al inicio en esta sesión: <strong>{{ visits }}</strong></p>
   </div>
   {% if shortcuts %}

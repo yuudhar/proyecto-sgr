@@ -1,5 +1,3 @@
-"""Resultado esperado (en español) de las pruebas de la v14: política de contraseña, textos, números y fechas."""
-
 ESPERADO = {
     "PasswordPolicyValidatorTests": {
         "the_demo_password_complies_with_the_policy": "La contraseña de las cuentas de demostración (Hola123!) cumple la política.",

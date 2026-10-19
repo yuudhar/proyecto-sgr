@@ -22,8 +22,6 @@ class Delegation(BaseModel):
     scope = models.CharField(
         max_length=100, blank=True, null=True, verbose_name="ámbito"
     )
-    # Dónde queda la delegación (A1: «Código, nombre, dirección, comuna y estado»). Vacíos en las delegaciones
-    # que existían antes; el formulario de las pantallas los pide.
     address = models.CharField(
         max_length=200,
         blank=True,
@@ -37,7 +35,6 @@ class Delegation(BaseModel):
         default="",
         verbose_name="comuna",
     )
-    # Color con que las pantallas identifican a la delegación (barra lateral y fichas).
     color = models.CharField(
         max_length=7,
         default="#920000",
@@ -92,7 +89,6 @@ class Item(BaseModel):
         verbose_name="ítem padre (tipo de atención)",
     )
     name = models.CharField(max_length=150, verbose_name="nombre")
-    # Qué mide o qué atiende el ítem (A1: «Código, nombre, descripción y estado»). Opcional.
     description = models.CharField(
         max_length=255,
         blank=True,

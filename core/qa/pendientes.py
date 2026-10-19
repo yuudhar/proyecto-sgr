@@ -1,5 +1,3 @@
-"""Lo que todavía no está probado y por qué. No se declara aprobado nada de esta lista."""
-
 COLUMNAS = ["Código", "Requisito", "Qué falta", "Por qué está pendiente", "Cómo se cierra", "Estado"]
 ANCHOS = [10, 34, 56, 64, 64, 14]
 

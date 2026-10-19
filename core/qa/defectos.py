@@ -1,5 +1,3 @@
-"""Registro de defectos: qué se encontró, cómo se corrigió y con qué prueba se repitió."""
-
 COLUMNAS = [
     "Código",
     "Fecha",
@@ -16,8 +14,6 @@ COLUMNAS = [
 ]
 ANCHOS = [10, 12, 26, 12, 56, 11, 52, 12, 52, 44, 36, 24]
 
-# Defectos reales que aparecieron al probar y preparar el despliegue. Un defecto solo pasa a «Cerrado» cuando la prueba
-# de repetición se ejecutó después de la corrección y aprobó; los demás quedan «Abierto» o «Mitigado» con su motivo.
 _FECHA = "2026-10-11"
 DEFECTOS = [
     {

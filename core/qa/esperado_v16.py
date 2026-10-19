@@ -1,5 +1,3 @@
-"""Resultado esperado (en español) de las pruebas de la versión 16."""
-
 ESPERADO = {
     "EvidenceUploadTests": {
         "a_file_is_uploaded_and_its_metadata_are_made_by_the_system": "Se sube un archivo y el sistema arma los metadatos (nombre original, tipo, tamaño y huella).",

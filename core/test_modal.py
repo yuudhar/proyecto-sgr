@@ -1,5 +1,3 @@
-"""Pruebas de los formularios en ventana modal (?modal=1) y de los enlaces que los abren."""
-
 import json
 
 from django.contrib.messages import get_messages
@@ -28,7 +26,6 @@ class ModalFormTests(PortalTestCase):
         self.assertContains(response, 'data-validate')
         self.assertContains(response, "csrfmiddlewaretoken")
         self.assertContains(response, "Nuevo beneficiario")
-        # solo el contenido de la ventana: nada de menú, barra superior ni pie de la página
         self.assertNotContains(response, "<html")
         self.assertNotContains(response, "app-shell")
         self.assertNotContains(response, "Saltar al contenido")
@@ -46,8 +43,8 @@ class ModalFormTests(PortalTestCase):
         self.assertContains(response, "Editar delegación")
         for text in ("Guardar", "Guardar y agregar otro", "Eliminar", "Cancelar"):
             self.assertContains(response, text)
-        self.assertContains(response, 'data-delete=')  # Eliminar pide confirmación con SweetAlert2
-        self.assertContains(response, 'data-lookup-open')  # el buscador del Encargado
+        self.assertContains(response, 'data-delete=')
+        self.assertContains(response, 'data-lookup-open')
         self.assertContains(response, 'type="color"')
 
     def test_without_modal_the_page_is_the_same_as_always(self):
@@ -65,7 +62,7 @@ class ModalFormTests(PortalTestCase):
         self.assertEqual(response.status_code, 200)
         self.assertEqual(response["X-Modal"], "form")
         self.assertContains(response, "is-invalid")
-        self.assertContains(response, "data-form-error", count=0)  # son errores de campo, no del formulario
+        self.assertContains(response, "data-form-error", count=0)
         self.assertFalse(Beneficiary.objects.filter(rut="12345678-5").exists())
         self.assertEqual(list(get_messages(response.wsgi_request)), [])
 
@@ -82,7 +79,6 @@ class ModalFormTests(PortalTestCase):
         self.assertEqual(beneficiary.name, "Pedro Pérez")
         log = AuditLog.objects.get(event="Registro creado", record_id=beneficiary.pk)
         self.assertEqual(log.user, admin)
-        # el aviso queda para la página que se recarga
         shown = [str(message) for message in get_messages(response.wsgi_request)]
         self.assertEqual(shown, [result["message"]])
         self.assertIn("Pedro Pérez", result["message"])
@@ -96,7 +92,7 @@ class ModalFormTests(PortalTestCase):
         self.assertTrue(result["saved"])
         self.assertTrue(result["again"])
         self.assertEqual(result["create_url"], reverse("core:beneficiarios_create"))
-        self.assertEqual(list(get_messages(response.wsgi_request)), [])  # no se repite arriba al recargar
+        self.assertEqual(list(get_messages(response.wsgi_request)), [])
 
     def test_editing_in_the_window_saves_and_audits_the_change(self):
         self.login_as("admin")
@@ -141,7 +137,7 @@ class ModalFormTests(PortalTestCase):
         self.assertEqual(Delegation.objects.get(pk=self.north.pk).managers, self.north.managers)
 
     def test_without_permission_the_window_gets_a_403_and_the_page_link_takes_over(self):
-        self.login_as("matias.cavieres")  # Funcionario: no administra beneficiarios... ni usuarios
+        self.login_as("matias.cavieres")
         response = self.modal(reverse("core:usuarios_create"))
         self.assertEqual(response.status_code, 403)
         self.assertNotIn("X-Modal", response)
@@ -152,7 +148,7 @@ class ModalFormTests(PortalTestCase):
         beneficiary.deleted_at = beneficiary.created_at
         beneficiary.save(update_fields=["deleted_at"])
         response = self.modal(reverse("core:beneficiarios_update", args=[beneficiary.pk]))
-        self.assertEqual(response.status_code, 302)  # a la ficha, con su aviso: el navegador lo toma como "no llegó"
+        self.assertEqual(response.status_code, 302)
         self.assertNotIn("X-Modal", response)
 
     def test_anonymous_users_are_sent_to_the_login(self):

@@ -1,9 +1,3 @@
-"""Mantenedores de las pantallas web: una clase Crud por modelo.
-
-Aquí se define qué columnas, búsquedas, filtros y campos de formulario tiene cada
-modelo, igual que en los admin.py de cada app. El motor está en core/crud.py.
-"""
-
 from pathlib import Path
 
 from django.contrib import messages
@@ -65,16 +59,10 @@ from planning.models import Adjustment, Goal, Indicator, Period
 
 
 def count_text(total, one, many):
-    """«1 meta» o «3 metas»."""
     return f"{total} {one if total == 1 else many}"
 
 
 def own_officer_defaults(request, *fields):
-    """Valores iniciales con el funcionario del usuario en los campos que se indiquen.
-
-    Solo si trabaja en la delegación de su funcionario: con otra delegación elegida en la franja de arriba, las listas
-    de funcionarios son las de esa delegación y su funcionario no está entre ellas.
-    """
     officer = request_officer(request)
     initial = {}
     if officer is not None:
@@ -86,7 +74,6 @@ def own_officer_defaults(request, *fields):
 
 
 def visible_activity(request, pk):
-    """Actividad con ese id solo si el usuario puede verla; None en otro caso."""
     if not is_id(pk):
         return None
     return (
@@ -99,7 +86,6 @@ def visible_activity(request, pk):
 
 
 def visible_beneficiary(request, pk):
-    """Beneficiario con ese id si el usuario puede verlo: tiene permiso sobre Beneficiarios o ya lo atendió."""
     if not is_id(pk):
         return None
     person = Beneficiary.objects.filter(pk=pk, deleted_at__isnull=True).first()
@@ -112,20 +98,13 @@ def visible_beneficiary(request, pk):
 
 
 def attention_type_name(activity):
-    """Tipo de atención de una actividad: su ítem padre o, si el ítem es un tipo, el ítem mismo."""
     item = activity.item
     return (item.parent_item or item).name
 
 
 def sub_attention_name(activity):
-    """Sub atención de una actividad: su ítem, si es una sub atención; si es un tipo, queda vacía."""
     item = activity.item
     return item.name if item.parent_item_id else ""
-
-
-# ---------------------------------------------------------------------------
-# Operación
-# ---------------------------------------------------------------------------
 
 
 @registry.register
@@ -138,8 +117,8 @@ class ActivityCrud(Crud):
     list_title = "Atención"
     gender = "f"
     description = "Atenciones y gestiones que cada funcionario registra en terreno."
-    list_redirect = "core:atencion"  # el listado es la pantalla Atención: ahí se busca, se filtra y se exporta
-    code_prefix = "ATN"  # el identificador de la atención (ATN00012) sale del id: no es una columna de la base de datos
+    list_redirect = "core:atencion"
+    code_prefix = "ATN"
     code_digits = 5
     code_label = "Identificador"
     list_display = (
@@ -178,8 +157,6 @@ class ActivityCrud(Crud):
         "delegation",
         "author_officer",
     )
-    # Ingreso de atención (Clase 8): al registrar una atención se pide solo lo que se sabe en ese momento; la fecha, la
-    # delegación y el responsable se completan solos. Editar usa el formulario completo de form_fields.
     create_form_base = ActivityIntakeForm
     create_fields = (
         "requester",
@@ -200,8 +177,6 @@ class ActivityCrud(Crud):
     help_texts = {
         "added_to_pipeline": "Marca la actividad para seguirla en el tubo de trabajo.",
     }
-    # «requester» es el solicitante del ingreso de atención; «contact_name», el mismo dato al editar. Los cuadros de varias
-    # líneas (descripción y acción) reciben la regla «text» solos (CrudForm.effective_rules).
     rules = {"phone": "phone", "requester": "label", "contact_name": "label"}
     form_base = ActivityEditForm
     delegation_lookup = "delegation"
@@ -212,11 +187,9 @@ class ActivityCrud(Crud):
 
     @property
     def new_label(self):
-        # El botón de crear abre el ingreso de atención (Clase 8), no un formulario de «actividad» en blanco.
         return "Registrar atención"
 
     def initial_values(self, request):
-        """Con ?beneficiary=<id> (el botón «Nueva» de una fila de Atención) el formulario parte con esa persona."""
         person = visible_beneficiary(request, request.GET.get("beneficiary", ""))
         if person is None:
             return {}
@@ -323,7 +296,6 @@ class CommitmentCrud(Crud):
 
 
 def suggest_evidence_code(request, activity):
-    """Código sugerido como EVD-NORTE-0003: delegación en mayúsculas y número correlativo."""
     delegation = activity.delegation if activity is not None else default_delegation(request)
     if delegation is None:
         return ""
@@ -357,11 +329,9 @@ class EvidenceCrud(Crud):
     search_fields = ("unique_code", "file_link", "activity__contact_name")
     list_filters = ("review_status",)
     select_related = ("activity", "author_officer")
-    # El estado de revisión no se edita aquí: cambia al validar la evidencia.
     form_base = EvidenceForm
     form_fields = ("activity", "unique_code", "file_link", "author_officer")
     full_width = ("file_link",)
-    # El código identifica a la evidencia en el repositorio y en las validaciones: no cambia.
     readonly_on_edit = ("unique_code",)
     rules = {"unique_code": "code"}
     help_texts = {
@@ -385,11 +355,8 @@ class EvidenceCrud(Crud):
 
     def prepare_object(self, request, obj, creating, form):
         super().prepare_object(request, obj, creating, form)
-        # Los metadatos los arma el sistema con el archivo recién subido.
         if "file_link" in form.changed_data:
             obj.metadata = uploads.describe_file(form.cleaned_data["file_link"])
-        # Si cambia lo que se revisó (el archivo o la actividad), la revisión
-        # anterior ya no vale: la evidencia vuelve a quedar pendiente.
         if not creating and obj.review_status != Evidence.ReviewStatus.PENDING:
             if {"file_link", "activity"} & set(form.changed_data):
                 obj.review_status = Evidence.ReviewStatus.PENDING
@@ -403,7 +370,6 @@ class EvidenceCrud(Crud):
             if not name:
                 return Cell(text="")
             if not obj.file_link.storage.exists(name):
-                # Registro anterior a la subida de archivos: solo quedó el nombre escrito.
                 return Cell(text=f"{Path(name).name} (el archivo no está en el sistema)")
             return Cell(
                 kind="file",
@@ -417,7 +383,7 @@ class EvidenceCrud(Crud):
 
     def extra_actions(self, request, obj):
         officer = request_officer(request)
-        own = officer is not None and obj.author_officer_id == officer.pk  # nadie revisa su propia evidencia
+        own = officer is not None and obj.author_officer_id == officer.pk
         if obj.deleted_at is None and not own and request.user.has_perm("evidence.add_validation"):
             return [
                 (
@@ -436,7 +402,6 @@ class ValidationCrud(Crud):
     icon = "bi-patch-check"
     gender = "f"
     description = "Historial de revisiones de las evidencias. Se agregan desde Validar evidencias."
-    # Las validaciones no se editan ni se archivan: una revisión nueva reemplaza a la anterior.
     allow_add = False
     allow_change = False
     archivable = False
@@ -451,11 +416,6 @@ class ValidationCrud(Crud):
     list_filters = ("decision",)
     select_related = ("evidence", "reviewer_officer")
     delegation_lookup = "evidence__activity__delegation"
-
-
-# ---------------------------------------------------------------------------
-# Planificación y seguimiento
-# ---------------------------------------------------------------------------
 
 
 @registry.register
@@ -571,7 +531,6 @@ class IndicatorCrud(Crud):
     )
     search_fields = ("goal__item__name", "goal__officer__name")
     form_base = IndicatorForm
-    # El semáforo no se elige: se calcula con el cumplimiento y los umbrales del período.
     form_fields = ("goal", "progress", "compliance", "weighting")
     bounds = {"progress": {"min": "0"}, "compliance": {"min": "0"}, "weighting": {"min": "0"}}
     help_texts = {
@@ -579,10 +538,6 @@ class IndicatorCrud(Crud):
     }
 
     def get_queryset(self, request, include_archived=False):
-        """Solo se ven los indicadores de metas de la delegación en que se trabaja (la de la franja de arriba).
-
-        Las metas por cargo (sin funcionario) las ven todas las delegaciones. Quien ve todas y no eligió una las ve todas.
-        """
         qs = super().get_queryset(request, include_archived)
         delegation = active_delegation(request)
         if delegation is None:
@@ -628,11 +583,6 @@ class AdjustmentCrud(Crud):
             obj.responsible_user = request.user
 
 
-# ---------------------------------------------------------------------------
-# Organización
-# ---------------------------------------------------------------------------
-
-
 @registry.register
 class DelegationCrud(Crud):
     model = Delegation
@@ -640,7 +590,7 @@ class DelegationCrud(Crud):
     icon = "bi-building"
     gender = "f"
     description = "Sectores en que se organiza el trabajo en terreno."
-    code_prefix = "DEL"  # el código (DEL01, DEL02...) sale del id: no es una columna de la base de datos
+    code_prefix = "DEL"
     list_display = (
         Col(CODE_COLUMN),
         Col("name", "Nombre", link=True),
@@ -678,11 +628,9 @@ class DelegationCrud(Crud):
     )
 
     def initial_values(self, request):
-        """Las delegaciones de la municipalidad parten en la comuna de La Serena; se puede cambiar."""
         return {"commune": "La Serena"}
 
     def archive_blockers(self, obj):
-        """Una delegación con funcionarios o territorios activos no se archiva: quedarían colgando de una archivada."""
         reasons = []
         officers = obj.officers.filter(deleted_at__isnull=True).count()
         if officers:
@@ -707,13 +655,12 @@ class TerritoryCrud(Crud):
     select_related = ("delegation",)
     form_fields = ("name", "delegation")
     rules = {"name": "label"}
-    unique_names = (("name", "delegation"),)  # un nombre se puede repetir en otra delegación, no en la misma
+    unique_names = (("name", "delegation"),)
     delegation_lookup = "delegation"
     related = (Related("agenda", "territory", "Compromisos"),)
 
 
 def officer_access_text(officer):
-    """Con qué usuario ingresa el funcionario, o «Sin acceso»."""
     account = getattr(officer, "user_profile", None)
     return account.user.get_username() if account is not None else "Sin acceso"
 
@@ -750,7 +697,6 @@ class OfficerCrud(Crud):
         return [("Acceso al sistema", Cell(text=text))]
 
     def after_save(self, request, obj, form, creating):
-        """Si en el formulario se llenó «Acceso al sistema», crea también la cuenta de esa persona."""
         if "username" not in form.fields or not form.wants_access():
             return
         data = form.cleaned_data
@@ -782,7 +728,7 @@ class PositionCrud(Crud):
     form_fields = ("name", "valid_from", "valid_until")
     rules = {"name": "label"}
     form_base = PositionForm
-    unique_names = (("name", "valid_from"),)  # un cargo puede volver a definirse con otra vigencia, no con la misma
+    unique_names = (("name", "valid_from"),)
     related = (Related("items-de-cargo", "position", "Ítems del cargo"),)
 
 
@@ -810,11 +756,6 @@ class PositionItemCrud(Crud):
     help_texts = {"max_cap": "Obligatorio en bonificaciones y penalizaciones."}
 
 
-# ---------------------------------------------------------------------------
-# Catálogos
-# ---------------------------------------------------------------------------
-
-
 @registry.register
 class ServiceCrud(Crud):
     model = Service
@@ -834,21 +775,14 @@ ITEM_STATES = {"active": "Activo", "inactive": "Inactivo"}
 
 
 def item_state(item):
-    """Estado de un ítem: no se guarda, sale de deleted_at (archivado = Inactivo)."""
     return "active" if item.deleted_at is None else "inactive"
 
 
 def item_class(item):
-    """«Tipo de atención» si el ítem no tiene padre y «Sub atención» si lo tiene."""
     return "Sub atención" if item.parent_item_id else "Tipo de atención"
 
 
 class ItemRules:
-    """Reglas de integridad de los ítems, comunes a los tres mantenedores (Ítems, Tipo de Atención y Sub Atención).
-
-    Un ítem es un tipo de atención (sin ítem padre) o una sub atención (con un tipo como padre). Antes de archivar
-    o cambiar un ítem se mira lo que depende de él, para no dejar registros colgando de algo que ya no está.
-    """
 
     def archive_blockers(self, obj):
         reasons = []
@@ -872,7 +806,6 @@ class ItemRules:
         return []
 
     def validate_form(self, form, cleaned):
-        """El padre es otro ítem que sea un tipo, y un ítem que ya tiene historia no cambia de padre."""
         if "parent_item" not in form.fields or form.has_error("parent_item"):
             return
         instance = form.instance
@@ -908,15 +841,14 @@ class ItemRules:
 
 
 class ItemColumns:
-    """Columnas y búsqueda que comparten los mantenedores de ítems."""
 
     gender = "m"
-    state_filter = True  # Filtrar estado: Activo / Inactivo, según deleted_at
+    state_filter = True
     computed = {"state": item_state, "item_class": item_class}
     computed_choices = {"state": ITEM_STATES}
     search_fields = ("name", "description", "parent_item__name")
     select_related = ("parent_item",)
-    unique_names = (("name", "parent_item"),)  # el nombre no se repite entre los hermanos (los tipos entre sí, las subs de un tipo)
+    unique_names = (("name", "parent_item"),)
     rules = {"name": "label", "description": "label"}
     form_fields = ("name", "description", "parent_item", "calculation_type")
     full_width = ("description",)
@@ -980,7 +912,6 @@ class ItemCrud(ItemRules, ItemColumns, Crud):
 
 @registry.register
 class AttentionTypeCrud(ItemRules, ItemColumns, Crud):
-    """Tipo de Atención: los ítems sin padre, con el número de sub atenciones activas que tiene cada uno."""
 
     model = Item
     slug = "tipos-de-atencion"
@@ -1003,7 +934,7 @@ class AttentionTypeCrud(ItemRules, ItemColumns, Crud):
     search_fields = ("name", "description")
     list_filters = ("calculation_type",)
     select_related = ()
-    form_base = ItemForm  # le da a la descripción su cuadro de varias líneas
+    form_base = ItemForm
     form_fields = ("name", "description", "calculation_type")
     help_texts = {
         "name": "Se distingue de los demás tipos aunque cambien las mayúsculas.",
@@ -1020,7 +951,6 @@ class AttentionTypeCrud(ItemRules, ItemColumns, Crud):
 
 @registry.register
 class SubAttentionCrud(ItemRules, ItemColumns, Crud):
-    """Sub Atención: los ítems que tienen un Tipo de Atención como padre."""
 
     model = Item
     slug = "sub-atenciones"
@@ -1041,7 +971,7 @@ class SubAttentionCrud(ItemRules, ItemColumns, Crud):
     )
     list_filters = ("parent_item", "calculation_type")
     form_base = SubAttentionForm
-    form_fields = ("name", "parent_item", "calculation_type")  # A1 no pide descripción en Sub Atención
+    form_fields = ("name", "parent_item", "calculation_type")
     detail_exclude = ("description",)
     search_fields = ("name", "parent_item__name")
     labels = {"parent_item": "Tipo de Atención asociado"}
@@ -1087,13 +1017,7 @@ class BeneficiaryCrud(Crud):
     related = (Related("actividades", "beneficiary", "Actividades"),)
 
 
-# ---------------------------------------------------------------------------
-# Sistema
-# ---------------------------------------------------------------------------
-
-
 def roles_text(user):
-    """Perfiles de un usuario en una línea: "Super Usuario" primero si lo es, y luego sus grupos."""
     names = sorted((group.name for group in user.groups.all()), key=sort_key)
     if user.is_superuser:
         names.insert(0, SUPERUSER_ROLE)
@@ -1101,25 +1025,20 @@ def roles_text(user):
 
 
 def officer_of(user):
-    """Funcionario vinculado a un usuario, o None."""
     profile = getattr(user, "profile", None)
     return profile.officer if profile is not None else None
 
 
 def full_name_text(user):
-    """Nombre y apellido del usuario; si no los tiene, el nombre de su funcionario."""
     officer = officer_of(user)
     return user.get_full_name() or (officer.name if officer else "")
 
 
 def sees_everything(user):
-    """True si el usuario ve todas las delegaciones: es Super Usuario o tiene un perfil activo con ese alcance."""
     return user.is_superuser or any(group_is_global(group) for group in user.groups.all())
 
 
 def delegation_text(user):
-    """Delegación del usuario: la de su funcionario (más cuántas otras puede elegir) o, si no tiene funcionario, «Todas»
-    cuando ve todas o las que se le agregaron."""
     officer = officer_of(user)
     extras = listed_extra_delegations(user)
     if officer is not None:
@@ -1132,7 +1051,6 @@ def delegation_text(user):
 
 
 def authorized_text(user):
-    """Delegaciones entre las que el usuario puede elegir en la franja de arriba, con su código: «DEL01 · Centro, ...»."""
     if sees_everything(user):
         return "Todas las delegaciones"
     found = {delegation.pk: delegation for delegation in listed_extra_delegations(user)}
@@ -1145,7 +1063,6 @@ def authorized_text(user):
 
 @registry.register
 class UserCrud(Crud):
-    """Control de usuarios: cuentas, perfiles y funcionario. Solo lo ve quien tiene permisos sobre usuarios."""
 
     model = User
     slug = "usuarios"
@@ -1154,7 +1071,7 @@ class UserCrud(Crud):
     title_plural = "Usuarios"
     list_title = "Control de usuarios"
     description = "Cuentas del sistema con su perfil y su delegación."
-    archivable = False  # un usuario no se archiva: se desactiva
+    archivable = False
     ordering = ("username",)
     list_display = (
         Col("username", "Usuario", link=True),
@@ -1177,7 +1094,7 @@ class UserCrud(Crud):
         "profile__officer__name",
         "profile__officer__delegation__name",
     )
-    search_distinct = True  # un usuario con varios perfiles saldría repetido
+    search_distinct = True
     list_filters = ("is_active", "groups")
     form_base = UserForm
     form_fields = (
@@ -1217,7 +1134,7 @@ class UserCrud(Crud):
         "email": "email",
         "first_name": "person_name",
         "last_name": "person_name",
-        "password1": "password",  # el navegador avisa; el servidor lo revisa accounts/validators.py
+        "password1": "password",
     }
 
     def extra_detail(self, obj):
@@ -1237,7 +1154,6 @@ class UserCrud(Crud):
         return f"{text} Todavía no ha ingresado."
 
     def prepare_object(self, request, obj, creating, form):
-        # Lo que había antes de guardar, para dejar en la auditoría los cambios de perfiles y funcionario.
         if not creating:
             profile = getattr(obj, "profile", None)
             form.before_roles = roles_text(obj)
@@ -1256,7 +1172,7 @@ class UserCrud(Crud):
                 "status": UserProfile.Status.ACTIVE if obj.is_active else UserProfile.Status.INACTIVE,
             },
         )
-        obj = User.objects.get(pk=obj.pk)  # con los perfiles ya guardados
+        obj = User.objects.get(pk=obj.pk)
         self.save_extra_delegations(request, obj, form, creating)
         if not creating:
             roles, officer_name = roles_text(obj), str(officer) if officer else ""
@@ -1272,10 +1188,6 @@ class UserCrud(Crud):
                 log_event(request.user, "Contraseña restablecida", obj)
 
     def save_extra_delegations(self, request, obj, form, creating):
-        """Guarda las delegaciones adicionales marcadas (tabla Usuario_Rol_Delegacion) y deja el cambio en la auditoría.
-
-        Se hace después de guardar los perfiles porque hay una fila por cada perfil del usuario y cada delegación.
-        """
         if "extra_delegations" not in form.cleaned_data:
             return
         selected = list(form.cleaned_data["extra_delegations"] or [])
@@ -1304,32 +1216,19 @@ ROLE_STATES = dict(RoleProfile.Status.choices)
 
 
 def role_scope(group):
-    """Alcance autorizado del rol: «Todas las delegaciones» o «Su delegación» (la de su funcionario).
-
-    Sale de la ficha del rol (accounts.RoleProfile), que se edita en este mantenedor; es lo que leen las reglas
-    de acceso (core/access.py). Los perfiles del sistema vienen con el alcance de fábrica: Coordinación ve todas.
-    """
     return ROLE_SCOPES[role_details(group).scope]
 
 
 def role_description(group):
-    """Qué puede hacer quien tiene el rol, tal como quedó escrito en su ficha."""
     return role_details(group).description
 
 
 def role_status(group):
-    """«active» o «inactive», según la ficha del rol."""
     return role_details(group).status
 
 
 @registry.register
 class RoleCrud(Crud):
-    """Roles y permisos: los perfiles (grupos de Django) con la matriz de lo que puede hacer cada uno.
-
-    Es el mantenedor de la Clase 7: el perfil agrupa permisos (ver, crear, editar y eliminar por módulo) y las
-    vistas preguntan a Django si el usuario los tiene. Un rol no tiene historia propia: se elimina de verdad,
-    salvo los perfiles del sistema y los que todavía tienen usuarios.
-    """
 
     model = Group
     slug = "roles"
@@ -1341,7 +1240,7 @@ class RoleCrud(Crud):
     code_prefix = "ROL"
     code_digits = 2
     archivable = False
-    deletable = True  # un rol no se archiva: se elimina si no está en uso
+    deletable = True
     ordering = ("name",)
     list_display = (
         Col(CODE_COLUMN),
@@ -1413,7 +1312,6 @@ class RoleCrud(Crud):
         return "Los roles no se archivan: se eliminan solo si ningún usuario los tiene."
 
     def panel_context(self, request, obj):
-        """Los permisos del rol como los muestra la ficha: una fila por módulo con las acciones que tiene."""
         granted = {}
         for permission in obj.permissions.select_related("content_type"):
             key, action = permission_key(permission)
@@ -1439,7 +1337,6 @@ class RoleCrud(Crud):
         }
 
     def prepare_object(self, request, obj, creating, form):
-        # Lo que tenía el rol antes de guardar (permisos y ficha), para dejar en la auditoría qué cambió.
         form.before_permissions = set() if creating else {permission_text(p) for p in obj.permissions.select_related("content_type")}
         form.before_details = None if creating else role_details(obj)
 
@@ -1451,7 +1348,6 @@ class RoleCrud(Crud):
         )
 
     def after_save(self, request, obj, form, creating):
-        # La descripción, el alcance y el estado van en la ficha del rol; el grupo de Django solo guarda el nombre.
         data = form.cleaned_data
         profile, _created = RoleProfile.objects.update_or_create(
             group=obj,

@@ -1,15 +1,3 @@
-"""Pruebas del A2: selector de delegaciones (contexto autorizado) y normas gráficas de La Serena.
-
-Parten de los datos de demostración (seed_demo_data). «supervision1» es una jefatura de la Delegación Norte con la
-Sur como delegación adicional; «matias.cavieres» solo tiene la Norte; «coordinacion1» ve todas.
-
-Clases que respaldan cada prueba:
-  - Clase 6 (autenticación y sesiones): la delegación elegida vive en la sesión y se reinicia al ingresar.
-  - Clase 7 (permisos y 403): el servidor vuelve a comprobar la delegación en cada petición; un id falsificado da 403.
-  - Clase 8 (CRUD protegido, formularios y SweetAlert2): los formularios usan la delegación activa y avisan si hay
-    cambios sin guardar.
-"""
-
 import struct
 import tempfile
 from io import BytesIO
@@ -32,7 +20,6 @@ from organization.models import Delegation, Officer, Territory
 
 
 class ContextTestCase(PortalTestCase):
-    """Datos comunes: una tercera delegación a la que nadie de las cuentas de demostración tiene acceso."""
 
     @classmethod
     def setUpTestData(cls):
@@ -49,7 +36,6 @@ class ContextTestCase(PortalTestCase):
         return html[start : html.index("</header>", start)]
 
     def select_options(self, header):
-        """Textos de las opciones del selector de delegación de la franja de arriba."""
         start = header.index('<select')
         end = header.index("</select>", start)
         import re
@@ -65,14 +51,12 @@ class ContextTestCase(PortalTestCase):
         )
 
     def two_delegation_worker(self, username="func.dos"):
-        """Un Funcionario de la Delegación Norte que también trabaja en la Sur."""
         user = self.make_user(username, ["Funcionario"], self.officer("F-1004"))
         sync_extra_delegations(user, [self.south])
         return user
 
 
 class AuthorizedDelegationsTests(ContextTestCase):
-    """A2: «Cuando el perfil permita varias delegaciones, el selector debe mostrar únicamente las autorizadas»."""
 
     def test_a_user_with_one_delegation_has_a_fixed_context_without_selector(self):
         self.login_as("matias.cavieres")
@@ -96,8 +80,8 @@ class AuthorizedDelegationsTests(ContextTestCase):
             ],
         )
         self.assertNotIn("Delegación Centro", header)
-        self.assertNotIn("Todas las delegaciones", header)  # sin alcance global no hay «Todas»
-        self.assertIn(f'<option value="{self.north.pk}" selected>', header)  # parte en la de su funcionario
+        self.assertNotIn("Todas las delegaciones", header)
+        self.assertIn(f'<option value="{self.north.pk}" selected>', header)
 
     def test_a_user_who_sees_everything_gets_all_the_delegations_and_starts_in_all(self):
         self.login_as("coordinacion1")
@@ -108,7 +92,7 @@ class AuthorizedDelegationsTests(ContextTestCase):
             ["todas", str(self.north.pk), str(self.south.pk), str(self.center.pk)],
         )
         self.assertIn('<option value="todas" selected>', header)
-        self.assertNotIn("topbar-code", header)  # mirando todas no hay un código de delegación
+        self.assertNotIn("topbar-code", header)
 
     def test_archived_and_inactive_delegations_are_not_offered(self):
         Delegation.objects.filter(pk=self.center.pk).update(deleted_at="2026-01-01T00:00:00Z")
@@ -118,7 +102,6 @@ class AuthorizedDelegationsTests(ContextTestCase):
 
         Delegation.objects.filter(pk=self.south.pk).update(status=Delegation.Status.INACTIVE)
         self.login_as("supervision1")
-        # La Sur sigue activa como delegación (inactiva no da acceso), así que solo queda la de su funcionario.
         self.assertNotIn("<select", self.header())
 
     def test_extra_rows_only_count_while_the_user_keeps_an_active_role(self):
@@ -130,7 +113,7 @@ class AuthorizedDelegationsTests(ContextTestCase):
         RoleProfile.objects.filter(group__name="Jefatura").update(status=RoleProfile.Status.ACTIVE)
 
         user.groups.remove(Group.objects.get(name="Jefatura"))
-        self.assertEqual(list(extra_delegations(user)), [])  # la fila queda guardada pero ya no da nada
+        self.assertEqual(list(extra_delegations(user)), [])
         self.assertTrue(UserRoleDelegation.objects.filter(user=user).exists())
 
     def test_the_list_version_agrees_with_the_query_version(self):
@@ -173,16 +156,15 @@ class AuthorizedDelegationsTests(ContextTestCase):
 
     def test_syncing_adds_removes_and_revives(self):
         user = self.make_user("sync.uno", ["Funcionario", "Verificador"], self.officer("F-1004"))
-        self.assertEqual(sync_extra_delegations(user, [self.south, self.center]), (4, 0))  # 2 roles x 2 delegaciones
-        self.assertEqual(sync_extra_delegations(user, [self.south, self.center]), (0, 0))  # repetir no cambia nada
+        self.assertEqual(sync_extra_delegations(user, [self.south, self.center]), (4, 0))
+        self.assertEqual(sync_extra_delegations(user, [self.south, self.center]), (0, 0))
         self.assertEqual(sync_extra_delegations(user, [self.south]), (0, 2))
         UserRoleDelegation.objects.filter(user=user).update(deleted_at="2026-01-01T00:00:00Z")
-        self.assertEqual(sync_extra_delegations(user, [self.south]), (2, 0))  # las archivadas se reviven
+        self.assertEqual(sync_extra_delegations(user, [self.south]), (2, 0))
         self.assertEqual(UserRoleDelegation.objects.filter(user=user, deleted_at__isnull=True).count(), 2)
 
 
 class SwitchContextTests(ContextTestCase):
-    """El servidor guarda la delegación elegida en la sesión y vuelve a comprobarla (Clases 6 y 7)."""
 
     def test_switching_saves_the_choice_in_the_session_and_audits_it(self):
         user = self.login_as("supervision1")
@@ -233,7 +215,6 @@ class SwitchContextTests(ContextTestCase):
             with self.subTest(forged=forged):
                 self.assertEqual(self.switch(forged).status_code, 403)
                 self.assertNotIn(SESSION_DELEGATION, self.client.session)
-        # Elegir la suya sí se acepta: no cambia nada.
         self.assertEqual(self.switch(self.north.pk).status_code, 302)
 
     def test_a_403_page_still_shows_the_header(self):
@@ -266,7 +247,7 @@ class SwitchContextTests(ContextTestCase):
         self.assertEqual(self.client.session[SESSION_DELEGATION], self.south.pk)
         scope = self.client.get(reverse("core:dashboard")).context["me_scope"]
         self.assertFalse(scope["viewing_all"])
-        self.assertTrue(scope["all"])  # sigue autorizado para ver todas
+        self.assertTrue(scope["all"])
         self.assertEqual(scope["note"], "Con acceso a todas las delegaciones")
 
         self.switch("todas")
@@ -302,7 +283,7 @@ class SwitchContextTests(ContextTestCase):
         user = self.login_as("supervision1")
         self.switch(self.south.pk)
         self.assertEqual(self.client.get(reverse("core:dashboard")).context["me_scope"]["name"], "Delegación Sur")
-        sync_extra_delegations(user, [])  # un administrador le quita la Sur mientras tiene la sesión abierta
+        sync_extra_delegations(user, [])
         response = self.client.get(reverse("core:atencion"))
         self.assertEqual(response.status_code, 200)
         self.assertEqual(self.contacts(response), self.contacts_of(self.north))
@@ -327,13 +308,10 @@ class SwitchContextTests(ContextTestCase):
         list_url = reverse("core:atencion")
         activity = Activity.objects.filter(delegation=self.north, deleted_at__isnull=True).first()
         cases = {
-            # La pantalla donde estaba, sin su búsqueda ni su página (eran de la delegación anterior).
             f"{list_url}?q=perez&page=3": list_url,
             reverse("core:actividades_create"): reverse("core:actividades_create"),
-            # Un registro de la delegación anterior puede no existir en la nueva: vuelve al listado.
             reverse("core:actividades_detail", args=[activity.pk]): list_url,
             reverse("core:actividades_update", args=[activity.pk]): list_url,
-            # Direcciones que no son del portal o que no existen: al inicio.
             "https://example.com/robo": reverse("core:dashboard"),
             "//example.com/robo": reverse("core:dashboard"),
             "/no-existe-esta-pagina/": reverse("core:dashboard"),
@@ -362,7 +340,6 @@ class SwitchContextTests(ContextTestCase):
 
 
 class ContextFollowsEverywhereTests(ContextTestCase):
-    """A2: «El cambio de contexto debe actualizar listados, filtros, exportaciones y formularios»."""
 
     def test_the_lists_follow_the_active_delegation(self):
         self.login_as("supervision1")
@@ -407,7 +384,6 @@ class ContextFollowsEverywhereTests(ContextTestCase):
         self.switch(self.south.pk)
         names = [spec.name for spec in self.client.get(url).context["filters"]]
         self.assertNotIn("delegation", names)
-        # Un filtro escrito a mano para otra delegación no deja ver nada de ella.
         response = self.client.get(url, {"delegation": self.north.pk})
         self.assertEqual(self.contacts(response), self.contacts_of(self.south))
 
@@ -521,7 +497,6 @@ class ContextFollowsEverywhereTests(ContextTestCase):
 
 
 class ContextInFormsTests(ContextTestCase):
-    """Los formularios usan la delegación activa: la fijan, acotan sus listas y la validan en el servidor."""
 
     def commitment_data(self, **changes):
         territory = Territory.objects.filter(delegation=self.south).first()
@@ -548,7 +523,6 @@ class ContextInFormsTests(ContextTestCase):
         self.switch(self.south.pk)
         form = self.client.get(reverse("core:actividades_create")).context["form"]
         self.assertNotIn("delegation", form.fields)
-        # El funcionario de esta persona es de la Norte: en la Sur hay que elegir un responsable de la Sur.
         self.assertIn("author_officer", form.fields)
         officers = set(form.fields["author_officer"].queryset.values_list("delegation_id", flat=True))
         self.assertEqual(officers, {self.south.pk})
@@ -587,16 +561,14 @@ class ContextInFormsTests(ContextTestCase):
         user = self.two_delegation_worker()
         self.client.force_login(user)
         south_officer = Officer.objects.filter(delegation=self.south, deleted_at__isnull=True).first()
-        # Trabajando en la Norte, intenta registrar en la Sur con un responsable de la Sur.
         data = self.intake_data(author_officer=south_officer.pk, delegation=self.south.pk)
         response = self.client.post(reverse("core:actividades_create"), data)
         saved = Activity.objects.get(contact_name="Rosa Prueba")
         self.assertEqual(response.status_code, 302)
-        self.assertEqual(saved.delegation, self.north)  # el servidor usa la delegación activa, no la del formulario
+        self.assertEqual(saved.delegation, self.north)
 
     def test_the_commitment_form_limits_its_lists_and_forces_the_delegation(self):
         user = self.make_user("agenda.dos", ["Funcionario", "Coordinación"], self.officer("F-1004"))
-        # Coordinación ve todas; elige la Sur y actúa ahí.
         self.client.force_login(user)
         self.switch(self.south.pk)
         form = self.client.get(reverse("core:agenda_create")).context["form"]
@@ -604,7 +576,6 @@ class ContextInFormsTests(ContextTestCase):
         self.assertEqual({o.delegation_id for o in form.fields["responsible_officer"].queryset}, {self.south.pk})
         self.assertEqual(list(form.fields["delegation"].queryset), [self.south])
         self.assertEqual(form.initial["delegation"], self.south.pk)
-        # No se propone su propio funcionario: es de la Norte y la lista es de la Sur.
         self.assertNotEqual(form.initial.get("responsible_officer"), user.profile.officer_id)
 
         response = self.client.post(reverse("core:agenda_create"), self.commitment_data(delegation=self.north.pk))
@@ -637,7 +608,6 @@ class ContextInFormsTests(ContextTestCase):
                 self.assertIn("data-unsaved-guard", html)
                 self.assertIn("core/js/context.js", html)
                 self.assertIn("data-context-select", html)
-        # Tras un error de validación el formulario llega con datos escritos: ya cuenta como con cambios.
         response = self.client.post(reverse("core:actividades_create"), {"requester": ""})
         self.assertContains(response, 'data-unsaved-guard="dirty"')
 
@@ -656,7 +626,6 @@ class ContextInFormsTests(ContextTestCase):
 
 
 class UserDelegationsFormTests(ContextTestCase):
-    """Control de usuarios: quién puede elegir qué delegaciones (tabla Usuario_Rol_Delegacion)."""
 
     def user_data(self, **changes):
         data = {
@@ -703,7 +672,6 @@ class UserDelegationsFormTests(ContextTestCase):
         self.assertIn(f"DEL{self.south.pk:02d} · Delegación Sur", log.new_value)
         self.assertIn("Delegación Centro", log.new_value)
 
-        # La persona puede elegir entre la suya (la del funcionario) y las dos adicionales.
         self.client.logout()
         self.client.force_login(user)
         values = [value for value, _ in self.select_options(self.header())]
@@ -738,7 +706,6 @@ class UserDelegationsFormTests(ContextTestCase):
         self.client.post(url, data)
         self.assertEqual(list(extra_delegations(user)), [])
         self.assertEqual(AuditLog.objects.filter(event="Delegaciones autorizadas modificadas").count(), 2)
-        # Guardar sin cambios no deja otro evento.
         self.client.post(url, data)
         self.assertEqual(AuditLog.objects.filter(event="Delegaciones autorizadas modificadas").count(), 2)
 
@@ -777,7 +744,7 @@ class UserDelegationsFormTests(ContextTestCase):
 
     def test_the_officers_own_delegation_is_not_saved_twice(self):
         self.login_as("admin")
-        data = self.user_data(extra_delegations=[self.north.pk, self.south.pk])  # F-1004 es de la Norte
+        data = self.user_data(extra_delegations=[self.north.pk, self.south.pk])
         self.assertEqual(self.client.post(reverse("core:usuarios_create"), data).status_code, 302)
         user = User.objects.get(username="ana.torres")
         self.assertEqual([d.pk for d in extra_delegations(user)], [self.south.pk])
@@ -835,7 +802,6 @@ class UserDelegationsFormTests(ContextTestCase):
 
 
 class LegacyBehaviourTests(ContextTestCase):
-    """Lo que no cambia con el selector: las reglas de siempre para quien no usa más de una delegación."""
 
     def test_a_global_user_with_an_officer_keeps_acting_in_the_officers_delegation_while_looking_at_all(self):
         user = self.make_user("coord.funcionario", ["Coordinación", "Funcionario"], self.officer("F-1002"))
@@ -846,7 +812,6 @@ class LegacyBehaviourTests(ContextTestCase):
         self.assertTrue(rows[north_activity.pk].edit_url)
         self.assertFalse(rows[south_activity.pk].edit_url)
         self.assertEqual(self.client.get(reverse("core:actividades_update", args=[south_activity.pk])).status_code, 403)
-        # Al elegir la Sur arriba, sí actúa ahí (y deja de poder cambiar los de la Norte).
         self.switch(self.south.pk)
         rows = {row.obj.pk: row for row in self.client.get(reverse("core:atencion")).context["rows"]}
         self.assertTrue(rows[south_activity.pk].edit_url)
@@ -859,7 +824,6 @@ class LegacyBehaviourTests(ContextTestCase):
         self.assertTrue(response.context["no_delegation"])
         self.assertEqual(response.context["me_scope"]["name"], "Sin delegación asignada")
         self.assertNotContains(response, "data-context-select")
-        # Y no puede elegir ninguna.
         self.assertEqual(self.switch(self.south.pk).status_code, 403)
 
     def test_a_user_with_only_extra_rows_and_no_officer_starts_in_the_first_one(self):
@@ -876,7 +840,6 @@ class LegacyBehaviourTests(ContextTestCase):
         user.save()
         self.client.force_login(user)
         self.switch(self.south.pk)
-        # El Admin no tiene selector: allí cada persona sigue trabajando en la delegación de su funcionario.
         response = self.client.get("/admin/operations/activity/")
         self.assertEqual(response.status_code, 200)
         contacts = {activity.contact_name for activity in response.context["cl"].result_list}
@@ -888,8 +851,6 @@ class LegacyBehaviourTests(ContextTestCase):
 
 
 class GraphicNormsTests(ContextTestCase):
-    """A2: normas gráficas oficiales de La Serena (tipografía, color y escudo) en login, recuperación, mantenedores,
-    ingreso de atención y SweetAlert2."""
 
     def css(self):
         return Path(finders.find("core/css/sgr.css")).read_text(encoding="utf-8")
@@ -902,7 +863,6 @@ class GraphicNormsTests(ContextTestCase):
         self.assertNotIn("Source Serif", css)
         self.assertNotIn("@font-face", css)
         self.assertNotIn("Georgia", css)
-        # Los títulos usan la misma familia, también los de SweetAlert2 y los de la ventana modal.
         self.assertIn("--font-title: var(--font-sans);", css)
         self.assertIn(".swal2-title {\n  font-family: var(--font-title);", css)
         self.assertIn(".swal2-popup {\n  font-family: var(--bs-body-font-family);", css)
@@ -930,9 +890,9 @@ class GraphicNormsTests(ContextTestCase):
     def test_the_official_arms_file_is_the_one_given_and_is_not_redrawn(self):
         path = Path(finders.find("core/img/escudo-la-serena.png"))
         data = path.read_bytes()
-        self.assertTrue(data.startswith(b"\x89PNG\r\n\x1a\n"))  # es el PNG oficial, no un dibujo hecho aquí
+        self.assertTrue(data.startswith(b"\x89PNG\r\n\x1a\n"))
         width, height = struct.unpack(">II", data[16:24])
-        self.assertEqual((width, height), (554, 554))  # tal como vino: sin recortar ni reescalar
+        self.assertEqual((width, height), (554, 554))
 
     def test_the_arms_appear_on_the_login_the_recovery_the_public_pages_and_the_header(self):
         login = self.client.get(reverse("core:login"))
@@ -956,10 +916,10 @@ class GraphicNormsTests(ContextTestCase):
     def test_the_arms_keep_their_proportions_and_free_space(self):
         css = self.css()
         block = css[css.index(".escudo {") : css.index("}", css.index(".escudo {"))]
-        self.assertIn("width: auto;", block)  # solo se fija el alto: nunca se deforma
+        self.assertIn("width: auto;", block)
         self.assertIn("object-fit: contain;", block)
-        self.assertIn("min-height:", block)  # nunca más chico que el mínimo
-        self.assertNotIn("filter", css[css.index("Escudo de La Serena") :][:1200])  # sin cambiarle los colores
+        self.assertIn("min-height:", block)
+        self.assertNotIn("filter", css[css.index(".escudo {") :][:1200])
 
     def test_the_institution_name_stays_in_the_header_and_the_footer(self):
         self.login_as("matias.cavieres")

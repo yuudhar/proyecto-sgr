@@ -1,11 +1,9 @@
-from io import StringIO
-
 from django.contrib.auth.models import User
-from django.core.management import call_command
 from django.test import TestCase
 from django.urls import reverse
 from django.utils import timezone
 
+from core.datos_prueba import cargar_datos_prueba
 from evidence.models import Evidence, Validation
 from operations.models import Activity
 from organization.models import Item, Officer
@@ -14,7 +12,7 @@ from organization.models import Item, Officer
 class AdminRegressionTests(TestCase):
     @classmethod
     def setUpTestData(cls):
-        call_command("seed_demo_data", stdout=StringIO())
+        cargar_datos_prueba()
 
     def login_as(self, username):
         user = User.objects.get(username=username)

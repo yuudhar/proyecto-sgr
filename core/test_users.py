@@ -1,5 +1,3 @@
-"""Pruebas de Control de usuarios: quién entra, crear, editar, contraseñas, perfiles y funcionario."""
-
 from io import BytesIO
 
 from django.contrib.auth.models import Group, User
@@ -20,7 +18,6 @@ class UserTestCase(PortalTestCase):
         return Group.objects.get(name=name).pk
 
     def user_data(self, **changes):
-        """Datos del formulario de un usuario nuevo y válido (ana.torres, de la delegación Norte)."""
         data = {
             "username": "ana.torres",
             "first_name": "Ana",
@@ -36,7 +33,6 @@ class UserTestCase(PortalTestCase):
         return {key: value for key, value in data.items() if value is not None}
 
     def edit_data(self, user, **changes):
-        """Datos de un usuario que ya existe, como los envía el formulario al guardar sin tocar nada."""
         profile = getattr(user, "profile", None)
         data = {
             "username": user.username,
@@ -110,7 +106,6 @@ class UserListTests(UserTestCase):
             set(cells),
             {"admin", "consulta1", "coordinacion1", "jefatura1", "matias.cavieres", "matias.quiroz", "supervision1"},
         )
-        # Columnas: usuario, nombre, correo, perfiles, delegación, activo, último ingreso
         self.assertEqual(cells["admin"][1:5], ["", "admin@sgr.example", "Super Usuario", "Todas las delegaciones"])
         self.assertEqual(
             cells["coordinacion1"][1:5],
@@ -128,7 +123,6 @@ class UserListTests(UserTestCase):
             cells["consulta1"][1:5],
             ["Consulta Norte", "consulta1@sgr.example", "Consulta", "Delegación Norte"],
         )
-        # Con delegaciones adicionales (A2) la columna dice cuántas otras puede elegir.
         self.assertEqual(
             cells["supervision1"][1:5],
             ["Supervisión Zonal", "supervision1@sgr.example", "Jefatura", "Delegación Norte y 1 más"],
@@ -158,7 +152,7 @@ class UserListTests(UserTestCase):
                     self.assertEqual(response.status_code, 200)
                     self.assertEqual(len(response.context["rows"]), 7)
         response = self.client.get(reverse("core:usuarios_list"), {"orden": "username", "dir": "desc"})
-        self.assertEqual(response.context["rows"][0].obj.username, "supervision1")  # la última por orden alfabético
+        self.assertEqual(response.context["rows"][0].obj.username, "supervision1")
 
     def test_the_excel_file_has_the_same_columns_and_never_the_password(self):
         self.login_as("admin")
@@ -187,11 +181,11 @@ class UserCreateTests(UserTestCase):
     def test_the_form_offers_the_profiles_and_only_free_active_officers(self):
         self.login_as("admin")
         response = self.client.get(reverse("core:usuarios_create"))
-        self.assertContains(response, 'class="role-name"', count=5)  # una casilla por perfil, con su descripción
+        self.assertContains(response, 'class="role-name"', count=5)
         for name in ("Coordinación", "Jefatura", "Funcionario", "Verificador", "Consulta"):
             self.assertContains(response, name)
         offered = {officer.institutional_id for officer in response.context["form"].fields["officer"].queryset}
-        self.assertEqual(offered, {"F-1002", "F-1004", "F-2002", "F-2004", "F-2005"})  # sin los que ya tienen usuario
+        self.assertEqual(offered, {"F-1002", "F-1004", "F-2002", "F-2004", "F-2005"})
         Officer.objects.filter(institutional_id="F-1004").update(status=Officer.Status.INACTIVE)
         response = self.client.get(reverse("core:usuarios_create"))
         offered = {officer.institutional_id for officer in response.context["form"].fields["officer"].queryset}
@@ -219,7 +213,7 @@ class UserCreateTests(UserTestCase):
         self.assertEqual(user.profile.status, UserProfile.Status.ACTIVE)
         log = AuditLog.objects.get(event="Registro creado", affected_entity="User", record_id=user.pk)
         self.assertEqual(log.user, admin)
-        self.assertEqual(log.new_value, "ana.torres")  # el nombre de la cuenta y nada más
+        self.assertEqual(log.new_value, "ana.torres")
 
     def test_the_new_user_can_log_in_and_only_sees_its_delegation(self):
         self.login_as("admin")
@@ -260,7 +254,7 @@ class UserCreateTests(UserTestCase):
 
     def test_the_email_cannot_repeat_even_with_other_capitals(self):
         self.login_as("admin")
-        response = self.create(email="MATIAS.CAVIERES@SGR.EXAMPLE")  # ya es de matias.cavieres
+        response = self.create(email="MATIAS.CAVIERES@SGR.EXAMPLE")
         self.assertEqual(response.status_code, 200)
         self.assertIn("Ese correo ya lo usa otro usuario", " ".join(response.context["form"].errors["email"]))
         self.assertFalse(User.objects.filter(username="ana.torres").exists())
@@ -279,7 +273,7 @@ class UserCreateTests(UserTestCase):
         self.assertIn("contraseña", message)
         self.assertFalse(User.objects.filter(username="ana.torres").exists())
 
-        response = self.create(password1="ana.torres2026", password2="ana.torres2026")  # se parece al nombre de usuario
+        response = self.create(password1="ana.torres2026", password2="ana.torres2026")
         self.assertIn("password1", response.context["form"].errors)
         self.assertFalse(User.objects.filter(username="ana.torres").exists())
 
@@ -305,7 +299,7 @@ class UserCreateTests(UserTestCase):
 
     def test_an_officer_can_only_belong_to_one_user(self):
         self.login_as("admin")
-        response = self.create(officer=self.officer("F-1001").pk)  # ya es de matias.cavieres
+        response = self.create(officer=self.officer("F-1001").pk)
         self.assertEqual(response.status_code, 200)
         self.assertIn("officer", response.context["form"].errors)
         self.assertFalse(User.objects.filter(username="ana.torres").exists())
@@ -342,7 +336,6 @@ class UserEditTests(UserTestCase):
         self.assertEqual(self.quiroz.email, "matias.quiroz@sgr.example")
 
     def test_an_old_account_without_email_can_still_be_edited(self):
-        # Una cuenta antigua sin correo no se bloquea: se puede desactivar o cambiar de perfil sin inventarle uno.
         User.objects.filter(pk=self.quiroz.pk).update(email="")
         self.quiroz.refresh_from_db()
         form = self.client.get(self.update_url(self.quiroz)).context["form"]
@@ -358,7 +351,6 @@ class UserEditTests(UserTestCase):
         self.assertIn("email", response.context["form"].errors)
 
     def test_a_repeated_email_does_not_block_editing_other_data_of_an_old_account(self):
-        # Dos cuentas antiguas con el mismo correo: solo se exige que sea distinto cuando se cambia el correo.
         User.objects.filter(pk=self.quiroz.pk).update(email="matias.cavieres@sgr.example")
         self.quiroz.refresh_from_db()
         response = self.client.post(self.update_url(self.quiroz), self.edit_data(self.quiroz, first_name="Matías"))
@@ -366,7 +358,7 @@ class UserEditTests(UserTestCase):
         response = self.client.post(
             self.update_url(self.quiroz), self.edit_data(self.quiroz, email="Matias.Cavieres@SGR.example")
         )
-        self.assertEqual(response.status_code, 302)  # sigue siendo el mismo correo (solo cambian las mayúsculas)
+        self.assertEqual(response.status_code, 302)
 
     def test_saving_without_changes_leaves_no_audit_entry(self):
         response = self.client.post(self.update_url(self.quiroz), self.edit_data(self.quiroz))
@@ -409,7 +401,7 @@ class UserEditTests(UserTestCase):
         self.assertTrue(self.quiroz.check_password("NuevaClave#2026"))
         log = AuditLog.objects.get(event="Contraseña restablecida", record_id=self.quiroz.pk)
         self.assertEqual(log.user, self.admin)
-        self.assertFalse(log.new_value)  # la contraseña no queda anotada
+        self.assertFalse(log.new_value)
         self.assertFalse(AuditLog.objects.filter(new_value__contains="NuevaClave").exists())
         self.assertFalse(AuditLog.objects.filter(new_value__contains="pbkdf2").exists())
 

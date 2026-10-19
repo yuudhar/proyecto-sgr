@@ -1,11 +1,3 @@
-"""Archivos que suben las personas: evidencias y fotos de perfil.
-
-Se aceptan pocos tipos, se revisa que el contenido corresponda a la extensión (no basta con el
-nombre) y se limita el tamaño. Los archivos se guardan en MEDIA_ROOT con un nombre propio, sin
-usar el que trae el computador de quien sube, y se entregan solo mediante una vista que revisa el
-permiso (core/views.py), nunca por una URL pública.
-"""
-
 import hashlib
 import uuid
 from pathlib import PurePath
@@ -16,9 +8,8 @@ from django.utils.text import slugify
 PDF = b"%PDF-"
 PNG = b"\x89PNG\r\n\x1a\n"
 JPEG = b"\xff\xd8\xff"
-ZIP = b"PK\x03\x04"  # los .docx y .xlsx son archivos zip
+ZIP = b"PK\x03\x04"
 
-# extensión -> (firma que debe tener el comienzo del archivo, tipo para el navegador, nombre corto)
 EVIDENCE_TYPES = {
     "pdf": (PDF, "application/pdf", "PDF"),
     "png": (PNG, "image/png", "Imagen PNG"),
@@ -29,7 +20,7 @@ EVIDENCE_TYPES = {
 }
 PHOTO_TYPES = {key: EVIDENCE_TYPES[key] for key in ("png", "jpg", "jpeg")}
 
-INLINE_TYPES = {"application/pdf", "image/png", "image/jpeg"}  # el navegador los muestra sin descargarlos
+INLINE_TYPES = {"application/pdf", "image/png", "image/jpeg"}
 
 
 def extension_of(name):
@@ -62,7 +53,6 @@ def accepted_text(types):
 
 
 def check_upload(uploaded, types, max_mb):
-    """Revisa extensión, tamaño y contenido de un archivo subido. Lanza ValidationError con el motivo."""
     extension = extension_of(uploaded.name)
     if extension not in types:
         raise ValidationError(
@@ -97,7 +87,6 @@ def sha256_of(uploaded):
 
 
 def describe_file(uploaded):
-    """Texto de metadatos que se guarda solo con la evidencia: nombre original, tipo, tamaño y huella."""
     return "\n".join(
         [
             f"Archivo original: {PurePath(uploaded.name).name}",
@@ -109,7 +98,6 @@ def describe_file(uploaded):
 
 
 def evidence_path(instance, filename):
-    """evidencias/2026/EV-0001-ab12cd34.pdf: el nombre lo arma el sistema."""
     from django.utils import timezone
 
     base = slugify(instance.unique_code or "evidencia") or "evidencia"

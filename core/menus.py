@@ -1,11 +1,3 @@
-"""Menú lateral: solo muestra lo que el usuario tiene permiso de abrir.
-
-Arriba van "Atención" y "Dashboard"; después, los grupos (Operación, Resultados y
-Administración). Cada entrada apunta a un mantenedor (por su slug en core/registry.py)
-o a una pantalla especial (por el nombre de su ruta). Las entradas sin permiso no se
-dibujan y los grupos que quedan vacíos tampoco.
-"""
-
 from dataclasses import dataclass, field
 
 from django.urls import reverse
@@ -26,10 +18,10 @@ class MenuItem:
 class MenuGroup:
     label: str
     icon: str
-    key: str = ""  # sirve para el id del bloque que se abre y se cierra
-    sections: list = field(default_factory=list)  # lista de (título de sección, [MenuItem])
-    active: bool = False  # contiene la pantalla actual
-    start_open: bool = True  # se muestra abierto al entrar, aunque no tenga la pantalla actual
+    key: str = ""
+    sections: list = field(default_factory=list)
+    active: bool = False
+    start_open: bool = True
 
     @property
     def items(self):
@@ -41,7 +33,6 @@ class MenuGroup:
 
 
 def crud_entry(slug, label=None):
-    """Entrada de un mantenedor; se muestra si el usuario puede ver ese modelo."""
 
     def build(user):
         crud = registry.get(slug)
@@ -53,7 +44,6 @@ def crud_entry(slug, label=None):
 
 
 def page_entry(route, label, icon, perm):
-    """Entrada de una pantalla especial; se muestra si el usuario tiene el permiso."""
 
     def build(user):
         if not user.has_perm(perm):
@@ -79,7 +69,6 @@ def dashboard_entry(user):
 
 
 def hub_item():
-    """Portada de Administración, que reúne todo lo que el usuario puede administrar."""
     return MenuItem(
         "Resumen",
         reverse("core:administration"),
@@ -88,13 +77,11 @@ def hub_item():
     )
 
 
-# Entradas de arriba, sin grupo.
 TOP = [
     page_entry("atencion", "Atención", "bi-headset", "operations.view_activity"),
     dashboard_entry,
 ]
 
-# (clave, nombre del grupo, ícono, abierto al entrar, [(título de sección, [entradas])])
 MENU = [
     (
         "operacion",
@@ -179,7 +166,6 @@ MENU = [
 
 
 def visible_entries(user):
-    """Las entradas de arriba y los grupos del menú, solo con lo que el usuario puede abrir."""
     top = [item for item in (build(user) for build in TOP) if item]
     groups = []
     for key, label, icon, start_open, sections in MENU:
@@ -196,7 +182,6 @@ def visible_entries(user):
 
 
 def build_menu(request):
-    """Menú del usuario con la entrada actual marcada (la de dirección más específica)."""
     top, groups = visible_entries(request.user)
     path = request.path
 

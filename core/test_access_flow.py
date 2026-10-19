@@ -1,10 +1,3 @@
-"""Pruebas del flujo de acceso: rutas de autenticación, ingreso, sesión, avisos y salida.
-
-Revisan lo que funciona (entrar con datos válidos, que la sesión recuerde un valor, que un aviso
-sobreviva a una redirección) y también lo que debe quedar bloqueado (un visitante anónimo en una
-ruta privada, una ruta privada después de cerrar sesión, un formulario sin token CSRF).
-"""
-
 import importlib.util
 import os
 import re
@@ -23,7 +16,6 @@ from organization.models import Beneficiary
 
 
 class AuthRoutesTests(PortalTestCase):
-    """django.contrib.auth.urls está incluido bajo /accounts/ y las pantallas son las del portal."""
 
     def test_django_auth_routes_are_available_under_accounts(self):
         expected = {
@@ -103,7 +95,6 @@ class AuthRoutesTests(PortalTestCase):
 
 
 class AccessFlowTests(PortalTestCase):
-    """Ingreso con datos buenos y con datos malos, y qué se ve en cada caso."""
 
     def test_valid_credentials_let_the_user_in(self):
         response = self.client.post(
@@ -159,12 +150,10 @@ class AccessFlowTests(PortalTestCase):
         self.login_as("admin")
         response = self.client.post(reverse("core:logout"), follow=True)
         self.assertContains(response, "Cerraste tu sesión.")
-        # El aviso se muestra una sola vez.
         self.assertNotContains(self.client.get(reverse("core:login")), "Cerraste tu sesión.")
 
 
 class NavigationTests(PortalTestCase):
-    """La pantalla cambia según quién la mira: visitante o persona con sesión."""
 
     def test_a_visitor_sees_the_login_link_and_no_user_menu(self):
         response = self.client.get("/esta-direccion-no-existe/")
@@ -182,13 +171,11 @@ class NavigationTests(PortalTestCase):
         self.assertNotContains(response, ">Ingresar</a>", status_code=404)
 
     def test_hiding_a_link_is_not_the_protection_the_view_still_refuses(self):
-        # Coordinación no ve «Actividades» en el menú, pero tampoco puede abrir la dirección a mano.
         self.login_as("coordinacion1")
         self.assertEqual(self.client.get(reverse("core:atencion")).status_code, 403)
 
 
 class SessionValueTests(PortalTestCase):
-    """request.session guarda valores simples y temporales que sobreviven entre solicitudes."""
 
     def test_dashboard_counts_visits_and_keeps_the_count_on_refresh(self):
         self.login_as("matias.cavieres")
@@ -224,7 +211,6 @@ class SessionValueTests(PortalTestCase):
         self.client.post(reverse("core:logout"))
         self.assertNotIn("dashboard_visits", self.client.session)
         self.assertNotIn("page_size", self.client.session)
-        # Al ingresar de nuevo todo parte de cero.
         self.client.post(reverse("core:login"), {"username": "admin", "password": PASSWORD})
         response = self.client.get(reverse("core:dashboard"))
         self.assertEqual(response.context["visits"], 1)
@@ -240,7 +226,6 @@ class SessionValueTests(PortalTestCase):
 
 
 class PageSizeTests(PortalTestCase):
-    """«Filas por página»: una preferencia temporal guardada en la sesión, con un aviso al cambiarla."""
 
     @classmethod
     def setUpTestData(cls):
@@ -320,10 +305,8 @@ class PageSizeTests(PortalTestCase):
 
 
 class EmailSettingsTests(SimpleTestCase):
-    """El correo se configura desde el .env: las credenciales nunca están escritas en el código."""
 
     def load_settings(self, **env):
-        """Carga settings.py otra vez con variables de entorno de prueba y devuelve el módulo."""
         path = settings.BASE_DIR / "sgr_project" / "settings.py"
         spec = importlib.util.spec_from_file_location("settings_de_prueba", path)
         module = importlib.util.module_from_spec(spec)
@@ -362,7 +345,6 @@ class EmailSettingsTests(SimpleTestCase):
         self.assertTrue(self.load_settings(EMAIL_USE_TLS="true").EMAIL_USE_TLS)
         self.assertTrue(self.load_settings(EMAIL_USE_TLS=" True ").EMAIL_USE_TLS)
         self.assertFalse(self.load_settings(EMAIL_USE_TLS="false").EMAIL_USE_TLS)
-        # Con SSL (puerto 465) el TLS se apaga solo: Django no deja activar los dos a la vez.
         module = self.load_settings(EMAIL_PORT="465", EMAIL_USE_SSL="True")
         self.assertTrue(module.EMAIL_USE_SSL)
         self.assertFalse(module.EMAIL_USE_TLS)
@@ -373,7 +355,6 @@ class EmailSettingsTests(SimpleTestCase):
             self.load_settings(EMAIL_PORT="abc")
 
     def test_the_example_env_has_the_mail_variables_blank(self):
-        # Copiarlo tal cual al .env deja el correo en la terminal: sin servidor ni credenciales.
         example = (Path(settings.BASE_DIR) / ".env.example").read_text(encoding="utf-8").splitlines()
         for line in ("EMAIL_HOST=", "EMAIL_HOST_USER=", "EMAIL_HOST_PASSWORD="):
             self.assertIn(line, example)

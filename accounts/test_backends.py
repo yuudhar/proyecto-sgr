@@ -1,5 +1,3 @@
-"""Pruebas del ingreso con el nombre de usuario o con el correo (accounts/backends.py)."""
-
 from django.contrib.auth import authenticate
 from django.contrib.auth.models import User
 from django.test import override_settings
@@ -7,7 +5,7 @@ from django.urls import reverse
 
 from core.testing import PASSWORD, PortalTestCase
 
-FAST_HASHER = ["django.contrib.auth.hashers.MD5PasswordHasher"]  # solo para que las pruebas corran rápido
+FAST_HASHER = ["django.contrib.auth.hashers.MD5PasswordHasher"]
 
 
 @override_settings(PASSWORD_HASHERS=FAST_HASHER)
@@ -57,14 +55,11 @@ class EmailOrUsernameLoginTests(PortalTestCase):
     def test_an_email_shared_by_two_accounts_does_not_let_anyone_in_by_email(self):
         User.objects.filter(username="matias.quiroz").update(email="matias.cavieres@sgr.example")
         self.assertRefused(self.login("matias.cavieres@sgr.example"))
-        # cada una sigue pudiendo ingresar con su usuario
         self.assertEntered(self.login("matias.cavieres"), "matias.cavieres")
         self.client.logout()
         self.assertEntered(self.login("matias.quiroz"), "matias.quiroz")
 
     def test_an_exact_username_wins_over_the_email_of_another_account(self):
-        # Alguien tiene como usuario el correo de otra persona: el usuario exacto gana, así que nadie le quita el
-        # ingreso a esa cuenta, y la otra persona no entra con ese texto (puede usar su usuario).
         User.objects.create_user("matias.cavieres@sgr.example", password="Otra123!xyz")
         self.assertRefused(self.login("matias.cavieres@sgr.example", PASSWORD))
         self.assertEntered(self.login("matias.cavieres@sgr.example", "Otra123!xyz"), "matias.cavieres@sgr.example")
@@ -73,7 +68,7 @@ class EmailOrUsernameLoginTests(PortalTestCase):
 
     def test_an_account_without_email_enters_only_with_its_username(self):
         User.objects.filter(username="matias.cavieres").update(email="")
-        self.assertRefused(self.login("matias.cavieres@sgr.example"))  # el correo que tenía ya no es suyo
+        self.assertRefused(self.login("matias.cavieres@sgr.example"))
         self.assertEntered(self.login("matias.cavieres"), "matias.cavieres")
 
     def test_the_session_and_the_last_login_are_set_like_with_the_username(self):

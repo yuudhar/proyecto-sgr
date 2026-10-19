@@ -1,4 +1,4 @@
-{# Perfiles de un usuario: una casilla por perfil con su descripción. #}
+
 <div class="roles-field{% if "is-invalid" in widget.attrs.class %} is-invalid{% endif %}" id="{{ widget.attrs.id }}" role="group" aria-labelledby="{{ widget.attrs.id }}_label" data-label="Perfiles" tabindex="-1">
   {% for group, options, index in widget.optgroups %}{% for option in options %}
   <div class="form-check role-option">

@@ -1,5 +1,3 @@
-"""Resultado esperado (en español) de las pruebas de ingreso, recuperación de contraseña y sesión."""
-
 ESPERADO = {
     "EmailOrUsernameLoginTests": {
         "the_username_still_works": "Ingresar con el nombre de usuario y la clave correcta abre la sesión.",

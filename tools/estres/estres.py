@@ -1,23 +1,4 @@
 #!/usr/bin/env python3
-"""Pruebas de estrés del SGR: concurrencia creciente sobre las operaciones integradas.
-
-Solo usa la biblioteca estándar de Python (no hay que instalar nada). Ejemplos:
-
-    # Ensayo local (servidor de desarrollo o gunicorn en tu equipo):
-    python tools/estres/estres.py --url http://127.0.0.1:8000 --etapas 1,2,5,10,20 --duracion 20 --medir-local
-
-    # Prueba definitiva contra AWS (etapas de 60 s):
-    python tools/estres/estres.py --url https://tu-sitio --etapas 1,5,10,20,40,60,80 --duracion 60 \\
-        --entorno "EC2 t3.small, gunicorn 4x2, SQLite, Redis local"
-
-Cada «usuario virtual» ingresa una vez y luego repite, sin pausa (o con --pausa segundos), una mezcla de operaciones:
-dashboard, búsqueda en Atención, listados con búsqueda, ficha, exportación a Excel y, con --escritura, el registro de
-una atención (deja filas con el contacto «[ESTRES]»; se borran con `manage.py cargar_volumen_estres --limpiar`
-si se cargó volumen, o desde Atención). Termina con una etapa de recuperación a 1 usuario.
-
-Escribe, en --salida: estres_<fecha>.json, estres_<fecha>.csv y estres_<fecha>.md. Los umbrales de aceptación se fijan
-ANTES de probar (ver docs/pruebas/estres/PLAN_ESTRES.md) y se pasan con --umbral-p95 y --umbral-errores.
-"""
 
 import argparse
 import csv
@@ -37,7 +18,6 @@ from datetime import datetime
 from pathlib import Path
 
 ESCENARIO = [
-    # (nombre, método, ruta, peso, categoría)
     ("Dashboard", "GET", "/dashboard/", 20, "lectura"),
     ("Atención: últimas", "GET", "/atencion/", 15, "lectura"),
     ("Atención: búsqueda", "GET", "/atencion/?q=Rosa", 15, "lectura"),
@@ -48,7 +28,6 @@ ESCENARIO = [
     ("Mi perfil", "GET", "/perfil/", 5, "lectura"),
     ("Exportar atenciones a Excel", "GET", "/actividades/?formato=xlsx", 4, "exportación"),
 ]
-# Perfil «admin»: recorre los mantenedores del A1 (necesita una cuenta de Super Usuario)
 ESCENARIO_ADMIN = [
     ("Dashboard", "GET", "/dashboard/", 10, "lectura"),
     ("CRUD Delegaciones: listado", "GET", "/delegaciones/", 10, "lectura"),
@@ -74,13 +53,12 @@ def percentil(valores, p):
 
 
 class Usuario(threading.Thread):
-    """Un usuario virtual con su propia sesión."""
 
     def __init__(self, base, usuario, clave, escenario, fin, pausa, medidas, verificar_tls, escritura, listo, salida):
         super().__init__(daemon=True)
         self.base, self.usuario, self.clave = base.rstrip("/"), usuario, clave
         self.escenario, self.fin, self.pausa, self.medidas = escenario, fin, pausa, medidas
-        self.listo, self.salida = listo, salida  # listo: este usuario ya ingresó; salida: se puede empezar a medir
+        self.listo, self.salida = listo, salida
         self.escritura = escritura
         jar = http.cookiejar.CookieJar()
         handlers = [urllib.request.HTTPCookieProcessor(jar)]
@@ -108,7 +86,7 @@ class Usuario(threading.Thread):
                 estado = r.status
         except urllib.error.HTTPError as e:
             contenido, estado = e.read(), e.code
-        except Exception as e:  # conexión rechazada, tiempo agotado...
+        except Exception as e:
             return 0, (time.perf_counter() - inicio) * 1000, b"", str(e)
         return estado, (time.perf_counter() - inicio) * 1000, contenido, ""
 
@@ -129,7 +107,6 @@ class Usuario(threading.Thread):
         return estado == 200 and any(c.name == "sessionid" for c in self.jar)
 
     def datos_atencion(self):
-        """Lee el formulario de «Registrar atención» y arma un envío válido (primer tipo con sub atención o sin ella)."""
         estado, _, html, _ = self.pedir("GET", "/actividades/nuevo/")
         if estado != 200:
             return None
@@ -155,7 +132,6 @@ class Usuario(threading.Thread):
         return datos
 
     def run(self):
-        # El ingreso (que cuesta CPU por el cifrado de la contraseña) se hace antes de medir: no cuenta en la etapa.
         entro = self.ingresar()
         self.listo.set()
         self.salida.wait()
@@ -172,7 +148,6 @@ class Usuario(threading.Thread):
                     self.medidas.append((nombre, estado, ms, time.time(), err))
                     continue
                 estado, ms, _, err = self.pedir("POST", ruta, datos)
-                # Un envío bueno redirige (302) y urllib lo sigue hasta una página 200.
             else:
                 estado, ms, _, err = self.pedir("GET", ruta)
             self.medidas.append((nombre, estado, ms, time.time(), err))
@@ -181,7 +156,6 @@ class Usuario(threading.Thread):
 
 
 def leer_local():
-    """Carga del equipo (solo Linux): carga promedio de 1 minuto y memoria disponible en %."""
     try:
         carga = float(Path("/proc/loadavg").read_text().split()[0])
         memoria = {l.split(":")[0]: int(l.split()[1]) for l in Path("/proc/meminfo").read_text().splitlines()}
@@ -192,7 +166,6 @@ def leer_local():
 
 
 def cpu_local():
-    """Porcentaje de CPU del equipo entre dos lecturas de /proc/stat (solo Linux)."""
     def leer():
         partes = [int(x) for x in Path("/proc/stat").read_text().splitlines()[0].split()[1:]]
         return sum(partes), partes[3] + partes[4]
@@ -213,7 +186,7 @@ def etapa(args, concurrencia, duracion, escenario):
     ]
     for u in usuarios:
         u.start()
-    for u in usuarios:  # todos ingresan primero; la medición parte cuando el último está listo
+    for u in usuarios:
         u.listo.wait(timeout=180)
     time.sleep(1)
     cpu = cpu_local() if args.medir_local else (lambda: None)

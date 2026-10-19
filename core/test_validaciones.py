@@ -1,14 +1,3 @@
-"""Pruebas de las validaciones de la v14: contraseñas, textos, números y fechas, en el servidor y en el navegador.
-
-Qué cubren:
-  - La política de contraseñas (accounts/validators.py) y su regla gemela para el navegador (core/rules.py).
-  - Que ningún campo de texto de ningún formulario quede sin regla: rechazan < y > y respetan el largo máximo.
-  - Los cuadros de varias líneas: regla «text», saltos de línea y largo máximo de 2000.
-  - Rangos de números (ponderadores, umbrales, tope máximo, número de gestión) y fechas con sentido.
-  - Que el navegador reciba los mismos límites (atributos min, max, maxlength y data-*).
-  - Que las expresiones regulares de Python y de JavaScript den el mismo veredicto (con Node, si está instalado).
-"""
-
 import json
 import re
 import shutil
@@ -27,7 +16,7 @@ from django.test import RequestFactory, SimpleTestCase
 from django.urls import reverse
 from django.utils import timezone
 
-import core.registry  # noqa: F401  (registra los mantenedores)
+import core.registry
 from accounts.forms import RecoveryPasswordForm
 from accounts.validators import PasswordPolicyValidator
 from core import rules
@@ -42,23 +31,17 @@ from planning.models import Goal, Period
 
 
 def portal_today():
-    """El día en la hora de Chile, la que usan las pantallas (de noche en Chile ya es «mañana» en UTC)."""
     with timezone.override(ZoneInfo(settings.PORTAL_TIME_ZONE)):
         return timezone.localdate()
 
 
 def input_tag(html, field):
-    """La etiqueta <input>, <textarea> o <select> del campo, tal como la recibe el navegador."""
     found = re.search(rf'<(?:input|textarea|select)\b[^>]*\bid="id_{field}"[^>]*>', html)
     assert found, f"No hay un campo id_{field} en la página"
     return found.group(0)
 
 
-# -- Contraseñas --------------------------------------------------------------------------------------------------
-
-
 class PasswordPolicyValidatorTests(SimpleTestCase):
-    """accounts/validators.py: largo máximo y variedad de caracteres, con mensajes que dicen qué falta."""
 
     def messages(self, password):
         try:
@@ -86,7 +69,7 @@ class PasswordPolicyValidatorTests(SimpleTestCase):
             with self.subTest(password=password):
                 found = self.messages(password)
                 self.assertTrue(any(expected in message for message in found), found)
-                self.assertEqual(len(found), 1, found)  # dice solo lo que falta, no todo
+                self.assertEqual(len(found), 1, found)
 
     def test_a_password_with_several_gaps_lists_all_of_them(self):
         found = self.messages("abcdefghij")
@@ -95,8 +78,8 @@ class PasswordPolicyValidatorTests(SimpleTestCase):
         self.assertFalse(any("minúscula" in message for message in found))
 
     def test_the_length_limit_is_128_characters(self):
-        self.assertEqual(self.messages("Aa1!" + "x" * 124), [])  # 128
-        found = self.messages("Aa1!" + "x" * 125)  # 129
+        self.assertEqual(self.messages("Aa1!" + "x" * 124), [])
+        found = self.messages("Aa1!" + "x" * 125)
         self.assertTrue(any("demasiado larga" in message and "129" in message for message in found), found)
 
     def test_a_short_password_is_still_stopped_by_the_minimum_length_validator(self):
@@ -128,7 +111,6 @@ class PasswordPolicyValidatorTests(SimpleTestCase):
 
 
 class PasswordRuleTests(SimpleTestCase):
-    """La regla «password» del navegador dice lo mismo que el validador del servidor."""
 
     SAMPLES = (
         "Hola123!", "admin12345", "HOLA123!", "hola123!", "Holahola!", "Hola1234", "Hola 1234", "Aa1!", "Aa1!xxxx",
@@ -149,7 +131,7 @@ class PasswordRuleTests(SimpleTestCase):
 
     def test_it_does_not_touch_what_was_typed_and_only_warns_in_the_browser(self):
         rule = rules.get_rule("password")
-        self.assertEqual(rule.apply("  Hola 123!  ")[0], "  Hola 123!  ")  # los espacios son parte de la clave
+        self.assertEqual(rule.apply("  Hola 123!  ")[0], "  Hola 123!  ")
         self.assertFalse(rule.server)
         attrs = rule.attrs()
         self.assertEqual(attrs["data-rule"], "password")
@@ -158,7 +140,6 @@ class PasswordRuleTests(SimpleTestCase):
 
 
 class PasswordFormsTests(UserTestCase):
-    """Los tres formularios que piden una contraseña nueva aplican la política."""
 
     def test_the_user_form_says_exactly_what_is_missing(self):
         self.login_as("admin")
@@ -223,7 +204,7 @@ class PasswordFormsTests(UserTestCase):
         self.login_as("admin")
         page = self.client.get(reverse("core:usuarios_create")).content.decode()
         self.assertIn('data-rule="password"', input_tag(page, "password1"))
-        self.assertNotIn("data-rule", input_tag(page, "password2"))  # la repetición solo se compara con la primera
+        self.assertNotIn("data-rule", input_tag(page, "password2"))
         self.login_as("matias.cavieres")
         page = self.client.get(reverse("core:profile")).content.decode()
         self.assertIn('data-rule="password"', input_tag(page, "new_password1"))
@@ -239,15 +220,11 @@ class PasswordFormsTests(UserTestCase):
         self.assertIn("Debe tener al menos 8 caracteres.", page)
 
     def test_accounts_created_before_the_policy_can_still_log_in(self):
-        weak = User.objects.create_user("antigua", password="clave123")  # creada por consola, saltándose el formulario
+        weak = User.objects.create_user("antigua", password="clave123")
         self.assertTrue(self.client.login(username=weak.username, password="clave123"))
 
 
-# -- Textos -----------------------------------------------------------------------------------------------------
-
-
 class FormFactory:
-    """Arma formularios de los mantenedores igual que lo hace la vista, con el Super Usuario."""
 
     def make_request(self):
         request = RequestFactory().get("/")
@@ -265,7 +242,6 @@ class FormFactory:
         return rules.get_rule(form.effective_rules()[field])
 
 
-# (mantenedor, campo, ¿al crear?, texto válido). Son los campos de texto que antes no tenían regla.
 TEXT_FIELDS = (
     ("actividades", "requester", True, "Junta de Vecinos N°5 (Las Rosas)"),
     ("actividades", "contact_name", False, "Rosa Prueba"),
@@ -291,7 +267,6 @@ TEXT_FIELDS = (
 
 
 class TextFieldsTests(FormFactory, PortalTestCase):
-    """Todos los campos de texto rechazan < y >, y aceptan texto normal."""
 
     def test_every_text_field_rejects_angle_brackets_with_the_message_of_its_rule(self):
         for slug, field, creating, _valid in TEXT_FIELDS:
@@ -328,8 +303,7 @@ class TextFieldsTests(FormFactory, PortalTestCase):
         self.assertEqual(form.errors["managers"], [rules.get_rule("person_name").message])
 
     def test_no_text_field_of_any_form_is_left_without_a_rule(self):
-        """Protege a los mantenedores futuros: un campo de texto nuevo sin regla hace fallar esta prueba."""
-        exempt = {("usuarios", "password2"), ("funcionarios", "password2")}  # la repetición de la contraseña solo se compara con la primera
+        exempt = {("usuarios", "password2"), ("funcionarios", "password2")}
         for crud in registry.all():
             for creating in (True, False) if crud.create_form_base else (True,):
                 form = self.form_for(crud.slug, None, creating)
@@ -364,7 +338,6 @@ class TextFieldsTests(FormFactory, PortalTestCase):
 
 
 class LongTextTests(FormFactory, PortalTestCase):
-    """Cuadros de varias líneas: regla «text», saltos de línea y largo máximo."""
 
     def test_a_long_text_box_has_a_limit_in_the_server_and_in_the_browser(self):
         form = self.form_for("agenda", None)
@@ -381,7 +354,7 @@ class LongTextTests(FormFactory, PortalTestCase):
                 self.assertEqual("description" not in form.errors, valid)
 
     def test_line_breaks_count_as_one_character_like_in_the_browser(self):
-        text = "a\r\n" * 900  # 900 líneas: el navegador lo cuenta como 1.800 caracteres y el servidor lo recibe con 2.700
+        text = "a\r\n" * 900
         form = self.form_for("agenda", {"description": text})
         form.is_valid()
         self.assertNotIn("description", form.errors)
@@ -448,11 +421,7 @@ class LongTextTests(FormFactory, PortalTestCase):
         self.assertEqual(form.fields["result"].widget.attrs["data-rule"], "label")
 
 
-# -- Números ---------------------------------------------------------------------------------------------------
-
-
 class NumberRangesTests(FormFactory, PortalTestCase):
-    """Rangos de los números: el servidor los exige y el navegador los recibe como min y max."""
 
     def setUp(self):
         self.login_as("admin")
@@ -567,11 +536,7 @@ class NumberRangesTests(FormFactory, PortalTestCase):
         self.assertIn('max="100"', input_tag(page, "weight"))
 
 
-# -- Fechas ----------------------------------------------------------------------------------------------------
-
-
 class DateRulesTests(FormFactory, PortalTestCase):
-    """Fechas con sentido entre sí y con la fecha de la atención, en el servidor y en el navegador."""
 
     def setUp(self):
         self.login_as("admin")
@@ -581,7 +546,6 @@ class DateRulesTests(FormFactory, PortalTestCase):
     def day(self, days):
         return (self.today + timedelta(days=days)).isoformat()
 
-    # Compromisos
     def commitment_data(self, **changes):
         data = {
             "requester": "Junta de vecinos",
@@ -630,7 +594,6 @@ class DateRulesTests(FormFactory, PortalTestCase):
         self.assertIn('data-not-before="id_request_date"', due_tag)
         self.assertIn("data-not-before-message", due_tag)
 
-    # Cargos e ítems de cargo
     def test_the_validity_of_a_position_ends_after_it_starts(self):
         data = {"name": "Cargo con vigencia", "valid_from": self.day(-10), "valid_until": self.day(-11)}
         response = self.client.post(reverse("core:cargos_create"), data)
@@ -661,7 +624,6 @@ class DateRulesTests(FormFactory, PortalTestCase):
             with self.subTest(url=url):
                 self.assertIn(f'data-not-before="id_{start}"', input_tag(page, end))
 
-    # Actividad
     def test_an_activity_cannot_be_dated_in_the_future(self):
         activity = self.activity_
         url = reverse("core:actividades_update", args=[activity.pk])
@@ -679,7 +641,6 @@ class DateRulesTests(FormFactory, PortalTestCase):
     def test_the_demo_activities_are_not_in_the_future(self):
         self.assertFalse(Activity.objects.filter(date__gt=self.today).exists())
 
-    # Gestiones
     def followup_data(self, **changes):
         data = {
             "activity": self.activity_.pk,
@@ -746,11 +707,7 @@ class DateRulesTests(FormFactory, PortalTestCase):
             self.assertIn('data-not-before="id_visit_date"', input_tag(page, field))
 
 
-# -- El navegador ---------------------------------------------------------------------------------------------
-
-
 class BrowserScriptTests(SimpleTestCase):
-    """validation.js entiende lo que el servidor le entrega."""
 
     def script(self):
         path = settings.BASE_DIR / "core" / "static" / "core" / "js" / "validation.js"

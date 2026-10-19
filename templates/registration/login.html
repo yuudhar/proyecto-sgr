@@ -1,12 +1,12 @@
 {% extends "registration/auth_base.html" %}
-{# Es la plantilla que usa LoginView por defecto (registration/login.html). #}
+
 {% block title %}Ingresar{% endblock %}
 {% block auth_title %}Ingresar{% endblock %}
 {% block auth_lead %}Usa la cuenta que te entregó Coordinación.{% endblock %}
 
 {% block auth_body %}
 <form method="post" data-once data-validate>
-  {# Sin este token Django rechaza el formulario (protección CSRF). #}
+
   {% csrf_token %}
   <input type="hidden" name="next" value="{{ next }}">
   <div class="mb-3">

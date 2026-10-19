@@ -7,4 +7,4 @@ class AccountsConfig(AppConfig):
     verbose_name = "Cuentas y perfiles"
 
     def ready(self):
-        from . import signals  # noqa: F401  (conecta la creación de la ficha de cada rol)
+        from . import signals

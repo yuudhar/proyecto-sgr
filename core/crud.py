@@ -1,20 +1,3 @@
-"""Motor de las pantallas de gestión (listado, ficha, formulario y archivo).
-
-Cada modelo se describe una sola vez con una clase Crud (ver core/registry.py),
-parecido a un ModelAdmin pero con pantallas propias en Bootstrap. Las reglas de
-acceso son las mismas del Django Admin:
-
-- cada acción pide el permiso del modelo (view, add, change y delete);
-- quien no es superusuario ni de Coordinación solo ve registros de su delegación;
-- «Eliminar» pide el permiso delete del modelo: los registros con historia se archivan con deleted_at
-  (y se pueden restaurar) y los que no la tienen (los perfiles) se borran de verdad, con confirmación;
-- antes de archivar o eliminar se revisan las relaciones: un registro en uso no se toca;
-- las listas desplegables de los formularios se acotan a la delegación.
-
-Todos los listados traen búsqueda por palabras (core/search.py), filtros, orden,
-paginador y el botón para exportar lo que se ve a Excel (core/export.py).
-"""
-
 import inspect
 import re
 from dataclasses import dataclass, replace
@@ -40,28 +23,23 @@ from core.forms import CrudForm
 from core.models import BaseModel
 from core.search import word_pattern
 
-PAGE_SIZE = 20  # filas por página si la persona no eligió otra cosa
-PAGE_SIZES = (10, 20, 50)  # opciones del selector «Filas por página»
-SESSION_PAGE_SIZE = "page_size"  # clave de request.session donde queda lo que eligió
-RELATED_LIMIT = 25  # filas que muestra cada tabla de registros relacionados en una ficha
-SEARCH_WORDS = 10  # palabras de la búsqueda que se usan; el resto se ignora
-CODE_COLUMN = "__code__"  # columna del código del registro (DEL01, ROL02...); se calcula con su id
-STATE_FILTER = "estado"  # nombre del filtro Activo / Inactivo de los mantenedores con state_filter
+PAGE_SIZE = 20
+PAGE_SIZES = (10, 20, 50)
+SESSION_PAGE_SIZE = "page_size"
+RELATED_LIMIT = 25
+SEARCH_WORDS = 10
+CODE_COLUMN = "__code__"
+STATE_FILTER = "estado"
 STATE_ACTIVE = "activo"
 STATE_INACTIVE = "inactivo"
-MAX_CODE_NUMBER_DIGITS = 9  # un número más largo no es un código: no se busca como id
+MAX_CODE_NUMBER_DIGITS = 9
 
 
 def is_id(text):
-    """True si el texto es un número escrito solo con dígitos 0-9 (un id válido en la URL)."""
     return re.fullmatch(r"[0-9]+", str(text)) is not None
 
 
 def number_in_code(word, prefix):
-    """El número de un código escrito en la búsqueda ("del02", "DEL2" -> 2); None si la palabra no es un código.
-
-    Sirve para encontrar un registro por su código aunque el código no se guarde: se calcula con el id.
-    """
     if not prefix:
         return None
     found = re.fullmatch(rf"{re.escape(prefix)}0*([0-9]{{1,{MAX_CODE_NUMBER_DIGITS}}})", word.strip(), re.IGNORECASE)
@@ -69,39 +47,26 @@ def number_in_code(word, prefix):
 
 
 def version_of(obj):
-    """Marca de la última modificación de un registro.
-
-    El formulario de edición la lleva escondida; si al guardar ya no coincide, alguien
-    más modificó el registro mientras se editaba. Un modelo sin updated_at (los usuarios
-    de Django) no la lleva y no revisa esto.
-    """
     stamp = getattr(obj, "updated_at", None)
     return stamp.isoformat() if stamp else ""
 
 
-# ---------------------------------------------------------------------------
-# Datos que se pasan a las plantillas
-# ---------------------------------------------------------------------------
-
-
 @dataclass
 class Cell:
-    """Un valor ya formateado para mostrarlo en una tabla o en una ficha."""
 
-    kind: str = "text"  # text, badge, bool, number, color
+    kind: str = "text"
     text: str = ""
     tone: str = ""
     icon: str = ""
-    color: str = ""  # solo en kind="color": un #RRGGBB ya validado
+    color: str = ""
     link: bool = False
-    url: str = ""  # solo en kind="file": dónde descargar el archivo
-    preview: bool = False  # solo en kind="file": es una imagen y se muestra en pequeño
-    together: bool = False  # una sola palabra corta (un código, un RUT): no se parte en dos líneas
+    url: str = ""
+    preview: bool = False
+    together: bool = False
 
 
 @dataclass
 class Row:
-    """Una fila de tabla: el objeto, sus celdas y los enlaces de sus acciones."""
 
     obj: object
     cells: list
@@ -111,13 +76,12 @@ class Row:
     restore_url: str = ""
     delete_url: str = ""
     archived: bool = False
-    archive_blocked: str = ""  # por qué no se puede archivar (vacío si se puede)
-    delete_blocked: str = ""  # por qué no se puede eliminar (vacío si se puede)
+    archive_blocked: str = ""
+    delete_blocked: str = ""
 
 
 @dataclass
 class Column:
-    """Columna ya resuelta: etiqueta, tipo y la clave con que se puede ordenar."""
 
     path: str
     label: str
@@ -125,12 +89,11 @@ class Column:
     sort_key: str = ""
     link: bool = False
     sort_url: str = ""
-    sort_dir: str = ""  # "asc" o "desc" si la lista está ordenada por esta columna
+    sort_dir: str = ""
 
 
 @dataclass
 class FilterSpec:
-    """Un filtro del listado: nombre, opciones y valor elegido."""
 
     name: str
     label: str
@@ -140,10 +103,9 @@ class FilterSpec:
 
 @dataclass
 class Related:
-    """Tabla de registros relacionados que se muestra en la ficha de un objeto."""
 
-    crud: str  # slug del Crud relacionado
-    field: str  # campo del modelo relacionado que apunta al objeto de la ficha
+    crud: str
+    field: str
     title: str
     columns: tuple = ()
 
@@ -158,18 +120,7 @@ class RelatedBlock:
     add_label: str = ""
 
 
-# ---------------------------------------------------------------------------
-# Columnas
-# ---------------------------------------------------------------------------
-
-
 class Col:
-    """Columna del listado: un campo del modelo o una ruta como "item__name".
-
-    kind puede ser text, badge, bool, date, datetime, number, percent, color o code; si no se
-    indica, se deduce del campo. sort=False desactiva el orden por esa columna.
-    La ruta CODE_COLUMN es la columna del código del registro (ver Crud.code_prefix).
-    """
 
     def __init__(self, path, label=None, sort=None, kind=None, link=False):
         self.path = path
@@ -180,7 +131,6 @@ class Col:
 
 
 def field_for_path(model, path_):
-    """Último campo de una ruta como "activity__delegation"; None si no es un campo."""
     current = model
     found = None
     for part in path_.split("__"):
@@ -210,10 +160,6 @@ def detect_kind(model_field):
 
 
 def get_raw(obj, path_):
-    """Valor de una ruta como "author_officer__name" (None si algún paso es nulo o no existe).
-
-    Si un paso es un método sin parámetros ("get_full_name"), se llama.
-    """
     if path_ == "__str__":
         return str(obj)
     value = obj
@@ -222,107 +168,90 @@ def get_raw(obj, path_):
             return None
         try:
             value = getattr(value, part)
-        except ObjectDoesNotExist:  # una relación uno a uno que no existe (un usuario sin perfil)
+        except ObjectDoesNotExist:
             return None
         if inspect.ismethod(value):
             value = value()
     return value
 
 
-# ---------------------------------------------------------------------------
-# Descripción de un mantenedor
-# ---------------------------------------------------------------------------
-
-
 class Crud:
-    """Describe las pantallas de un modelo. Se subclasea en core/registry.py."""
 
     model = None
     slug = ""
     icon = "bi-folder2"
 
-    # Textos. Si no se indican, salen del nombre del modelo.
     title = None
     title_plural = None
     list_title = None
     description = ""
-    gender = "m"  # "m" o "f": para decir "creado" o "creada"
+    gender = "m"
 
-    # Listado (el orden por defecto es el del modelo)
     list_display = ()
     search_fields = ()
-    search_distinct = False  # True si alguna búsqueda cruza una relación de varios (un grupo, por ejemplo)
+    search_distinct = False
     list_filters = ()
     select_related = ()
     prefetch_related = ()
-    ordering = ()  # orden por defecto del listado, si no se quiere el del modelo
-    computed = {}  # nombre de columna -> función que calcula su valor a partir del registro
-    computed_choices = {}  # columna calculada que se muestra como insignia -> {valor: texto}
-    state_filter = False  # agrega el filtro «Estado» (Activo / Inactivo) según deleted_at, como en los diseños
+    ordering = ()
+    computed = {}
+    computed_choices = {}
+    state_filter = False
 
-    # Código del registro (DEL01, ROL02...): no es una columna, se calcula con el id y se puede buscar.
     code_prefix = ""
     code_digits = 2
     code_label = "Código"
 
-    # Formulario
-    form_base = CrudForm  # se cambia en un mantenedor que necesite reglas propias
+    form_base = CrudForm
     form_fields = ()
-    # Un formulario de alta distinto del de edición (el ingreso de atención pide menos datos que su edición).
     create_fields = None
     create_form_base = None
     create_heading = ""
     create_save_label = "Guardar"
-    create_add_another = True  # ofrece «Guardar y agregar otro» al crear
-    unique_names = ()  # campos de texto que no pueden repetirse sin distinguir mayúsculas; ("name", "delegation") = dentro de la misma delegación
-    full_width = ()  # campos que ocupan todo el ancho del formulario
-    readonly_on_edit = ()  # campos que se piden al crear y después ya no se pueden cambiar
+    create_add_another = True
+    unique_names = ()
+    full_width = ()
+    readonly_on_edit = ()
     help_texts = {}
-    show_id = False  # el formulario muestra el id del registro arriba (solo lectura)
-    rules = {}  # campo -> nombre de la regla de formato de core/rules.py (RUT, teléfono, correo...)
-    bounds = {}  # campo -> {"min": ..., "max": ...}: límites que el navegador avisa antes de enviar (el servidor los repite)
-    labels = {}  # campo -> etiqueta, cuando debe decir otra cosa que el nombre del campo en el modelo
-    detail_exclude = ()  # campos del modelo que la ficha no muestra
+    show_id = False
+    rules = {}
+    bounds = {}
+    labels = {}
+    detail_exclude = ()
 
-    # Permisos y alcance
-    delegation_lookup = None  # ruta hacia la delegación, como en el Admin
+    delegation_lookup = None
     allow_add = True
     allow_change = True
-    archivable = True  # «Eliminar» archiva el registro (borrado lógico): necesita el permiso delete del modelo
-    deletable = False  # «Eliminar» borra de verdad (un modelo sin historia, como los perfiles); también pide delete
+    archivable = True
+    deletable = False
 
-    # Ficha: tablas de registros relacionados y, si hace falta, un bloque propio debajo de los datos
     related = ()
-    detail_panel = ""  # plantilla que se agrega a la ficha; sus datos salen de panel_context
-    list_redirect = ""  # nombre de otra ruta que hace de listado de este modelo (Actividades se ve en Atención)
+    detail_panel = ""
+    list_redirect = ""
 
     def __init__(self):
         meta = self.model._meta
         self.title = self.title or ui.initial_capital(meta.verbose_name)
         self.title_plural = self.title_plural or ui.initial_capital(meta.verbose_name_plural)
         self.list_title = self.list_title or self.title_plural
-        # Los modelos que heredan de BaseModel se archivan; los demás (los usuarios) no.
         self.soft_delete = issubclass(self.model, BaseModel)
         self.columns = self.resolve_columns(self.list_display)
         self._form_class = None
         self._create_form_class = None
 
     def label_of(self, model_field, fallback=""):
-        """Etiqueta de un campo: la de `labels` si se indicó, y si no la del modelo."""
         if model_field is not None and model_field.name in self.labels:
             return self.labels[model_field.name]
         if model_field is not None:
             return ui.initial_capital(model_field.verbose_name)
         return fallback
 
-    # -- columnas ---------------------------------------------------------
 
     def resolve_columns(self, specs):
         columns = []
         for spec in specs:
             col = spec if isinstance(spec, Col) else Col(spec)
             if col.path == CODE_COLUMN:
-                # El código sale del id: ordenar por código es ordenar por id.
                 columns.append(
                     Column(
                         path=CODE_COLUMN,
@@ -361,10 +290,8 @@ class Crud:
             columns[0].link = True
         return columns
 
-    # -- direcciones ------------------------------------------------------
 
     def route_name(self, action):
-        """Nombre de la ruta dentro de core/urls.py, como "actividades_list"."""
         return f"{self.slug.replace('-', '_')}_{action}"
 
     def url(self, action, pk=None):
@@ -375,7 +302,6 @@ class Crud:
             return reverse(name)
         return reverse(name, args=[pk])
 
-    # -- permisos ---------------------------------------------------------
 
     def perm(self, action):
         meta = self.model._meta
@@ -388,87 +314,57 @@ class Crud:
         return self.allow_add and self.has_perm(user, "add")
 
     def can_archive(self, user):
-        """Archivar y restaurar son parte de «Eliminar»: piden el permiso delete del modelo, no el de editar."""
         return self.archivable and self.has_perm(user, "delete")
 
     def can_delete(self, user):
-        """Borrar de verdad (solo los mantenedores con deletable) también pide el permiso delete."""
         return self.deletable and self.has_perm(user, "delete")
 
     def in_own_delegation(self, request, obj):
-        """True si el registro es de la delegación en la que trabaja el usuario.
-
-        Es la delegación activa (la que eligió en la franja de arriba o, si no eligió, la de su funcionario). El
-        superusuario y los mantenedores sin delegación no se limitan. Lanza PermissionDenied si el usuario no
-        tiene delegación, con el mismo mensaje que usa el Admin.
-        """
         if request.user.is_superuser or not self.delegation_lookup:
             return True
         delegation = request_delegation(request)
         return delegation_id_of(obj, self.delegation_lookup) == delegation.pk
 
     def can_change_object(self, request, obj):
-        """Misma regla que has_change_permission del Admin.
-
-        Además del permiso del modelo, quien no es superusuario solo puede
-        modificar registros de su propia delegación. Lanza PermissionDenied si el
-        usuario no tiene funcionario (y por lo tanto delegación).
-        """
         if not self.allow_change or not self.has_perm(request.user, "change"):
             return False
         return self.in_own_delegation(request, obj)
 
     def can_archive_object(self, request, obj):
-        """Permiso delete del modelo y, además, que el registro sea de la delegación del usuario."""
         return self.can_archive(request.user) and self.in_own_delegation(request, obj)
 
     def can_delete_object(self, request, obj):
         return self.can_delete(request.user) and self.in_own_delegation(request, obj)
 
     def can_edit(self, request, obj):
-        """Igual que can_change_object, pero responde False en vez de lanzar PermissionDenied.
-
-        Sirve para decidir qué botones mostrar sin romper la pantalla.
-        """
         try:
             return self.can_change_object(request, obj)
         except PermissionDenied:
             return False
 
     def can_archive_here(self, request, obj):
-        """can_archive_object sin lanzar PermissionDenied: decide si se muestra el botón Archivar o Restaurar."""
         try:
             return self.can_archive_object(request, obj)
         except PermissionDenied:
             return False
 
     def can_delete_here(self, request, obj):
-        """can_delete_object sin lanzar PermissionDenied: decide si se muestra el botón Eliminar."""
         try:
             return self.can_delete_object(request, obj)
         except PermissionDenied:
             return False
 
-    # -- integridad: qué impide archivar, restaurar o eliminar ------------
 
     def archive_blockers(self, obj):
-        """Motivos (textos) por los que el registro no se puede archivar; una lista vacía si se puede.
-
-        Se redefine en cada mantenedor que tiene registros que dependen de otros (un tipo de atención con
-        sub atenciones activas, por ejemplo). Lo revisa el servidor al archivar y la pantalla lo avisa antes.
-        """
         return []
 
     def restore_blockers(self, obj):
-        """Motivos por los que un registro archivado no se puede restaurar todavía."""
         return []
 
     def delete_blockers(self, obj):
-        """Motivos por los que el registro no se puede eliminar de verdad (un perfil del sistema, uno con usuarios)."""
         return []
 
     def duplicate_message(self, label, archived):
-        """Frase cuando el nombre ya existe sin distinguir mayúsculas; archived dice si el que existe está archivado."""
         if archived:
             return (
                 f"Ya existe un registro con ese {label}, pero está archivado. "
@@ -477,31 +373,22 @@ class Crud:
         return f"Ya existe un registro con ese {label}, aunque cambien las mayúsculas o los espacios."
 
     def validate_form(self, form, cleaned):
-        """Reglas de negocio entre campos de un formulario de este mantenedor; se agregan con form.add_error."""
+        pass
 
     def filter_choices(self, request, name, model_field):
-        """Opciones de un filtro del listado, como lista de (valor, texto); None usa las de siempre.
-
-        Sirve para mostrar solo una parte de los registros (en Sub Atención el filtro ofrece solo tipos).
-        """
         return None
 
     def panel_context(self, request, obj):
-        """Datos de la plantilla detail_panel de la ficha."""
         return {}
 
-    # -- código -----------------------------------------------------------
 
     def code_of(self, obj):
-        """Código del registro con su prefijo y su id (DEL02, ROL01...); vacío si el mantenedor no los usa."""
         if not self.code_prefix or obj.pk is None:
             return ""
         return f"{self.code_prefix}{obj.pk:0{self.code_digits}d}"
 
-    # -- consultas --------------------------------------------------------
 
     def get_queryset(self, request, include_archived=False):
-        """Registros que el usuario puede ver (misma regla de get_queryset del Admin)."""
         qs = self.model._default_manager.all()
         if self.select_related:
             qs = qs.select_related(*self.select_related)
@@ -510,7 +397,6 @@ class Crud:
         if self.soft_delete and not include_archived:
             qs = qs.filter(deleted_at__isnull=True)
         if self.delegation_lookup:
-            # Solo quien ve todas las delegaciones y no eligió una en la franja de arriba recibe todos los registros.
             delegation = active_delegation(request)
             if delegation is not None:
                 qs = qs.filter(**{self.delegation_lookup: delegation})
@@ -520,16 +406,6 @@ class Crud:
         return self.soft_delete and obj.deleted_at is not None
 
     def apply_search(self, qs, text):
-        """Busca cada palabra en alguno de los search_fields.
-
-        Todas las palabras deben aparecer (en el mismo campo o en distintos). No importan las
-        mayúsculas ni las tildes ("nunez" encuentra a "Núñez") y un RUT se encuentra se escriba
-        con o sin puntos y guion; ver core/search.py. Si el mantenedor tiene códigos, "DEL02" encuentra
-        el registro con ese código.
-
-        Solo se usan las primeras SEARCH_WORDS palabras: cada una agrega condiciones a la
-        consulta y un texto larguísimo la dejaría demasiado grande para la base de datos.
-        """
         words = text.split()[:SEARCH_WORDS]
         for word in words:
             pattern = word_pattern(word)
@@ -538,25 +414,23 @@ class Crud:
                 condition |= models.Q(**{f"{name}__iregex": pattern})
             number = number_in_code(word, self.code_prefix)
             if number is not None:
-                condition |= models.Q(pk=number)  # el código no se guarda: "DEL02" busca el registro de id 2
+                condition |= models.Q(pk=number)
             qs = qs.filter(condition)
         if words and self.search_distinct:
             qs = qs.distinct()
         return qs
 
     def filter_field(self, name):
-        """Campo de un filtro. Puede ser una ruta, como «role_profile__status» (el estado en la ficha de un rol)."""
         found = field_for_path(self.model, name)
         if found is None:
             raise FieldDoesNotExist(f"{self.model.__name__} no tiene el campo «{name}» para filtrar.")
         return found
 
     def build_filters(self, request):
-        """Filtros del listado con sus opciones; ignora valores que no sean opciones válidas."""
         specs = []
         for name in self.list_filters:
             if name == "delegation" and self.delegation_lookup and active_delegation(request) is not None:
-                continue  # con una delegación activa todo el listado es de ella: el filtro no tendría qué elegir
+                continue
             model_field = self.filter_field(name)
             options = self.filter_choices(request, name, model_field)
             if options is not None:
@@ -600,7 +474,6 @@ class Crud:
             if not spec.selected:
                 continue
             if spec.name == STATE_FILTER:
-                # El estado sale de deleted_at: Activo es no archivado e Inactivo es archivado.
                 qs = qs.filter(deleted_at__isnull=spec.selected == STATE_ACTIVE)
                 continue
             model_field = self.filter_field(spec.name)
@@ -611,7 +484,6 @@ class Crud:
         return qs
 
     def scope_summary(self, request):
-        """«Delegación: DEL02 · Delegación Norte» si el listado se limita a una delegación; vacío si trae todas."""
         if not self.delegation_lookup:
             return ""
         delegation = active_delegation(request)
@@ -620,7 +492,6 @@ class Crud:
         return f"Delegación: {registry.get('delegaciones').code_of(delegation)} · {delegation.name}"
 
     def filter_summary(self, text, filters, archived):
-        """Texto con la búsqueda y los filtros aplicados, para el encabezado del archivo de Excel."""
         parts = []
         if text:
             parts.append(f"Búsqueda: «{text}»")
@@ -631,10 +502,8 @@ class Crud:
             parts.append("incluye archivados")
         return "; ".join(parts) if parts else "Sin filtros"
 
-    # -- celdas y filas ---------------------------------------------------
 
     def raw_value(self, obj, path_):
-        """Valor de una columna: el código, el calculado si la columna es de `computed`, y si no, el del modelo."""
         if path_ == CODE_COLUMN:
             return self.code_of(obj)
         if path_ in self.computed:
@@ -642,7 +511,6 @@ class Crud:
         return get_raw(obj, path_)
 
     def badge_label(self, column, raw):
-        """Texto de una insignia: el de las opciones del campo del modelo o, en una columna calculada, el de computed_choices."""
         model_field = field_for_path(self.model, column.path)
         if model_field is not None:
             return str(dict(model_field.flatchoices).get(raw, raw))
@@ -670,11 +538,9 @@ class Crud:
             return Cell(kind="number", text=f"{ui.fmt_number(raw)} %")
         if kind == "color":
             text = str(raw)
-            # Solo un #RRGGBB exacto llega a la muestra de color; cualquier otro valor se muestra como texto.
             return Cell(kind="color", text=text, color=text if HEX_COLOR.fullmatch(text) else "")
         if isinstance(raw, str) and column.path != "__str__":
-            return Cell(text=raw)  # texto escrito por el usuario: se muestra tal cual
-        # El nombre de un registro (Actividad, Período, Meta) lleva la fecha en formato ISO.
+            return Cell(text=raw)
         return Cell(text=ui.humanize_dates(raw))
 
     def make_row(self, request, obj, columns=None, actions=True):
@@ -682,11 +548,8 @@ class Crud:
         cells = [self.make_cell(obj, c) for c in columns]
         for column, cell in zip(columns, cells, strict=True):
             cell.link = column.link
-            # La columna que lleva el enlace nunca queda vacía: si el campo no tiene
-            # texto (un contacto sin nombre, por ejemplo) se muestra el nombre del registro.
             if column.link and not cell.text:
                 cell.text = ui.humanize_dates(obj)
-            # Un texto corto (una fecha, un RUT, "Delegación Norte") o un nombre con enlace no se parte en dos líneas.
             cell.together = cell.kind == "text" and (
                 len(cell.text) <= 18 or (column.link and len(cell.text) <= 26)
             )
@@ -699,7 +562,6 @@ class Crud:
         if actions:
             if not row.archived and self.can_edit(request, obj):
                 row.edit_url = self.url("update", obj.pk)
-            # Archivar, restaurar y eliminar piden el permiso delete del modelo; los botones solo salen si se tiene.
             if self.can_archive_here(request, obj):
                 if row.archived:
                     row.restore_url = self.url("restore", obj.pk)
@@ -712,10 +574,6 @@ class Crud:
         return row
 
     def detail_cells(self, obj):
-        """Pares (etiqueta, celda) para la ficha: los campos del modelo en su orden.
-
-        Cada valor se muestra igual que en el listado cuando el modelo lo tiene como columna.
-        """
         listed = {column.path: column for column in self.columns}
         skip = {"id", "created_at", "updated_at", "deleted_at", *self.detail_exclude}
         pairs = []
@@ -732,11 +590,9 @@ class Crud:
         return pairs
 
     def extra_detail(self, obj):
-        """Pares (etiqueta, celda) que se agregan al final de la ficha. Se redefine por modelo."""
         return []
 
     def record_meta(self, obj):
-        """Línea de abajo de la ficha: cuándo se creó, se cambió o se archivó el registro."""
         text = (
             f"Creado el {ui.fmt_datetime(obj.created_at)}. "
             f"Última actualización el {ui.fmt_datetime(obj.updated_at)}."
@@ -745,10 +601,8 @@ class Crud:
             text += f" Archivado el {ui.fmt_datetime(obj.deleted_at)}."
         return text
 
-    # -- exportación a Excel ----------------------------------------------
 
     def export_value(self, obj, column):
-        """Valor de una celda para Excel: números y fechas conservan su tipo; el resto sale como texto."""
         raw = self.raw_value(obj, column.path)
         if raw is None or raw == "":
             return ""
@@ -765,7 +619,6 @@ class Crud:
             return raw
         return ui.humanize_dates(raw)
 
-    # -- formularios ------------------------------------------------------
 
     @property
     def form_class(self):
@@ -776,7 +629,6 @@ class Crud:
         return self._form_class
 
     def form_class_for(self, creating):
-        """Formulario de alta si el mantenedor tiene uno propio (el ingreso de atención) y, si no, el de siempre."""
         if not creating or self.create_form_base is None:
             return self.form_class
         if self._create_form_class is None:
@@ -788,51 +640,35 @@ class Crud:
         return self._create_form_class
 
     def initial_for(self, request):
-        """Valores iniciales al crear. Acepta ?campo=id para claves foráneas.
-
-        Así, desde la ficha de una actividad se abre el formulario de gestión con la
-        actividad ya elegida. El formulario igual valida que el usuario pueda usarla.
-        """
         initial = {}
         for name in self.create_fields or self.form_fields:
             value = request.GET.get(name, "")
-            # Un campo del formulario que no es del modelo (el solicitante del ingreso de atención) no se llena así.
             model_field = field_for_path(self.model, name)
             if is_id(value) and model_field is not None and model_field.is_relation:
                 initial[name] = value
         return initial
 
     def initial_values(self, request):
-        """Valores iniciales propios de cada modelo; se redefine en core/registry.py."""
         return {}
 
     def extra_actions(self, request, obj):
-        """Botones extra en la ficha: lista de (texto, url, ícono). Se redefine por modelo."""
         return []
 
     def prepare_object(self, request, obj, creating, form):
-        """Último ajuste antes de guardar; la delegación nunca la decide el formulario.
-
-        Es la delegación en la que trabaja la persona (la del selector de la franja de arriba). Solo el superusuario
-        que no eligió ninguna puede elegirla en el formulario.
-        """
         if self.delegation_lookup and hasattr(obj, "delegation_id"):
             delegation = request_delegation(request)
             if delegation is not None:
                 obj.delegation = delegation
 
     def after_save(self, request, obj, form, creating):
-        """Trabajo extra justo después de guardar, dentro de la misma transacción."""
+        pass
 
-    # -- textos -----------------------------------------------------------
 
     @property
     def new_label(self):
-        """Texto de los botones para crear: "Nueva actividad", "Nuevo servicio"."""
         return f"{'Nueva' if self.gender == 'f' else 'Nuevo'} {self.title.lower()}"
 
     def say(self, kind, obj):
-        """Frase de confirmación en femenino o masculino: "Servicio «Vivienda» creado."."""
         words = {
             "created": ("creado", "creada"),
             "updated": ("actualizado", "actualizada"),
@@ -842,20 +678,12 @@ class Crud:
         }
         word = words[kind][1 if self.gender == "f" else 0]
         name = ui.humanize_dates(obj)
-        # Si el nombre del registro ya empieza con el del tipo ("Actividad 2026-10-06 · ..."),
-        # se omite para no repetirlo en la frase.
         if name.lower().startswith(self.title.split()[0].lower()):
             return f"{self.title} {word}."
         return f"{self.title} «{name}» {word}."
 
 
-# ---------------------------------------------------------------------------
-# Registro de mantenedores
-# ---------------------------------------------------------------------------
-
-
 class Registry:
-    """Guarda los Crud por slug y arma sus direcciones."""
 
     def __init__(self):
         self._by_slug = {}
@@ -876,7 +704,6 @@ class Registry:
         for crud in self.all():
             slug = crud.slug
             if crud.list_redirect:
-                # La dirección antigua del listado sigue viva y lleva a la pantalla que lo reemplazó.
                 patterns.append(
                     path(
                         f"{slug}/",
@@ -940,16 +767,10 @@ class Registry:
 registry = Registry()
 
 
-# ---------------------------------------------------------------------------
-# Vistas
-# ---------------------------------------------------------------------------
-
-
 class CrudView(LoginRequiredMixin, View):
-    """Base de las vistas: exige sesión iniciada y el permiso del modelo."""
 
     crud = None
-    action = "view"  # permiso que pide la vista: view, add o change
+    action = "view"
 
     def dispatch(self, request, *args, **kwargs):
         if request.user.is_authenticated and not self.crud.has_perm(request.user, self.action):
@@ -957,12 +778,10 @@ class CrudView(LoginRequiredMixin, View):
         return super().dispatch(request, *args, **kwargs)
 
     def get_object(self, request, pk):
-        """Busca el registro solo entre los que el usuario puede ver (404 si no)."""
         queryset = self.crud.get_queryset(request, include_archived=True)
         return get_object_or_404(queryset, pk=pk)
 
     def breadcrumbs(self, *extra):
-        # Cada elemento es (texto, dirección); el texto ya viene listo para mostrarse.
         trail = [("Inicio", reverse("core:dashboard"))]
         if self.crud.has_perm(self.request.user, "view"):
             trail.append((self.crud.list_title, self.crud.url("list")))
@@ -971,7 +790,6 @@ class CrudView(LoginRequiredMixin, View):
 
 
 def query_string(request, drop=(), **updates):
-    """Parámetros actuales de la URL con cambios, para armar enlaces de orden y páginas."""
     params = request.GET.copy()
     for key in drop:
         params.pop(key, None)
@@ -985,35 +803,27 @@ def query_string(request, drop=(), **updates):
 
 
 def page_size_of(request):
-    """Filas por página de los listados: las que la persona eligió en esta sesión, o PAGE_SIZE.
-
-    La elección se guarda en request.session (ver set_page_size en core/views.py). Aquí se revisa
-    otra vez contra PAGE_SIZES por si la sesión trajera otro valor.
-    """
     size = request.session.get(SESSION_PAGE_SIZE)
     return size if size in PAGE_SIZES else PAGE_SIZE
 
 
 class CrudListView(CrudView):
-    """Listado con búsqueda, filtros, orden, paginador y descarga a Excel (?formato=xlsx)."""
 
     template_name = "core/crud/list.html"
-    columns = None  # otro conjunto de columnas distinto del mantenedor (lo usa Atención)
-    export_title = ""  # título y nombre del Excel si no son los del mantenedor
+    columns = None
+    export_title = ""
     export_slug = ""
 
     def get_columns(self, request):
         return self.columns if self.columns is not None else self.crud.columns
 
     def extra_context(self, request):
-        """Datos que una pantalla basada en este listado agrega a la plantilla."""
         return {}
 
     def get(self, request):
         crud = self.crud
         columns = self.get_columns(request)
         filters = crud.build_filters(request)
-        # Con el filtro Estado en «Inactivo» se listan los archivados, igual que con «Incluir archivados».
         state = next((spec.selected for spec in filters if spec.name == STATE_FILTER), "")
         archived = crud.soft_delete and (request.GET.get("archivados") == "1" or state == STATE_INACTIVE)
         qs = crud.get_queryset(request, include_archived=archived)
@@ -1087,9 +897,8 @@ class CrudListView(CrudView):
         return render(request, self.template_name, context)
 
     def download(self, request, qs, columns, summary):
-        """Descarga en Excel lo mismo que muestra el listado (con su búsqueda, filtros y orden)."""
         crud = self.crud
-        scope = crud.scope_summary(request)  # el archivo dice de qué delegación son las filas
+        scope = crud.scope_summary(request)
         if scope:
             summary = f"{scope}. {summary}"
         total = qs.count()
@@ -1161,7 +970,6 @@ class CrudDetailView(CrudView):
                 for o in qs[:RELATED_LIMIT]
             ]
             for row in rows:
-                # Si la columna con enlace no viene en esta tabla, se enlaza la primera.
                 if row.cells and not any(cell.link for cell in row.cells):
                     row.cells[0].link = True
             block = RelatedBlock(title=rel.title, columns=columns, rows=rows, total=total)
@@ -1173,13 +981,6 @@ class CrudDetailView(CrudView):
 
 
 class CrudFormView(CrudView):
-    """Parte común de crear y editar.
-
-    Con ?modal=1 el formulario se pide desde la ventana modal de la pantalla (core/static/core/js/crud-modal.js):
-    se responde solo con el contenido de la ventana y, al guardar, con un JSON en vez de una redirección.
-    La cabecera X-Modal le dice al navegador qué llegó: "form" (el formulario) o "saved" (se guardó).
-    Sin JavaScript (o abriendo el enlace en otra pestaña) todo sigue funcionando como páginas normales.
-    """
 
     def in_modal(self, request):
         return request.GET.get("modal") == "1"
@@ -1227,11 +1028,8 @@ class CrudFormView(CrudView):
         return render(request, "core/crud/form.html", context)
 
     def finish(self, request, obj, text):
-        """Avisa que se guardó y decide a dónde ir: a la ficha, o a un formulario nuevo si se pidió "agregar otro"."""
         again = "_addanother" in request.POST and self.crud.can_add(request.user)
         if self.in_modal(request):
-            # La ventana modal no cambia de página. Con "agregar otro" el aviso se muestra dentro de la
-            # ventana; si no, la página se recarga y el aviso sale arriba, como siempre.
             if not again:
                 messages.success(request, text)
             response = JsonResponse(
@@ -1246,7 +1044,6 @@ class CrudFormView(CrudView):
 
     def save(self, request, form, creating):
         obj = form.save(commit=False)
-        # Copia del registro como está guardado ahora, para dejar en la auditoría qué cambió.
         before = None if creating else self.crud.model._default_manager.get(pk=obj.pk)
         self.crud.prepare_object(request, obj, creating, form)
         with transaction.atomic():
@@ -1285,7 +1082,6 @@ class CrudCreateView(CrudFormView):
 
 
 class ChangeObjectMixin:
-    """Carga un registro visible para el usuario y comprueba que pueda modificarlo."""
 
     action = "change"
 
@@ -1312,9 +1108,6 @@ class CrudUpdateView(ChangeObjectMixin, CrudFormView):
         form = self.make_form(request, instance=obj, data=request.POST)
         opened = request.POST.get("_version", "")
         if opened and opened != version_of(obj):
-            # Otra persona guardó el registro después de que se abrió este formulario.
-            # Se avisa y se muestra lo que escribió esta persona; si guarda otra vez, se
-            # conservan sus datos (el formulario ya trae la marca nueva).
             form.is_valid()
             form.add_error(
                 None,
@@ -1329,11 +1122,6 @@ class CrudUpdateView(ChangeObjectMixin, CrudFormView):
 
 
 class ArchiveObjectMixin:
-    """Carga un registro visible para el usuario y comprueba que pueda archivarlo o restaurarlo.
-
-    Archivar y restaurar son parte de «Eliminar»: piden el permiso delete del modelo (no el de editar) y,
-    como todo, solo se alcanzan los registros de la propia delegación (404 si es de otra).
-    """
 
     action = "delete"
 
@@ -1344,16 +1132,10 @@ class ArchiveObjectMixin:
         return obj
 
     def blocked_text(self, verb, obj, reasons):
-        """Frase de por qué no se pudo: «No se puede archivar el tipo de atención «Social»: tiene 2 sub atenciones activas.»"""
         return f"No se puede {verb} {self.crud.title.lower()} «{ui.humanize_dates(obj)}»: {' '.join(reasons)}"
 
 
 class CrudArchiveView(ArchiveObjectMixin, CrudView):
-    """Archiva un registro (borrado lógico). GET muestra la confirmación; POST archiva.
-
-    Si el registro está en uso (el mantenedor lo dice con archive_blockers), la confirmación muestra el motivo
-    y no ofrece archivar; y si alguien envía el formulario igual, el servidor lo rechaza.
-    """
 
     def get(self, request, pk):
         obj = self.load(request, pk)
@@ -1394,7 +1176,6 @@ class CrudArchiveView(ArchiveObjectMixin, CrudView):
 
 
 class CrudRestoreView(CrudArchiveView):
-    """Restaura un registro archivado. Solo acepta POST."""
 
     http_method_names = ["post", "options"]
 
@@ -1421,12 +1202,6 @@ class CrudRestoreView(CrudArchiveView):
 
 
 class CrudDeleteView(CrudView):
-    """Elimina de verdad un registro (solo en los mantenedores con deletable, como los perfiles).
-
-    GET pide la confirmación y POST elimina. Pide el permiso delete del modelo y se niega si el registro está
-    en uso (delete_blockers). La eliminación queda en la auditoría, y si la base de datos la rechaza porque
-    otros registros dependen de este, no queda nada anotado ni se avisa un éxito falso.
-    """
 
     action = "delete"
 

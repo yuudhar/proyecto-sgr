@@ -1,5 +1,3 @@
-"""Direcciones de la recuperación de contraseña."""
-
 from django.urls import path
 
 from accounts import views

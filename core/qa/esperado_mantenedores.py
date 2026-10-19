@@ -1,5 +1,3 @@
-"""Resultado esperado (en español) de las pruebas de los mantenedores: Delegaciones, Roles, Usuarios, Ítems y metas, Tipo de Atención y Sub Atención."""
-
 ESPERADO = {
     "DelegationFieldsTests": {
         "the_demo_delegations_come_with_address_and_commune": "Las delegaciones de demostración traen dirección y comuna.",

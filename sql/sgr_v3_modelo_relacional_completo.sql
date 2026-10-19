@@ -5,10 +5,6 @@ USE sgr_db;
 
 SET FOREIGN_KEY_CHECKS = 0;
 
--- ---------------------------------------------------------------------
--- ORGANIZACION Y SEGURIDAD
--- ---------------------------------------------------------------------
-
 CREATE TABLE Delegacion (
     id_delegacion   INT AUTO_INCREMENT PRIMARY KEY,
     nombre          VARCHAR(100) NOT NULL UNIQUE,
@@ -60,13 +56,9 @@ CREATE TABLE Usuario_Rol_Delegacion (
     UNIQUE KEY uq_usuario_rol_delegacion (Usuario_id_usuario, Rol_id_rol, Delegacion_id_delegacion)
 ) ENGINE=InnoDB;
 
--- ---------------------------------------------------------------------
--- CATALOGOS
--- ---------------------------------------------------------------------
-
 CREATE TABLE Item (
     id_item         INT AUTO_INCREMENT PRIMARY KEY,
-    Item_id_item_padre INT NULL,                              
+    Item_id_item_padre INT NULL,
     nombre          VARCHAR(150) NOT NULL,
     tipo_calculo    VARCHAR(20) NOT NULL DEFAULT 'cuantitativo',
     CONSTRAINT fk_item_padre FOREIGN KEY (Item_id_item_padre) REFERENCES Item(id_item)
@@ -78,7 +70,6 @@ CREATE TABLE Servicio (
     estado          VARCHAR(20) NOT NULL DEFAULT 'activo'
 ) ENGINE=InnoDB;
 
-
 CREATE TABLE Tipo_Gestion (
     id_tipo_gestion INT AUTO_INCREMENT PRIMARY KEY,
     nombre          VARCHAR(80) NOT NULL UNIQUE
@@ -89,11 +80,9 @@ CREATE TABLE Beneficiario (
     rut             VARCHAR(12) NOT NULL UNIQUE,
     nombre          VARCHAR(150) NOT NULL,
     telefono        VARCHAR(20),
-    direccion       VARCHAR(200) NOT NULL DEFAULT ''          
+    direccion       VARCHAR(200) NOT NULL DEFAULT ''
 ) ENGINE=InnoDB;
 
--- NUEVO en v4: subdivisión geográfica dentro de una delegación
--- (Latorre, Toqui, Zorrilla...), vista en la agenda colectiva.
 CREATE TABLE Territorio (
     id_territorio   INT AUTO_INCREMENT PRIMARY KEY,
     nombre          VARCHAR(100) NOT NULL,
@@ -109,15 +98,11 @@ CREATE TABLE Cargo_Item (
     ponderador      DECIMAL(5,2) NOT NULL,
     vigencia_desde  DATE NOT NULL,
     vigencia_hasta  DATE,
-    tipo            ENUM('NORMAL','BONIFICACION','PENALIZACION') NOT NULL DEFAULT 'NORMAL', -- NUEVO v2
-    tope_maximo     DECIMAL(10,2) NULL,                                                      -- NUEVO v2
+    tipo            ENUM('NORMAL','BONIFICACION','PENALIZACION') NOT NULL DEFAULT 'NORMAL',
+    tope_maximo     DECIMAL(10,2) NULL,
     CONSTRAINT fk_cargoitem_cargo FOREIGN KEY (Cargo_id_cargo) REFERENCES Cargo(id_cargo),
     CONSTRAINT fk_cargoitem_item FOREIGN KEY (Item_id_item) REFERENCES Item(id_item)
 ) ENGINE=InnoDB;
-
--- ---------------------------------------------------------------------
--- MEDICION
--- ---------------------------------------------------------------------
 
 CREATE TABLE Periodo (
     id_periodo          INT AUTO_INCREMENT PRIMARY KEY,
@@ -173,10 +158,6 @@ CREATE TABLE Ajuste (
     CONSTRAINT fk_ajuste_usuario FOREIGN KEY (Usuario_id_responsable) REFERENCES Usuario(id_usuario)
 ) ENGINE=InnoDB;
 
--- ---------------------------------------------------------------------
--- OPERACION
--- ---------------------------------------------------------------------
-
 CREATE TABLE Actividad (
     id_actividad        INT AUTO_INCREMENT PRIMARY KEY,
     fecha               DATE NOT NULL,
@@ -184,10 +165,10 @@ CREATE TABLE Actividad (
     accion              TEXT,
     contacto            VARCHAR(100),
     telefono            VARCHAR(20),
-    Beneficiario_id_beneficiario INT NULL,                    
+    Beneficiario_id_beneficiario INT NULL,
     estado              VARCHAR(30) NOT NULL DEFAULT 'registrada',
-    requiere_visita     BOOLEAN NOT NULL DEFAULT FALSE,        
-    ingreso_a_tubo      BOOLEAN NOT NULL DEFAULT FALSE,        
+    requiere_visita     BOOLEAN NOT NULL DEFAULT FALSE,
+    ingreso_a_tubo      BOOLEAN NOT NULL DEFAULT FALSE,
     Item_id_item        INT NOT NULL,
     Servicio_id_servicio INT NULL,
     Delegacion_id_delegacion INT NOT NULL,
@@ -202,13 +183,13 @@ CREATE TABLE Actividad (
 CREATE TABLE Gestion_Atencion (
     id_gestion      INT AUTO_INCREMENT PRIMARY KEY,
     numero_gestion  TINYINT NOT NULL,
-    Tipo_Gestion_id_tipo_gestion INT NULL,                    
+    Tipo_Gestion_id_tipo_gestion INT NULL,
     fecha           DATE NOT NULL,
     resultado       VARCHAR(255) NOT NULL,
-    fecha_programada_visita DATE NULL,                        
-    fecha_visita            DATE NULL,                        
-    fecha_entrega_informe   DATE NULL,                        
-    fecha_entrega_beneficio DATE NULL,                        
+    fecha_programada_visita DATE NULL,
+    fecha_visita            DATE NULL,
+    fecha_entrega_informe   DATE NULL,
+    fecha_entrega_beneficio DATE NULL,
     Actividad_id_actividad INT NOT NULL,
     CONSTRAINT fk_gestion_actividad FOREIGN KEY (Actividad_id_actividad) REFERENCES Actividad(id_actividad),
     CONSTRAINT fk_gestion_tipo FOREIGN KEY (Tipo_Gestion_id_tipo_gestion) REFERENCES Tipo_Gestion(id_tipo_gestion),
@@ -245,11 +226,11 @@ CREATE TABLE Validacion (
 CREATE TABLE Compromiso (
     id_compromiso   INT AUTO_INCREMENT PRIMARY KEY,
     origen          VARCHAR(100),
-    fecha_solicitud DATE NULL,                                 
-    descripcion     TEXT NULL,                                 
+    fecha_solicitud DATE NULL,
+    descripcion     TEXT NULL,
     solicitante     VARCHAR(100) NOT NULL,
-    tipo_solicitante ENUM('INT','EXT') NOT NULL DEFAULT 'EXT', 
-    Territorio_id_territorio INT NOT NULL,                     
+    tipo_solicitante ENUM('INT','EXT') NOT NULL DEFAULT 'EXT',
+    Territorio_id_territorio INT NOT NULL,
     fecha_comprometida DATE NOT NULL,
     apoyo           VARCHAR(100),
     estado          VARCHAR(30) NOT NULL DEFAULT 'ingresado',
@@ -260,10 +241,6 @@ CREATE TABLE Compromiso (
     CONSTRAINT fk_compromiso_delegacion FOREIGN KEY (Delegacion_id_delegacion) REFERENCES Delegacion(id_delegacion),
     CONSTRAINT fk_compromiso_territorio FOREIGN KEY (Territorio_id_territorio) REFERENCES Territorio(id_territorio)
 ) ENGINE=InnoDB;
-
--- ---------------------------------------------------------------------
--- AUDITORIA
--- ---------------------------------------------------------------------
 
 CREATE TABLE Auditoria (
     id_auditoria        BIGINT AUTO_INCREMENT PRIMARY KEY,
@@ -277,7 +254,6 @@ CREATE TABLE Auditoria (
     CONSTRAINT fk_auditoria_usuario FOREIGN KEY (Usuario_id_usuario) REFERENCES Usuario(id_usuario)
 ) ENGINE=InnoDB;
 
--- Seed del catálogo Tipo_Gestion
 INSERT INTO Tipo_Gestion (nombre) VALUES
     ('Atención a usuario presencial'),
     ('Visita a terreno'),

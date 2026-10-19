@@ -1,5 +1,3 @@
-"""Saca de cada prueba (leyendo su código, sin ejecutarla) los pasos que sigue, para el registro de pruebas."""
-
 import ast
 from pathlib import Path
 
@@ -7,7 +5,6 @@ HTTP = {"get": "GET", "post": "POST", "put": "PUT", "delete": "DELETE", "head": 
 
 
 def _texto_ruta(nodo):
-    """Nombre de la ruta (``core:login``) o dirección que recibe una llamada del cliente de pruebas."""
     if isinstance(nodo, ast.Constant) and isinstance(nodo.value, str):
         return nodo.value
     if isinstance(nodo, ast.JoinedStr):
@@ -21,7 +18,6 @@ def _texto_ruta(nodo):
 
 
 def _pasos_de_funcion(func, ayudas=None, profundidad=0):
-    """Pasos de una función en el orden del código; ``ayudas`` busca las funciones auxiliares ``self.algo()``."""
     pasos = []
     for nodo in ast.walk(func):
         if not isinstance(nodo, ast.Call):
@@ -63,7 +59,6 @@ def _pasos_de_funcion(func, ayudas=None, profundidad=0):
 
 
 def _comprimir(pasos):
-    """Une pasos iguales y consecutivos («GET x» ×3) y deja como máximo 7."""
     salida = []
     for texto in pasos:
         if salida and salida[-1][0] == texto:
@@ -77,11 +72,10 @@ def _comprimir(pasos):
 
 
 class Indice:
-    """Lee los archivos de pruebas una vez y entrega los pasos de cualquier prueba."""
 
     def __init__(self, base):
         self.base = Path(base)
-        self.clases = {}  # nombre -> (archivo, nodo)
+        self.clases = {}
         archivos = sorted(self.base.glob("core/test_*.py")) + sorted(self.base.glob("accounts/test_*.py")) + [self.base / "core/tests.py"]
         for archivo in archivos:
             arbol = ast.parse(archivo.read_text(encoding="utf-8"))
@@ -93,7 +87,6 @@ class Indice:
         return self.clases[clase][0]
 
     def _set_up(self, clase, vistos=None):
-        """Pasos de preparación (``setUp``) de la clase y de sus padres conocidos."""
         vistos = vistos or set()
         if clase in vistos or clase not in self.clases:
             return []
@@ -110,7 +103,6 @@ class Indice:
         return pasos
 
     def _buscar_ayuda(self, clase, nombre, vistos=None):
-        """Función auxiliar ``nombre`` de la clase o de alguna clase padre conocida."""
         vistos = vistos or set()
         if clase in vistos or clase not in self.clases:
             return None

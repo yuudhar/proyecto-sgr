@@ -1,6 +1,3 @@
-# Dependencias extra para correr el SGR en un servidor (se instalan además de requirements.txt).
 gunicorn==23.0.0
 whitenoise==6.9.0
 redis==5.2.1
-# Solo si la base de datos es MySQL/RDS (necesita libmysqlclient-dev instalado en el servidor):
-# mysqlclient==2.2.4

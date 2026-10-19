@@ -43,7 +43,6 @@ class UserProfileAdmin(SoftDeleteAdminMixin, admin.ModelAdmin):
 
 @admin.register(UserRoleDelegation)
 class UserRoleDelegationAdmin(SoftDeleteAdminMixin, admin.ModelAdmin):
-    """Delegaciones adicionales de cada usuario (tabla Usuario_Rol_Delegacion): las que ofrece el selector de arriba."""
 
     list_display = ("user", "role", "delegation")
     search_fields = ("user__username", "role__name", "delegation__name")

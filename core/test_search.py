@@ -1,5 +1,3 @@
-"""Pruebas de la búsqueda por palabras (tildes, mayúsculas, RUT, teléfonos) y del paginador de los listados."""
-
 import re
 
 from django.test import SimpleTestCase
@@ -13,7 +11,6 @@ from organization.models import Beneficiary
 
 class WordPatternTests(SimpleTestCase):
     def matches(self, word, text):
-        """Lo mismo que hace la base de datos con iregex: la expresión se busca sin distinguir mayúsculas."""
         return re.search(word_pattern(word), text, re.IGNORECASE) is not None
 
     def test_accents_and_case_do_not_matter(self):
@@ -26,7 +23,7 @@ class WordPatternTests(SimpleTestCase):
 
     def test_special_characters_are_searched_literally(self):
         for word in ("a.b", "(x)", "[a", "a+b", "a*", "\\", "a|b", "$5", "^a", "{1}", "a?"):
-            re.compile(word_pattern(word))  # la expresión nunca queda mal formada
+            re.compile(word_pattern(word))
             self.assertTrue(self.matches(word, f"zz {word} zz"), word)
         self.assertFalse(self.matches("a.b", "axb"))
 
@@ -34,7 +31,7 @@ class WordPatternTests(SimpleTestCase):
         stored = "11111111-1"
         for written in ("11.111.111-1", "11111111-1", "111111111", "11.111.111", "11111111", "11.111", "1111"):
             self.assertTrue(self.matches(written, stored), written)
-        self.assertTrue(self.matches("11111111", "11.111.111-1"))  # también si está guardado con puntos
+        self.assertTrue(self.matches("11111111", "11.111.111-1"))
         self.assertFalse(self.matches("11.111.112", stored))
 
     def test_a_rut_ending_in_k_is_found(self):
@@ -51,7 +48,7 @@ class WordPatternTests(SimpleTestCase):
         self.assertEqual(number_like("11.111.111-1"), "111111111")
         self.assertEqual(number_like("10.000.013-k"), "10000013k")
         self.assertEqual(number_like("123"), "123")
-        self.assertEqual(number_like("12"), "")  # corto: se busca tal cual
+        self.assertEqual(number_like("12"), "")
         self.assertEqual(number_like("a1b"), "")
         self.assertEqual(number_like("EVD-0001"), "")
 
@@ -65,7 +62,6 @@ class WordPatternTests(SimpleTestCase):
 
 class ListSearchTests(PortalTestCase):
     def found(self, path, query, attribute="contact_name", **params):
-        """Lo que muestra un listado para una búsqueda: el texto de cada fila."""
         response = self.client.get(path, {"q": query, **params})
         self.assertEqual(response.status_code, 200)
         return [getattr(row.obj, attribute) for row in response.context["rows"]]
@@ -99,9 +95,9 @@ class ListSearchTests(PortalTestCase):
         self.assertEqual(self.found(url, "22.222.222-2", archivados="1"), ["Juan Soto"])
 
     def test_search_never_reaches_other_delegations(self):
-        self.login_as("matias.cavieres")  # Norte
+        self.login_as("matias.cavieres")
         url = reverse("core:atencion")
-        self.assertEqual(self.found(url, "33.333.333-3"), [])  # Ana Rojas es de Sur
+        self.assertEqual(self.found(url, "33.333.333-3"), [])
         self.assertEqual(self.found(url, "11.111.111-1"), ["María Pérez"])
 
     def test_odd_texts_do_not_break_the_search(self):

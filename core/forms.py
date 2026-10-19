@@ -1,12 +1,3 @@
-"""Formularios de las pantallas web.
-
-CrudForm es el formulario base de todos los mantenedores: aplica el estilo de
-Bootstrap, valida los formatos (RUT, teléfono, correo...) con las reglas de core/rules.py
-y acota las listas desplegables igual que el Admin (formfield_for_foreignkey en
-core/admin_mixins.py): quien trabaja en una delegación (la suya o la que eligió en la franja de arriba) solo elige
-registros de esa delegación.
-"""
-
 import re
 from decimal import Decimal
 from pathlib import Path
@@ -38,12 +29,10 @@ from organization.models import Beneficiary, Delegation, Item, Officer
 from planning.models import Goal, Period
 
 
-# Largo máximo de los cuadros de texto de varias líneas (la base de datos no lo limita, y MySQL corta en 65.535 bytes).
 LONG_TEXT_MAX = 2000
 
 
 def password_help():
-    """Lista de requisitos de una contraseña nueva: los mismos que revisan los validadores de settings.py."""
     rules = (
         "No puede parecerse a tus otros datos personales.",
         "Debe tener al menos 8 caracteres.",
@@ -56,13 +45,12 @@ def password_help():
 
 
 class BootstrapFormMixin:
-    """Agrega las clases de Bootstrap a los campos y marca los que traen errores."""
 
     def style_fields(self):
         for field in self.fields.values():
             widget = field.widget
             if isinstance(widget, forms.CheckboxSelectMultiple):
-                continue  # sus casillas ya traen las clases de Bootstrap (ver core/widgets.py)
+                continue
             if isinstance(widget, (forms.CheckboxInput, forms.RadioSelect)):
                 css = "form-check-input"
             elif isinstance(widget, (forms.Select, forms.SelectMultiple)):
@@ -71,26 +59,18 @@ class BootstrapFormMixin:
                 css = "form-control"
             widget.attrs["class"] = f"{widget.attrs.get('class', '')} {css}".strip()
             if isinstance(field, forms.DecimalField) and field.max_digits:
-                # El número más grande que cabe en la columna: así lo avisa la validación de la página y no Django.
                 places = field.decimal_places or 0
                 widget.attrs.setdefault("max", str(Decimal(10) ** (field.max_digits - places) - Decimal(1).scaleb(-places)))
             if isinstance(widget, forms.Textarea):
                 widget.attrs.pop("cols", None)
-                if str(widget.attrs.get("rows", "10")) == "10":  # 10 es el valor por defecto de Django
+                if str(widget.attrs.get("rows", "10")) == "10":
                     widget.attrs["rows"] = 4
 
     @staticmethod
     def is_long_text(field):
-        """True si es un cuadro de texto de varias líneas."""
         return isinstance(field, forms.CharField) and isinstance(field.widget, forms.Textarea)
 
     def set_text_limits(self):
-        """Largo máximo en el servidor y en el navegador (maxlength) de todos los campos de texto.
-
-        Un campo cuya columna es de texto largo (TextField) no trae máximo: se le pone LONG_TEXT_MAX. Y un campo
-        al que un formulario le cambió el widget vuelve a llevar el maxlength de su columna, que el cambio había perdido.
-        Los saltos de línea se cuentan como los cuenta el navegador (uno solo), no como los envía (\\r\\n).
-        """
         for field in self.fields.values():
             if not isinstance(field, forms.CharField):
                 continue
@@ -103,7 +83,6 @@ class BootstrapFormMixin:
                 field.widget.attrs.setdefault("maxlength", str(field.max_length))
 
     def polish_choices(self):
-        """Textos en español para la opción vacía y fechas legibles en los nombres."""
         for field in self.fields.values():
             blank = "Selecciona una opción" if field.required else "Sin selección"
             if isinstance(field, forms.ModelChoiceField):
@@ -114,7 +93,6 @@ class BootstrapFormMixin:
                 field.choices = [("", blank), *list(field.choices)[1:]]
 
     def mark_invalid(self, name):
-        """Marca el campo como inválido (una sola vez) para que la página lo pinte y lo avise."""
         if name in self.fields:
             attrs = self.fields[name].widget.attrs
             if "is-invalid" not in attrs.get("class", "").split():
@@ -122,7 +100,6 @@ class BootstrapFormMixin:
 
     def add_error(self, field, error):
         super().add_error(field, error)
-        # También se marcan los errores que una vista agrega después de validar (un código vencido, por ejemplo).
         if self.is_bound and field:
             self.mark_invalid(field)
 
@@ -134,7 +111,6 @@ class BootstrapFormMixin:
 
 
 class PortalAuthenticationForm(BootstrapFormMixin, AuthenticationForm):
-    """Formulario de inicio de sesión con el estilo de las pantallas."""
 
     error_messages = {
         **AuthenticationForm.error_messages,
@@ -147,7 +123,6 @@ class PortalAuthenticationForm(BootstrapFormMixin, AuthenticationForm):
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        # Se ingresa con el usuario o con el correo (accounts/backends.py); un correo puede ser más largo que un usuario.
         self.fields["username"].label = "Usuario o correo"
         self.fields["username"].max_length = 254
         self.fields["username"].widget.attrs.update(
@@ -159,9 +134,8 @@ class PortalAuthenticationForm(BootstrapFormMixin, AuthenticationForm):
 
 
 class CrudForm(BootstrapFormMixin, forms.ModelForm):
-    """Formulario base de los mantenedores (ver core/crud.py)."""
 
-    note = ""  # línea de texto bajo los campos (el ingreso de atención avisa qué se completa solo)
+    note = ""
 
     def __init__(self, *args, request=None, crud=None, **kwargs):
         super().__init__(*args, **kwargs)
@@ -170,7 +144,6 @@ class CrudForm(BootstrapFormMixin, forms.ModelForm):
         self.hide_archived_choices()
         self.polish_choices()
         if crud is not None and crud.delegation_lookup:
-            # La delegación en la que trabaja la persona: solo el superusuario que ve todas queda sin límite.
             delegation = request_delegation(request)
             if delegation is not None:
                 self.limit_to_delegation(delegation)
@@ -182,7 +155,6 @@ class CrudForm(BootstrapFormMixin, forms.ModelForm):
                 if name in self.fields:
                     self.fields[name].help_text = text
             if self.instance.pk:
-                # Se piden al crear; al editar se muestran pero ya no se pueden cambiar.
                 for name in crud.readonly_on_edit:
                     if name in self.fields:
                         self.fields[name].disabled = True
@@ -194,10 +166,9 @@ class CrudForm(BootstrapFormMixin, forms.ModelForm):
         self.style_fields()
 
     def customize_fields(self):
-        """Gancho: un formulario puede cambiar aquí sus campos antes de que se les dé estilo."""
+        pass
 
     def effective_rules(self):
-        """Campo -> regla: las del mantenedor, más la regla «text» para los cuadros de varias líneas que no tengan una."""
         rules = dict(self.crud.rules) if self.crud is not None else {}
         for name, field in self.fields.items():
             if name not in rules and self.is_long_text(field):
@@ -205,21 +176,14 @@ class CrudForm(BootstrapFormMixin, forms.ModelForm):
         return rules
 
     def apply_rules(self):
-        """Pasa a cada campo con regla de formato los atributos data-* que lee core/js/validation.js."""
         for name, rule_name in self.effective_rules().items():
             if name in self.fields:
                 self.fields[name].widget.attrs.update(get_rule(rule_name).attrs())
 
     def bounds(self):
-        """Gancho: límites propios de este formulario (fechas que dependen de otra, por ejemplo): campo -> {atributo: valor}."""
         return {}
 
     def apply_bounds(self):
-        """Agrega al campo los atributos min, max y data-* con que el navegador avisa antes de enviar.
-
-        Los límites fijos vienen del mantenedor (Crud.bounds) y los que dependen de otros datos, del gancho bounds().
-        El servidor repite cada uno en el clean del formulario: esto solo adelanta el aviso.
-        """
         merged = {}
         if self.crud is not None:
             for name, attrs in self.crud.bounds.items():
@@ -231,7 +195,6 @@ class CrudForm(BootstrapFormMixin, forms.ModelForm):
                 self.fields[name].widget.attrs.update(attrs)
 
     def clean(self):
-        """Aplica las reglas de formato: arregla el texto (espacios, puntos del RUT) o marca el error."""
         cleaned = super().clean()
         if self.crud is None:
             return cleaned
@@ -251,14 +214,6 @@ class CrudForm(BootstrapFormMixin, forms.ModelForm):
         return cleaned
 
     def check_unique_names(self, cleaned):
-        """Los campos de crud.unique_names no pueden repetirse sin distinguir mayúsculas ni espacios de más.
-
-        La base de datos solo detecta el repetido exacto: «Norte» y «norte» entrarían los dos. Aquí se comparan
-        sin mayúsculas (casefold, que también entiende la Ñ y las tildes) y contra todos los registros, también
-        los archivados, porque restaurar un repetido rompería la regla. Una entrada como ("name", "delegation")
-        pide que el nombre sea único solo dentro de la misma delegación; si el campo de alcance no está en el
-        formulario se toma del registro (el tipo de atención no tiene tipo padre).
-        """
         for spec in self.crud.unique_names:
             name, *scope = (spec,) if isinstance(spec, str) else spec
             value = cleaned.get(name)
@@ -268,7 +223,7 @@ class CrudForm(BootstrapFormMixin, forms.ModelForm):
             for field_name in scope:
                 if field_name in self.fields:
                     if self.has_error(field_name):
-                        break  # el alcance está mal escrito: ese error se muestra primero
+                        break
                     filters[field_name] = cleaned.get(field_name)
                 else:
                     filters[field_name] = getattr(self.instance, field_name)
@@ -286,34 +241,28 @@ class CrudForm(BootstrapFormMixin, forms.ModelForm):
                         break
 
     def not_before(self, name, other, message):
-        """Atributos del navegador: la fecha `name` no puede ser anterior a la del campo `other`."""
         return {name: {"data-not-before": f"id_{other}", "data-not-before-message": message}}
 
     def check_not_before(self, cleaned, name, other, message):
-        """Servidor: la fecha `name` no puede ser anterior a `other` (si están las dos)."""
         value, start = cleaned.get(name), cleaned.get(other)
         if value and start and value < start:
             self.add_error(name, message)
 
     @staticmethod
     def until_today(message):
-        """Atributos del navegador: la fecha no puede ser posterior a hoy (el día de Chile, que arma el servidor)."""
         return {"max": timezone.localdate().isoformat(), "data-max-message": message}
 
     def check_not_future(self, cleaned, name, message):
-        """Servidor: la fecha no puede ser posterior a hoy."""
         value = cleaned.get(name)
         if value and value > timezone.localdate():
             self.add_error(name, message)
 
     def check_not_before_day(self, cleaned, name, day, label):
-        """Servidor: la fecha `name` no puede ser anterior a un día dado (el de la atención, por ejemplo)."""
         value = cleaned.get(name)
         if value and day and value < day:
             self.add_error(name, f"{label} no puede ser anterior a la fecha de la atención ({ui.fmt_date(day)}).")
 
     def use_date_inputs(self):
-        """Los campos de fecha usan el selector de fecha del navegador."""
         for field in self.fields.values():
             if isinstance(field, forms.DateField) and not isinstance(
                 field, forms.DateTimeField
@@ -323,11 +272,9 @@ class CrudForm(BootstrapFormMixin, forms.ModelForm):
                 )
 
     def current_value(self, name):
-        """Valor actual (pk) de una clave foránea del registro que se edita."""
         return getattr(self.instance, f"{name}_id", None)
 
     def allowed(self, queryset, name):
-        """Registros no archivados, más el que ya tiene guardado el objeto."""
         condition = Q(deleted_at__isnull=True)
         current = self.current_value(name)
         if current is not None:
@@ -335,7 +282,6 @@ class CrudForm(BootstrapFormMixin, forms.ModelForm):
         return queryset.filter(condition)
 
     def hide_archived_choices(self):
-        """Las listas desplegables no ofrecen registros archivados."""
         for name, field in self.fields.items():
             if isinstance(field, forms.ModelChoiceField):
                 model = field.queryset.model
@@ -343,7 +289,6 @@ class CrudForm(BootstrapFormMixin, forms.ModelForm):
                     field.queryset = self.allowed(model._default_manager.all(), name)
 
     def limit_to_delegation(self, delegation):
-        """Acota las listas a la delegación en la que trabaja el usuario (misma regla del Admin)."""
         from evidence.models import Evidence
         from operations.models import Activity
         from organization.models import Delegation, Officer, Territory
@@ -372,11 +317,6 @@ class CrudForm(BootstrapFormMixin, forms.ModelForm):
 
 
 class DelegationForm(CrudForm):
-    """Delegación: nombre, dirección, comuna, encargado (se elige de los funcionarios o se escribe), color y estado.
-
-    La dirección y la comuna se piden siempre (A1: «Código, nombre, dirección, comuna y estado»); en la base
-    pueden estar vacías porque las delegaciones anteriores a la v8 no las tenían.
-    """
 
     def customize_fields(self):
         for name in ("address", "commune"):
@@ -393,17 +333,6 @@ class DelegationForm(CrudForm):
 
 
 class RoleForm(CrudForm):
-    """Rol (perfil): nombre, descripción, alcance autorizado, estado y la matriz de permisos.
-
-    La matriz tiene una fila por módulo y una columna por acción. Los perfiles del sistema (los que crea
-    seed_roles) no cambian de nombre, de alcance ni de estado: las reglas de acceso y las cuentas de prueba
-    cuentan con ellos («Coordinación» ve todas las delegaciones). Para crear, editar o eliminar en un módulo el
-    perfil también debe poder verlo, si no, la pantalla a la que lo lleva al guardar le respondería 403. Los
-    permisos que el perfil tenga y la matriz no muestre se conservan al guardar.
-
-    La descripción, el alcance y el estado no son columnas del grupo de Django: se guardan en su ficha
-    (accounts.RoleProfile) cuando el mantenedor termina de guardar el rol (RoleCrud.after_save).
-    """
 
     description = forms.CharField(
         label="Descripción",
@@ -480,13 +409,6 @@ class RoleForm(CrudForm):
         return cleaned
 
     def check_scope_and_status(self, cleaned):
-        """No se desactiva un rol que tiene usuarios ni se le quita el alcance a quien lo necesita.
-
-        - Desactivar: el rol sigue asignado a esos usuarios; primero hay que cambiárselo (igual que para eliminarlo).
-        - Pasar de «Todas las delegaciones» a «Su delegación»: un usuario sin funcionario solo puede existir si algún
-          rol o su condición de Super Usuario le da todas las delegaciones; si no, quedaría sin delegación y
-          todas las pantallas le responderían 403.
-        """
         if not self.instance.pk:
             return
         before = role_details(self.instance)
@@ -520,11 +442,6 @@ class RoleForm(CrudForm):
 
 
 class ItemForm(CrudForm):
-    """Ítem, tipo de atención o sub atención: el ítem padre solo puede ser un tipo (un ítem sin padre).
-
-    Las reglas entre campos (no ser su propio padre, no cambiar el tipo de un ítem en uso) las revisa
-    ItemRules en core/registry.py.
-    """
 
     def customize_fields(self):
         if "description" in self.fields:
@@ -536,14 +453,13 @@ class ItemForm(CrudForm):
         current = self.current_value("parent_item")
         condition = Q(deleted_at__isnull=True)
         if current is not None:
-            condition |= Q(pk=current)  # el tipo que ya tiene se sigue viendo aunque se haya archivado
+            condition |= Q(pk=current)
         field.queryset = types.filter(condition).order_by("name")
         if self.instance.pk:
             field.queryset = field.queryset.exclude(pk=self.instance.pk)
 
 
 class SubAttentionForm(ItemForm):
-    """Sub atención: siempre pertenece a un Tipo de Atención activo."""
 
     def customize_fields(self):
         super().customize_fields()
@@ -552,37 +468,22 @@ class SubAttentionForm(ItemForm):
         field.empty_label = "Selecciona un tipo de atención"
 
 
-# Cuántas personas se ofrecen como sugerencia en el campo del solicitante. Es solo una ayuda para escribir:
-# quien atiende puede escribir cualquier RUT o nombre, y el servidor lo busca en todo el catálogo.
 LOOKUP_LIMIT = 2000
 
-# Un RUT bien escrito que no está en Beneficiarios. A quien puede registrar beneficiarios se le dice que lo haga;
-# a quien no puede (por ejemplo un Funcionario) se le dice que pida que lo registren.
 UNKNOWN_RUT = "No hay ninguna persona con ese RUT en Beneficiarios."
 UNKNOWN_RUT_CAN_REGISTER = " Regístrala primero en Beneficiarios o escribe su nombre."
 UNKNOWN_RUT_CANNOT_REGISTER = " Pide que la registren en Beneficiarios o escribe su nombre."
 
 
 def fold(text):
-    """El texto sin mayúsculas, tildes ni espacios de más: «  María  PÉREZ » y «maria perez» quedan iguales."""
     return "".join(plain_letter(char) for char in collapse_spaces(text))
 
 
 def looks_like_rut(text):
-    """True si el texto son números, puntos y guiones (con la K del dígito verificador al final), como un RUT."""
     return re.fullmatch(r"[0-9][0-9.\-]*[0-9kK]", text) is not None and sum(char.isdigit() for char in text) >= 7
 
 
 def find_beneficiary(text):
-    """Busca a la persona que escribió quien atiende: por RUT (con o sin puntos y guion) o por su nombre completo.
-
-    Devuelve (beneficiario, mensaje de error). Hay tres resultados posibles:
-      - la persona está en Beneficiarios: (beneficiario, "");
-      - el texto es un nombre que no está: (None, ""). Es un contacto escrito a mano y la atención se guarda
-        con ese nombre, sin beneficiario;
-      - no se puede decidir: (None, "motivo"). Un RUT mal escrito, un RUT que no está registrado o un nombre que
-        tienen varias personas. Con un RUT no se adivina: no se guarda la atención a nombre de otra persona.
-    """
     text = collapse_spaces(text)
     if looks_like_rut(text):
         rut, error = get_rule("rut").apply(text)
@@ -605,10 +506,6 @@ def find_beneficiary(text):
 
 
 class EvidenceForm(CrudForm):
-    """Formulario de evidencias: se sube el archivo, no se escribe su nombre ni sus metadatos.
-
-    Los metadatos (nombre original, tipo, tamaño y huella SHA-256) los arma el sistema al guardar.
-    """
 
     def customize_fields(self):
         field = self.fields["file_link"]
@@ -636,21 +533,6 @@ class EvidenceForm(CrudForm):
 
 
 class ActivityIntakeForm(CrudForm):
-    """Ingreso de atención (Clase 8): lo que se pide al registrar una atención nueva.
-
-    Se pide solo lo que quien atiende sabe en ese momento: quién es la persona (RUT o nombre), el tipo y la sub
-    atención, y lo que pidió. Lo demás se completa solo y no se puede cambiar desde aquí: la fecha es la de hoy, la
-    delegación es en la que trabaja quien atiende (la de su funcionario o la que eligió en la franja de arriba), el
-    responsable es su funcionario y el estado parte en «Registrada». Si trabaja en una delegación que no es la de su
-    funcionario, el responsable se elige entre los funcionarios de esa delegación, porque una actividad exige que el
-    responsable sea de la misma delegación. El identificador (ATN00012) sale del id al guardar. Editar una atención
-    usa el formulario completo de siempre.
-
-    El solicitante se escribe en un solo campo: si es el RUT de alguien que está en Beneficiarios, o su nombre exacto,
-    la atención queda vinculada a esa persona; si es un nombre que no está, se guarda como contacto escrito a mano.
-    El Tipo de atención y la Sub atención son dos listas: la segunda solo ofrece las del tipo elegido y, si el tipo no
-    tiene sub atenciones, la atención se guarda con el tipo mismo (el modelo guarda un solo ítem).
-    """
 
     requester = forms.CharField(label="Solicitante (RUT o nombre)", max_length=100)
     attention_type = forms.ModelChoiceField(label="Tipo de atención", queryset=Item.objects.none())
@@ -670,14 +552,12 @@ class ActivityIntakeForm(CrudForm):
         self.set_up_profile()
 
     def set_up_description(self):
-        """La descripción es obligatoria al registrar. En la base de datos sigue siendo opcional (editar una atención
-        existente no la exige), así que esta regla vive solo en este formulario."""
         field = self.fields["request_description"]
         field.required = True
         field.label = "Descripción de la atención"
         field.widget.attrs["placeholder"] = "Describe la solicitud y los antecedentes necesarios."
         message = "Describe la solicitud: la descripción es obligatoria para registrar la atención."
-        field.error_messages["required"] = message  # el mismo texto en el servidor y en el navegador
+        field.error_messages["required"] = message
         field.widget.attrs["data-required-message"] = message
 
     def set_up_requester(self):
@@ -694,7 +574,7 @@ class ActivityIntakeForm(CrudForm):
     def set_up_sub_attention(self):
         field = self.fields["item"]
         field.label = "Sub atención"
-        field.required = False  # se exige solo si el tipo elegido tiene sub atenciones (ver check_attention)
+        field.required = False
         field.empty_label = "Selecciona una sub atención"
         field.help_text = "Es obligatoria cuando el tipo de atención tiene sub atenciones."
         field.label_from_instance = lambda item: f"{item.parent_item} · {item.name}"
@@ -713,12 +593,6 @@ class ActivityIntakeForm(CrudForm):
         )
 
     def set_up_profile(self):
-        """Perfil fijo: la delegación es el contexto en que trabaja quien atiende y la fecha es la de hoy.
-
-        La delegación es la activa (A2: «La delegación debe completarse a partir del contexto autorizado del usuario»):
-        la de su funcionario o la que eligió en la franja de arriba. El responsable es su funcionario cuando este es
-        de esa delegación; si no, se elige uno de la delegación (el modelo exige que coincidan).
-        """
         today = timezone.localdate()
         officer = request_officer(self.request)
         delegation = default_delegation(self.request)
@@ -730,8 +604,6 @@ class ActivityIntakeForm(CrudForm):
             self.fields.pop("author_officer", None)
             self.instance.author_officer = own
         for name in ("delegation", "author_officer"):
-            # El superusuario sin funcionario que ve todas elige la delegación y el funcionario; quien trabaja en otra
-            # delegación elige solo el responsable (la lista ya trae únicamente los funcionarios de esa delegación).
             if name in self.fields:
                 self.fields[name].required = True
         if "author_officer" in self.fields and delegation is not None:
@@ -764,7 +636,6 @@ class ActivityIntakeForm(CrudForm):
             self.add_error("requester", error)
             return
         self.person = person
-        # Con la persona encontrada se guarda su nombre; si no, lo que escribió quien atiende.
         self.instance.beneficiary = person
         name = person.name if person is not None else collapse_spaces(text)
         self.instance.contact_name = name[: self._meta.model._meta.get_field("contact_name").max_length]
@@ -780,25 +651,16 @@ class ActivityIntakeForm(CrudForm):
             if Item.objects.filter(parent_item=kind, deleted_at__isnull=True).exists():
                 self.add_error("item", "Elige una sub atención de este tipo de atención.")
             else:
-                cleaned["item"] = kind  # un tipo sin sub atenciones se registra con el tipo mismo
+                cleaned["item"] = kind
 
 
 def delegation_label(delegation):
-    """«DEL02 · Nombre» (el código sale del id, igual que en el mantenedor de Delegaciones)."""
     from core.crud import registry
 
     return f"{registry.get('delegaciones').code_of(delegation)} · {delegation.name}"
 
 
 class UserForm(CrudForm):
-    """Usuario del sistema: cuenta, perfiles, funcionario (que define su delegación) y contraseña.
-
-    La contraseña se pide al crear; al editar, dejarla en blanco la conserva. El superusuario no
-    puede quitarse a sí mismo el acceso ni los permisos, para no quedar fuera del sistema.
-
-    Las delegaciones adicionales (tabla Usuario_Rol_Delegacion) son las otras delegaciones, además de la de su
-    funcionario, entre las que la persona puede elegir en la franja de arriba (A2).
-    """
 
     officer = forms.ModelChoiceField(
         queryset=Officer.objects.none(),
@@ -836,26 +698,21 @@ class UserForm(CrudForm):
 
     def customize_fields(self):
         creating = not self.instance.pk
-        # Solo se ofrecen los roles activos, más los que el usuario ya tiene.
         groups = self.fields["groups"]
         offered = Q(role_profile__status=RoleProfile.Status.ACTIVE) | Q(role_profile__isnull=True)
         if not creating:
             offered |= Q(pk__in=self.instance.groups.values("pk"))
         groups.queryset = Group.objects.filter(offered).select_related("role_profile").order_by("pk")
-        # Al cambiar el widget hay que pasarle las opciones del campo; si no, queda sin casillas.
         groups.widget = RolesWidget()
         groups.widget.choices = groups.choices
         for name in ("password1", "password2"):
             self.fields[name].required = creating
-        # Con el correo la persona recupera su contraseña (accounts/recovery.py): sin él no podría. Al crear
-        # es obligatorio; al editar solo si la cuenta ya tenía uno, para no bloquear cuentas antiguas sin correo.
         self.fields["email"].required = creating or bool(self.instance.email)
         if creating:
             self.fields["password1"].help_text = password_help()
         else:
             self.fields["password1"].help_text = "Déjala en blanco para conservar la contraseña actual."
 
-        # Funcionarios activos que todavía no tienen usuario (más el que ya tiene este).
         taken = UserProfile.objects.filter(officer__isnull=False)
         if not creating:
             taken = taken.exclude(user=self.instance)
@@ -869,7 +726,6 @@ class UserForm(CrudForm):
         if profile is not None:
             self.initial["officer"] = profile.officer_id
 
-        # Delegaciones que se pueden agregar: las activas, más las que el usuario ya tiene guardadas (para poder quitarlas).
         stored = stored_delegation_ids(self.instance) if not creating else set()
         offered = Delegation.objects.filter(
             Q(deleted_at__isnull=True, status=Delegation.Status.ACTIVE) | Q(pk__in=stored)
@@ -894,7 +750,6 @@ class UserForm(CrudForm):
         )
 
     def check_extra_delegations(self, cleaned, sees_everything):
-        """Las delegaciones adicionales solo tienen sentido para quien no ve todas; la propia no se repite."""
         extras = list(cleaned.get("extra_delegations") or [])
         if not extras:
             return
@@ -907,12 +762,9 @@ class UserForm(CrudForm):
             return
         officer = cleaned.get("officer")
         if officer is not None:
-            # La delegación de su funcionario ya es suya: marcarla de nuevo no cambia nada, así que no se guarda dos veces.
             cleaned["extra_delegations"] = [d for d in extras if d.pk != officer.delegation_id]
 
     def _post_clean(self):
-        # Con el usuario ya armado con lo escrito (nombre de usuario, nombre, correo), para que la regla de
-        # "no parecerse a sus datos personales" compare con los datos nuevos.
         super()._post_clean()
         password = self.cleaned_data.get("password1") or ""
         if password and not self.has_error("password2"):
@@ -932,7 +784,6 @@ class UserForm(CrudForm):
                 self.add_error("username", "Ya existe un usuario con ese nombre, aunque cambien las mayúsculas.")
 
         email = cleaned.get("email")
-        # Solo se revisa si el correo es nuevo o cambió: una cuenta antigua con un correo repetido se puede seguir editando.
         if email and (not self.instance.pk or email.lower() != (self.instance.email or "").lower()):
             same = User.objects.filter(email__iexact=email)
             if self.instance.pk:
@@ -963,7 +814,6 @@ class UserForm(CrudForm):
                 )
         self.check_extra_delegations(cleaned, sees_everything)
 
-        # El nombre de la cuenta sale del funcionario; solo una cuenta sin funcionario necesita escribirlo.
         officer = cleaned.get("officer")
         if officer is not None:
             if not cleaned.get("first_name"):
@@ -982,12 +832,6 @@ class UserForm(CrudForm):
 
 
 class OfficerForm(CrudForm):
-    """Funcionario, con su acceso al sistema en el mismo formulario (al crear, o al editar si aún no tiene usuario).
-
-    Una persona nueva se da de alta una sola vez: sus datos de funcionario y, si va a ingresar al
-    sistema, su usuario, correo, contraseña y perfiles. Si no se llena nada de «Acceso al sistema», solo se
-    crea el funcionario. El nombre de la cuenta sale del nombre del funcionario.
-    """
 
     section_field = "username"
     section_title = "Acceso al sistema (opcional)"
@@ -1017,7 +861,6 @@ class OfficerForm(CrudForm):
     ACCESS_FIELDS = ("username", "email", "password1", "password2", "groups")
 
     def customize_fields(self):
-        # El acceso se ofrece al crear y también al editar a un funcionario que todavía no tiene usuario.
         allowed = (
             self.request is not None
             and not officer_has_account(self.instance)
@@ -1079,17 +922,14 @@ class OfficerForm(CrudForm):
 
 
 def officer_has_account(officer):
-    """¿Este funcionario ya tiene un usuario para ingresar? Un funcionario nuevo (sin guardar) no."""
     return bool(officer.pk) and UserProfile.objects.filter(officer_id=officer.pk).exists()
 
 
 def registry_can_add_user(user):
-    """¿Puede esta persona crear usuarios? (permiso de «Control de usuarios»)."""
     return user.has_perm("auth.add_user")
 
 
 def split_person_name(name):
-    """«María José Pérez Soto» -> («María José», «Pérez Soto»): las dos primeras palabras son el nombre si hay cuatro o más."""
     words = (name or "").split()
     if len(words) <= 1:
         return (name or "").strip(), ""
@@ -1098,7 +938,6 @@ def split_person_name(name):
 
 
 class ProfilePhotoForm(BootstrapFormMixin, forms.Form):
-    """Foto de perfil de quien tiene la sesión iniciada (pantalla Mi perfil)."""
 
     photo = forms.FileField(
         label="Foto de perfil",
@@ -1123,7 +962,6 @@ class ProfilePhotoForm(BootstrapFormMixin, forms.Form):
 
 
 class PortalPasswordChangeForm(BootstrapFormMixin, PasswordChangeForm):
-    """Cambio de contraseña de quien tiene la sesión iniciada (pantalla Mi perfil)."""
 
     error_messages = {
         **PasswordChangeForm.error_messages,
@@ -1144,12 +982,10 @@ class PortalPasswordChangeForm(BootstrapFormMixin, PasswordChangeForm):
         self.style_fields()
 
     def validate_password_for_user(self, user, password_field_name="new_password2"):
-        # El aviso de una contraseña débil va en el campo de la contraseña nueva, no en el de repetirla.
         super().validate_password_for_user(user, "new_password1")
 
 
 class PeriodForm(CrudForm):
-    """Período: fechas con sentido, umbrales entre 0 y 100 y un solo período vigente a la vez."""
 
     def bounds(self):
         return self.not_before("end_date", "start_date", "La fecha de término no puede ser anterior a la de inicio.")
@@ -1183,7 +1019,6 @@ class PeriodForm(CrudForm):
         if cap is not None and cap <= 0:
             self.add_error("weighted_cap", "El tope ponderado debe ser mayor que 0.")
         if cleaned.get("status") == Period.Status.ACTIVE:
-            # El tablero y los informes toman "el período vigente": tiene que ser uno solo.
             others = Period.objects.filter(deleted_at__isnull=True, status=Period.Status.ACTIVE)
             if self.instance.pk:
                 others = others.exclude(pk=self.instance.pk)
@@ -1193,14 +1028,11 @@ class PeriodForm(CrudForm):
 
 
 class GoalForm(CrudForm):
-    """Meta: se asigna a un funcionario o a un cargo, con ponderador válido y sin repetirse."""
 
     MIN_TARGET = Decimal("0.01")
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        # El modelo compara con el float 0.01 y Decimal("0.01") le queda por debajo, así que rechazaba
-        # justo el mínimo que promete. El mínimo se valida aquí, con Decimal (el modelo no cambia).
         field = self.fields.get("target_value")
         if field is not None:
             field.validators = [v for v in field.validators if not isinstance(v, MinValueValidator)]
@@ -1244,7 +1076,6 @@ class GoalForm(CrudForm):
 
 
 class IndicatorForm(CrudForm):
-    """Indicador: el avance, el cumplimiento y la ponderación no pueden ser negativos."""
 
     def clean(self):
         cleaned = super().clean()
@@ -1256,7 +1087,6 @@ class IndicatorForm(CrudForm):
 
 
 class AdjustmentForm(CrudForm):
-    """Ajuste: el valor es un porcentaje mayor que 0 y de hasta 100."""
 
     def clean_percentage_value(self):
         value = self.cleaned_data["percentage_value"]
@@ -1266,7 +1096,6 @@ class AdjustmentForm(CrudForm):
 
 
 class ActivityEditForm(CrudForm):
-    """Actividad (edición): la fecha de una atención ya ocurrida no puede ser futura."""
 
     DATE_MESSAGE = "La fecha de la atención no puede ser futura."
 
@@ -1280,7 +1109,6 @@ class ActivityEditForm(CrudForm):
 
 
 class CommitmentForm(CrudForm):
-    """Compromiso: se pide en una fecha que ya pasó (o es hoy) y su fecha comprometida no es anterior a esa."""
 
     REQUEST_MESSAGE = "La fecha de solicitud no puede ser futura."
     DUE_MESSAGE = "La fecha comprometida no puede ser anterior a la fecha de solicitud."
@@ -1299,14 +1127,6 @@ class CommitmentForm(CrudForm):
 
 
 class FollowupForm(CrudForm):
-    """Gestión de atención: sus fechas tienen sentido entre sí y con la fecha de la atención.
-
-    - Las fechas de lo que ya ocurrió (la gestión, la visita, la entrega del informe y del beneficio) no son futuras;
-      la visita programada sí puede serlo.
-    - Ninguna fecha es anterior a la de la atención. Esa comparación es solo del servidor: el navegador no conoce la
-      fecha de la atención elegida en la lista.
-    - El informe y el beneficio no se entregan antes de la visita, cuando hay visita.
-    """
 
     TODAY = {
         "date": "La fecha de la gestión no puede ser futura.",
@@ -1346,7 +1166,6 @@ class FollowupForm(CrudForm):
 
 
 class PositionForm(CrudForm):
-    """Cargo: la vigencia hasta no es anterior a la vigencia desde."""
 
     MESSAGE = "La vigencia hasta no puede ser anterior a la vigencia desde."
 
@@ -1360,7 +1179,6 @@ class PositionForm(CrudForm):
 
 
 class PositionItemForm(PositionForm):
-    """Ítem de cargo: ponderador entre 0 y 100, tope máximo positivo y vigencia con sentido."""
 
     def clean(self):
         cleaned = super().clean()
@@ -1374,13 +1192,7 @@ class PositionItemForm(PositionForm):
 
 
 class ValidationForm(BootstrapFormMixin, forms.ModelForm):
-    """Formulario para revisar una evidencia: decisión, resultado y observación.
 
-    La evidencia y el funcionario verificador no se piden aquí: los define la vista
-    (quien revisa es el funcionario de la persona que inició sesión).
-    """
-
-    # Campo -> regla de core/rules.py: el resultado es de una línea y la observación de varias.
     TEXT_RULES = {"result": "label", "notes": "text"}
 
     class Meta:
@@ -1397,7 +1209,6 @@ class ValidationForm(BootstrapFormMixin, forms.ModelForm):
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        # Orden de lectura: aprobar, observar y rechazar; sin opción en blanco.
         order = [Validation.Decision.APPROVED, Validation.Decision.FLAGGED, Validation.Decision.REJECTED]
         labels = dict(Validation.Decision.choices)
         self.fields["decision"].choices = [(value, labels[value]) for value in order]

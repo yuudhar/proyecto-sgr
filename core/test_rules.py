@@ -1,5 +1,3 @@
-"""Pruebas de las reglas de formato (RUT, teléfono, correo...) y de cómo las usan los formularios."""
-
 import re
 
 from django.conf import settings
@@ -25,13 +23,12 @@ class RuleTests(SimpleTestCase):
         _, error = self.apply(name, text)
         self.assertEqual(error, rules.get_rule(name).message, f"{name} debería rechazar {text!r}")
 
-    # -- RUT
 
     def test_check_digit_follows_modulo_11(self):
         self.assertEqual(rules.rut_check_digit("12345678"), "5")
         self.assertEqual(rules.rut_check_digit("11111111"), "1")
-        self.assertEqual(rules.rut_check_digit("10000013"), "K")  # el resto 10 se escribe K
-        self.assertEqual(rules.rut_check_digit("0"), "0")  # el resto 11 se escribe 0
+        self.assertEqual(rules.rut_check_digit("10000013"), "K")
+        self.assertEqual(rules.rut_check_digit("0"), "0")
 
     def test_rut_is_kept_without_dots_and_with_dash(self):
         for written in ("12.345.678-5", "12345678-5", "123456785", " 12 345 678 - 5 "):
@@ -46,10 +43,9 @@ class RuleTests(SimpleTestCase):
     def test_only_a_dashed_rut_with_a_bad_digit_counts_as_a_typo(self):
         self.assertTrue(rules.rut_with_wrong_digit("11.111.111-2"))
         self.assertFalse(rules.rut_with_wrong_digit("11.111.111-1"))
-        self.assertFalse(rules.rut_with_wrong_digit("11111111"))  # sin guion puede ser un teléfono o un código
+        self.assertFalse(rules.rut_with_wrong_digit("11111111"))
         self.assertFalse(rules.rut_with_wrong_digit("María"))
 
-    # -- Teléfono, correo y nombres
 
     def test_phone_accepts_spaces_and_a_plus_but_no_other_signs(self):
         for written in ("+56 9 1234 5678", "912345678", "22 2345678"):
@@ -77,7 +73,6 @@ class RuleTests(SimpleTestCase):
         for written in ("<script>", "a>b", "ok\x01"):
             self.assertRejected("label", written)
 
-    # -- Códigos, usuario, color y versión
 
     def test_username_needs_three_characters_without_spaces(self):
         for written in ("matias.cavieres", "usuario_1@x.cl", "Matias"):
@@ -104,7 +99,6 @@ class RuleTests(SimpleTestCase):
         for written in ("v 2", "-1", "x" * 21):
             self.assertRejected("version", written)
 
-    # -- Atributos para el navegador
 
     def test_attributes_for_the_browser_repeat_the_rule(self):
         rule = rules.get_rule("rut")
@@ -123,7 +117,6 @@ class RuleTests(SimpleTestCase):
                 self.assertIn(rule.check, rules.CHECKS, rule.name)
 
     def test_the_javascript_knows_every_normalizer_and_check(self):
-        """validation.js repite los arreglos y comprobaciones de rules.py: no puede faltarle ninguno."""
         script = (settings.BASE_DIR / "core" / "static" / "core" / "js" / "validation.js").read_text(
             encoding="utf-8"
         )
@@ -135,7 +128,6 @@ class RuleTests(SimpleTestCase):
 
 
 class FormRuleTests(PortalTestCase):
-    """Los formularios aplican las reglas al guardar: arreglan el texto o muestran el mensaje."""
 
     def post_beneficiary(self, **changes):
         data = {"rut": "12.345.678-5", "name": "Pedro Pérez", "phone": "", "address": ""}
@@ -206,8 +198,6 @@ class FormRuleTests(PortalTestCase):
         self.assertTrue(Officer.objects.filter(institutional_id="F-3001", name="Ana Torres").exists())
 
     def test_text_with_angle_brackets_is_still_stored_as_text_and_shown_escaped(self):
-        """Desde la v14 los formularios rechazan < y >; si un dato así ya existe (el Django Admin, una carga anterior),
-        las páginas igual lo escapan."""
         self.login_as("admin")
         Beneficiary.objects.create(rut="12345678-5", name="Pedro Pérez", address="<b>Calle 1</b>")
         response = self.client.get(reverse("core:beneficiarios_list"))
@@ -237,10 +227,9 @@ class DelegationFormTests(PortalTestCase):
         response = self.client.get(self.update_url())
         self.assertContains(response, "Id delegación")
         self.assertContains(response, "Encargado")
-        self.assertContains(response, 'data-lookup-open')  # la lupa
-        self.assertContains(response, 'type="color"')  # el selector de color
+        self.assertContains(response, 'data-lookup-open')
+        self.assertContains(response, 'type="color"')
         self.assertContains(response, 'data-rule="hex_color"')
-        # Los funcionarios activos son las opciones del encargado.
         self.assertContains(response, 'value="Diego Fuentes"')
         self.assertContains(response, "Coordinador de Terreno · Delegación Norte")
 
@@ -272,7 +261,6 @@ class DelegationFormTests(PortalTestCase):
         )
 
     def test_the_manager_can_be_any_text(self):
-        """El encargado se elige de la lista o se escribe: no está atado a un funcionario."""
         self.login_as("admin")
         response = self.client.post(self.update_url(), self.delegation_data(managers="Persona de afuera"))
         self.assertEqual(response.status_code, 302)

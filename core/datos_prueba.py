@@ -1,5 +1,5 @@
-
 from datetime import date, timedelta
+from io import StringIO
 
 from django.contrib.auth.models import Group, User
 from django.core.files.base import ContentFile
@@ -41,22 +41,16 @@ COORDINACION_PASSWORD = "Hola123!"
 JEFATURA_USERNAME = "jefatura1"
 JEFATURA_PASSWORD = "Hola123!"
 
-# Jefatura con dos delegaciones autorizadas (Norte, la de su funcionario, y Sur): sirve para demostrar el selector de
-# delegaciones de la franja de arriba, que muestra solo las que la persona tiene autorizadas (A2).
 SUPERVISION_USERNAME = "supervision1"
 SUPERVISION_PASSWORD = "Hola123!"
 
-# Cuenta de solo lectura (rol Consulta): sirve para demostrar que view no permite crear, editar ni eliminar.
 CONSULTA_USERNAME = "consulta1"
 CONSULTA_PASSWORD = "Hola123!"
 
-# Cada cuenta de prueba tiene un correo (con él recupera su contraseña): usuario@sgr.example.
-# sgr.example es un dominio reservado para ejemplos, no existe de verdad.
 DEMO_EMAIL_DOMAIN = "sgr.example"
 
 
 def demo_pdf(text):
-    """Un PDF de una página con una línea de texto, escrito a mano (sin librerías)."""
     safe = text.replace("\\", "").replace("(", "").replace(")", "")
     stream = f"BT /F1 14 Tf 72 720 Td ({safe}) Tj ET".encode("latin-1", "replace")
     objects = [
@@ -80,16 +74,9 @@ def demo_pdf(text):
     return out
 
 
-class Command(BaseCommand):
-    help = (
-        "Carga datos de demostración reproducibles: 2 delegaciones/contextos, "
-        "7 usuarios de prueba con permisos distintos y registros operacionales "
-        "suficientes para comprobar auditoría (created_at/updated_at/deleted_at) "
-        "y seguridad (scoping por delegación)."
-    )
+class CargaDatosPrueba(BaseCommand):
 
     def get_delegation(self, name, scope, color, manager, address, commune):
-        """Crea la delegación con su color, su encargado y su dirección; si ya existía sin ellos, se los pone."""
         delegation, created = Delegation.objects.get_or_create(
             name=name,
             defaults={
@@ -114,7 +101,6 @@ class Command(BaseCommand):
         return delegation
 
     def get_item(self, name, description, **defaults):
-        """Crea el ítem con su descripción; si ya existía sin ella, se la pone."""
         item, created = Item.objects.get_or_create(
             name=name, defaults={"description": description, **defaults}
         )
@@ -125,7 +111,6 @@ class Command(BaseCommand):
 
     @transaction.atomic
     def write_demo_files(self):
-        """Cada evidencia de demostración tiene un PDF pequeño de verdad, para poder abrirlo y descargarlo."""
         for evidence in Evidence.objects.all():
             name = evidence.file_link.name
             if not name:
@@ -347,7 +332,6 @@ class Command(BaseCommand):
                 "name": "Consulta Delegación Norte",
                 "status": Officer.Status.ACTIVE,
                 "delegation": north,
-                # Un cargo sin metas: quien solo consulta no entra en los promedios de la delegación.
                 "position": position_jefatura,
             },
         )
@@ -468,7 +452,6 @@ class Command(BaseCommand):
             defaults={"officer": officer_north_supervision, "status": UserProfile.Status.ACTIVE},
         )
         if supervision_created:
-            # Su delegación es la Norte (la de su funcionario); la Sur se le agrega como delegación adicional.
             sync_extra_delegations(supervision_user, [south])
 
         group_reader, _ = Group.objects.get_or_create(name="Consulta")
@@ -490,7 +473,6 @@ class Command(BaseCommand):
             defaults={"officer": officer_north_reader, "status": UserProfile.Status.ACTIVE},
         )
 
-        # Un usuario que ya existía sin correo (de una carga anterior) lo recibe ahora.
         for demo_user in (admin_user, north_user, south_user, coordination_user, leadership_user, supervision_user, reader_user):
             if not demo_user.email:
                 demo_user.email = f"{demo_user.username}@{DEMO_EMAIL_DOMAIN}"
@@ -823,7 +805,7 @@ class Command(BaseCommand):
                 "file_link": "evidencias/norte/visita-perez-2026.pdf",
                 "review_status": Evidence.ReviewStatus.PENDING,
                 "activity": activity_north_1,
-                "author_officer": officer_north_2,  # quien la revisa (north_1) no puede ser su autor
+                "author_officer": officer_north_2,
             },
         )
         evidence_north_2, _ = Evidence.objects.get_or_create(
@@ -900,7 +882,7 @@ class Command(BaseCommand):
                 "file_link": "evidencias/sur/postulacion-herrera-2026.pdf",
                 "review_status": Evidence.ReviewStatus.PENDING,
                 "activity": activity_south_3,
-                "author_officer": officer_south_2,  # la revisa south_1: no puede ser su autor
+                "author_officer": officer_south_2,
             },
         )
         Validation.objects.get_or_create(
@@ -1006,3 +988,7 @@ class Command(BaseCommand):
             "distintos). Por defecto el Admin los oculta; agrega ?show_archived=1 al "
             "final de la URL del listado para verlos (ver README.md)."
         )
+
+
+def cargar_datos_prueba():
+    CargaDatosPrueba(stdout=StringIO()).handle()

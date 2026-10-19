@@ -25,7 +25,7 @@ Los aplica `python manage.py migrate` (lo corre `deploy/actualizar.sh`). Ningún
 | `evidence_evidence` | `file_link` sigue siendo `varchar(255)`; ahora guarda la ruta del archivo subido | evidence 0003 |
 | `accounts_userprofile` | columna nueva `photo varchar(255)` vacía por defecto | accounts 0005 |
 
-El diagrama en inglés actualizado es `sql/sgr_v10_modelo_relacional_completo_en.sql`; el detalle de los cambios sobre la base del servidor, en `sql/sgr_v13_a_v16_alter.sql`.
+El diagrama en inglés actualizado es `sql/sgr_v19_modelo_relacional_completo_en.sql`; el detalle de los cambios sobre la base del servidor, en `sql/sgr_v13_a_v16_alter.sql`.
 
 ## En el servidor
 

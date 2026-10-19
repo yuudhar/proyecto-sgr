@@ -1,5 +1,3 @@
-"""Pruebas de la edición de registros: auditoría, cambios simultáneos y campos fijos."""
-
 from decimal import Decimal
 
 from django.core.files.uploadedfile import SimpleUploadedFile
@@ -39,7 +37,6 @@ class AuditTests(PortalTestCase):
         self.assertIn("Contacto: María Pérez Editada", log.new_value)
         self.assertIn(f"Estado: {old_status}", log.previous_value)
         self.assertIn("Estado: Cerrada", log.new_value)
-        # Lo que no cambió no se anota.
         self.assertNotIn("Teléfono", log.new_value)
         self.assertNotIn("Requiere visita", log.new_value)
 
@@ -76,7 +73,6 @@ class ConcurrentEditTests(PortalTestCase):
         activity = self.activity("María Pérez")
         opened = self.open_form(activity).context["version"]
 
-        # Otra persona guarda el mismo registro mientras este formulario sigue abierto.
         same = Activity.objects.get(pk=activity.pk)
         same.action_taken = "Cambio de otra persona"
         same.save()
@@ -90,9 +86,8 @@ class ConcurrentEditTests(PortalTestCase):
         activity.refresh_from_db()
         self.assertEqual(activity.contact_name, "María Pérez")
         self.assertEqual(activity.action_taken, "Cambio de otra persona")
-        self.assertContains(response, "Cambio mío")  # lo que se escribió no se pierde
+        self.assertContains(response, "Cambio mío")
 
-        # El formulario vuelve con la marca nueva: al guardar de nuevo, se conservan los datos propios.
         retry = self.client.post(
             reverse("core:actividades_update", args=[activity.pk]),
             self.post_data(activity, response.context["version"], contact_name="Cambio mío"),
@@ -126,7 +121,6 @@ class EvidenceEditTests(PortalTestCase):
         evidence.refresh_from_db()
         self.assertNotEqual(evidence.unique_code, "EVD-NORTE-9999")
 
-        # Al crear, en cambio, el código sí se escribe.
         create = self.client.get(reverse("core:evidencias_create")).context["form"]
         self.assertFalse(create.fields["unique_code"].disabled)
 
@@ -161,13 +155,11 @@ class SearchLimitTests(PortalTestCase):
         self.login_as("admin")
         url = reverse("core:atencion")
         total = self.client.get(url).context["page"].paginator.count
-        # Las palabras después de la décima se ignoran, así que no vacían el resultado.
         words = ["a"] * SEARCH_WORDS + ["palabra-que-no-existe-en-ninguna-parte"]
         response = self.client.get(url, {"q": " ".join(words)})
         self.assertEqual(response.status_code, 200)
         self.assertGreater(response.context["page"].paginator.count, 0)
         self.assertLessEqual(response.context["page"].paginator.count, total)
-        # Un texto enorme tampoco rompe la consulta.
         self.assertEqual(self.client.get(url, {"q": "a " * 5000}).status_code, 200)
 
 
@@ -226,7 +218,7 @@ class PlanningFormRuleTests(PortalTestCase):
         self.assertPeriodRejected("amber_threshold", amber_threshold="100", collective_threshold="100")
         self.assertPeriodRejected("weighted_cap", weighted_cap="0")
         self.assertPeriodRejected("computable_days", computable_days="0")
-        self.assertPeriodRejected("computable_days", computable_days="366")  # 2027 tiene 365 días
+        self.assertPeriodRejected("computable_days", computable_days="366")
 
     def test_a_valid_period_is_saved(self):
         response = self.client.post(reverse("core:periodos_create"), self.period_data())
@@ -235,7 +227,6 @@ class PlanningFormRuleTests(PortalTestCase):
 
     def test_only_one_period_can_be_current(self):
         self.assertPeriodRejected("status", status="active")
-        # Editar el período vigente con sus mismos datos sí se puede.
         url = reverse("core:periodos_update", args=[self.period.pk])
         data = self.period_data(
             start_date=self.period.start_date.isoformat(),
@@ -244,7 +235,6 @@ class PlanningFormRuleTests(PortalTestCase):
             status="active",
         )
         self.assertEqual(self.client.post(url, data).status_code, 302)
-        # Un período archivado no cuenta como vigente.
         Period.objects.filter(pk=self.period.pk).update(deleted_at=self.period.created_at)
         response = self.client.post(reverse("core:periodos_create"), self.period_data(status="active"))
         self.assertEqual(response.status_code, 302)
@@ -278,7 +268,6 @@ class PlanningFormRuleTests(PortalTestCase):
         again = self.client.post(url, self.goal_data(version="2"))
         self.assertEqual(again.status_code, 200)
         self.assertIn("item", again.context["form"].errors)
-        # Otro ítem, otro funcionario u otro período no cuentan como repetida.
         other_item = Item.objects.create(name="Ítem distinto")
         self.assertEqual(self.client.post(url, self.goal_data(item=other_item.pk)).status_code, 302)
         other = self.officer("F-1003")
@@ -329,6 +318,5 @@ class PlanningFormRuleTests(PortalTestCase):
                 self.assertEqual(response.status_code, 200)
                 self.assertIn(field, response.context["form"].errors)
         self.assertFalse(Indicator.objects.filter(goal=goal, compliance=Decimal("-1")).exists())
-        # Un cumplimiento sobre 100 % es válido: se puede superar la meta.
         data = {"goal": goal.pk, "progress": "30", "compliance": "120", "weighting": "100"}
         self.assertEqual(self.client.post(url, data).status_code, 302)
