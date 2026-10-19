@@ -2,6 +2,7 @@
 from datetime import date, timedelta
 
 from django.contrib.auth.models import Group, User
+from django.core.files.base import ContentFile
 from django.core.management import call_command
 from django.core.management.base import BaseCommand
 from django.db import transaction
@@ -9,6 +10,7 @@ from django.utils import timezone
 
 from accounts.delegations import sync_extra_delegations
 from accounts.models import UserProfile
+from core import uploads
 from core.models import AuditLog
 from evidence.models import Evidence, Validation
 from operations.models import Activity, Commitment, Followup, ManagementType
@@ -51,6 +53,31 @@ CONSULTA_PASSWORD = "Hola123!"
 # Cada cuenta de prueba tiene un correo (con él recupera su contraseña): usuario@sgr.example.
 # sgr.example es un dominio reservado para ejemplos, no existe de verdad.
 DEMO_EMAIL_DOMAIN = "sgr.example"
+
+
+def demo_pdf(text):
+    """Un PDF de una página con una línea de texto, escrito a mano (sin librerías)."""
+    safe = text.replace("\\", "").replace("(", "").replace(")", "")
+    stream = f"BT /F1 14 Tf 72 720 Td ({safe}) Tj ET".encode("latin-1", "replace")
+    objects = [
+        b"<< /Type /Catalog /Pages 2 0 R >>",
+        b"<< /Type /Pages /Kids [3 0 R] /Count 1 >>",
+        b"<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Contents 4 0 R "
+        b"/Resources << /Font << /F1 5 0 R >> >> >>",
+        b"<< /Length " + str(len(stream)).encode() + b" >>\nstream\n" + stream + b"\nendstream",
+        b"<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>",
+    ]
+    out = b"%PDF-1.4\n"
+    offsets = []
+    for number, body in enumerate(objects, start=1):
+        offsets.append(len(out))
+        out += f"{number} 0 obj\n".encode() + body + b"\nendobj\n"
+    start = len(out)
+    out += f"xref\n0 {len(objects) + 1}\n".encode() + b"0000000000 65535 f \n"
+    for offset in offsets:
+        out += f"{offset:010d} 00000 n \n".encode()
+    out += f"trailer\n<< /Size {len(objects) + 1} /Root 1 0 R >>\nstartxref\n{start}\n%%EOF\n".encode()
+    return out
 
 
 class Command(BaseCommand):
@@ -97,6 +124,25 @@ class Command(BaseCommand):
         return item
 
     @transaction.atomic
+    def write_demo_files(self):
+        """Cada evidencia de demostración tiene un PDF pequeño de verdad, para poder abrirlo y descargarlo."""
+        for evidence in Evidence.objects.all():
+            name = evidence.file_link.name
+            if not name:
+                continue
+            content = demo_pdf(f"Evidencia de demostración {evidence.unique_code}")
+            if not evidence.file_link.storage.exists(name):
+                evidence.file_link.storage.save(name, ContentFile(content))
+            if not evidence.metadata:
+                evidence.metadata = "\n".join(
+                    [
+                        f"Archivo original: {name.rsplit('/', 1)[-1]}",
+                        "Tipo: PDF",
+                        f"Tamaño: {uploads.readable_size(len(content))}",
+                    ]
+                )
+                evidence.save(update_fields=["metadata", "updated_at"])
+
     def handle(self, *args, **options):
         self.stdout.write("Cargando roles y catálogo de tipos de gestión...")
         call_command("seed_roles")
@@ -777,7 +823,7 @@ class Command(BaseCommand):
                 "file_link": "evidencias/norte/visita-perez-2026.pdf",
                 "review_status": Evidence.ReviewStatus.PENDING,
                 "activity": activity_north_1,
-                "author_officer": officer_north_1,
+                "author_officer": officer_north_2,  # quien la revisa (north_1) no puede ser su autor
             },
         )
         evidence_north_2, _ = Evidence.objects.get_or_create(
@@ -854,7 +900,7 @@ class Command(BaseCommand):
                 "file_link": "evidencias/sur/postulacion-herrera-2026.pdf",
                 "review_status": Evidence.ReviewStatus.PENDING,
                 "activity": activity_south_3,
-                "author_officer": officer_south_1,
+                "author_officer": officer_south_2,  # la revisa south_1: no puede ser su autor
             },
         )
         Validation.objects.get_or_create(
@@ -866,6 +912,8 @@ class Command(BaseCommand):
                 "notes": "Se solicita reenvío con firma antes de continuar el trámite.",
             },
         )
+
+        self.write_demo_files()
 
         if activity_north_2.deleted_at is None:
             activity_north_2.deleted_at = timezone.now()

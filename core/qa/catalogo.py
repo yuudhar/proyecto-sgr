@@ -5,6 +5,7 @@ from core.qa.esperado_despliegue import ESPERADO as _DESPLIEGUE
 from core.qa.esperado_ingreso_contexto import ESPERADO as _INGRESO
 from core.qa.esperado_listados_portal import ESPERADO as _LISTADOS
 from core.qa.esperado_mantenedores import ESPERADO as _MANTENEDORES
+from core.qa.esperado_v16 import ESPERADO as _V16
 from core.qa.esperado_validaciones import ESPERADO as _VALIDACIONES
 
 # Requisitos del PDF «Requisitos y plan de pruebas de la segunda evaluación». El código es el que usa el registro.
@@ -99,6 +100,10 @@ CLASES = {
     "PrefilledPersonTests": (["A1-11"], "Ingreso de atención (persona precargada)", _SEMILLA + "; sesión de Matías Cavieres (Norte)"),
     "EditStaysTheSameTests": (["A1-11"], "Ingreso de atención (edición)", _SEMILLA + "; sesión de Matías Cavieres (Norte)"),
     "AtencionTests": (["A1-11", "A2-03"], "Pantalla Atención", _SEMILLA),
+    "AtencionScreenTests": (["A1-11", "A2-03", "A2-04"], "Pantalla Atención (listado único)", _SEMILLA),
+    "EvidenceUploadTests": (["A3-02", "IMP-01"], "Subir archivos de evidencia", _SEMILLA + "; carpeta de archivos temporal"),
+    "ProfilePhotoTests": (["A3-02", "A3-12"], "Foto de perfil", _SEMILLA + "; carpeta de archivos temporal"),
+    "OfficerWithAccessTests": (["A1-07", "A3-02"], "Funcionario con su acceso en un solo formulario", _SEMILLA),
     # core · A2 contexto e interfaz
     "AuthorizedDelegationsTests": (["A2-10"], "Selector de delegaciones", _SEMILLA + "; tercera delegación sin usuarios"),
     "SwitchContextTests": (["A2-10", "A2-11"], "Selector de delegaciones (cambio de contexto)", _SEMILLA + "; tercera delegación sin usuarios"),
@@ -180,6 +185,6 @@ CLASES = {
 
 # Unión de los resultados esperados: clase -> método (sin «test_») -> texto.
 ESPERADO = {}
-for _grupo in (_ACCESO, _MANTENEDORES, _INGRESO, _LISTADOS, _DESPLIEGUE, _VALIDACIONES):
+for _grupo in (_ACCESO, _MANTENEDORES, _INGRESO, _LISTADOS, _DESPLIEGUE, _VALIDACIONES, _V16):
     for _clase, _metodos in _grupo.items():
         ESPERADO.setdefault(_clase, {}).update(_metodos)

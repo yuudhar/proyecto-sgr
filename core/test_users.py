@@ -226,7 +226,7 @@ class UserCreateTests(UserTestCase):
         self.create()
         self.client.logout()
         self.assertTrue(self.client.login(username="ana.torres", password=NEW_PASSWORD))
-        response = self.client.get(reverse("core:actividades_list"))
+        response = self.client.get(reverse("core:atencion"))
         self.assertEqual({row.obj.delegation_id for row in response.context["rows"]}, {self.north.pk})
         self.assertEqual(self.client.get(reverse("core:usuarios_list")).status_code, 403)
 
@@ -399,7 +399,7 @@ class UserEditTests(UserTestCase):
         self.assertIn("Matías Quiroz", log.previous_value)
         self.client.logout()
         self.assertTrue(self.client.login(username="matias.quiroz", password=PASSWORD))
-        response = self.client.get(reverse("core:actividades_list"))
+        response = self.client.get(reverse("core:atencion"))
         self.assertEqual({row.obj.delegation_id for row in response.context["rows"]}, {self.north.pk})
 
     def test_the_superuser_can_reset_a_password(self):

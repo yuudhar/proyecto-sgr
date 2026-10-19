@@ -13,6 +13,7 @@ urlpatterns = [
     path("salir/", views.PortalLogoutView.as_view(), name="logout"),
     # Pantallas especiales
     path("perfil/", views.profile, name="profile"),
+    path("perfil/foto/<int:user_id>/", views.profile_photo, name="profile_photo"),
     path(
         "atencion/",
         views.AtencionView.as_view(crud=registry.get("actividades")),
@@ -21,6 +22,7 @@ urlpatterns = [
     path("dashboard/", views.dashboard, name="dashboard"),
     path("filas/", views.set_page_size, name="page_size"),
     path("contexto/", views.set_context, name="set_context"),
+    path("evidencias/<int:pk>/archivo/", views.evidence_file, name="evidence_file"),
     path("evidencias/validar/", views.validate_list, name="validate_list"),
     path("evidencias/<int:pk>/validar/", views.validate_evidence, name="validate_evidence"),
     path("tablero/delegacion/", views.delegation_board, name="delegation_board"),

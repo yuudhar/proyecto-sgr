@@ -504,7 +504,7 @@ class GlobalRoleScopeTests(PortalTestCase):
     def set_role(self, **changes):
         RoleProfile.objects.filter(group=self.role).update(**changes)
 
-    def total_visible(self, username, url_name="core:actividades_list"):
+    def total_visible(self, username, url_name="core:atencion"):
         self.login_as(username)
         response = self.client.get(reverse(url_name))
         return response.status_code, response.context["page"].paginator.count if response.status_code == 200 else None

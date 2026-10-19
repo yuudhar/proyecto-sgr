@@ -27,6 +27,8 @@ class ReviewScopeTests(PortalTestCase):
             "coord.verificador", ["Coordinación", "Verificador"], self.officer("F-1002")
         )
         self.client.force_login(reviewer)
+        # La evidencia pendiente del Norte la subió el otro funcionario de la delegación; quien la sube no la revisa.
+        Evidence.objects.filter(unique_code="EVD-NORTE-0001").update(author_officer=self.officer("F-1001"))
 
     def test_validation_list_only_has_evidence_of_the_reviewers_delegation(self):
         response = self.client.get(reverse("core:validate_list"))
@@ -96,7 +98,7 @@ class EditPermissionConsistencyTests(PortalTestCase):
 
         rows = {
             row.obj.pk: row
-            for row in self.client.get(reverse("core:actividades_list")).context["rows"]
+            for row in self.client.get(reverse("core:atencion")).context["rows"]
         }
         self.assertEqual(rows[south.pk].edit_url, "")
         self.assertNotEqual(rows[north.pk].edit_url, "")
@@ -112,7 +114,7 @@ class EditPermissionConsistencyTests(PortalTestCase):
     def test_user_without_officer_sees_records_without_edit_buttons(self):
         user = self.make_user("coord.sin.funcionario", ["Coordinación", "Funcionario"])
         self.client.force_login(user)
-        response = self.client.get(reverse("core:actividades_list"))
+        response = self.client.get(reverse("core:atencion"))
         self.assertEqual(response.status_code, 200)
         self.assertTrue(response.context["rows"])
         self.assertTrue(all(not row.edit_url for row in response.context["rows"]))

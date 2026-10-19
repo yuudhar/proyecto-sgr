@@ -3,6 +3,8 @@
 -- Exportada desde phpMyAdmin del servidor de AWS el 12-10-2026, SOLO la estructura: sin datos, sin cuentas
 -- y sin contraseñas. Es la base que crean las migraciones de Django (python manage.py migrate).
 -- Para una instalación nueva usa migrate; este archivo sirve para ver el esquema real y como respaldo del diseño.
+-- Nota v16: esta exportación es de la v13. La v16 agrega accounts_userprofile.photo y permite vacío en
+-- evidence_validation.reviewer_officer_id: ver sgr_v13_a_v16_alter.sql (lo aplica `migrate`).
 -- ===========================================================================================================
 
 -- phpMyAdmin SQL Dump

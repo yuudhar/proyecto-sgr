@@ -186,8 +186,8 @@ class SwitchContextTests(ContextTestCase):
 
     def test_switching_saves_the_choice_in_the_session_and_audits_it(self):
         user = self.login_as("supervision1")
-        response = self.switch(self.south.pk, reverse("core:actividades_list"))
-        self.assertRedirects(response, reverse("core:actividades_list"))
+        response = self.switch(self.south.pk, reverse("core:atencion"))
+        self.assertRedirects(response, reverse("core:atencion"))
         self.assertEqual(self.client.session[SESSION_DELEGATION], self.south.pk)
 
         log = AuditLog.objects.get(event="Cambio de delegación activa")
@@ -278,7 +278,7 @@ class SwitchContextTests(ContextTestCase):
     def test_the_choice_lasts_for_the_session_and_each_login_starts_in_the_own_delegation(self):
         self.login_as("supervision1")
         self.switch(self.south.pk)
-        for name in ("core:dashboard", "core:actividades_list", "core:profile"):
+        for name in ("core:dashboard", "core:atencion", "core:profile"):
             self.assertEqual(self.client.get(reverse(name)).context["me_scope"]["name"], "Delegación Sur")
         self.client.logout()
         self.assertNotIn(SESSION_DELEGATION, self.client.session)
@@ -303,7 +303,7 @@ class SwitchContextTests(ContextTestCase):
         self.switch(self.south.pk)
         self.assertEqual(self.client.get(reverse("core:dashboard")).context["me_scope"]["name"], "Delegación Sur")
         sync_extra_delegations(user, [])  # un administrador le quita la Sur mientras tiene la sesión abierta
-        response = self.client.get(reverse("core:actividades_list"))
+        response = self.client.get(reverse("core:atencion"))
         self.assertEqual(response.status_code, 200)
         self.assertEqual(self.contacts(response), self.contacts_of(self.north))
         self.assertNotIn(SESSION_DELEGATION, self.client.session)
@@ -313,7 +313,7 @@ class SwitchContextTests(ContextTestCase):
         session = self.client.session
         session[SESSION_DELEGATION] = self.south.pk
         session.save()
-        response = self.client.get(reverse("core:actividades_list"))
+        response = self.client.get(reverse("core:atencion"))
         self.assertEqual(self.contacts(response), self.contacts_of(self.north))
         self.assertNotIn(SESSION_DELEGATION, self.client.session)
         for junk in ("todas", True, [1], {"a": 1}, None, 10**30):
@@ -324,7 +324,7 @@ class SwitchContextTests(ContextTestCase):
 
     def test_where_to_go_after_switching(self):
         self.login_as("supervision1")
-        list_url = reverse("core:actividades_list")
+        list_url = reverse("core:atencion")
         activity = Activity.objects.filter(delegation=self.north, deleted_at__isnull=True).first()
         cases = {
             # La pantalla donde estaba, sin su búsqueda ni su página (eran de la delegación anterior).
@@ -366,7 +366,7 @@ class ContextFollowsEverywhereTests(ContextTestCase):
 
     def test_the_lists_follow_the_active_delegation(self):
         self.login_as("supervision1")
-        url = reverse("core:actividades_list")
+        url = reverse("core:atencion")
         self.assertEqual(self.contacts(self.client.get(url)), self.contacts_of(self.north))
         self.switch(self.south.pk)
         self.assertEqual(self.contacts(self.client.get(url)), self.contacts_of(self.south))
@@ -401,7 +401,7 @@ class ContextFollowsEverywhereTests(ContextTestCase):
 
     def test_the_delegation_filter_disappears_when_one_delegation_is_active(self):
         self.login_as("admin")
-        url = reverse("core:actividades_list")
+        url = reverse("core:atencion")
         names = [spec.name for spec in self.client.get(url).context["filters"]]
         self.assertIn("delegation", names)
         self.switch(self.south.pk)
@@ -421,7 +421,7 @@ class ContextFollowsEverywhereTests(ContextTestCase):
 
     def test_the_excel_export_follows_the_delegation_and_says_which_one(self):
         self.login_as("supervision1")
-        url = reverse("core:actividades_list")
+        url = reverse("core:atencion")
 
         def sheet(**params):
             response = self.client.get(url, {"formato": "xlsx", **params})
@@ -439,14 +439,14 @@ class ContextFollowsEverywhereTests(ContextTestCase):
 
     def test_an_export_that_sees_everything_has_no_delegation_line(self):
         self.login_as("admin")
-        response = self.client.get(reverse("core:actividades_list"), {"formato": "xlsx"})
+        response = self.client.get(reverse("core:atencion"), {"formato": "xlsx"})
         sheet = load_workbook(BytesIO(response.content)).active
         self.assertEqual(sheet["A3"].value, "Sin filtros")
 
     def test_a_global_user_exporting_one_delegation_gets_only_its_rows(self):
         self.login_as("admin")
         self.switch(self.south.pk)
-        response = self.client.get(reverse("core:actividades_list"), {"formato": "xlsx"})
+        response = self.client.get(reverse("core:atencion"), {"formato": "xlsx"})
         sheet = load_workbook(BytesIO(response.content)).active
         contacts = {row[2] for row in sheet.iter_rows(min_row=6, values_only=True) if row[2]}
         self.assertEqual(contacts, self.contacts_of(self.south))
@@ -618,7 +618,7 @@ class ContextInFormsTests(ContextTestCase):
         north_activity = Activity.objects.filter(delegation=self.north, deleted_at__isnull=True).first()
         south_activity = Activity.objects.filter(delegation=self.south, deleted_at__isnull=True).first()
         self.switch(self.south.pk)
-        rows = {row.obj.pk: row for row in self.client.get(reverse("core:actividades_list")).context["rows"]}
+        rows = {row.obj.pk: row for row in self.client.get(reverse("core:atencion")).context["rows"]}
         self.assertNotIn(north_activity.pk, rows)
         self.assertTrue(rows[south_activity.pk].edit_url)
         self.assertEqual(self.client.get(reverse("core:actividades_update", args=[south_activity.pk])).status_code, 200)
@@ -842,13 +842,13 @@ class LegacyBehaviourTests(ContextTestCase):
         self.client.force_login(user)
         north_activity = self.activity("María Pérez")
         south_activity = self.activity("Ana Rojas")
-        rows = {row.obj.pk: row for row in self.client.get(reverse("core:actividades_list")).context["rows"]}
+        rows = {row.obj.pk: row for row in self.client.get(reverse("core:atencion")).context["rows"]}
         self.assertTrue(rows[north_activity.pk].edit_url)
         self.assertFalse(rows[south_activity.pk].edit_url)
         self.assertEqual(self.client.get(reverse("core:actividades_update", args=[south_activity.pk])).status_code, 403)
         # Al elegir la Sur arriba, sí actúa ahí (y deja de poder cambiar los de la Norte).
         self.switch(self.south.pk)
-        rows = {row.obj.pk: row for row in self.client.get(reverse("core:actividades_list")).context["rows"]}
+        rows = {row.obj.pk: row for row in self.client.get(reverse("core:atencion")).context["rows"]}
         self.assertTrue(rows[south_activity.pk].edit_url)
         self.assertNotIn(north_activity.pk, rows)
 
@@ -942,7 +942,7 @@ class GraphicNormsTests(ContextTestCase):
         self.assertContains(self.client.get(reverse("accounts:recover")), '<img class="escudo escudo-login"')
         self.assertContains(self.client.get("/no-existe-esta-pagina/"), '<img class="escudo escudo-public"', status_code=404)
         self.login_as("matias.cavieres")
-        for url in (reverse("core:dashboard"), reverse("core:actividades_list"), reverse("core:actividades_create")):
+        for url in (reverse("core:dashboard"), reverse("core:atencion"), reverse("core:actividades_create")):
             self.assertContains(self.client.get(url), '<img class="escudo escudo-topbar"')
 
     def test_without_the_arms_file_nothing_is_drawn_in_its_place(self):

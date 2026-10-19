@@ -14,6 +14,24 @@
   <div class="stack">
     <section class="panel" aria-label="Datos de la cuenta">
       <div class="panel-head"><h2 class="panel-title">Cuenta</h2></div>
+      <div class="profile-photo">
+        {% if me_photo_url %}<img class="avatar avatar-lg" src="{{ me_photo_url }}" alt="Tu foto de perfil">{% else %}<span class="avatar avatar-lg avatar-empty" aria-hidden="true"><i class="bi bi-person-fill"></i></span>{% endif %}
+        <form method="post" enctype="multipart/form-data" class="profile-photo-form" data-once data-validate>
+          {% csrf_token %}
+          <input type="hidden" name="accion" value="foto">
+          <div class="row">{% with field=photo_form.photo wide=True %}{% include "core/partials/field.html" %}{% endwith %}</div>
+          <div class="d-flex flex-wrap gap-2 mt-2">
+            <button type="submit" class="btn btn-primary btn-sm"><i class="bi bi-camera" aria-hidden="true"></i> {% if me_photo_url %}Cambiar foto{% else %}Subir foto{% endif %}</button>
+          </div>
+        </form>
+        {% if me_photo_url %}
+        <form method="post" data-once>
+          {% csrf_token %}
+          <input type="hidden" name="accion" value="quitar_foto">
+          <button type="submit" class="btn btn-outline-secondary btn-sm"><i class="bi bi-trash" aria-hidden="true"></i> Quitar foto</button>
+        </form>
+        {% endif %}
+      </div>
       <dl class="facts">
         <div class="facts-row"><dt>Nombre</dt><dd>{{ me_name }}</dd></div>
         <div class="facts-row"><dt>Usuario</dt><dd>{{ me.get_username }}</dd></div>

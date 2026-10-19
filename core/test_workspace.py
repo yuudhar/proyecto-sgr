@@ -234,7 +234,7 @@ class AtencionTests(PortalTestCase):
         response = self.search("matias.cavieres")
         self.assertContains(response, "data-validate")
         self.assertContains(response, 'id="atencion-q"')
-        self.assertContains(response, " required ")  # el cuadro de búsqueda es obligatorio en el navegador
+        self.assertNotContains(response, "required data-label")  # ya no es obligatorio: se puede filtrar sin escribir
         self.assertContains(response, "data-skip-validate")  # pero el botón de Excel no lo exige
 
 

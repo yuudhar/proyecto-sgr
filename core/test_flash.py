@@ -142,4 +142,4 @@ class ConfirmationMarkupTests(PortalTestCase):
 
     def test_the_delete_confirmation_is_still_there(self):
         self.login_as("admin")
-        self.assertContains(self.client.get(reverse("core:actividades_list")), "data-delete=")
+        self.assertContains(self.client.get(reverse("core:atencion")), "data-delete=")

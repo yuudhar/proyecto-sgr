@@ -1,0 +1,43 @@
+"""Resultado esperado (en español) de las pruebas de la versión 16."""
+
+ESPERADO = {
+    "EvidenceUploadTests": {
+        "a_file_is_uploaded_and_its_metadata_are_made_by_the_system": "Se sube un archivo y el sistema arma los metadatos (nombre original, tipo, tamaño y huella).",
+        "the_form_asks_for_a_file_and_not_for_metadata": "El formulario pide un archivo y no pide metadatos.",
+        "a_file_type_that_is_not_accepted_is_rejected": "Un tipo de archivo no permitido se rechaza.",
+        "a_file_whose_content_does_not_match_its_extension_is_rejected": "Un archivo cuyo contenido no corresponde a su extensión se rechaza.",
+        "a_file_over_the_size_limit_is_rejected": "Un archivo que pasa el tamaño máximo se rechaza.",
+        "the_file_is_required_when_creating": "Al crear la evidencia el archivo es obligatorio.",
+        "editing_without_a_new_file_keeps_the_current_one": "Editar sin subir otro archivo conserva el actual.",
+        "the_file_is_delivered_only_through_the_view_with_permission_and_scope": "El archivo solo se entrega por la vista que revisa sesión, permiso y delegación.",
+        "the_detail_shows_a_link_to_the_file_and_the_metadata": "La ficha muestra el enlace al archivo y sus metadatos.",
+        "a_record_without_a_stored_file_shows_only_its_name": "Un registro sin archivo guardado muestra solo su nombre y avisa que el archivo no está.",
+    },
+    "ProfilePhotoTests": {
+        "a_png_or_jpg_photo_is_saved_and_shown_in_the_header": "Una foto PNG o JPG se guarda y se ve en la franja de arriba.",
+        "a_replaced_photo_removes_the_old_file": "Al cambiar la foto se borra el archivo anterior.",
+        "other_file_types_and_false_images_are_rejected": "Otros tipos de archivo e imágenes falsas se rechazan.",
+        "a_photo_over_the_size_limit_is_rejected": "Una foto que pasa el tamaño máximo se rechaza.",
+        "the_photo_can_be_removed": "La foto se puede quitar.",
+        "the_photo_is_only_delivered_to_people_who_signed_in": "La foto solo se entrega a quien inició sesión.",
+        "changing_the_password_still_works_next_to_the_photo_form": "El cambio de contraseña sigue funcionando junto al formulario de la foto.",
+    },
+    "OfficerWithAccessTests": {
+        "the_officer_form_offers_the_access_section_to_who_can_create_users": "El formulario de funcionario ofrece la sección de acceso a quien puede crear usuarios.",
+        "an_officer_with_access_is_created_in_one_step": "Un funcionario con su acceso se crea en un solo paso y la persona puede ingresar.",
+        "an_officer_without_access_is_created_alone": "Un funcionario sin acceso se crea solo, sin usuario.",
+        "a_partly_filled_access_asks_for_the_rest_and_saves_nothing": "Un acceso a medio llenar pide lo que falta y no guarda nada.",
+        "the_access_follows_the_password_policy_and_unique_names": "El acceso cumple la política de contraseñas y no repite usuario ni correo.",
+        "who_cannot_create_users_does_not_get_the_access_section": "Quien no puede crear usuarios no recibe la sección de acceso ni la puede forzar.",
+        "editing_an_officer_does_not_show_the_access_section": "Al editar un funcionario no se muestra la sección de acceso.",
+        "the_user_form_takes_the_name_from_the_officer": "El formulario de usuario toma el nombre del funcionario.",
+        "an_account_without_officer_must_write_its_name": "Una cuenta sin funcionario debe escribir su nombre.",
+    },
+    "AtencionScreenTests": {
+        "the_old_activities_address_leads_to_attention_keeping_the_search": "La dirección antigua de Actividades lleva a Atención conservando la búsqueda.",
+        "the_menu_has_attention_but_no_separate_activities_entry": "El menú tiene Atención y ya no una entrada aparte de Actividades.",
+        "the_attention_screen_has_the_filters_and_the_archive_link_of_the_old_list": "Atención tiene los filtros y el enlace de archivados del listado antiguo.",
+        "the_attention_screen_can_be_filtered_without_a_search_text": "Atención se puede filtrar sin escribir un texto de búsqueda.",
+        "a_record_page_goes_back_to_attention": "La ficha de un registro vuelve a Atención.",
+    },
+}

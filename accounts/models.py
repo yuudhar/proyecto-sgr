@@ -8,6 +8,7 @@ from django.db import models
 
 from core.models import BaseModel
 from core.roles import GLOBAL_ROLE, ROLES
+from core.uploads import photo_path
 from organization.models import Delegation, Officer
 
 
@@ -37,6 +38,14 @@ class UserProfile(BaseModel):
     status = models.CharField(
         max_length=20, choices=Status.choices, default=Status.ACTIVE,
         verbose_name="estado",
+    )
+    # Foto opcional (PNG o JPG de hasta 2 MB). Guarda la ruta dentro de la carpeta de archivos del sistema.
+    photo = models.FileField(
+        upload_to=photo_path,
+        max_length=255,
+        null=True,
+        blank=True,
+        verbose_name="foto de perfil",
     )
 
     class Meta:

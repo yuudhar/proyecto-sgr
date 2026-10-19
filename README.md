@@ -34,7 +34,7 @@ El SGR reemplaza las planillas sueltas de las delegaciones municipales por un si
 - **Atención:** buscar a una persona por RUT o nombre e ingresar una atención con su tipo y sub atención. La delegación, el responsable y la fecha se completan solos.
 - **Dashboard, tablero de delegación e informes:** indicadores del período, semáforo de metas y exportación a Excel.
 - **Mantenedores:** delegaciones, funcionarios, cargos, territorios, beneficiarios, catálogo de servicios, períodos, metas, ítems, tipos de atención y sub atención.
-- **Operación y evidencias:** actividades, gestiones (compromisos), agenda colectiva, evidencias y su validación.
+- **Operación y evidencias:** la pantalla *Atención* reúne las atenciones (actividades) con su búsqueda, filtros y exportación; además gestiones (compromisos), agenda colectiva y evidencias con archivo real (PDF, imagen, Word o Excel de hasta 10 MB) y su validación.
 - **Usuarios y permisos:** roles con permisos por módulo, delegaciones autorizadas por usuario y recuperación de contraseña con código de seis dígitos enviado por correo.
 - **Auditoría:** cada alta, edición, archivo, exportación y recuperación queda registrada con quién, cuándo y qué valor tenía antes y después.
 
@@ -44,6 +44,8 @@ Todos los listados incluyen búsqueda (sin distinguir mayúsculas ni tildes), pa
 
 - **Contraseñas:** de 8 a 128 caracteres, con al menos una minúscula, una mayúscula, un número y un símbolo (por ejemplo `! # $ %`); además, que no sea de uso común, que no sea solo de números y que no se parezca a los datos del usuario. El mensaje dice exactamente qué le falta. Se revisan al crear un usuario, al cambiar la contraseña desde *Mi perfil* y al recuperarla.
 - **Formatos:** RUT con dígito verificador, teléfono, correo, nombres, códigos, usuario y color (`#RRGGBB`) tienen una regla propia en `core/rules.py`, que usan igual el servidor y el navegador.
+
+Los cambios de la versión 16 (archivos de evidencia, foto de perfil, alta única de funcionario y pantalla Atención única) están resumidos en [`docs/CAMBIOS_v16.md`](docs/CAMBIOS_v16.md).
 
 ## Requisitos
 
@@ -140,6 +142,7 @@ La configuración se lee desde el archivo `.env`, que se crea a partir de `.env.
 | `EMAIL_HOST`, `EMAIL_PORT`, `EMAIL_HOST_USER`, `EMAIL_HOST_PASSWORD`, `EMAIL_USE_TLS`, `DEFAULT_FROM_EMAIL` | correo de la recuperación de contraseña |
 | `CSRF_TRUSTED_ORIGINS`, `HTTPS`, `BEHIND_PROXY` | publicación detrás de Apache o nginx con HTTPS |
 | `CACHE_BACKEND`, `REDIS_URL` | caché de los intentos de recuperación (`locmem`, `redis` o `db`) |
+| `MEDIA_ROOT` | carpeta de los archivos subidos (evidencias y fotos); vacío = carpeta `media/` del proyecto |
 
 ### Ejemplo de configuración sin secretos
 
@@ -201,7 +204,7 @@ Comandos de datos (`python manage.py <comando>`):
 | `cargar_volumen_estres` | Carga un volumen grande de registros para las pruebas de estrés |
 | `exportar_registro_pruebas` | Genera `docs/pruebas/registro_pruebas_funcionales.csv` y `.xlsx` |
 
-La carpeta `sql/` guarda los scripts SQL del modelo relacional (`sgr_v3_modelo_relacional_completo.sql`, `sgr_v5_modelo_relacional_completo.sql` con su diagrama `sgr_v5_mer.png`, y los de paso entre versiones `sgr_v3_a_v5_alter.sql` y `sgr_v5_a_v3_revertir.sql`). `sgr_django_estructura_mariadb.sql` es la estructura real de la base del servidor (32 tablas, exportada desde phpMyAdmin, sin datos ni contraseñas). El script con todos los campos actuales, en inglés, es `sgr_v9_modelo_relacional_completo_en.sql`; se ejecuta en DBeaver para tener el diagrama al día. **Cuidado:** ese script borra y vuelve a crear una base llamada `sgr_db` (no `sgr_django`), así que sirve para el diagrama y para pruebas, no para actualizar la base del servidor: ahí las tablas las crea `migrate`.
+La carpeta `sql/` guarda los scripts SQL del modelo relacional (`sgr_v3_modelo_relacional_completo.sql`, `sgr_v5_modelo_relacional_completo.sql` con su diagrama `sgr_v5_mer.png`, y los de paso entre versiones `sgr_v3_a_v5_alter.sql` y `sgr_v5_a_v3_revertir.sql`). `sgr_django_estructura_mariadb.sql` es la estructura real de la base del servidor (32 tablas, exportada desde phpMyAdmin, sin datos ni contraseñas). El script con todos los campos actuales, en inglés, es `sgr_v10_modelo_relacional_completo_en.sql` (el v9 se conserva sin cambios); se ejecuta en DBeaver para tener el diagrama al día. Los cambios de la v16 sobre la base del servidor están en `sgr_v13_a_v16_alter.sql`, que no hace falta ejecutar porque `migrate` los aplica. **Cuidado:** ese script borra y vuelve a crear una base llamada `sgr_db` (no `sgr_django`), así que sirve para el diagrama y para pruebas, no para actualizar la base del servidor: ahí las tablas las crea `migrate`.
 
 **Zonas horarias en MariaDB:** los informes agrupan por fecha en hora de Chile y necesitan las tablas de zonas horarias del motor. Se cargan una vez con:
 
@@ -263,10 +266,10 @@ Todos los módulos leen y escriben en la base de datos real, con permisos por ro
 |---|---|---|---|
 | Ingreso, login y sesión | Pantalla de ingreso | Operativo | Usuario o correo; rechaza cuentas inactivas sin decir qué dato falló |
 | Recuperar contraseña | Pantalla de ingreso | Operativo | Código de 6 dígitos de 120 s; correo real por SMTP |
-| Atención (ingreso) | Atención | Operativo | Tipo y sub atención dependientes; identificador `ATN00001`… |
+| Atención (ingreso y listado) | Atención | Operativo | Tipo y sub atención dependientes; identificador `ATN00001`…; el listado de actividades es esta misma pantalla, con filtros y Excel |
 | Dashboard | Dashboard | Operativo | Promedios y semáforo con las metas guardadas |
-| Actividades, Gestiones, Agenda colectiva | Operación | Operativo | Ligadas a la atención y a la delegación de quien las crea |
-| Evidencias y validación | Operación | Operativo | El verificador aprueba, rechaza u observa, y la evidencia cambia de estado |
+| Gestiones, Agenda colectiva | Operación | Operativo | Ligadas a la atención y a la delegación de quien las crea (las actividades se ven en Atención) |
+| Evidencias y validación | Operación | Operativo | Se sube el archivo; el verificador (su propio funcionario, sin elegirlo) aprueba, rechaza u observa, y vuelve a la evidencia revisada. Nadie valida la evidencia que subió |
 | Tablero de delegación, Informes, Indicadores | Resultados | Operativo | Informes en CSV y Excel |
 | Delegaciones, Funcionarios, Territorios, Cargos, Ítems de cargo | Administración › Organización | Operativo | Ver, crear, editar y archivar en ventana modal |
 | Períodos, Metas, Ajustes | Administración › Planificación | Operativo | Semáforo con los umbrales del período |
@@ -294,7 +297,7 @@ Todo lo de esta tabla lee y escribe en la base de datos del proyecto; nada es un
 | Tabla, búsqueda y Excel | Cada listado tiene búsqueda por palabras, filtros, orden, paginador y Exportar a Excel (`.xlsx`, hasta 10.000 filas, queda en la auditoría). | Cualquier listado; `core/test_search.py`, `core/test_export.py` |
 | Ingreso de atención | Solicitante por RUT o nombre, tipo y sub atención, descripción obligatoria; la delegación sale del contexto activo y el responsable es el funcionario del usuario (en otra delegación se elige uno de ella), la fecha es automática y el identificador es `ATN00001`. | Atención; `core/test_intake.py` |
 | Gestiones, Agenda y Evidencias | Registros ligados a la atención y a la delegación de quien los crea. | Menú Operación; `core/test_portal.py` |
-| Validar evidencias | El verificador aprueba, rechaza u observa la evidencia y puede dejar una observación; queda su decisión y la evidencia cambia de estado. | Validar evidencias; `core/test_portal.py` |
+| Validar evidencias | El verificador aprueba, rechaza u observa la evidencia y puede dejar una observación; queda su decisión (con su funcionario, o «Super Usuario» si revisó el Super Usuario) y la evidencia cambia de estado. No puede revisar la evidencia que él mismo subió. | Validar evidencias; `core/test_portal.py` |
 | Dashboard, Tablero e Informes | Calculan promedios y semáforos con las metas y los indicadores guardados; los informes se bajan en CSV o Excel. | Menú Resultados; `core/test_scope.py`, `core/test_portal.py` |
 | Auditoría | Cada alta, edición, archivo, exportación y recuperación guarda quién, cuándo y el valor anterior y el nuevo. | Menú Sistema, Auditoría; `core/test_edits.py`, `core/test_scope.py` |
 | Validaciones | Cada regla se revisa en la pantalla, con aviso de SweetAlert2, y otra vez en el servidor. | `core/test_rules.py`, `core/test_flash.py` |
@@ -307,7 +310,7 @@ Estas funciones existen y se pueden mostrar, pero con menos alcance que en un si
 |---|---|---|
 | Correo de recuperación | Sin `EMAIL_HOST` en el `.env` el mensaje no sale: se imprime en la consola donde corre el servidor. Con `EMAIL_HOST` (Gmail, Mailtrap u otro SMTP) se envía de verdad, en HTML con los colores del portal. Las pruebas automáticas revisan el mensaje en memoria. | Configurar el SMTP en el `.env` del servidor |
 | Datos de demostración | `seed_demo_data` carga una sola vez usuarios (contraseña de partida `Hola123!`), las delegaciones Norte y Sur, atenciones, evidencias e indicadores ficticios. Después son registros normales de la base (se ven y editan en phpMyAdmin o en el portal), no dependen del comando. | En una instalación real no se ejecuta, o se borran los datos ficticios y se cambian las contraseñas |
-| Archivos de evidencia | Se guarda el nombre, la ruta o el vínculo del archivo (por ejemplo de Google Drive), como pide el modelo de datos. El sistema no sube ni almacena el archivo. | Un campo de archivo en el modelo, que hoy no existe en el diagrama |
+| Archivos de evidencia y fotos | Se suben a la carpeta de archivos del servidor (`MEDIA_ROOT`, por defecto `media/`; en AWS `/opt/sgr/app/media`), con un nombre propio. Se aceptan PDF, PNG, JPG, Word y Excel de hasta 10 MB (fotos: PNG o JPG de hasta 2 MB) y se revisa que el contenido corresponda a la extensión. Los metadatos (nombre original, tipo, tamaño y huella SHA-256) los arma el sistema. Los archivos no tienen dirección pública: se entregan solo a quien puede ver esa evidencia. | Respaldar la carpeta de archivos junto con la base de datos |
 | Indicadores | El avance, el cumplimiento y la ponderación se ingresan a mano en Indicadores. El semáforo sí se calcula con los umbrales del período. No se calculan solos desde las atenciones registradas. | Definir la fórmula de cada ítem |
 | Límite de intentos del código | El contador usa la caché de Django, que por defecto vive en la memoria de cada proceso. Con varios procesos el límite no se comparte. | Una caché compartida (Redis), o un solo proceso |
 | Base de datos | SQLite por defecto; MariaDB o MySQL se activa con `DB_ENGINE` en el `.env`. Las pruebas automáticas corren sobre SQLite. | Probar con el motor que use AWS (ya es MariaDB en el servidor) |
@@ -316,7 +319,7 @@ Estas funciones existen y se pueden mostrar, pero con menos alcance que en un si
 ### Pendientes
 
 - **Entrega (A4):** HTTPS con certificado en la URL final, etiqueta Git de la entrega, evidencias (capturas o video) tomadas sobre la URL real y pruebas de estrés sobre el servidor desplegado.
-- **Diagrama de la base de datos:** pasar los seis campos nuevos al diagrama; el script SQL en inglés v9 ya los trae, solo falta ejecutarlo en DBeaver.
+- **Diagrama de la base de datos:** pasar los campos nuevos al diagrama; el script SQL en inglés v10 ya los trae, solo falta ejecutarlo en DBeaver.
 
 | Tabla del diagrama | Campo nuevo | Tipo | En el proyecto |
 |---|---|---|---|
@@ -326,6 +329,9 @@ Estas funciones existen y se pueden mostrar, pero con menos alcance que en un si
 | Rol (Role) | `descripcion` (description) | `VARCHAR(255) NOT NULL DEFAULT ''` | `accounts_roleprofile.description` |
 | Rol (Role) | `alcance` (scope): `own` = su delegación, `all` = todas | `VARCHAR(10) NOT NULL DEFAULT 'own'` | `accounts_roleprofile.scope` |
 | Rol (Role) | `estado` (status): `active` o `inactive` | `VARCHAR(20) NOT NULL DEFAULT 'active'` | `accounts_roleprofile.status` |
+| Usuario (User) | `foto` (photo), v16: ruta del PNG o JPG subido | `VARCHAR(255) NULL` | `accounts_userprofile.photo` |
+| Validación (Validation) | `Funcionario_id_verificador` ahora admite vacío, v16: lo deja vacío una revisión del Super Usuario | `INT NULL` | `evidence_validation.reviewer_officer_id` |
+| Evidencia (Evidence) | `file_link`, v16: sin cambio de tipo; ahora guarda la ruta del archivo subido | `VARCHAR(255) NOT NULL` | `evidence_evidence.file_link` |
 
 El nombre del rol sigue en el grupo de Django, así que Role equivale a la suma de `auth_group` y `accounts_roleprofile`. La tabla `Usuario_Rol_Delegacion` ya estaba en el diagrama; en Django suma las columnas técnicas `id`, `created_at`, `updated_at` y `deleted_at`, igual que las otras tablas.
 
@@ -347,8 +353,9 @@ Son más de 700 pruebas sobre SQLite en memoria, sin tocar tu base de datos. Cad
 1. Ejecuta `python manage.py seed_demo_data` y entra con cada cuenta de la tabla de cuentas de prueba.
 2. Con `admin` revisa todos los menús; con `consulta1` comprueba que solo ve y no puede crear (los botones no aparecen y las rutas devuelven 403).
 3. Con `supervision1` cambia de delegación en la franja de arriba y mira cómo cambian los listados.
-4. Con `matias.cavieres` ingresa una atención en *Atención*, sube una evidencia y valídala con el mismo usuario (Funcionario y Verificador).
-5. Prueba la recuperación de contraseña con una cuenta que tenga correo propio.
+4. Con `matias.cavieres` ingresa una atención en *Atención* y sube una evidencia con un archivo PDF. La valida otra persona (`matias.cavieres` revisa las evidencias de su delegación que subió el otro funcionario, porque nadie revisa la suya).
+5. En *Funcionarios › Nuevo funcionario* llena «Acceso al sistema»: se crean el funcionario y su cuenta en un solo paso. En *Mi perfil* sube tu foto.
+6. Prueba la recuperación de contraseña con una cuenta que tenga correo propio.
 
 La matriz de menús por rol está en `docs/evidencias/matriz_menus_por_rol.md`.
 

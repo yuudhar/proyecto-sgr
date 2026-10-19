@@ -28,7 +28,7 @@
     </p>
     {% endif %}
     <a class="topbar-name" href="{% url 'core:profile' %}" title="Ver mi perfil">
-      <i class="bi bi-person-circle" aria-hidden="true"></i>
+      {% if me_photo_url %}<img class="avatar avatar-sm" src="{{ me_photo_url }}" alt="">{% else %}<i class="bi bi-person-circle" aria-hidden="true"></i>{% endif %}
       <span class="topbar-label">{{ me_name }}</span>
     </a>
     <ul class="topbar-roles" aria-label="{% if me_roles|length == 1 %}Tu perfil{% else %}Tus perfiles{% endif %}">

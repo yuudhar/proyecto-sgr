@@ -1,4 +1,6 @@
 import os
+import sys
+import tempfile
 from pathlib import Path
 
 from django.core.exceptions import ImproperlyConfigured
@@ -207,6 +209,18 @@ if _env_bool("USE_WHITENOISE"):
         "default": {"BACKEND": "django.core.files.storage.FileSystemStorage"},
         "staticfiles": {"BACKEND": "whitenoise.storage.CompressedStaticFilesStorage"},
     }
+
+# Archivos que suben las personas (evidencias y fotos de perfil). No se sirven por una URL pública: los entrega
+# una vista que antes revisa el permiso y la delegación. En el servidor se puede mover con MEDIA_ROOT en el .env.
+MEDIA_ROOT = Path(os.environ.get("MEDIA_ROOT") or (BASE_DIR / "media"))
+MEDIA_URL = "media/"
+if sys.argv[1:2] == ["test"]:
+    # Las pruebas escriben archivos: van a una carpeta temporal, no a la del proyecto.
+    MEDIA_ROOT = Path(tempfile.mkdtemp(prefix="sgr-pruebas-media-"))
+EVIDENCE_MAX_MB = 10  # tamaño máximo de un archivo de evidencia
+PHOTO_MAX_MB = 2  # tamaño máximo de una foto de perfil
+DATA_UPLOAD_MAX_MEMORY_SIZE = 2 * 1024 * 1024  # los textos de un formulario; los archivos van aparte
+FILE_UPLOAD_PERMISSIONS = 0o640
 
 # Orígenes de confianza para los formularios (CSRF) cuando el sitio se sirve por HTTPS con un dominio: https://sgr.ejemplo.cl
 CSRF_TRUSTED_ORIGINS = [

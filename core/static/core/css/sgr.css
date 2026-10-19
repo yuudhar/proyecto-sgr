@@ -2473,3 +2473,90 @@ textarea.form-control {
     print-color-adjust: exact;
   }
 }
+
+/* Fotos de perfil y vistas previas de archivos */
+.avatar {
+  display: inline-block;
+  border-radius: 50%;
+  object-fit: cover;
+  background: var(--line-soft);
+  flex: none;
+}
+
+.avatar-sm {
+  width: 2rem;
+  height: 2rem;
+}
+
+.avatar-lg {
+  width: 6rem;
+  height: 6rem;
+}
+
+.avatar-empty {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--ink-soft);
+  font-size: 3rem;
+}
+
+.profile-photo {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 1rem 1.5rem;
+  padding: 1rem 1.25rem;
+  border-bottom: 1px solid var(--line);
+}
+
+.profile-photo-form {
+  flex: 1 1 14rem;
+  min-width: 0;
+}
+
+.file-cell {
+  display: inline-flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem 0.75rem;
+}
+
+.file-thumb {
+  display: block;
+  max-width: 9rem;
+  max-height: 7rem;
+  border-radius: var(--radius);
+  border: 1px solid var(--line);
+}
+
+/* Sección dentro de un formulario (por ejemplo «Acceso al sistema» al crear un funcionario) */
+.form-section {
+  margin-top: 0.75rem;
+  padding-top: 1rem;
+  border-top: 1px solid var(--line);
+}
+
+.form-section-title {
+  margin: 0 0 0.25rem;
+  font-size: 1rem;
+  font-weight: 700;
+  color: var(--ink);
+}
+
+.form-section-text {
+  margin: 0;
+  color: var(--ink-soft);
+  font-size: 0.9rem;
+}
+
+.atencion-filters {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem 1rem;
+  margin-top: 1rem;
+}
+
+.atencion-filters .field {
+  min-width: 11rem;
+}

@@ -142,7 +142,7 @@ class RoleTests(PortalTestCase):
     def test_menu_follows_each_role(self):
         self.login_as("matias.cavieres")
         labels = self.menu_labels(self.client.get(reverse("core:dashboard")))
-        self.assertIn("Actividades", labels)
+        self.assertIn("Atención", labels)
         self.assertIn("Validar evidencias", labels)
         self.assertNotIn("Períodos", labels)
 
@@ -152,7 +152,7 @@ class RoleTests(PortalTestCase):
         self.assertIn("Metas", labels)
         self.assertIn("Ajustes", labels)
         self.assertIn("Informes", labels)
-        self.assertNotIn("Actividades", labels)
+        self.assertNotIn("Atención", labels)
         self.assertNotIn("Validar evidencias", labels)
 
         self.login_as("admin")
@@ -173,7 +173,7 @@ class RoleTests(PortalTestCase):
 
     def test_pages_without_permission_answer_403(self):
         cases = (
-            ("coordinacion1", reverse("core:actividades_list")),
+            ("coordinacion1", reverse("core:atencion")),
             ("coordinacion1", reverse("core:validate_list")),
             ("matias.cavieres", reverse("core:periodos_list")),
             ("matias.cavieres", reverse("core:delegation_board")),
@@ -212,7 +212,7 @@ class RoleTests(PortalTestCase):
 
     def test_jefatura_reads_but_cannot_change(self):
         self.login_as("jefatura1")
-        response = self.client.get(reverse("core:actividades_list"))
+        response = self.client.get(reverse("core:atencion"))
         self.assertEqual(response.status_code, 200)
         self.assertFalse(response.context["can_add"])
         self.assertFalse(response.context["any_actions"])
@@ -245,7 +245,7 @@ class RoleTests(PortalTestCase):
         self.assertEqual(response.status_code, 200)
         self.assertTrue(response.context["no_delegation"])
         self.assertContains(response, "no tiene una delegación asignada")
-        self.assertEqual(self.client.get(reverse("core:actividades_list")).status_code, 403)
+        self.assertEqual(self.client.get(reverse("core:atencion")).status_code, 403)
         self.assertEqual(self.client.get(reverse("core:actividades_create")).status_code, 403)
 
     def test_dashboard_shows_own_goals_and_global_semaphore(self):
@@ -273,22 +273,22 @@ class ScopingTests(PortalTestCase):
 
     def test_lists_only_show_own_delegation(self):
         self.login_as("matias.cavieres")
-        north = self.contacts(self.client.get(reverse("core:actividades_list")))
+        north = self.contacts(self.client.get(reverse("core:atencion")))
         self.assertIn("María Pérez", north)
         self.assertNotIn("Ana Rojas", north)
 
         self.login_as("matias.quiroz")
-        south = self.contacts(self.client.get(reverse("core:actividades_list")))
+        south = self.contacts(self.client.get(reverse("core:atencion")))
         self.assertIn("Ana Rojas", south)
         self.assertNotIn("María Pérez", south)
 
         self.login_as("admin")
-        everything = self.contacts(self.client.get(reverse("core:actividades_list")))
+        everything = self.contacts(self.client.get(reverse("core:atencion")))
         self.assertTrue({"María Pérez", "Ana Rojas"} <= everything)
 
     def test_search_does_not_leak_other_delegation(self):
         self.login_as("matias.quiroz")
-        url = reverse("core:actividades_list")
+        url = reverse("core:atencion")
         self.assertEqual(self.client.get(url, {"q": "Ana"}).context["page"].paginator.count, 1)
         self.assertEqual(self.client.get(url, {"q": "Carla"}).context["page"].paginator.count, 0)
         # Un filtro armado a mano con la otra delegación tampoco la deja pasar.
@@ -499,7 +499,7 @@ class CrudFlowTests(PortalTestCase):
         self.give_perm(user, "operations.delete_activity")
         self.assertContains(self.client.get(archive_url), "Eliminar")
         response = self.client.post(archive_url)
-        self.assertRedirects(response, reverse("core:actividades_list"))
+        self.assertRedirects(response, reverse("core:atencion"))
         created.refresh_from_db()
         self.assertIsNotNone(created.deleted_at)
         log = AuditLog.objects.get(event="Registro archivado", record_id=created.pk)
@@ -507,9 +507,9 @@ class CrudFlowTests(PortalTestCase):
         self.assertEqual(log.user.username, "matias.cavieres")
 
         # Archivada: no sale en el listado normal y no se puede editar
-        listing = self.client.get(reverse("core:actividades_list"))
+        listing = self.client.get(reverse("core:atencion"))
         self.assertNotIn("Rosa Editada", ScopingTests.contacts(self, listing))
-        with_archived = self.client.get(reverse("core:actividades_list"), {"archivados": "1"})
+        with_archived = self.client.get(reverse("core:atencion"), {"archivados": "1"})
         self.assertIn("Rosa Editada", ScopingTests.contacts(self, with_archived))
         edit_url = reverse("core:actividades_update", args=[created.pk])
         self.assertRedirects(self.client.get(edit_url), detail)
@@ -631,7 +631,7 @@ class CrudFlowTests(PortalTestCase):
 
     def test_list_parameters_are_safe(self):
         self.login_as("admin")
-        url = reverse("core:actividades_list")
+        url = reverse("core:atencion")
         for params in (
             {"orden": "contact_name", "dir": "desc"},
             {"orden": "no_existe; DROP TABLE x"},
@@ -657,7 +657,7 @@ class CrudFlowTests(PortalTestCase):
         Activity.objects.filter(contact_name="Rosa Negrita").update(contact_name="<b>negrita</b>")
         created = Activity.objects.get(contact_name="<b>negrita</b>")
         for url in (
-            reverse("core:actividades_list"),
+            reverse("core:atencion"),
             reverse("core:actividades_detail", args=[created.pk]),
             reverse("core:actividades_update", args=[created.pk]),
             reverse("core:dashboard"),
@@ -815,7 +815,8 @@ class ValidationFlowTests(PortalTestCase):
             self.review_url("EVD-NORTE-0001"),
             {"decision": "approved", "result": "Evidencia conforme", "notes": ""},
         )
-        self.assertRedirects(response, reverse("core:validate_list"))
+        # Termina en la página de la evidencia revisada, no en la lista.
+        self.assertRedirects(response, reverse("core:evidencias_detail", args=[evidence.pk]))
         evidence.refresh_from_db()
         self.assertEqual(evidence.review_status, Evidence.ReviewStatus.APPROVED)
         validation = Validation.objects.get(evidence=evidence, result="Evidencia conforme")
@@ -843,7 +844,7 @@ class ValidationFlowTests(PortalTestCase):
             self.review_url("EVD-NORTE-0001"),
             {"decision": "flagged", "result": "Falta el sello", "notes": "Adjuntar el sello municipal."},
         )
-        self.assertRedirects(response, reverse("core:validate_list"))
+        self.assertRedirects(response, reverse("core:evidencias_detail", args=[evidence.pk]))
         evidence.refresh_from_db()
         self.assertEqual(evidence.review_status, Evidence.ReviewStatus.PENDING)
         self.assertEqual(Validation.objects.count(), before + 1)
@@ -881,8 +882,11 @@ class ValidationFlowTests(PortalTestCase):
                 self.assertTrue(response.context["form"].errors)
         self.assertEqual(Validation.objects.count(), before)
 
-    def test_reviewer_cannot_be_forged_by_a_delegation_user(self):
+    def test_reviewer_is_not_chosen_it_is_the_logged_in_officer(self):
         self.login_as("matias.cavieres")
+        response = self.client.get(self.review_url("EVD-NORTE-0001"))
+        self.assertNotIn("reviewer_officer", response.context["form"].fields)
+        # Aunque alguien mande el campo a mano, se ignora: queda su propio funcionario.
         response = self.client.post(
             self.review_url("EVD-NORTE-0001"),
             {
@@ -895,26 +899,33 @@ class ValidationFlowTests(PortalTestCase):
         validation = Validation.objects.get(result="Conforme")
         self.assertEqual(validation.reviewer_officer, self.officer("F-1001"))
 
-    def test_superuser_picks_the_reviewer_from_the_evidence_delegation(self):
+    def test_superuser_validates_without_choosing_and_is_shown_as_super_user(self):
         self.login_as("admin")
         url = self.review_url("EVD-NORTE-0001")
-        response = self.client.get(url)
-        offered = response.context["form"].fields["reviewer_officer"].queryset
-        self.assertTrue(offered.exists())
-        self.assertEqual({o.delegation for o in offered}, {self.north})
-
-        forged = self.client.post(
-            url, {"decision": "approved", "result": "Conforme", "reviewer_officer": self.officer("F-2001").pk}
-        )
-        self.assertEqual(forged.status_code, 200)
-        self.assertIn("reviewer_officer", forged.context["form"].errors)
-        self.assertFalse(Validation.objects.filter(result="Conforme").exists())
-
-        ok = self.client.post(
-            url, {"decision": "approved", "result": "Conforme", "reviewer_officer": self.officer("F-1002").pk}
-        )
+        self.assertNotIn("reviewer_officer", self.client.get(url).context["form"].fields)
+        ok = self.client.post(url, {"decision": "approved", "result": "Conforme", "notes": ""})
         self.assertEqual(ok.status_code, 302)
-        self.assertEqual(Validation.objects.get(result="Conforme").reviewer_officer, self.officer("F-1002"))
+        validation = Validation.objects.get(result="Conforme")
+        self.assertIsNone(validation.reviewer_officer)
+        self.assertEqual(validation.reviewer_name, "Super Usuario")
+        page = self.client.get(url)
+        self.assertContains(page, "Por Super Usuario")
+
+    def test_nobody_validates_their_own_evidence(self):
+        evidence = self.evidence("EVD-NORTE-0001")
+        evidence.author_officer = self.officer("F-1001")
+        evidence.save()
+        self.login_as("matias.cavieres")
+        before = Validation.objects.count()
+        response = self.client.post(
+            self.review_url("EVD-NORTE-0001"), {"decision": "approved", "result": "Conforme", "notes": ""}
+        )
+        self.assertEqual(response.status_code, 403)
+        self.assertEqual(Validation.objects.count(), before)
+        listed = self.client.get(reverse("core:validate_list")).context["items"]
+        self.assertNotIn("EVD-NORTE-0001", [item["evidence"].unique_code for item in listed])
+        detail = self.client.get(reverse("core:evidencias_detail", args=[evidence.pk]))
+        self.assertNotContains(detail, reverse("core:validate_evidence", args=[evidence.pk]))
 
     def test_verifier_without_officer_cannot_validate(self):
         user = User.objects.create_user("verificador.suelto", password=PASSWORD)
@@ -1017,7 +1028,7 @@ class BoardAndReportTests(PortalTestCase):
 class CacheHeaderTests(PortalTestCase):
     def test_portal_pages_ask_the_browser_not_to_store_them(self):
         self.login_as("admin")
-        for url in (reverse("core:dashboard"), reverse("core:actividades_list"), reverse("core:login")):
+        for url in (reverse("core:dashboard"), reverse("core:atencion"), reverse("core:login")):
             with self.subTest(url=url):
                 self.assertIn("no-store", self.client.get(url)["Cache-Control"])
 
@@ -1067,7 +1078,7 @@ class SweepTests(PortalTestCase):
     def test_archived_records_are_listed_only_on_request(self):
         self.login_as("admin")
         archived = Activity.objects.filter(deleted_at__isnull=False).first()
-        url = reverse("core:actividades_list")
+        url = reverse("core:atencion")
         normal = {row.obj.pk for row in self.client.get(url).context["rows"]}
         extra = {row.obj.pk for row in self.client.get(url, {"archivados": "1"}).context["rows"]}
         self.assertNotIn(archived.pk, normal)

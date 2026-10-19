@@ -19,6 +19,12 @@
   </div>
   {% endif %}
   {% for field in form %}
+    {% if form.section_field and field.name == form.section_field %}
+    <div class="col-12 form-section">
+      <h3 class="form-section-title">{{ form.section_title }}</h3>
+      <p class="form-section-text">{{ form.section_text }}</p>
+    </div>
+    {% endif %}
     {% if field.widget_type != "checkbox" %}{% include "core/partials/field.html" %}{% endif %}
   {% endfor %}
   {% if form.note %}

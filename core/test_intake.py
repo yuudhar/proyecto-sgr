@@ -280,9 +280,9 @@ class AttentionTypeTests(IntakeCase):
     def test_the_attention_type_and_sub_attention_are_shown_in_the_list_and_the_ficha(self):
         sub = Item.objects.get(name="Seguimiento Telefónico")
         created = self.assertSaved(self.register(attention_type=sub.parent_item_id, item=sub.pk))
-        listing = self.client.get(reverse("core:actividades_list"))
+        listing = self.client.get(reverse("core:atencion"))
         labels = [column.label for column in listing.context["columns"]]
-        self.assertEqual(labels[:5], ["Identificador", "Fecha", "Contacto", "Tipo de atención", "Sub atención"])
+        self.assertEqual(labels[:6], ["Identificador", "Fecha", "Contacto", "RUT", "Tipo de atención", "Sub atención"])
         self.assertContains(listing, "Atención Social")
         self.assertContains(listing, "Seguimiento Telefónico")
         detail = self.client.get(reverse("core:actividades_detail", args=[created.pk]))
@@ -465,7 +465,7 @@ class IdentifierTests(IntakeCase):
         first = self.assertSaved(self.register(requester="Persona Uno"))
         second = self.assertSaved(self.register(requester="Persona Dos"))
         self.assertNotEqual(first.pk, second.pk)
-        listing = self.client.get(reverse("core:actividades_list"))
+        listing = self.client.get(reverse("core:atencion"))
         self.assertContains(listing, f"ATN{first.pk:05d}")
         self.assertContains(listing, f"ATN{second.pk:05d}")
 

@@ -2,6 +2,7 @@
 
 from decimal import Decimal
 
+from django.core.files.uploadedfile import SimpleUploadedFile
 from django.urls import reverse
 
 from core.crud import SEARCH_WORDS
@@ -106,8 +107,6 @@ class EvidenceEditTests(PortalTestCase):
         data = {
             "activity": evidence.activity_id,
             "unique_code": evidence.unique_code,
-            "file_link": evidence.file_link,
-            "metadata": evidence.metadata or "",
             "author_officer": evidence.author_officer_id,
         }
         data.update(changes)
@@ -135,10 +134,12 @@ class EvidenceEditTests(PortalTestCase):
         self.login_as("admin")
         evidence = Evidence.objects.filter(review_status="approved", deleted_at__isnull=True).first()
         url = reverse("core:evidencias_update", args=[evidence.pk])
-        response = self.client.post(url, self.evidence_data(evidence, file_link="otro-archivo.pdf"), follow=True)
+        upload = SimpleUploadedFile("otro archivo.pdf", b"%PDF-1.4\nnuevo\n%%EOF\n", content_type="application/pdf")
+        response = self.client.post(url, self.evidence_data(evidence, file_link=upload), follow=True)
         evidence.refresh_from_db()
         self.assertEqual(evidence.review_status, Evidence.ReviewStatus.PENDING)
-        self.assertEqual(evidence.file_link, "otro-archivo.pdf")
+        self.assertTrue(evidence.file_link.name.endswith(".pdf"))
+        self.assertIn("Archivo original: otro archivo.pdf", evidence.metadata)
         self.assertContains(response, "quedó pendiente de una nueva revisión")
 
     def test_a_change_that_does_not_alter_the_reviewed_file_keeps_the_review(self):
@@ -158,7 +159,7 @@ class EvidenceEditTests(PortalTestCase):
 class SearchLimitTests(PortalTestCase):
     def test_only_the_first_words_of_a_long_search_are_used(self):
         self.login_as("admin")
-        url = reverse("core:actividades_list")
+        url = reverse("core:atencion")
         total = self.client.get(url).context["page"].paginator.count
         # Las palabras después de la décima se ignoran, así que no vacían el resultado.
         words = ["a"] * SEARCH_WORDS + ["palabra-que-no-existe-en-ninguna-parte"]

@@ -6,7 +6,7 @@
 <section class="page-head">
   <div>
     <h1 class="page-title"><i class="bi bi-headset" aria-hidden="true"></i>Atención</h1>
-    <p class="page-sub">Busca a la persona por RUT, nombre u otro dato. Si no aparece, registra una atención nueva.</p>
+    <p class="page-sub">Busca a la persona por RUT, nombre u otro dato; si no aparece, registra una atención nueva. Aquí están todas las atenciones y sus actividades: filtra, exporta o abre una para ver sus gestiones y evidencias.</p>
   </div>
   {% if can_add %}
   <div class="page-actions">
@@ -21,11 +21,29 @@
     <div class="atencion-row">
       <div class="input-group input-group-lg">
         <span class="input-group-text" aria-hidden="true"><i class="bi bi-search"></i></span>
-        <input type="search" class="form-control" id="atencion-q" name="q" value="{{ q }}" placeholder="Ej.: 11.111.111-1, María Pérez o +56 9 1111 1111" autocomplete="off" maxlength="100" required data-label="Lo que quieres buscar">
+        <input type="search" class="form-control" id="atencion-q" name="q" value="{{ q }}" placeholder="Ej.: 11.111.111-1, María Pérez o +56 9 1111 1111" autocomplete="off" maxlength="100" data-label="Lo que quieres buscar">
       </div>
       <button type="submit" class="btn btn-primary btn-lg"><i class="bi bi-search" aria-hidden="true"></i> Buscar</button>
       <button type="submit" class="btn btn-outline-success btn-lg" name="formato" value="xlsx" formnovalidate data-skip-validate data-no-busy{% if not rows %} disabled{% endif %}><i class="bi bi-file-earmark-excel" aria-hidden="true"></i> Exportar a Excel</button>
     </div>
+    {% if filters %}
+    <div class="atencion-filters">
+      {% for filter in filters %}
+      <div class="field">
+        <label for="filtro-{{ filter.name }}">{{ filter.label }}</label>
+        <select class="form-select" id="filtro-{{ filter.name }}" name="{{ filter.name }}">
+          <option value="">Todos</option>
+          {% for value, label in filter.options %}
+          <option value="{{ value }}"{% if value == filter.selected %} selected{% endif %}>{{ label }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      {% endfor %}
+      {% if archived %}<input type="hidden" name="archivados" value="1">{% endif %}
+      {% if sort %}<input type="hidden" name="orden" value="{{ sort }}"><input type="hidden" name="dir" value="{{ direction }}">{% endif %}
+      {% if has_filters %}<a class="btn btn-outline-secondary align-self-end" href="{{ request.path }}">Limpiar</a>{% endif %}
+    </div>
+    {% endif %}
     <div class="invalid-feedback" id="atencion-q_error"></div>
     {% if wrong_rut %}
     <div class="alert alert-warning d-flex gap-2 mt-3 mb-0" role="status">
@@ -40,7 +58,8 @@
   <div class="panel-head">
     <h2 class="panel-title">{% if q %}Resultados para «{{ q }}»{% else %}Últimas atenciones{% endif %}</h2>
     <div class="panel-head-side">
-      <span class="muted">{{ page.paginator.count }} resultado{{ page.paginator.count|pluralize }}</span>
+      <span class="muted">{{ page.paginator.count }} resultado{{ page.paginator.count|pluralize }}{% if archived %}, incluidos los archivados{% endif %}</span>
+      {% if crud.archivable %}<a href="{{ archived_url }}">{% if archived %}<i class="bi bi-eye-slash" aria-hidden="true"></i> Ocultar archivados{% else %}<i class="bi bi-archive" aria-hidden="true"></i> Incluir archivados{% endif %}</a>{% endif %}
       {% if rows %}{% include "core/partials/page_size.html" %}{% endif %}
     </div>
   </div>
@@ -50,8 +69,8 @@
   {% else %}
   <div class="empty">
     <i class="bi bi-headset" aria-hidden="true"></i>
-    {% if q %}
-      <p>No encontramos atenciones para «{{ q }}». Revisa cómo está escrito o registra una atención nueva.</p>
+    {% if q or has_filters %}
+      <p>No encontramos atenciones{% if q %} para «{{ q }}»{% endif %}. Revisa cómo está escrito, quita los filtros o registra una atención nueva.</p>
     {% else %}
       <p>Aún no hay atenciones registradas.</p>
     {% endif %}

@@ -15,14 +15,15 @@ from django.contrib.auth.decorators import login_required, permission_required
 from django.core.exceptions import PermissionDenied
 from django.db import transaction
 from django.db.models import Count, Prefetch, Q
-from django.http import HttpResponse
+from django.http import FileResponse, Http404, HttpResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import Resolver404, resolve, reverse
 from django.utils import timezone
 from django.utils.http import url_has_allowed_host_and_scheme
 from django.views.decorators.http import require_POST
 
-from core import export, ui
+from accounts.models import UserProfile
+from core import export, ui, uploads
 from core.access import (
     active_delegation,
     authorized_delegations,
@@ -33,8 +34,8 @@ from core.access import (
     request_officer,
 )
 from core.audit import log_event, log_export
-from core.crud import CODE_COLUMN, PAGE_SIZES, SESSION_PAGE_SIZE, Col, CrudListView, query_string, registry
-from core.forms import PortalAuthenticationForm, PortalPasswordChangeForm, ValidationForm
+from core.crud import CODE_COLUMN, PAGE_SIZES, SESSION_PAGE_SIZE, Col, Column, CrudListView, query_string, registry
+from core.forms import PortalAuthenticationForm, PortalPasswordChangeForm, ProfilePhotoForm, ValidationForm
 from core.rules import rut_with_wrong_digit
 from evidence.models import Evidence, Validation
 from operations.models import Activity, Commitment
@@ -70,22 +71,59 @@ class PortalLogoutView(auth_views.LogoutView):
 
 @login_required
 def profile(request):
-    """Mi perfil: los datos de la cuenta (que ya trae el menú) y el cambio de contraseña."""
-    form = PortalPasswordChangeForm(request.user, request.POST or None)
-    if request.method == "POST" and form.is_valid():
-        user = form.save()
-        update_session_auth_hash(request, user)  # la sesión actual sigue abierta con la contraseña nueva
-        log_event(user, "Contraseña cambiada", user)
-        messages.success(request, "Cambiaste tu contraseña.")
-        return redirect("core:profile")
+    """Mi perfil: los datos de la cuenta, la foto de perfil y el cambio de contraseña."""
+    action = request.POST.get("accion", "") if request.method == "POST" else ""
+    form = PortalPasswordChangeForm(request.user, request.POST if action == "" and request.method == "POST" else None)
+    photo_form = ProfilePhotoForm(request.POST if action == "foto" else None, request.FILES if action == "foto" else None)
+    if request.method == "POST":
+        if action == "foto" and photo_form.is_valid():
+            account = UserProfile.objects.get_or_create(user=request.user)[0]
+            old = account.photo.name if account.photo else ""
+            account.photo = photo_form.cleaned_data["photo"]
+            account.save(update_fields=["photo", "updated_at"])
+            if old and old != account.photo.name:
+                account.photo.storage.delete(old)
+            log_event(request.user, "Foto de perfil cambiada", request.user)
+            messages.success(request, "Listo: cambiaste tu foto de perfil.")
+            return redirect("core:profile")
+        if action == "quitar_foto":
+            account = UserProfile.objects.get_or_create(user=request.user)[0]
+            old = account.photo.name if account.photo else ""
+            if old:
+                account.photo = None
+                account.save(update_fields=["photo", "updated_at"])
+                account.photo.storage.delete(old)
+                log_event(request.user, "Foto de perfil quitada", request.user)
+                messages.success(request, "Quitaste tu foto de perfil.")
+            return redirect("core:profile")
+        if action == "" and form.is_valid():
+            user = form.save()
+            update_session_auth_hash(request, user)  # la sesión actual sigue abierta con la contraseña nueva
+            log_event(user, "Contraseña cambiada", user)
+            messages.success(request, "Cambiaste tu contraseña.")
+            return redirect("core:profile")
     return render(
         request,
         "core/profile.html",
         {
             "form": form,
+            "photo_form": photo_form,
             "breadcrumbs": [("Inicio", reverse("core:dashboard")), ("Mi perfil", None)],
         },
     )
+
+
+@login_required
+def profile_photo(request, user_id):
+    """Entrega la foto de perfil de un usuario a cualquier persona con la sesión iniciada."""
+    account = get_object_or_404(UserProfile, user_id=user_id)
+    name = account.photo.name if account.photo else ""
+    if not name or not account.photo.storage.exists(name):
+        raise Http404
+    response = FileResponse(account.photo.open("rb"), content_type=uploads.content_type_of(name))
+    response["X-Content-Type-Options"] = "nosniff"
+    response["Cache-Control"] = "private, max-age=3600"
+    return response
 
 
 @login_required
@@ -428,7 +466,7 @@ def dashboard(request):
             month = month.filter(author_officer=officer)
         pending.append(
             {
-                "label": "Mis actividades de este mes" if officer else "Actividades de este mes",
+                "label": "Mis atenciones de este mes" if officer else "Atenciones de este mes",
                 "total": month.count(),
                 "icon": activities.icon,
                 "url": activities.url("list"),
@@ -486,7 +524,7 @@ def dashboard(request):
     # Atajos según permisos.
     shortcuts = []
     if activities.can_add(user):
-        shortcuts.append(("Registrar actividad", activities.url("create"), "bi-plus-circle"))
+        shortcuts.append(("Registrar atención", activities.url("create"), "bi-plus-circle"))
     if evidences.can_add(user):
         shortcuts.append(("Cargar evidencia", evidences.url("create"), "bi-cloud-arrow-up"))
     if commitments.can_add(user):
@@ -540,7 +578,7 @@ DECISION_DONE = {
 }
 
 
-def reviewable_evidence(request):
+def reviewable_evidence(request, exclude_own=True):
     """Mantenedor de evidencias y las evidencias que el usuario puede revisar.
 
     Quien revisa solo ve las de la delegación en que trabaja: la que eligió arriba o, si no eligió, la de su
@@ -554,7 +592,33 @@ def reviewable_evidence(request):
     delegation = request_delegation(request)
     if delegation is not None:
         evidences = evidences.filter(activity__delegation=delegation)
+    officer = request_officer(request)
+    if exclude_own and officer is not None:
+        evidences = evidences.exclude(author_officer=officer)  # las que subió él las revisa otra persona
     return crud, evidences
+
+
+@login_required
+def evidence_file(request, pk):
+    """Entrega el archivo de una evidencia. Solo a quien puede ver esa evidencia (permiso y delegación)."""
+    crud = registry.get("evidencias")
+    if not crud.has_perm(request.user, "view"):
+        raise PermissionDenied
+    evidence = get_object_or_404(crud.get_queryset(request, include_archived=True), pk=pk)
+    name = evidence.file_link.name if evidence.file_link else ""
+    if not name or not evidence.file_link.storage.exists(name):
+        raise Http404("Esta evidencia no tiene un archivo en el sistema.")
+    content_type = uploads.content_type_of(name)
+    # PDF e imágenes se ven en el navegador; el resto (Word, Excel) se descarga.
+    response = FileResponse(
+        evidence.file_link.open("rb"),
+        content_type=content_type,
+        as_attachment=content_type not in uploads.INLINE_TYPES,
+        filename=f"{evidence.unique_code}.{uploads.extension_of(name)}",
+    )
+    response["X-Content-Type-Options"] = "nosniff"
+    response["Cache-Control"] = "private, no-store"
+    return response
 
 
 @login_required
@@ -612,7 +676,7 @@ def validate_list(request):
 @login_required
 @permission_required("evidence.add_validation", raise_exception=True)
 def validate_evidence(request, pk):
-    crud, evidences = reviewable_evidence(request)
+    crud, evidences = reviewable_evidence(request, exclude_own=False)
     evidence = get_object_or_404(
         evidences.select_related(
             "activity", "activity__item", "activity__delegation", "author_officer"
@@ -620,27 +684,22 @@ def validate_evidence(request, pk):
         pk=pk,
     )
 
-    # Quien revisa es su propio funcionario. El superusuario no tiene uno: elige entre
-    # los funcionarios activos de la delegación de la evidencia.
+    # Quien revisa es el funcionario de quien inició sesión; no se elige. El Super Usuario no
+    # tiene uno: su revisión queda sin funcionario y se muestra como «Super Usuario».
     officer = request_officer(request)
-    reviewers = None
-    if officer is None:
-        if not request.user.is_superuser:
-            raise PermissionDenied("Tu usuario no tiene un funcionario asociado para validar.")
-        reviewers = Officer.objects.filter(
-            delegation=evidence.activity.delegation,
-            status=Officer.Status.ACTIVE,
-            deleted_at__isnull=True,
-        )
+    if officer is None and not request.user.is_superuser:
+        raise PermissionDenied("Tu usuario no tiene un funcionario asociado para validar.")
 
-    form = ValidationForm(request.POST or None, reviewers=reviewers)
+    # Nadie revisa su propia evidencia: la valida otra persona de la delegación.
+    if officer is not None and evidence.author_officer_id == officer.pk:
+        raise PermissionDenied("No puedes validar una evidencia que subiste tú: debe revisarla otra persona.")
+
+    form = ValidationForm(request.POST or None)
     if request.method == "POST" and form.is_valid():
         with transaction.atomic():
             validation = form.save(commit=False)
             validation.evidence = evidence
-            validation.reviewer_officer = (
-                form.cleaned_data["reviewer_officer"] if reviewers is not None else officer
-            )
+            validation.reviewer_officer = officer
             validation.save()
 
             previous = evidence.review_status
@@ -657,6 +716,9 @@ def validate_evidence(request, pk):
             request,
             f"Evidencia «{evidence.unique_code}» {DECISION_DONE[validation.decision]}.",
         )
+        # Vuelve a la página de la evidencia revisada (y a la lista si no puede verla).
+        if crud.has_perm(request.user, "view"):
+            return redirect(crud.url("detail", evidence.pk))
         return redirect("core:validate_list")
 
     history = list(
@@ -665,6 +727,9 @@ def validate_evidence(request, pk):
         .order_by("-date", "-pk")
     )
     activity_crud = registry.get("actividades")
+    file_cell = crud.make_cell(evidence, Column(path="file_link", label="Archivo", kind="text"))
+    if not file_cell.text:
+        file_cell = None
     return render(
         request,
         "core/validate_form.html",
@@ -678,6 +743,7 @@ def validate_evidence(request, pk):
                 else ""
             ),
             "evidence_url": crud.url("detail", evidence.pk),
+            "file_cell": file_cell,
             "breadcrumbs": [
                 ("Inicio", reverse("core:dashboard")),
                 ("Validar evidencias", reverse("core:validate_list")),

@@ -9,12 +9,15 @@ registros de esa delegación.
 
 import re
 from decimal import Decimal
+from pathlib import Path
 
 from django import forms
+from django.conf import settings
 from django.contrib.auth import password_validation
 from django.contrib.auth.forms import AuthenticationForm, PasswordChangeForm
 from django.contrib.auth.models import Group, Permission, User
 from django.core.exceptions import ValidationError
+from django.core.files.uploadedfile import UploadedFile
 from django.core.validators import MaxLengthValidator, MinValueValidator
 from django.db.models import Q
 from django.utils import timezone
@@ -22,7 +25,7 @@ from django.utils.html import format_html, format_html_join
 
 from accounts.delegations import stored_delegation_ids
 from accounts.models import RoleProfile, UserProfile, group_is_global, role_details
-from core import ui
+from core import ui, uploads
 from core.access import default_delegation, request_delegation, request_officer
 from core.models import BaseModel
 from core.roles import MODULE_LABELS, SYSTEM_GROUPS, managed_permissions, permission_key
@@ -601,6 +604,37 @@ def find_beneficiary(text):
     return (matches[0] if matches else None), ""
 
 
+class EvidenceForm(CrudForm):
+    """Formulario de evidencias: se sube el archivo, no se escribe su nombre ni sus metadatos.
+
+    Los metadatos (nombre original, tipo, tamaño y huella SHA-256) los arma el sistema al guardar.
+    """
+
+    def customize_fields(self):
+        field = self.fields["file_link"]
+        field.label = "Archivo"
+        field.widget = forms.FileInput(
+            attrs={
+                "accept": ",".join(f".{ext}" for ext in uploads.EVIDENCE_TYPES),
+                "data-max-mb": settings.EVIDENCE_MAX_MB,
+                "data-accept-label": uploads.accepted_text(uploads.EVIDENCE_TYPES),
+            }
+        )
+        base = f"{uploads.accepted_text(uploads.EVIDENCE_TYPES)}, de hasta {settings.EVIDENCE_MAX_MB} MB."
+        current = self.instance.file_link.name if self.instance.pk and self.instance.file_link else ""
+        if current:
+            name = Path(current).name
+            field.help_text = f"Archivo actual: {name}. Sube otro solo si quieres reemplazarlo. {base}"
+        else:
+            field.help_text = base
+
+    def clean_file_link(self):
+        uploaded = self.cleaned_data.get("file_link")
+        if isinstance(uploaded, UploadedFile):
+            uploads.check_upload(uploaded, uploads.EVIDENCE_TYPES, settings.EVIDENCE_MAX_MB)
+        return uploaded
+
+
 class ActivityIntakeForm(CrudForm):
     """Ingreso de atención (Clase 8): lo que se pide al registrar una atención nueva.
 
@@ -771,8 +805,9 @@ class UserForm(CrudForm):
         required=False,
         label="Funcionario",
         help_text=(
-            "Define la delegación del usuario. Solo el Super Usuario y los perfiles con alcance sobre todas las "
-            "delegaciones (como Coordinación) pueden quedar sin funcionario."
+            "Define la delegación y el nombre del usuario. Solo el Super Usuario y los perfiles con alcance sobre "
+            "todas las delegaciones (como Coordinación) pueden quedar sin funcionario. Para una persona nueva, "
+            "créala en Funcionarios: ahí mismo puedes darle su acceso."
         ),
     )
     extra_delegations = forms.ModelMultipleChoiceField(
@@ -928,12 +963,155 @@ class UserForm(CrudForm):
                 )
         self.check_extra_delegations(cleaned, sees_everything)
 
+        # El nombre de la cuenta sale del funcionario; solo una cuenta sin funcionario necesita escribirlo.
+        officer = cleaned.get("officer")
+        if officer is not None:
+            if not cleaned.get("first_name"):
+                cleaned["first_name"], last = split_person_name(officer.name)
+                if not cleaned.get("last_name"):
+                    cleaned["last_name"] = last
+        elif not self.instance.pk and not cleaned.get("first_name") and not self.has_error("first_name"):
+            self.add_error("first_name", "Escribe el nombre: esta cuenta no tiene un funcionario de donde tomarlo.")
+
         if self.instance.pk and self.request is not None and self.instance.pk == self.request.user.pk:
             if "is_active" in cleaned and not cleaned["is_active"]:
                 self.add_error("is_active", "No puedes desactivar tu propia cuenta.")
             if self.instance.is_superuser and "is_superuser" in cleaned and not cleaned["is_superuser"]:
                 self.add_error("is_superuser", "No puedes quitarte a ti mismo el perfil de Super Usuario.")
         return cleaned
+
+
+class OfficerForm(CrudForm):
+    """Funcionario, con su acceso al sistema en el mismo formulario (solo al crear).
+
+    Una persona nueva se da de alta una sola vez: sus datos de funcionario y, si va a ingresar al
+    sistema, su usuario, correo, contraseña y perfiles. Si no se llena nada de «Acceso al sistema», solo se
+    crea el funcionario. El nombre de la cuenta sale del nombre del funcionario.
+    """
+
+    section_field = "username"
+    section_title = "Acceso al sistema (opcional)"
+    section_text = (
+        "Llénalo si esta persona va a ingresar al sistema; así no hace falta crear después un usuario aparte. "
+        "Déjalo en blanco si solo necesitas registrarla como funcionario."
+    )
+
+    username = forms.CharField(label="Usuario", required=False, max_length=150)
+    email = forms.EmailField(label="Correo", required=False, max_length=254)
+    password1 = forms.CharField(
+        label="Contraseña",
+        required=False,
+        strip=False,
+        widget=forms.PasswordInput(attrs={"autocomplete": "new-password"}),
+    )
+    password2 = forms.CharField(
+        label="Repite la contraseña",
+        required=False,
+        strip=False,
+        widget=forms.PasswordInput(attrs={"autocomplete": "new-password", "data-match": "id_password1"}),
+    )
+    groups = forms.ModelMultipleChoiceField(
+        queryset=Group.objects.none(), required=False, label="Perfil", widget=RolesWidget
+    )
+
+    ACCESS_FIELDS = ("username", "email", "password1", "password2", "groups")
+
+    def customize_fields(self):
+        allowed = (
+            self.request is not None
+            and not self.instance.pk
+            and registry_can_add_user(self.request.user)
+        )
+        if not allowed:
+            for name in self.ACCESS_FIELDS:
+                del self.fields[name]
+            self.section_field = ""
+            return
+        offered = Q(role_profile__status=RoleProfile.Status.ACTIVE) | Q(role_profile__isnull=True)
+        groups = self.fields["groups"]
+        groups.queryset = Group.objects.filter(offered).select_related("role_profile").order_by("pk")
+        groups.widget = RolesWidget()
+        groups.widget.choices = groups.choices
+        self.fields["username"].help_text = "Con este nombre ingresa al sistema. Letras, números y . _ @ + -"
+        self.fields["email"].help_text = "Con este correo la persona recupera su contraseña."
+        self.fields["password1"].help_text = password_help()
+        self.fields["username"].widget.attrs.update(get_rule("username").attrs())
+        self.fields["email"].widget.attrs.update(get_rule("email").attrs())
+        self.fields["password1"].widget.attrs.update(get_rule("password").attrs())
+
+    def wants_access(self):
+        data = self.cleaned_data
+        return any(data.get(name) for name in self.ACCESS_FIELDS if name in self.fields)
+
+    def clean(self):
+        cleaned = super().clean()
+        if "username" not in self.fields or not self.wants_access():
+            return cleaned
+        for name, message in (
+            ("username", "Escribe el usuario con que va a ingresar."),
+            ("email", "Escribe el correo: con él la persona recupera su contraseña."),
+            ("password1", "Escribe una contraseña para el primer ingreso."),
+            ("groups", "Elige al menos un perfil."),
+        ):
+            if not cleaned.get(name) and not self.has_error(name):
+                self.add_error(name, message)
+        username = cleaned.get("username")
+        if username and User.objects.filter(username__iexact=username).exists():
+            self.add_error("username", "Ya existe un usuario con ese nombre, aunque cambien las mayúsculas.")
+        email = cleaned.get("email")
+        if email and User.objects.filter(email__iexact=email).exists():
+            self.add_error("email", "Ese correo ya lo usa otro usuario. Cada cuenta necesita uno distinto.")
+        password = cleaned.get("password1") or ""
+        if password and password != (cleaned.get("password2") or ""):
+            self.add_error("password2", "Las dos contraseñas deben ser iguales.")
+        elif password and not self.has_error("password1"):
+            first, last = split_person_name(cleaned.get("name") or "")
+            try:
+                password_validation.validate_password(
+                    password, user=User(username=username or "", first_name=first, last_name=last, email=email or "")
+                )
+            except ValidationError as error:
+                self.add_error("password1", error.messages)
+        return cleaned
+
+
+def registry_can_add_user(user):
+    """¿Puede esta persona crear usuarios? (permiso de «Control de usuarios»)."""
+    return user.has_perm("auth.add_user")
+
+
+def split_person_name(name):
+    """«María José Pérez Soto» -> («María José», «Pérez Soto»): las dos primeras palabras son el nombre si hay cuatro o más."""
+    words = (name or "").split()
+    if len(words) <= 1:
+        return (name or "").strip(), ""
+    cut = 2 if len(words) >= 4 else 1
+    return " ".join(words[:cut])[:150], " ".join(words[cut:])[:150]
+
+
+class ProfilePhotoForm(BootstrapFormMixin, forms.Form):
+    """Foto de perfil de quien tiene la sesión iniciada (pantalla Mi perfil)."""
+
+    photo = forms.FileField(
+        label="Foto de perfil",
+        widget=forms.FileInput(
+            attrs={
+                "accept": ".png,.jpg,.jpeg",
+                "data-max-mb": settings.PHOTO_MAX_MB,
+                "data-accept-label": "PNG o JPG",
+            }
+        ),
+        error_messages={"required": "Elige una imagen para tu foto."},
+    )
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.fields["photo"].help_text = f"PNG o JPG de hasta {settings.PHOTO_MAX_MB} MB."
+        self.style_fields()
+
+    def clean_photo(self):
+        uploaded = self.cleaned_data["photo"]
+        return uploads.check_upload(uploaded, uploads.PHOTO_TYPES, settings.PHOTO_MAX_MB)
 
 
 class PortalPasswordChangeForm(BootstrapFormMixin, PasswordChangeForm):
@@ -1190,14 +1368,9 @@ class PositionItemForm(PositionForm):
 class ValidationForm(BootstrapFormMixin, forms.ModelForm):
     """Formulario para revisar una evidencia: decisión, resultado y observación.
 
-    La evidencia y el funcionario verificador no se piden aquí: los define la vista.
-    Solo el superusuario, que no tiene un funcionario propio, elige quién revisa.
+    La evidencia y el funcionario verificador no se piden aquí: los define la vista
+    (quien revisa es el funcionario de la persona que inició sesión).
     """
-
-    reviewer_officer = forms.ModelChoiceField(
-        queryset=Officer.objects.none(),
-        label="Funcionario verificador",
-    )
 
     # Campo -> regla de core/rules.py: el resultado es de una línea y la observación de varias.
     TEXT_RULES = {"result": "label", "notes": "text"}
@@ -1214,7 +1387,7 @@ class ValidationForm(BootstrapFormMixin, forms.ModelForm):
             "notes": "Obligatoria al observar o rechazar: explica qué debe corregirse.",
         }
 
-    def __init__(self, *args, reviewers=None, **kwargs):
+    def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         # Orden de lectura: aprobar, observar y rechazar; sin opción en blanco.
         order = [Validation.Decision.APPROVED, Validation.Decision.FLAGGED, Validation.Decision.REJECTED]
@@ -1224,10 +1397,6 @@ class ValidationForm(BootstrapFormMixin, forms.ModelForm):
         self.set_text_limits()
         for name, rule_name in self.TEXT_RULES.items():
             self.fields[name].widget.attrs.update(get_rule(rule_name).attrs())
-        if reviewers is None:
-            del self.fields["reviewer_officer"]
-        else:
-            self.fields["reviewer_officer"].queryset = reviewers
         self.polish_choices()
         self.style_fields()
 

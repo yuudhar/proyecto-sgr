@@ -184,7 +184,7 @@ class NavigationTests(PortalTestCase):
     def test_hiding_a_link_is_not_the_protection_the_view_still_refuses(self):
         # Coordinación no ve «Actividades» en el menú, pero tampoco puede abrir la dirección a mano.
         self.login_as("coordinacion1")
-        self.assertEqual(self.client.get(reverse("core:actividades_list")).status_code, 403)
+        self.assertEqual(self.client.get(reverse("core:atencion")).status_code, 403)
 
 
 class SessionValueTests(PortalTestCase):

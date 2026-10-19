@@ -20,6 +20,8 @@ sudo -u sgr git -C "$APP_DIR" describe --tags --always > /tmp/sgr_commit && sudo
 # Las variables de /etc/sgr/sgr.env se cargan para los comandos de Django
 set -a; . /etc/sgr/sgr.env; set +a
 cd "$APP_DIR"
+# Carpeta de los archivos que suben las personas (evidencias y fotos); no se borra al actualizar
+sudo -u sgr mkdir -p "${MEDIA_ROOT:-$APP_DIR/media}"
 sudo -E -u sgr "$PY" manage.py check --deploy
 sudo -E -u sgr "$PY" manage.py migrate --noinput
 sudo -E -u sgr "$PY" manage.py collectstatic --noinput

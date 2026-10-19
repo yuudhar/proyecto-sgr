@@ -30,6 +30,7 @@ from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import path, reverse
 from django.utils import timezone
 from django.views import View
+from django.views.generic import RedirectView
 
 from core import export, ui
 from core.audit import changed_fields, log_event, log_export
@@ -93,6 +94,8 @@ class Cell:
     icon: str = ""
     color: str = ""  # solo en kind="color": un #RRGGBB ya validado
     link: bool = False
+    url: str = ""  # solo en kind="file": dónde descargar el archivo
+    preview: bool = False  # solo en kind="file": es una imagen y se muestra en pequeño
     together: bool = False  # una sola palabra corta (un código, un RUT): no se parte en dos líneas
 
 
@@ -291,6 +294,7 @@ class Crud:
     # Ficha: tablas de registros relacionados y, si hace falta, un bloque propio debajo de los datos
     related = ()
     detail_panel = ""  # plantilla que se agrega a la ficha; sus datos salen de panel_context
+    list_redirect = ""  # nombre de otra ruta que hace de listado de este modelo (Actividades se ve en Atención)
 
     def __init__(self):
         meta = self.model._meta
@@ -364,6 +368,8 @@ class Crud:
         return f"{self.slug.replace('-', '_')}_{action}"
 
     def url(self, action, pk=None):
+        if action == "list" and self.list_redirect:
+            return reverse(self.list_redirect)
         name = f"core:{self.route_name(action)}"
         if pk is None:
             return reverse(name)
@@ -869,9 +875,19 @@ class Registry:
         patterns = []
         for crud in self.all():
             slug = crud.slug
-            patterns.append(
-                path(f"{slug}/", CrudListView.as_view(crud=crud), name=crud.route_name("list"))
-            )
+            if crud.list_redirect:
+                # La dirección antigua del listado sigue viva y lleva a la pantalla que lo reemplazó.
+                patterns.append(
+                    path(
+                        f"{slug}/",
+                        RedirectView.as_view(pattern_name=crud.list_redirect, query_string=True),
+                        name=crud.route_name("list"),
+                    )
+                )
+            else:
+                patterns.append(
+                    path(f"{slug}/", CrudListView.as_view(crud=crud), name=crud.route_name("list"))
+                )
             if crud.allow_add:
                 patterns.append(
                     path(
@@ -1171,7 +1187,12 @@ class CrudFormView(CrudView):
     def make_form(self, request, instance=None, data=None, initial=None):
         form_class = self.crud.form_class_for(creating=instance is None)
         return form_class(
-            data=data, instance=instance, initial=initial, request=request, crud=self.crud
+            data=data,
+            files=request.FILES if data is not None else None,
+            instance=instance,
+            initial=initial,
+            request=request,
+            crud=self.crud,
         )
 
     def render_form(self, request, form, obj):

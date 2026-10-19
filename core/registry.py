@@ -4,6 +4,8 @@ Aquí se define qué columnas, búsquedas, filtros y campos de formulario tiene 
 modelo, igual que en los admin.py de cada app. El motor está en core/crud.py.
 """
 
+from pathlib import Path
+
 from django.contrib import messages
 from django.contrib.auth.models import Group, User
 from django.db.models import Count, Q
@@ -14,7 +16,7 @@ from django.utils.text import slugify
 from accounts.delegations import listed_extra_delegations, stored_delegation_ids, sync_extra_delegations
 from accounts.models import RoleDetails, RoleProfile, UserProfile, group_is_global, role_details
 from core.access import active_delegation, default_delegation, request_delegation, request_officer
-from core import ui
+from core import ui, uploads
 from core.audit import log_event
 from core.crud import CODE_COLUMN, Cell, Col, Crud, Related, is_id, registry
 from core.forms import (
@@ -23,16 +25,19 @@ from core.forms import (
     AdjustmentForm,
     CommitmentForm,
     DelegationForm,
+    EvidenceForm,
     FollowupForm,
     GoalForm,
     IndicatorForm,
     ItemForm,
+    OfficerForm,
     PeriodForm,
     PositionForm,
     PositionItemForm,
     RoleForm,
     SubAttentionForm,
     UserForm,
+    split_person_name,
 )
 from core.models import AuditLog
 from core.roles import (
@@ -128,8 +133,12 @@ class ActivityCrud(Crud):
     model = Activity
     slug = "actividades"
     icon = "bi-clipboard-check"
+    title = "Atención"
+    title_plural = "Atenciones"
+    list_title = "Atención"
     gender = "f"
     description = "Atenciones y gestiones que cada funcionario registra en terreno."
+    list_redirect = "core:atencion"  # el listado es la pantalla Atención: ahí se busca, se filtra y se exporta
     code_prefix = "ATN"  # el identificador de la atención (ATN00012) sale del id: no es una columna de la base de datos
     code_digits = 5
     code_label = "Identificador"
@@ -349,14 +358,14 @@ class EvidenceCrud(Crud):
     list_filters = ("review_status",)
     select_related = ("activity", "author_officer")
     # El estado de revisión no se edita aquí: cambia al validar la evidencia.
-    form_fields = ("activity", "unique_code", "file_link", "metadata", "author_officer")
-    full_width = ("metadata",)
+    form_base = EvidenceForm
+    form_fields = ("activity", "unique_code", "file_link", "author_officer")
+    full_width = ("file_link",)
     # El código identifica a la evidencia en el repositorio y en las validaciones: no cambia.
     readonly_on_edit = ("unique_code",)
-    rules = {"unique_code": "code", "file_link": "label"}
+    rules = {"unique_code": "code"}
     help_texts = {
         "unique_code": "Identifica la evidencia y no se puede cambiar después de crearla.",
-        "file_link": "Nombre o ruta del archivo en el repositorio de evidencia, por ejemplo en Google Drive.",
     }
     delegation_lookup = "activity__delegation"
     related = (
@@ -376,17 +385,40 @@ class EvidenceCrud(Crud):
 
     def prepare_object(self, request, obj, creating, form):
         super().prepare_object(request, obj, creating, form)
-        # Si cambia lo que se revisó (el archivo, sus metadatos o la actividad), la revisión
+        # Los metadatos los arma el sistema con el archivo recién subido.
+        if "file_link" in form.changed_data:
+            obj.metadata = uploads.describe_file(form.cleaned_data["file_link"])
+        # Si cambia lo que se revisó (el archivo o la actividad), la revisión
         # anterior ya no vale: la evidencia vuelve a quedar pendiente.
         if not creating and obj.review_status != Evidence.ReviewStatus.PENDING:
-            if {"file_link", "metadata", "activity"} & set(form.changed_data):
+            if {"file_link", "activity"} & set(form.changed_data):
                 obj.review_status = Evidence.ReviewStatus.PENDING
                 messages.info(
                     request, "La evidencia cambió, así que quedó pendiente de una nueva revisión."
                 )
 
+    def make_cell(self, obj, column):
+        if column.path == "file_link":
+            name = obj.file_link.name if obj.file_link else ""
+            if not name:
+                return Cell(text="")
+            if not obj.file_link.storage.exists(name):
+                # Registro anterior a la subida de archivos: solo quedó el nombre escrito.
+                return Cell(text=f"{Path(name).name} (el archivo no está en el sistema)")
+            return Cell(
+                kind="file",
+                text=Path(name).name,
+                url=reverse("core:evidence_file", args=[obj.pk]),
+                preview=uploads.is_image(name),
+            )
+        if column.path == "metadata" and obj.metadata:
+            return Cell(text=" · ".join(obj.metadata.splitlines()))
+        return super().make_cell(obj, column)
+
     def extra_actions(self, request, obj):
-        if obj.deleted_at is None and request.user.has_perm("evidence.add_validation"):
+        officer = request_officer(request)
+        own = officer is not None and obj.author_officer_id == officer.pk  # nadie revisa su propia evidencia
+        if obj.deleted_at is None and not own and request.user.has_perm("evidence.add_validation"):
             return [
                 (
                     "Validar evidencia",
@@ -680,20 +712,55 @@ class TerritoryCrud(Crud):
     related = (Related("agenda", "territory", "Compromisos"),)
 
 
+def officer_access_text(officer):
+    """Con qué usuario ingresa el funcionario, o «Sin acceso»."""
+    account = getattr(officer, "user_profile", None)
+    return account.user.get_username() if account is not None else "Sin acceso"
+
+
 @registry.register
 class OfficerCrud(Crud):
     model = Officer
     slug = "funcionarios"
     icon = "bi-person-vcard"
     description = "Personas que registran actividades y responden por metas."
-    list_display = ("name", "institutional_id", "delegation", "position", "status")
+    list_display = ("name", "institutional_id", "delegation", "position", Col("access", "Acceso", sort=False), "status")
+    computed = {"access": officer_access_text}
     search_fields = ("name", "institutional_id", "delegation__name")
     list_filters = ("delegation", "position", "status")
-    select_related = ("delegation", "position")
+    select_related = ("delegation", "position", "user_profile__user")
+    form_base = OfficerForm
     form_fields = ("institutional_id", "name", "status", "delegation", "position")
-    rules = {"institutional_id": "code", "name": "person_name"}
+    rules = {
+        "institutional_id": "code",
+        "name": "person_name",
+        "username": "username",
+        "email": "email",
+        "password1": "password",
+    }
     delegation_lookup = "delegation"
     related = (Related("metas", "officer", "Metas"),)
+
+    def after_save(self, request, obj, form, creating):
+        """Si en el formulario se llenó «Acceso al sistema», crea también la cuenta de esa persona."""
+        if not creating or "username" not in form.fields or not form.wants_access():
+            return
+        data = form.cleaned_data
+        first, last = split_person_name(obj.name)
+        user = User(username=data["username"], first_name=first, last_name=last, email=data["email"], is_active=True)
+        user.set_password(data["password1"])
+        user.save()
+        user.groups.set(data["groups"])
+        UserProfile.objects.update_or_create(
+            user=user, defaults={"officer": obj, "status": UserProfile.Status.ACTIVE}
+        )
+        log_event(
+            request.user,
+            "Acceso creado junto con el funcionario",
+            user,
+            new=f"usuario={user.username}, funcionario={obj.name}, perfiles={roles_text(User.objects.get(pk=user.pk))}",
+        )
+        messages.info(request, f"También quedó creado el acceso «{user.username}» para {obj.name}.")
 
 
 @registry.register
@@ -1131,6 +1198,7 @@ class UserCrud(Crud):
     help_texts = {
         "username": "Con este nombre ingresa al sistema. Letras, números y . _ @ + -",
         "email": "Con este correo la persona recupera su contraseña. No puede repetirse entre usuarios.",
+        "first_name": "Déjalo en blanco si eliges un funcionario: se usa el nombre del funcionario.",
         "groups": "El perfil define qué puede abrir y hacer el usuario.",
         "is_active": "Desmárcala para impedir que ingrese, sin perder su historial.",
         "is_staff": "Permite entrar al panel de administración de Django (/admin/).",

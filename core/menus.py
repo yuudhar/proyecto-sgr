@@ -105,7 +105,6 @@ MENU = [
             (
                 "",
                 [
-                    crud_entry("actividades"),
                     crud_entry("gestiones"),
                     crud_entry("agenda", "Agenda colectiva"),
                     crud_entry("evidencias"),

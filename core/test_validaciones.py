@@ -277,8 +277,6 @@ TEXT_FIELDS = (
     ("agenda", "description", True, "Arreglo de luminarias.\nSector norte."),
     ("agenda", "support", True, "Camión aljibe"),
     ("agenda", "notes", True, "Coordinar con la dirección de obras."),
-    ("evidencias", "file_link", True, "evidencias/norte/visita-2026.pdf"),
-    ("evidencias", "metadata", True, "Foto 1 de 3\nTomada en terreno"),
     ("metas", "unit", True, "atenciones"),
     ("ajustes", "reason", True, "Bonificación por desempeño"),
     ("delegaciones", "name", True, "Delegación Centro"),
@@ -331,7 +329,7 @@ class TextFieldsTests(FormFactory, PortalTestCase):
 
     def test_no_text_field_of_any_form_is_left_without_a_rule(self):
         """Protege a los mantenedores futuros: un campo de texto nuevo sin regla hace fallar esta prueba."""
-        exempt = {("usuarios", "password2")}  # la repetición de la contraseña solo se compara con la primera
+        exempt = {("usuarios", "password2"), ("funcionarios", "password2")}  # la repetición de la contraseña solo se compara con la primera
         for crud in registry.all():
             for creating in (True, False) if crud.create_form_base else (True,):
                 form = self.form_for(crud.slug, None, creating)
@@ -354,8 +352,7 @@ class TextFieldsTests(FormFactory, PortalTestCase):
         self.login_as("admin")
         for url, expected in (
             ("core:agenda_create", {"requester": "label", "source": "label", "support": "label", "description": "text", "notes": "text"}),
-            ("core:evidencias_create", {"file_link": "label", "metadata": "text"}),
-            ("core:delegaciones_create", {"name": "label", "managers": "person_name", "scope": "label"}),
+                        ("core:delegaciones_create", {"name": "label", "managers": "person_name", "scope": "label"}),
             ("core:ajustes_create", {"reason": "label"}),
             ("core:metas_create", {"unit": "label"}),
             ("core:actividades_create", {"requester": "label", "request_description": "text", "action_taken": "text"}),
@@ -428,7 +425,7 @@ class LongTextTests(FormFactory, PortalTestCase):
 
     def test_the_evidence_and_commitment_text_boxes_have_the_limit_on_the_page(self):
         self.login_as("admin")
-        for url, fields in (("core:agenda_create", ("description", "notes")), ("core:evidencias_create", ("metadata",))):
+        for url, fields in (("core:agenda_create", ("description", "notes")),):
             page = self.client.get(reverse(url)).content.decode()
             for field in fields:
                 with self.subTest(url=url, field=field):

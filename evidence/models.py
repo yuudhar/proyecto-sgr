@@ -1,6 +1,7 @@
 from django.db import models
 
 from core.models import BaseModel
+from core.uploads import evidence_path
 from operations.models import Activity
 from organization.models import Officer
 
@@ -14,13 +15,13 @@ class Evidence(BaseModel):
     unique_code = models.CharField(
         max_length=50, unique=True, verbose_name="código único"
     )
-    file_link = models.CharField(
+    # La columna sigue llamándose file_link (varchar 255): ahora guarda la ruta del archivo
+    # subido dentro de la carpeta de archivos del sistema, no un texto libre.
+    file_link = models.FileField(
+        upload_to=evidence_path,
         max_length=255,
-        verbose_name="archivo / vínculo",
-        help_text=(
-            "Nombre/ruta del archivo en el repositorio de evidencia "
-            "(ej. Google Drive), tal como se usa en la Matriz real."
-        ),
+        verbose_name="archivo",
+        help_text="PDF, imagen (PNG o JPG), Word o Excel de hasta 10 MB.",
     )
     uploaded_at = models.DateTimeField(
         auto_now_add=True, verbose_name="fecha de carga"
@@ -69,15 +70,21 @@ class Validation(BaseModel):
         Evidence, on_delete=models.PROTECT, related_name="validations",
         verbose_name="evidencia",
     )
+    # Vacío cuando revisó el Super Usuario, que no es un funcionario: el registro de
+    # auditoría guarda igualmente qué usuario hizo la revisión.
     reviewer_officer = models.ForeignKey(
         Officer, on_delete=models.PROTECT, related_name="performed_validations",
-        verbose_name="funcionario verificador",
+        verbose_name="funcionario verificador", null=True, blank=True,
     )
 
     class Meta:
         verbose_name = "Validación"
         verbose_name_plural = "Validaciones"
         ordering = ("-date",)
+
+    @property
+    def reviewer_name(self):
+        return str(self.reviewer_officer) if self.reviewer_officer_id else "Super Usuario"
 
     def __str__(self):
         return f"Validación {self.get_decision_display()} · {self.evidence}"

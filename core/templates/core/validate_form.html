@@ -47,19 +47,13 @@
             </fieldset>
           </div>
 
-          {% if form.reviewer_officer %}
-          {% with field=form.reviewer_officer wide=True %}
-            {% include "core/partials/field.html" %}
-          {% endwith %}
-          {% endif %}
-
           {% with field=form.result wide=True %}{% include "core/partials/field.html" %}{% endwith %}
           {% with field=form.notes wide=True %}{% include "core/partials/field.html" %}{% endwith %}
         </div>
       </div>
       <div class="form-actions">
         <button type="submit" class="btn btn-primary"><i class="bi bi-check-lg" aria-hidden="true"></i> Guardar revisión</button>
-        <a class="btn btn-outline-secondary" href="{% url 'core:validate_list' %}">Cancelar</a>
+        <a class="btn btn-outline-secondary" href="{% if evidence_url %}{{ evidence_url }}{% else %}{% url 'core:validate_list' %}{% endif %}">Cancelar</a>
       </div>
     </form>
   </div>
@@ -69,12 +63,12 @@
       <div class="panel-head"><h2 class="panel-title">Evidencia</h2></div>
       <dl class="facts">
         <div class="facts-row"><dt>Código</dt><dd><a class="cell-link" href="{{ evidence_url }}">{{ evidence.unique_code }}</a></dd></div>
-        <div class="facts-row"><dt>Archivo o vínculo</dt><dd>{{ evidence.file_link }}</dd></div>
+        <div class="facts-row"><dt>Archivo</dt><dd>{% if file_cell %}{% include "core/partials/cell.html" with cell=file_cell %}{% else %}<span class="muted">Sin archivo en el sistema</span>{% endif %}</dd></div>
         <div class="facts-row"><dt>Actividad</dt><dd>{% if activity_url %}<a class="cell-link" href="{{ activity_url }}">{{ evidence.activity|hd }}</a>{% else %}{{ evidence.activity|hd }}{% endif %}</dd></div>
         <div class="facts-row"><dt>Funcionario autor</dt><dd>{{ evidence.author_officer }}</dd></div>
         <div class="facts-row"><dt>Cargada</dt><dd>{{ evidence.uploaded_at|fdatetime }}</dd></div>
         <div class="facts-row"><dt>Estado actual</dt><dd><span class="chip chip-{{ evidence.review_status|tone }}"><i class="bi {{ evidence.review_status|tone_icon }}" aria-hidden="true"></i>{{ evidence.get_review_status_display }}</span></dd></div>
-        {% if evidence.metadata %}<div class="facts-row"><dt>Metadatos</dt><dd>{{ evidence.metadata }}</dd></div>{% endif %}
+        {% if evidence.metadata %}<div class="facts-row"><dt>Metadatos</dt><dd>{{ evidence.metadata|linebreaksbr }}</dd></div>{% endif %}
       </dl>
     </section>
 
@@ -89,7 +83,7 @@
               <span class="chip chip-{{ review.decision|tone }}"><i class="bi {{ review.decision|tone_icon }}" aria-hidden="true"></i>{{ review.get_decision_display }}</span>
               <span class="muted small">{{ review.date|fdatetime }}</span>
             </div>
-            <span class="small muted">Por {{ review.reviewer_officer }}</span>
+            <span class="small muted">Por {{ review.reviewer_name }}</span>
             {% if review.result %}<span>{{ review.result }}</span>{% endif %}
             {% if review.notes %}<span class="muted">{{ review.notes }}</span>{% endif %}
           </div>

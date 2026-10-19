@@ -81,9 +81,25 @@ function dayText(iso) {
 const plural = (count, one, many) => (count === 1 ? one : many);
 
 // Mensaje del primer problema del campo, o "" si está bien. De paso arregla el texto escrito.
+// Un archivo elegido: tipo y tamaño. El servidor repite la revisión (también mira el contenido del archivo).
+function fileProblem(field) {
+  const file = field.files && field.files[0];
+  if (!file) return field.required ? "Elige un archivo." : "";
+  const allowed = (field.accept || "").split(",").map((part) => part.trim().toLowerCase()).filter(Boolean);
+  const extension = `.${file.name.split(".").pop().toLowerCase()}`;
+  if (allowed.length && !allowed.includes(extension)) {
+    return `Ese tipo de archivo no se acepta. Sube un archivo ${field.dataset.acceptLabel || allowed.join(", ")}.`;
+  }
+  const limit = Number(field.dataset.maxMb || 0);
+  if (limit && file.size > limit * 1024 * 1024) return `El archivo pesa más de ${limit} MB.`;
+  if (file.size === 0) return "El archivo está vacío.";
+  return "";
+}
+
 function problemOf(field, form) {
-  const skip = ["hidden", "submit", "button", "checkbox", "radio", "file", "color"];
+  const skip = ["hidden", "submit", "button", "checkbox", "radio", "color"];
   if (field.disabled || skip.includes(field.type)) return "";
+  if (field.type === "file") return fileProblem(field);
 
   const isSelect = field.tagName === "SELECT";
   let value = field.value;

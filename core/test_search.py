@@ -73,40 +73,40 @@ class ListSearchTests(PortalTestCase):
     def test_search_ignores_accents_and_case(self):
         self.login_as("admin")
         for query in ("munoz", "MUÑOZ", "Muñoz", "muñoz"):
-            self.assertEqual(self.found(reverse("core:actividades_list"), query), ["Carla Muñoz"], query)
+            self.assertEqual(self.found(reverse("core:atencion"), query), ["Carla Muñoz"], query)
 
     def test_search_finds_a_rut_however_it_is_written(self):
         self.login_as("admin")
         for query in ("11.111.111-1", "11111111-1", "111111111", "11111111"):
-            self.assertEqual(self.found(reverse("core:actividades_list"), query), ["María Pérez"], query)
+            self.assertEqual(self.found(reverse("core:atencion"), query), ["María Pérez"], query)
 
     def test_search_finds_a_phone_with_or_without_the_plus(self):
         self.login_as("admin")
         for query in ("+56911111111", "56911111111", "911111111"):
-            self.assertEqual(self.found(reverse("core:actividades_list"), query), ["María Pérez"], query)
+            self.assertEqual(self.found(reverse("core:atencion"), query), ["María Pérez"], query)
 
     def test_every_word_must_match(self):
         self.login_as("admin")
-        url = reverse("core:actividades_list")
+        url = reverse("core:atencion")
         self.assertEqual(self.found(url, "maria perez"), ["María Pérez"])
         self.assertEqual(self.found(url, "perez 11111111"), ["María Pérez"])
         self.assertEqual(self.found(url, "maria soto"), [])
 
     def test_search_can_reach_archived_records_on_request(self):
         self.login_as("admin")
-        url = reverse("core:actividades_list")
+        url = reverse("core:atencion")
         self.assertEqual(self.found(url, "22.222.222-2"), [])
         self.assertEqual(self.found(url, "22.222.222-2", archivados="1"), ["Juan Soto"])
 
     def test_search_never_reaches_other_delegations(self):
         self.login_as("matias.cavieres")  # Norte
-        url = reverse("core:actividades_list")
+        url = reverse("core:atencion")
         self.assertEqual(self.found(url, "33.333.333-3"), [])  # Ana Rojas es de Sur
         self.assertEqual(self.found(url, "11.111.111-1"), ["María Pérez"])
 
     def test_odd_texts_do_not_break_the_search(self):
         self.login_as("admin")
-        url = reverse("core:actividades_list")
+        url = reverse("core:atencion")
         for query in ("(", "[", "\\", "a|b", "*", "%", "_", "'; DROP TABLE x; --", "<script>", "x" * 300):
             response = self.client.get(url, {"q": query})
             self.assertEqual(response.status_code, 200, query)

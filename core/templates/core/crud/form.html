@@ -9,7 +9,7 @@
   </div>
 </section>
 
-<form method="post" class="panel" data-once data-validate data-unsaved-guard{% if form.is_bound %}="dirty"{% endif %}>
+<form method="post"{% if form.is_multipart %} enctype="multipart/form-data"{% endif %} class="panel" data-once data-validate data-unsaved-guard{% if form.is_bound %}="dirty"{% endif %}>
   {% csrf_token %}
   {% if version %}<input type="hidden" name="_version" value="{{ version }}">{% endif %}
   <div class="panel-body">

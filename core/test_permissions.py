@@ -27,7 +27,7 @@ class RoleMatrixTests(PortalTestCase):
     def urls(self):
         activity = self.activity("María Pérez")
         return (
-            reverse("core:actividades_list"),
+            reverse("core:atencion"),
             reverse("core:actividades_create"),
             reverse("core:actividades_update", args=[activity.pk]),
             reverse("core:actividades_archive", args=[activity.pk]),
@@ -70,7 +70,7 @@ class RoleMatrixTests(PortalTestCase):
     def test_anonymous_users_are_sent_to_the_login(self):
         activity = self.activity("María Pérez")
         for url in (
-            reverse("core:actividades_list"),
+            reverse("core:atencion"),
             reverse("core:actividades_create"),
             reverse("core:actividades_update", args=[activity.pk]),
             reverse("core:actividades_archive", args=[activity.pk]),
@@ -83,7 +83,7 @@ class RoleMatrixTests(PortalTestCase):
 
     def test_buttons_follow_the_permissions_of_each_role(self):
         activity = self.activity("María Pérez")
-        listing = reverse("core:actividades_list")
+        listing = reverse("core:atencion")
         detail = reverse("core:actividades_detail", args=[activity.pk])
 
         self.login_as("consulta1")
@@ -119,7 +119,7 @@ class RoleMatrixTests(PortalTestCase):
         self.assertEqual(self.client.get(reverse("core:actividades_update", args=[activity.pk])).status_code, 403)
         self.assertEqual(self.client.get(reverse("core:actividades_archive", args=[activity.pk])).status_code, 200)
         response = self.client.post(reverse("core:actividades_archive", args=[activity.pk]))
-        self.assertRedirects(response, reverse("core:actividades_list"))
+        self.assertRedirects(response, reverse("core:atencion"))
         activity.refresh_from_db()
         self.assertIsNotNone(activity.deleted_at)
 
@@ -135,8 +135,8 @@ class RoleMatrixTests(PortalTestCase):
 
     def test_the_menu_only_shows_what_each_role_may_open(self):
         for username, shown, hidden in (
-            ("consulta1", {"Actividades"}, {"Roles y permisos", "Control de usuarios", "Delegaciones"}),
-            ("matias.cavieres", {"Actividades"}, {"Roles y permisos", "Control de usuarios"}),
+            ("consulta1", {"Atención"}, {"Roles y permisos", "Control de usuarios", "Delegaciones"}),
+            ("matias.cavieres", {"Atención"}, {"Roles y permisos", "Control de usuarios"}),
             ("admin", {"Roles y permisos", "Control de usuarios", "Delegaciones"}, set()),
         ):
             self.login_as(username)

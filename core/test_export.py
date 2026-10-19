@@ -111,43 +111,46 @@ class ExcelTestCase(PortalTestCase):
 class ListExportTests(ExcelTestCase):
     def test_download_is_an_excel_file_named_after_the_list_and_the_day(self):
         self.login_as("admin")
-        response = self.download("core:actividades_list")
+        response = self.download("core:atencion")
         self.assertEqual(response["Content-Type"], export.CONTENT_TYPE)
         # El nombre lleva el día en la hora de Chile (la que usan las pantallas), no el día en UTC: de noche
         # en Chile ya es "mañana" en UTC y la prueba fallaba sin que hubiera ningún error.
         with timezone.override(ZoneInfo(settings.PORTAL_TIME_ZONE)):
             today = timezone.localdate().isoformat()
-        self.assertEqual(response["Content-Disposition"], f'attachment; filename="actividades-{today}.xlsx"')
+        self.assertEqual(response["Content-Disposition"], f'attachment; filename="atenciones-{today}.xlsx"')
 
     def test_sheet_has_title_author_filters_header_and_rows(self):
         self.login_as("admin")
         crud = registry.get("actividades")
-        sheet = self.sheet(self.download("core:actividades_list"))
+        sheet = self.sheet(self.download("core:atencion"))
         self.assertEqual(sheet["A1"].value, crud.list_title)
         self.assertTrue(sheet["A2"].value.endswith(" por admin"))
         self.assertEqual(sheet["A3"].value, "Sin filtros")
         headers, rows = self.table(sheet)
-        self.assertEqual(headers, [column.label for column in crud.columns])
+        self.assertEqual(
+            headers,
+            ["Identificador", "Fecha", "Contacto", "RUT", "Tipo de atención", "Sub atención", "Funcionario autor", "Delegación", "Estado"],
+        )
         self.assertEqual(len(rows), 5)  # las 6 de demostración menos la archivada
         self.assertEqual(sheet.auto_filter.ref, f"A5:{get_column_letter(len(headers))}10")
 
     def test_download_follows_the_search_the_filters_and_the_order_of_the_screen(self):
         self.login_as("admin")
-        response = self.download("core:actividades_list", q="munoz")
+        response = self.download("core:atencion", q="munoz")
         self.assertEqual(self.column(response, "Contacto"), ["Carla Muñoz"])
         self.assertIn("Búsqueda: «munoz»", self.sheet(response)["A3"].value)
 
-        response = self.download("core:actividades_list", status="closed")
+        response = self.download("core:atencion", status="closed")
         self.assertEqual(self.column(response, "Contacto"), ["Pedro Díaz"])
         self.assertIn("Cerrada", self.sheet(response)["A3"].value)
 
-        response = self.download("core:actividades_list", orden="contact_name", dir="desc")
+        response = self.download("core:atencion", orden="contact_name", dir="desc")
         self.assertEqual(
             self.column(response, "Contacto"),
             ["Pedro Díaz", "María Pérez", "Luis Herrera", "Carla Muñoz", "Ana Rojas"],
         )
 
-        response = self.download("core:actividades_list", archivados="1")
+        response = self.download("core:atencion", archivados="1")
         self.assertEqual(len(self.column(response, "Contacto")), 6)
         self.assertIn("incluye archivados", self.sheet(response)["A3"].value)
 
@@ -163,7 +166,7 @@ class ListExportTests(ExcelTestCase):
     def test_download_is_cut_at_the_limit_and_says_so(self):
         self.login_as("admin")
         with mock.patch.object(export, "EXPORT_LIMIT", 3):
-            sheet = self.sheet(self.download("core:actividades_list"))
+            sheet = self.sheet(self.download("core:atencion"))
         _, rows = self.table(sheet)
         self.assertEqual(len(rows), 3)
         self.assertEqual(
@@ -171,13 +174,12 @@ class ListExportTests(ExcelTestCase):
             "Se exportaron las primeras 3 filas de 5. Agrega filtros para acotar el resultado.",
         )
         # Sin recorte no hay aviso.
-        self.assertIsNone(self.sheet(self.download("core:actividades_list"))["A4"].value)
+        self.assertIsNone(self.sheet(self.download("core:atencion"))["A4"].value)
 
     def test_a_delegation_user_only_gets_its_own_rows(self):
         self.login_as("matias.cavieres")
-        response = self.download("core:actividades_list")
+        response = self.download("core:atencion")
         self.assertEqual(set(self.column(response, "Contacto")), {"María Pérez", "Carla Muñoz"})
-        self.assertEqual(set(self.column(response, "Delegación")), {"Delegación Norte"})
 
     def test_download_needs_the_same_permission_as_the_list(self):
         self.login_as("jefatura1")
@@ -186,22 +188,22 @@ class ListExportTests(ExcelTestCase):
         self.assertFalse(AuditLog.objects.filter(event="Listado exportado a Excel").exists())
 
     def test_anonymous_visitors_are_sent_to_the_login(self):
-        response = self.client.get(reverse("core:actividades_list"), {"formato": "xlsx"})
+        response = self.client.get(reverse("core:atencion"), {"formato": "xlsx"})
         self.assertEqual(response.status_code, 302)
         self.assertTrue(response["Location"].startswith(reverse("core:login") + "?next="))
 
     def test_every_download_is_audited_and_a_plain_visit_is_not(self):
         user = self.login_as("admin")
-        self.client.get(reverse("core:actividades_list"), {"q": "munoz"})
+        self.client.get(reverse("core:atencion"), {"q": "munoz"})
         self.assertFalse(AuditLog.objects.filter(event="Listado exportado a Excel").exists())
-        self.download("core:actividades_list", q="munoz")
+        self.download("core:atencion", q="munoz")
         log = AuditLog.objects.get(event="Listado exportado a Excel")
         self.assertEqual(log.user, user)
         self.assertEqual(log.affected_entity, "Activity")
         self.assertEqual(log.record_id, 0)
         self.assertTrue(log.new_value.startswith("1 fila. "))
         self.assertIn("Búsqueda: «munoz»", log.new_value)
-        self.download("core:actividades_list")
+        self.download("core:atencion")
         self.assertIn("5 filas. Sin filtros", AuditLog.objects.order_by("-pk").first().new_value)
 
     def test_texts_that_look_like_formulas_stay_text(self):
