@@ -741,9 +741,17 @@ class OfficerCrud(Crud):
     delegation_lookup = "delegation"
     related = (Related("metas", "officer", "Metas"),)
 
+    def extra_detail(self, obj):
+        account = getattr(obj, "user_profile", None)
+        if account is None:
+            text = "Sin acceso. Se puede crear desde «Editar»."
+        else:
+            text = f"Ingresa como «{account.user.get_username()}». Su perfil y su contraseña se cambian en Control de usuarios."
+        return [("Acceso al sistema", Cell(text=text))]
+
     def after_save(self, request, obj, form, creating):
         """Si en el formulario se llenó «Acceso al sistema», crea también la cuenta de esa persona."""
-        if not creating or "username" not in form.fields or not form.wants_access():
+        if "username" not in form.fields or not form.wants_access():
             return
         data = form.cleaned_data
         first, last = split_person_name(obj.name)
@@ -756,7 +764,7 @@ class OfficerCrud(Crud):
         )
         log_event(
             request.user,
-            "Acceso creado junto con el funcionario",
+            "Acceso creado junto con el funcionario" if creating else "Acceso creado para un funcionario existente",
             user,
             new=f"usuario={user.username}, funcionario={obj.name}, perfiles={roles_text(User.objects.get(pk=user.pk))}",
         )

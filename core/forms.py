@@ -982,7 +982,7 @@ class UserForm(CrudForm):
 
 
 class OfficerForm(CrudForm):
-    """Funcionario, con su acceso al sistema en el mismo formulario (solo al crear).
+    """Funcionario, con su acceso al sistema en el mismo formulario (al crear, o al editar si aún no tiene usuario).
 
     Una persona nueva se da de alta una sola vez: sus datos de funcionario y, si va a ingresar al
     sistema, su usuario, correo, contraseña y perfiles. Si no se llena nada de «Acceso al sistema», solo se
@@ -1017,9 +1017,10 @@ class OfficerForm(CrudForm):
     ACCESS_FIELDS = ("username", "email", "password1", "password2", "groups")
 
     def customize_fields(self):
+        # El acceso se ofrece al crear y también al editar a un funcionario que todavía no tiene usuario.
         allowed = (
             self.request is not None
-            and not self.instance.pk
+            and not officer_has_account(self.instance)
             and registry_can_add_user(self.request.user)
         )
         if not allowed:
@@ -1047,6 +1048,8 @@ class OfficerForm(CrudForm):
         cleaned = super().clean()
         if "username" not in self.fields or not self.wants_access():
             return cleaned
+        if cleaned.get("status") and cleaned["status"] != Officer.Status.ACTIVE:
+            self.add_error("status", "Un funcionario inactivo no puede tener acceso: déjalo activo o borra los datos de acceso.")
         for name, message in (
             ("username", "Escribe el usuario con que va a ingresar."),
             ("email", "Escribe el correo: con él la persona recupera su contraseña."),
@@ -1073,6 +1076,11 @@ class OfficerForm(CrudForm):
             except ValidationError as error:
                 self.add_error("password1", error.messages)
         return cleaned
+
+
+def officer_has_account(officer):
+    """¿Este funcionario ya tiene un usuario para ingresar? Un funcionario nuevo (sin guardar) no."""
+    return bool(officer.pk) and UserProfile.objects.filter(officer_id=officer.pk).exists()
 
 
 def registry_can_add_user(user):

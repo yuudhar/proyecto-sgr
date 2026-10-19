@@ -9,6 +9,7 @@ from core.models import AuditLog
 from core.testing import PASSWORD, PortalTestCase
 from evidence.models import Evidence
 from operations.models import Activity
+from accounts.models import UserProfile
 from organization.models import Delegation, Officer, Position
 
 PNG = b"\x89PNG\r\n\x1a\n" + b"\x00" * 64
@@ -297,11 +298,65 @@ class OfficerWithAccessTests(PortalTestCase):
         self.assertEqual(forged.status_code, 302)
         self.assertEqual(User.objects.count(), users)
 
-    def test_editing_an_officer_does_not_show_the_access_section(self):
+    def test_editing_an_officer_that_already_has_access_does_not_show_the_access_section(self):
         self.login_as("admin")
-        officer = self.officer("F-1001")
+        officer = UserProfile.objects.exclude(officer__isnull=True).first().officer
         form = self.client.get(reverse("core:funcionarios_update", args=[officer.pk])).context["form"]
         self.assertNotIn("username", form.fields)
+
+    def make_officer_without_access(self, **changes):
+        data = {
+            "institutional_id": "F-9003",
+            "name": "Ana Vega Castro",
+            "status": "active",
+            "delegation": Delegation.objects.get(name="Delegación Norte"),
+            "position": Position.objects.first(),
+        }
+        data.update(changes)
+        return Officer.objects.create(**data)
+
+    def test_an_officer_without_access_can_get_it_from_its_own_edit_screen(self):
+        self.login_as("admin")
+        officer = self.make_officer_without_access()
+        form = self.client.get(reverse("core:funcionarios_update", args=[officer.pk])).context["form"]
+        for name in ("username", "email", "password1", "password2", "groups"):
+            self.assertIn(name, form.fields)
+        data = {**self.data(institutional_id="F-9003", name="Ana Vega Castro"), **self.access(username="ana.vega", email="ana@sgr.example")}
+        response = self.client.post(reverse("core:funcionarios_update", args=[officer.pk]), data)
+        self.assertEqual(response.status_code, 302)
+        user = User.objects.get(username="ana.vega")
+        self.assertEqual(user.profile.officer, officer)
+        self.assertTrue(AuditLog.objects.filter(event="Acceso creado para un funcionario existente").exists())
+        self.client.logout()
+        self.assertTrue(self.client.login(username="ana.vega", password="Clave#2026x"))
+
+    def test_editing_an_officer_without_access_and_leaving_it_blank_creates_no_user(self):
+        self.login_as("admin")
+        officer = self.make_officer_without_access()
+        users = User.objects.count()
+        data = self.data(institutional_id="F-9003", name="Ana Vega C.")
+        response = self.client.post(reverse("core:funcionarios_update", args=[officer.pk]), data)
+        self.assertEqual(response.status_code, 302)
+        self.assertEqual(User.objects.count(), users)
+        officer.refresh_from_db()
+        self.assertEqual(officer.name, "Ana Vega C.")
+
+    def test_an_inactive_officer_cannot_be_given_access(self):
+        self.login_as("admin")
+        officer = self.make_officer_without_access()
+        data = {**self.data(institutional_id="F-9003", name="Ana Vega Castro", status="inactive"), **self.access(username="ana.vega", email="ana@sgr.example")}
+        response = self.client.post(reverse("core:funcionarios_update", args=[officer.pk]), data)
+        self.assertEqual(response.status_code, 200)
+        self.assertIn("status", response.context["form"].errors)
+        self.assertFalse(User.objects.filter(username="ana.vega").exists())
+
+    def test_the_officer_detail_tells_how_the_person_enters(self):
+        self.login_as("admin")
+        with_access = UserProfile.objects.exclude(officer__isnull=True).first()
+        page = self.client.get(reverse("core:funcionarios_detail", args=[with_access.officer.pk]))
+        self.assertContains(page, with_access.user.get_username())
+        officer = self.make_officer_without_access()
+        self.assertContains(self.client.get(reverse("core:funcionarios_detail", args=[officer.pk])), "Sin acceso")
 
     def test_the_user_form_takes_the_name_from_the_officer(self):
         self.login_as("admin")
