@@ -44,4 +44,10 @@ ESPERADO = {
         "the_attention_screen_can_be_filtered_without_a_search_text": "Atención se puede filtrar sin escribir un texto de búsqueda.",
         "a_record_page_goes_back_to_attention": "La ficha de un registro vuelve a Atención.",
     },
+    "LiveSearchTests": {
+        "the_list_screens_search_while_typing": "Los listados buscan mientras se escribe, sin apretar Buscar.",
+        "the_atencion_screen_searches_while_typing": "La pantalla Atención busca mientras se escribe.",
+        "the_search_button_is_still_there_for_who_has_no_javascript": "El botón Buscar sigue estando para quien no tiene JavaScript.",
+        "the_part_that_changes_has_the_number_of_results_for_the_screen_reader": "La parte que se actualiza trae la cantidad de resultados para el lector de pantalla.",
+    },
 }

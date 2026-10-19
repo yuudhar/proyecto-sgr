@@ -94,7 +94,7 @@ class LoadingStateMarkupTests(PortalTestCase):
     def test_the_search_forms_show_a_loading_state_but_the_excel_download_does_not(self):
         self.login_as("matias.cavieres")
         listing = self.client.get(reverse("core:atencion"))
-        self.assertContains(listing, '<form method="get" class="atencion-search" role="search" data-validate data-loading>')
+        self.assertContains(listing, '<form method="get" class="atencion-search" role="search" data-validate data-loading data-live-search>')
         self.assertContains(listing, 'name="formato" value="xlsx" formnovalidate data-skip-validate data-no-busy')
         atencion = self.client.get(reverse("core:atencion"), {"q": "perez"})
         self.assertContains(atencion, "data-loading")

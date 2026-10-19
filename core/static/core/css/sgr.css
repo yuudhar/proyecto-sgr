@@ -811,6 +811,12 @@ a {
   transition: opacity 0.15s;
 }
 
+/* Búsqueda en vivo (live-search.js): mientras llegan los resultados nuevos, los actuales se atenúan un poco. */
+[data-live-target][aria-busy="true"] {
+  opacity: 0.6;
+  transition: opacity 0.15s;
+}
+
 .btn[aria-busy="true"] {
   cursor: progress;
 }

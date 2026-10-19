@@ -1,6 +1,7 @@
 """Pruebas de la versión 16: archivos de evidencia, foto de perfil, alta única de funcionario y pantalla Atención."""
 
 from django.contrib.auth.models import Group, User
+from django.contrib.staticfiles import finders
 from django.core.files.uploadedfile import SimpleUploadedFile
 from django.urls import reverse
 
@@ -427,3 +428,33 @@ class AtencionScreenTests(PortalTestCase):
         activity = Activity.objects.filter(delegation=self.north, deleted_at__isnull=True).first()
         response = self.client.get(reverse("core:actividades_detail", args=[activity.pk]))
         self.assertContains(response, f'href="{reverse("core:atencion")}"')
+
+
+class LiveSearchTests(PortalTestCase):
+    def test_the_list_screens_search_while_typing(self):
+        self.login_as("admin")
+        html = self.client.get(reverse("core:usuarios_list")).content.decode()
+        self.assertIn("data-live-search", html)
+        self.assertIn('data-live-target="resultados"', html)
+        self.assertIn('data-live-target="acciones"', html)
+        self.assertIn("core/js/live-search.js", html)
+        self.assertIsNotNone(finders.find("core/js/live-search.js"))
+
+    def test_the_atencion_screen_searches_while_typing(self):
+        self.login_as("matias.cavieres")
+        html = self.client.get(reverse("core:atencion"), {"q": "perez"}).content.decode()
+        self.assertIn("data-live-search", html)
+        self.assertIn('data-live-target="resultados"', html)
+        self.assertIn('data-live-target="aviso"', html)
+
+    def test_the_search_button_is_still_there_for_who_has_no_javascript(self):
+        self.login_as("admin")
+        self.assertContains(self.client.get(reverse("core:usuarios_list")), " Buscar</button>")
+
+    def test_the_part_that_changes_has_the_number_of_results_for_the_screen_reader(self):
+        self.login_as("admin")
+        total = User.objects.count()
+        html = self.client.get(reverse("core:usuarios_list")).content.decode()
+        self.assertIn(f'data-live-count="{total}"', html)
+        none = self.client.get(reverse("core:usuarios_list"), {"q": "zzzz-no-existe"}).content.decode()
+        self.assertIn('data-live-count="0"', none)

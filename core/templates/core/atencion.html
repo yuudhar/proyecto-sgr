@@ -16,7 +16,8 @@
 </section>
 
 <section class="panel mb-4" aria-label="Búsqueda de atenciones">
-  <form method="get" class="atencion-search" role="search" data-validate data-loading>
+  <form method="get" class="atencion-search" role="search" data-validate data-loading data-live-search>
+    <span class="visually-hidden" role="status" data-live-status></span>
     <label class="form-label" for="atencion-q">RUT / nombre / otro</label>
     <div class="atencion-row">
       <div class="input-group input-group-lg">
@@ -45,16 +46,18 @@
     </div>
     {% endif %}
     <div class="invalid-feedback" id="atencion-q_error"></div>
-    {% if wrong_rut %}
-    <div class="alert alert-warning d-flex gap-2 mt-3 mb-0" role="status">
-      <i class="bi bi-exclamation-triangle-fill" aria-hidden="true"></i>
-      <div>El dígito verificador de ese RUT no calza. Revisa el número; igual se buscó tal como lo escribiste.</div>
+    <div data-live-target="aviso">
+      {% if wrong_rut %}
+      <div class="alert alert-warning d-flex gap-2 mt-3 mb-0" role="status">
+        <i class="bi bi-exclamation-triangle-fill" aria-hidden="true"></i>
+        <div>El dígito verificador de ese RUT no calza. Revisa el número; igual se buscó tal como lo escribiste.</div>
+      </div>
+      {% endif %}
     </div>
-    {% endif %}
   </form>
 </section>
 
-<section class="panel" aria-label="Resultados de la búsqueda">
+<section class="panel" aria-label="Resultados de la búsqueda" data-live-target="resultados" data-live-count="{{ page.paginator.count }}">
   <div class="panel-head">
     <h2 class="panel-title">{% if q %}Resultados para «{{ q }}»{% else %}Últimas atenciones{% endif %}</h2>
     <div class="panel-head-side">

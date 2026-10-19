@@ -16,7 +16,8 @@
 </section>
 
 <section class="panel" aria-label="Listado de {{ crud.title_plural|lower }}">
-  <form method="get" class="filters" role="search" data-loading>
+  <form method="get" class="filters" role="search" data-loading data-live-search>
+    <span class="visually-hidden" role="status" data-live-status></span>
     {% if crud.search_fields %}
     <div class="field field-search">
       <label for="filtro-q">Buscar</label>
@@ -36,13 +37,14 @@
     {% endfor %}
     {% if archived %}<input type="hidden" name="archivados" value="1">{% endif %}
     {% if sort %}<input type="hidden" name="orden" value="{{ sort }}"><input type="hidden" name="dir" value="{{ direction }}">{% endif %}
-    <div class="filters-actions">
+    <div class="filters-actions" data-live-target="acciones">
       <button type="submit" class="btn btn-primary"><i class="bi bi-search" aria-hidden="true"></i> {% if crud.search_fields %}Buscar{% else %}Filtrar{% endif %}</button>
       {% if has_filters %}<a class="btn btn-outline-secondary" href="{{ request.path }}">Limpiar</a>{% endif %}
       <button type="submit" class="btn btn-outline-success" name="formato" value="xlsx" data-no-busy{% if not rows %} disabled{% endif %}><i class="bi bi-file-earmark-excel" aria-hidden="true"></i> Exportar a Excel</button>
     </div>
   </form>
 
+  <div data-live-target="resultados" data-live-count="{{ page.paginator.count }}">
   <div class="result-line">
     <span>{{ page.paginator.count }} resultado{{ page.paginator.count|pluralize }}{% if archived %}, incluidos los archivados{% endif %}</span>
     {% if crud.archivable %}
@@ -65,5 +67,6 @@
     {% endif %}
   </div>
   {% endif %}
+  </div>
 </section>
 {% endblock %}

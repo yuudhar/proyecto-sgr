@@ -45,7 +45,7 @@ Todos los listados incluyen búsqueda (sin distinguir mayúsculas ni tildes), pa
 - **Contraseñas:** de 8 a 128 caracteres, con al menos una minúscula, una mayúscula, un número y un símbolo (por ejemplo `! # $ %`); además, que no sea de uso común, que no sea solo de números y que no se parezca a los datos del usuario. El mensaje dice exactamente qué le falta. Se revisan al crear un usuario, al cambiar la contraseña desde *Mi perfil* y al recuperarla.
 - **Formatos:** RUT con dígito verificador, teléfono, correo, nombres, códigos, usuario y color (`#RRGGBB`) tienen una regla propia en `core/rules.py`, que usan igual el servidor y el navegador.
 
-Los cambios de la versión 16 (archivos de evidencia, foto de perfil, alta única de funcionario y pantalla Atención única) están resumidos en [`docs/CAMBIOS_v16.md`](docs/CAMBIOS_v16.md). En la versión 17, a un funcionario que todavía no tiene usuario se le puede dar el acceso desde su propia pantalla «Editar», sin pasar por Control de usuarios, y su ficha indica con qué usuario ingresa.
+Los cambios de la versión 16 (archivos de evidencia, foto de perfil, alta única de funcionario y pantalla Atención única) están resumidos en [`docs/CAMBIOS_v16.md`](docs/CAMBIOS_v16.md). En la versión 17, a un funcionario que todavía no tiene usuario se le puede dar el acceso desde su propia pantalla «Editar», sin pasar por Control de usuarios, y su ficha indica con qué usuario ingresa. En la versión 18 los listados y la pantalla Atención buscan mientras se escribe (con una pausa breve) y al cambiar un filtro, sin apretar «Buscar»; el botón y la tecla Enter siguen funcionando.
 
 ## Requisitos
 

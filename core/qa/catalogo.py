@@ -103,6 +103,7 @@ CLASES = {
     "AtencionScreenTests": (["A1-11", "A2-03", "A2-04"], "Pantalla Atención (listado único)", _SEMILLA),
     "EvidenceUploadTests": (["A3-02", "IMP-01"], "Subir archivos de evidencia", _SEMILLA + "; carpeta de archivos temporal"),
     "ProfilePhotoTests": (["A3-02", "A3-12"], "Foto de perfil", _SEMILLA + "; carpeta de archivos temporal"),
+    "LiveSearchTests": (["A2-03", "A2-05"], "Búsqueda en vivo en listados y Atención", _SEMILLA),
     "OfficerWithAccessTests": (["A1-07", "A3-02"], "Funcionario con su acceso en un solo formulario", _SEMILLA),
     # core · A2 contexto e interfaz
     "AuthorizedDelegationsTests": (["A2-10"], "Selector de delegaciones", _SEMILLA + "; tercera delegación sin usuarios"),
