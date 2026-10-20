@@ -179,7 +179,7 @@ class FormRuleTests(PortalTestCase):
         self.assertIn("rut", response.context["form"].errors)
         self.assertEqual(Beneficiary.objects.count(), before)
 
-    def test_officer_code_and_name_follow_their_rules(self):
+    def test_officer_name_follows_its_rule_and_the_identifier_is_never_taken_from_the_form(self):
         self.login_as("admin")
         data = {
             "institutional_id": "F 3001",
@@ -190,12 +190,14 @@ class FormRuleTests(PortalTestCase):
         }
         response = self.client.post(reverse("core:funcionarios_create"), data)
         self.assertEqual(response.status_code, 200)
-        self.assertIn("institutional_id", response.context["form"].errors)
+        self.assertNotIn("institutional_id", response.context["form"].errors)
         self.assertIn("name", response.context["form"].errors)
         data.update(institutional_id="F-3001", name="Ana Torres")
         response = self.client.post(reverse("core:funcionarios_create"), data)
         self.assertEqual(response.status_code, 302)
-        self.assertTrue(Officer.objects.filter(institutional_id="F-3001", name="Ana Torres").exists())
+        officer = Officer.objects.get(name="Ana Torres")
+        self.assertNotEqual(officer.institutional_id, "F-3001")
+        self.assertRegex(officer.institutional_id, r"^F-1[0-9]{3}$")
 
     def test_text_with_angle_brackets_is_still_stored_as_text_and_shown_escaped(self):
         self.login_as("admin")

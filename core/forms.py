@@ -861,6 +861,13 @@ class OfficerForm(CrudForm):
     ACCESS_FIELDS = ("username", "email", "password1", "password2", "groups")
 
     def customize_fields(self):
+        if self.instance.pk:
+            identifier = self.fields["institutional_id"]
+            identifier.required = False
+            identifier.disabled = True
+            identifier.help_text = "Se generó solo al crear al funcionario y no se puede cambiar."
+        else:
+            del self.fields["institutional_id"]
         allowed = (
             self.request is not None
             and not officer_has_account(self.instance)

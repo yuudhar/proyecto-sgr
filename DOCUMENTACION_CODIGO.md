@@ -473,7 +473,7 @@ Funcionario, con su acceso al sistema en el mismo formulario (al crear, o al edi
 
 Una persona nueva se da de alta una sola vez: sus datos de funcionario y, si va a ingresar al sistema, su usuario, correo, contraseña y perfiles. Si no se llena nada de «Acceso al sistema», solo se crea el funcionario. El nombre de la cuenta sale del nombre del funcionario.
 
-- **`customize_fields()`**: Agrega los campos de acceso al sistema solo si el funcionario aún no tiene cuenta y la persona puede crear usuarios; en otro caso los quita.
+- **`customize_fields()`**: Al crear, quita el identificador institucional del formulario (se genera solo al guardar); al editar lo muestra como campo de solo lectura. Sigue visible y se puede buscar en el listado y en la ficha. Agrega los campos de acceso al sistema solo si el funcionario aún no tiene cuenta y la persona puede crear usuarios; en otro caso los quita.
 - **`wants_access()`**: Verdadero si se llenó algún campo de acceso.
 - **`clean()`**: Si se pidió acceso, comprueba que el funcionario esté activo, que estén el usuario, el correo, la contraseña y un perfil, que usuario y correo no estén repetidos y que la contraseña cumpla las reglas.
 
@@ -1909,7 +1909,7 @@ Funcionario: código institucional, nombre, estado, delegación y cargo. Registr
 
 | Campo | Nombre visible | Tipo | Detalle |
 |---|---|---|---|
-| `institutional_id` | identificador institucional | CharField | largo 20; único |
+| `institutional_id` | identificador institucional | CharField | largo 20; único; se genera solo al guardar si viene vacío |
 | `name` | nombre | CharField | largo 150 |
 | `status` | estado | CharField | largo 20; con opciones; por defecto `Status.ACTIVE` |
 | `delegation` | delegación | ForeignKey | relación con `Delegation`; nombre inverso `officers`; PROTECT |
@@ -1920,6 +1920,9 @@ Opciones del modelo (`Meta`): `ordering` = `('delegation__name', 'name')`; `verb
 Opciones de `Status`: `active` (Activo), `inactive` (Inactivo).
 
 - **`__str__()`**: Texto con que se muestra el registro.
+- **`id_numbers(queryset)`**: Saca los números de los identificadores con formato `F-NNNN` de un conjunto de funcionarios.
+- **`next_institutional_id()`**: Calcula el siguiente identificador. Sigue el bloque de miles que ya usa la delegación del funcionario (Delegación Norte `F-1xxx`, Delegación Sur `F-2xxx`); una delegación sin funcionarios abre el bloque siguiente (`F-3001`). Cuenta también a los funcionarios archivados, porque su identificador sigue ocupado.
+- **`save(*args, **kwargs)`**: Si el funcionario no trae identificador, lo genera al guardar; si otro guardado simultáneo tomó el mismo número, lo vuelve a calcular (hasta 5 intentos). Un identificador que ya existe no se cambia.
 
 ##### `PositionItem` — hereda de `BaseModel`
 

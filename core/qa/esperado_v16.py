@@ -20,6 +20,18 @@ ESPERADO = {
         "the_photo_is_only_delivered_to_people_who_signed_in": "La foto solo se entrega a quien inició sesión.",
         "changing_the_password_still_works_next_to_the_photo_form": "El cambio de contraseña sigue funcionando junto al formulario de la foto.",
     },
+    "OfficerIdentifierTests": {
+        "the_identifier_continues_the_block_of_the_delegation": "El identificador sigue el bloque de la delegación (Norte F-1xxx, Sur F-2xxx).",
+        "archived_officers_keep_their_identifier_reserved": "Los funcionarios archivados mantienen su identificador reservado.",
+        "a_new_delegation_starts_its_own_block": "Una delegación nueva abre su propio bloque de identificadores.",
+        "an_identifier_given_in_code_is_respected_and_not_changed_on_save": "Un identificador entregado desde el código se respeta y no cambia al guardar.",
+        "a_collision_is_retried_with_the_next_number": "Si dos guardados toman el mismo número, se vuelve a calcular con el siguiente.",
+        "the_creation_form_has_no_identifier_field_and_the_edit_form_shows_it_read_only": "El formulario de alta no tiene el campo del identificador; el de edición lo muestra solo para leerlo.",
+        "the_identifier_shows_in_the_list_and_can_be_searched": "El identificador se ve en el listado y se puede buscar (por ejemplo F-1005).",
+        "the_detail_shows_the_identifier": "La ficha del funcionario muestra su identificador.",
+        "creating_an_officer_from_the_form_assigns_the_identifier": "Al crear un funcionario desde el formulario se le asigna el identificador, aunque se intente enviar otro.",
+        "editing_never_changes_the_identifier": "Editar un funcionario nunca cambia su identificador.",
+    },
     "OfficerWithAccessTests": {
         "the_officer_form_offers_the_access_section_to_who_can_create_users": "El formulario de funcionario ofrece la sección de acceso a quien puede crear usuarios.",
         "an_officer_with_access_is_created_in_one_step": "Un funcionario con su acceso se crea en un solo paso y la persona puede ingresar.",

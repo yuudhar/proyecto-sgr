@@ -207,7 +207,6 @@ class ProfilePhotoTests(PortalTestCase):
 class OfficerWithAccessTests(PortalTestCase):
     def data(self, **changes):
         data = {
-            "institutional_id": "F-9001",
             "name": "Luis Soto Rojas",
             "status": "active",
             "delegation": Delegation.objects.get(name="Delegación Norte").pk,
@@ -237,7 +236,7 @@ class OfficerWithAccessTests(PortalTestCase):
         self.login_as("admin")
         response = self.client.post(reverse("core:funcionarios_create"), {**self.data(), **self.access()})
         self.assertEqual(response.status_code, 302)
-        officer = Officer.objects.get(institutional_id="F-9001")
+        officer = Officer.objects.get(name="Luis Soto Rojas")
         user = User.objects.get(username="luis.soto")
         self.assertEqual(user.profile.officer, officer)
         self.assertEqual((user.first_name, user.last_name), ("Luis", "Soto Rojas"))
@@ -251,7 +250,7 @@ class OfficerWithAccessTests(PortalTestCase):
         before = User.objects.count()
         response = self.client.post(reverse("core:funcionarios_create"), self.data())
         self.assertEqual(response.status_code, 302)
-        self.assertTrue(Officer.objects.filter(institutional_id="F-9001").exists())
+        self.assertTrue(Officer.objects.filter(name="Luis Soto Rojas").exists())
         self.assertEqual(User.objects.count(), before)
 
     def test_a_partly_filled_access_asks_for_the_rest_and_saves_nothing(self):
@@ -262,7 +261,7 @@ class OfficerWithAccessTests(PortalTestCase):
         errors = response.context["form"].errors
         for name in ("email", "password1", "groups"):
             self.assertIn(name, errors)
-        self.assertFalse(Officer.objects.filter(institutional_id="F-9001").exists())
+        self.assertFalse(Officer.objects.filter(name="Luis Soto Rojas").exists())
         self.assertEqual(User.objects.count(), users)
 
     def test_the_access_follows_the_password_policy_and_unique_names(self):
@@ -318,7 +317,7 @@ class OfficerWithAccessTests(PortalTestCase):
         form = self.client.get(reverse("core:funcionarios_update", args=[officer.pk])).context["form"]
         for name in ("username", "email", "password1", "password2", "groups"):
             self.assertIn(name, form.fields)
-        data = {**self.data(institutional_id="F-9003", name="Ana Vega Castro"), **self.access(username="ana.vega", email="ana@sgr.example")}
+        data = {**self.data(name="Ana Vega Castro"), **self.access(username="ana.vega", email="ana@sgr.example")}
         response = self.client.post(reverse("core:funcionarios_update", args=[officer.pk]), data)
         self.assertEqual(response.status_code, 302)
         user = User.objects.get(username="ana.vega")
@@ -331,7 +330,7 @@ class OfficerWithAccessTests(PortalTestCase):
         self.login_as("admin")
         officer = self.make_officer_without_access()
         users = User.objects.count()
-        data = self.data(institutional_id="F-9003", name="Ana Vega C.")
+        data = self.data(name="Ana Vega C.")
         response = self.client.post(reverse("core:funcionarios_update", args=[officer.pk]), data)
         self.assertEqual(response.status_code, 302)
         self.assertEqual(User.objects.count(), users)
@@ -341,7 +340,7 @@ class OfficerWithAccessTests(PortalTestCase):
     def test_an_inactive_officer_cannot_be_given_access(self):
         self.login_as("admin")
         officer = self.make_officer_without_access()
-        data = {**self.data(institutional_id="F-9003", name="Ana Vega Castro", status="inactive"), **self.access(username="ana.vega", email="ana@sgr.example")}
+        data = {**self.data(name="Ana Vega Castro", status="inactive"), **self.access(username="ana.vega", email="ana@sgr.example")}
         response = self.client.post(reverse("core:funcionarios_update", args=[officer.pk]), data)
         self.assertEqual(response.status_code, 200)
         self.assertIn("status", response.context["form"].errors)

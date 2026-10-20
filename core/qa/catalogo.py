@@ -98,6 +98,7 @@ CLASES = {
     "ProfilePhotoTests": (["A3-02", "A3-12"], "Foto de perfil", _SEMILLA + "; carpeta de archivos temporal"),
     "LiveSearchTests": (["A2-03", "A2-05"], "Búsqueda en vivo en listados y Atención", _SEMILLA),
     "OfficerWithAccessTests": (["A1-07", "A3-02"], "Funcionario con su acceso en un solo formulario", _SEMILLA),
+    "OfficerIdentifierTests": (["A1-07", "A3-02"], "Identificador institucional del funcionario (automático)", _SEMILLA),
     "AuthorizedDelegationsTests": (["A2-10"], "Selector de delegaciones", _SEMILLA + "; tercera delegación sin usuarios"),
     "SwitchContextTests": (["A2-10", "A2-11"], "Selector de delegaciones (cambio de contexto)", _SEMILLA + "; tercera delegación sin usuarios"),
     "ContextFollowsEverywhereTests": (["A2-10", "A3-12"], "Contexto de delegación en listados, Excel y dashboard", _SEMILLA + "; tercera delegación sin usuarios"),

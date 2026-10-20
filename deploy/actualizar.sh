@@ -19,6 +19,7 @@ sudo -u sgr mkdir -p "${MEDIA_ROOT:-$APP_DIR/media}"
 sudo -E -u sgr "$PY" manage.py check --deploy
 sudo -E -u sgr "$PY" manage.py migrate --noinput
 sudo -E -u sgr "$PY" manage.py collectstatic --noinput
+sudo chmod -R a+rX "$APP_DIR/staticfiles"
 sudo systemctl restart sgr
 sleep 2
 curl -fsS http://127.0.0.1:8000/salud/ -H "Host: ${ALLOWED_HOSTS%%,*}" && echo " <- el servicio responde"

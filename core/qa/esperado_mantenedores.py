@@ -169,7 +169,7 @@ ESPERADO = {
         "bad_values_show_their_message_and_save_nothing": "Valores malos muestran su mensaje y no guardan nada.",
         "blank_required_fields_are_reported": "Los campos obligatorios en blanco se informan.",
         "a_rut_written_differently_is_still_a_duplicate": "Un RUT escrito distinto sigue contando como duplicado.",
-        "officer_code_and_name_follow_their_rules": "Código y nombre de funcionario siguen sus reglas.",
+        "officer_name_follows_its_rule_and_the_identifier_is_never_taken_from_the_form": "El nombre del funcionario sigue su regla y el identificador nunca se toma del formulario.",
         "text_with_angle_brackets_is_still_stored_as_text_and_shown_escaped": "Texto con < > se muestra escapado, nunca como HTML.",
     },
     "DelegationFormTests": {

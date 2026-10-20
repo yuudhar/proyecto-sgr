@@ -1,6 +1,8 @@
+import re
+
 from django.core.exceptions import ValidationError
 from django.core.validators import RegexValidator
-from django.db import models
+from django.db import IntegrityError, models, transaction
 
 from core.models import BaseModel
 
@@ -206,6 +208,9 @@ class Officer(BaseModel):
         verbose_name="cargo",
     )
 
+    ID_FORMAT = re.compile(r"F-([0-9]{4})")
+    ID_ATTEMPTS = 5
+
     class Meta:
         ordering = ("delegation__name", "name")
         verbose_name = "Funcionario"
@@ -213,6 +218,40 @@ class Officer(BaseModel):
 
     def __str__(self):
         return self.name
+
+    @classmethod
+    def id_numbers(cls, queryset):
+        numbers = []
+        for value in queryset.values_list("institutional_id", flat=True):
+            match = cls.ID_FORMAT.fullmatch(value)
+            if match:
+                numbers.append(int(match.group(1)))
+        return numbers
+
+    def next_institutional_id(self):
+        everyone = type(self)._base_manager.all()
+        taken = self.id_numbers(everyone)
+        own = self.id_numbers(everyone.filter(delegation_id=self.delegation_id))
+        block = max((number // 1000 for number in own), default=None)
+        if block is None:
+            block = max((number // 1000 for number in taken), default=0) + 1
+        number = block * 1000 + max((n % 1000 for n in taken if n // 1000 == block), default=0) + 1
+        while number in taken:
+            number += 1
+        return f"F-{number}"
+
+    def save(self, *args, **kwargs):
+        if self.institutional_id:
+            return super().save(*args, **kwargs)
+        for attempt in range(self.ID_ATTEMPTS):
+            self.institutional_id = self.next_institutional_id()
+            try:
+                with transaction.atomic():
+                    return super().save(*args, **kwargs)
+            except IntegrityError:
+                if attempt == self.ID_ATTEMPTS - 1:
+                    self.institutional_id = ""
+                    raise
 
 
 class PositionItem(BaseModel):
