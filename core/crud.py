@@ -32,6 +32,7 @@ CODE_COLUMN = "__code__"
 STATE_FILTER = "estado"
 STATE_ACTIVE = "activo"
 STATE_INACTIVE = "inactivo"
+ONLY_ARCHIVED = "solo"
 MAX_CODE_NUMBER_DIGITS = 9
 
 
@@ -224,6 +225,12 @@ class Crud:
     allow_change = True
     archivable = True
     deletable = False
+    # Dónde vive la marca de «archivado». Casi todos los modelos la tienen en su propio campo deleted_at;
+    # los que no heredan de BaseModel (los usuarios de Django) la guardan en otra tabla relacionada.
+    archive_lookup = "deleted_at"
+    archived_label = ""
+    archived_banner = ""
+    archive_note = ""
 
     related = ()
     detail_panel = ""
@@ -234,7 +241,7 @@ class Crud:
         self.title = self.title or ui.initial_capital(meta.verbose_name)
         self.title_plural = self.title_plural or ui.initial_capital(meta.verbose_name_plural)
         self.list_title = self.list_title or self.title_plural
-        self.soft_delete = issubclass(self.model, BaseModel)
+        self.soft_delete = issubclass(self.model, BaseModel) or self.archive_lookup != "deleted_at"
         self.columns = self.resolve_columns(self.list_display)
         self._form_class = None
         self._create_form_class = None
@@ -358,6 +365,15 @@ class Crud:
     def archive_blockers(self, obj):
         return []
 
+    def can_see_archived(self, request):
+        return True
+
+    def archive_guard(self, request, obj):
+        return []
+
+    def archive_problems(self, request, obj):
+        return [*self.archive_blockers(obj), *self.archive_guard(request, obj)]
+
     def restore_blockers(self, obj):
         return []
 
@@ -406,15 +422,22 @@ class Crud:
         if self.prefetch_related:
             qs = qs.prefetch_related(*self.prefetch_related)
         if self.soft_delete and not include_archived:
-            qs = qs.filter(deleted_at__isnull=True)
+            qs = qs.filter(**{f"{self.archive_lookup}__isnull": True})
         if self.delegation_lookup:
             delegation = active_delegation(request)
             if delegation is not None:
                 qs = qs.filter(**{self.delegation_lookup: delegation})
         return qs
 
+    def archived_at(self, obj):
+        return getattr(obj, "deleted_at", None) if self.soft_delete else None
+
+    def set_archived(self, obj, when):
+        obj.deleted_at = when
+        obj.save(update_fields=["deleted_at", "updated_at"])
+
     def is_archived(self, obj):
-        return self.soft_delete and obj.deleted_at is not None
+        return self.archived_at(obj) is not None
 
     def apply_search(self, qs, text):
         words = text.split()[:SEARCH_WORDS]
@@ -485,7 +508,7 @@ class Crud:
             if not spec.selected:
                 continue
             if spec.name == STATE_FILTER:
-                qs = qs.filter(deleted_at__isnull=spec.selected == STATE_ACTIVE)
+                qs = qs.filter(**{f"{self.archive_lookup}__isnull": spec.selected == STATE_ACTIVE})
                 continue
             model_field = self.filter_field(spec.name)
             value = spec.selected
@@ -578,7 +601,7 @@ class Crud:
                     row.restore_url = self.url("restore", obj.pk)
                 else:
                     row.archive_url = self.url("archive", obj.pk)
-                    row.archive_blocked = " ".join(self.archive_blockers(obj))
+                    row.archive_blocked = " ".join(self.archive_problems(request, obj))
             if self.can_delete_here(request, obj):
                 row.delete_url = self.url("delete", obj.pk)
                 row.delete_blocked = " ".join(self.delete_blockers(obj))
@@ -608,8 +631,8 @@ class Crud:
             f"Creado el {ui.fmt_datetime(obj.created_at)}. "
             f"Última actualización el {ui.fmt_datetime(obj.updated_at)}."
         )
-        if obj.deleted_at:
-            text += f" Archivado el {ui.fmt_datetime(obj.deleted_at)}."
+        if self.archived_at(obj):
+            text += f" Archivado el {ui.fmt_datetime(self.archived_at(obj))}."
         return text
 
 
@@ -836,8 +859,14 @@ class CrudListView(CrudView):
         columns = self.get_columns(request)
         filters = crud.build_filters(request)
         state = next((spec.selected for spec in filters if spec.name == STATE_FILTER), "")
-        archived = crud.soft_delete and (request.GET.get("archivados") == "1" or state == STATE_INACTIVE)
+        mode = request.GET.get("archivados", "")
+        if mode not in ("1", ONLY_ARCHIVED) or not crud.soft_delete or not crud.can_see_archived(request):
+            mode = ""
+        archived = crud.soft_delete and (bool(mode) or state == STATE_INACTIVE)
+        only_archived = mode == ONLY_ARCHIVED
         qs = crud.get_queryset(request, include_archived=archived)
+        if only_archived:
+            qs = qs.filter(**{f"{crud.archive_lookup}__isnull": False})
 
         text = request.GET.get("q", "").strip()
         qs = crud.apply_search(qs, text)
@@ -893,6 +922,10 @@ class CrudListView(CrudView):
             "archived_url": query_string(
                 request, drop=("page",), archivados="" if archived else "1"
             ),
+            "trash_url": query_string(request, drop=("page",), archivados="" if only_archived else ONLY_ARCHIVED),
+            "only_archived": only_archived,
+            "archived_mode": mode,
+            "can_see_archived": crud.can_see_archived(request),
             "export_url": query_string(request, drop=("page",), formato="xlsx"),
             "filters": filters,
             "q": text,
@@ -951,7 +984,7 @@ class CrudDetailView(CrudView):
             "archive_url": crud.url("archive", obj.pk) if crud.archivable else "",
             "restore_url": crud.url("restore", obj.pk) if crud.archivable else "",
             "delete_url": crud.url("delete", obj.pk) if crud.deletable else "",
-            "archive_blocked": " ".join(crud.archive_blockers(obj)) if can_archive and not archived else "",
+            "archive_blocked": " ".join(crud.archive_problems(request, obj)) if can_archive and not archived else "",
             "delete_blocked": " ".join(crud.delete_blockers(obj)) if can_delete else "",
             "panel_template": crud.detail_panel,
             "panel": crud.panel_context(request, obj) if crud.detail_panel else {},
@@ -1025,7 +1058,7 @@ class CrudFormView(CrudView):
             "cancel_url": crud.url("list") if creating else crud.url("detail", obj.pk),
             "can_add_another": crud.can_add(request.user) and (crud.create_add_another or not creating),
             "archive_url": crud.url("archive", obj.pk) if can_archive else "",
-            "archive_blocked": " ".join(crud.archive_blockers(obj)) if can_archive else "",
+            "archive_blocked": " ".join(crud.archive_problems(request, obj)) if can_archive else "",
             "delete_url": crud.url("delete", obj.pk) if can_delete else "",
             "delete_blocked": " ".join(crud.delete_blockers(obj)) if can_delete else "",
             "breadcrumbs": self.breadcrumbs(
@@ -1150,14 +1183,14 @@ class CrudArchiveView(ArchiveObjectMixin, CrudView):
 
     def get(self, request, pk):
         obj = self.load(request, pk)
-        if obj.deleted_at is not None:
+        if self.crud.is_archived(obj):
             messages.info(request, "Este registro ya estaba archivado.")
             return redirect(self.crud.url("detail", obj.pk))
         context = {
             "crud": self.crud,
             "obj": obj,
             "obj_name": ui.humanize_dates(obj),
-            "blockers": self.crud.archive_blockers(obj),
+            "blockers": self.crud.archive_problems(request, obj),
             "cancel_url": self.crud.url("detail", obj.pk),
             "breadcrumbs": self.breadcrumbs(
                 (ui.humanize_dates(obj), self.crud.url("detail", obj.pk)), ("Archivar", None)
@@ -1167,20 +1200,20 @@ class CrudArchiveView(ArchiveObjectMixin, CrudView):
 
     def post(self, request, pk):
         obj = self.load(request, pk)
-        if obj.deleted_at is None:
-            reasons = self.crud.archive_blockers(obj)
+        if not self.crud.is_archived(obj):
+            reasons = self.crud.archive_problems(request, obj)
             if reasons:
                 messages.error(request, self.blocked_text("archivar", obj, reasons))
                 return redirect(self.crud.url("detail", obj.pk))
-            obj.deleted_at = timezone.now()
+            when = timezone.now()
             with transaction.atomic():
-                obj.save(update_fields=["deleted_at", "updated_at"])
+                self.crud.set_archived(obj, when)
                 log_event(
                     request.user,
                     "Registro archivado",
                     obj,
                     previous="deleted_at=None",
-                    new=f"deleted_at={obj.deleted_at.isoformat()}",
+                    new=f"deleted_at={when.isoformat()}",
                 )
             messages.success(request, self.crud.say("archived", obj))
         return redirect(self.crud.url("list"))
@@ -1192,15 +1225,14 @@ class CrudRestoreView(CrudArchiveView):
 
     def post(self, request, pk):
         obj = self.load(request, pk)
-        if obj.deleted_at is not None:
+        if self.crud.is_archived(obj):
             reasons = self.crud.restore_blockers(obj)
             if reasons:
                 messages.error(request, self.blocked_text("restaurar", obj, reasons))
                 return redirect(self.crud.url("detail", obj.pk))
-            previous = f"deleted_at={obj.deleted_at.isoformat()}"
-            obj.deleted_at = None
+            previous = f"deleted_at={self.crud.archived_at(obj).isoformat()}"
             with transaction.atomic():
-                obj.save(update_fields=["deleted_at", "updated_at"])
+                self.crud.set_archived(obj, None)
                 log_event(
                     request.user,
                     "Registro restaurado",

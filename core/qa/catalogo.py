@@ -5,6 +5,7 @@ from core.qa.esperado_listados_portal import ESPERADO as _LISTADOS
 from core.qa.esperado_mantenedores import ESPERADO as _MANTENEDORES
 from core.qa.esperado_v16 import ESPERADO as _V16
 from core.qa.esperado_v22 import ESPERADO as _V22
+from core.qa.esperado_v23 import ESPERADO as _V23
 from core.qa.esperado_validaciones import ESPERADO as _VALIDACIONES
 
 REQUISITOS = {
@@ -171,9 +172,11 @@ CLASES = {
     "BrowserScriptTests": (["A3-02"], "Validaciones del navegador (validation.js)", _SIN_BD),
     "RealDeleteTests": (["A2-02", "A3-01"], "Eliminar de verdad con confirmación de SweetAlert2", _SEMILLA + "; sesión del Super Usuario"),
     "ListToolsTests": (["A2-03", "A2-04"], "Buscador y filtros de los catálogos", _SEMILLA + "; sesión del Super Usuario"),
+    "DeletedUsersTests": (["A1-07", "A2-02"], "Usuarios eliminados: borrar, ver y restaurar", _SEMILLA + "; sesión del Super Usuario"),
+    "OnlySuperuserDeletesUsersTests": (["A1-07", "A2-02"], "Solo el Super Usuario elimina y restaura usuarios", _SEMILLA + "; usuario con permisos de usuarios sin ser Super Usuario"),
 }
 
 ESPERADO = {}
-for _grupo in (_ACCESO, _MANTENEDORES, _INGRESO, _LISTADOS, _DESPLIEGUE, _VALIDACIONES, _V16, _V22):
+for _grupo in (_ACCESO, _MANTENEDORES, _INGRESO, _LISTADOS, _DESPLIEGUE, _VALIDACIONES, _V16, _V22, _V23):
     for _clase, _metodos in _grupo.items():
         ESPERADO.setdefault(_clase, {}).update(_metodos)

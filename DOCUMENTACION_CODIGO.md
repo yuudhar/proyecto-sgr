@@ -720,6 +720,9 @@ Describe las pantallas de un modelo. Se subclasea en core/registry.py.
   
   Se redefine en cada mantenedor que tiene registros que dependen de otros (un tipo de atención con sub atenciones activas, por ejemplo). Lo revisa el servidor al archivar y la pantalla lo avisa antes.
 - **`restore_blockers(obj)`**: Motivos por los que un registro archivado no se puede restaurar todavía.
+- **`archive_guard(request, obj)`** (v23): Motivos que dependen de quién archiva, no del registro; en usuarios, «No puedes eliminar tu propia cuenta». `archive_problems(request, obj)` junta estos con `archive_blockers`.
+- **`archived_at(obj)` / `set_archived(obj, when)`** (v23): Leen y guardan la marca de archivado. Por defecto es el campo `deleted_at` del modelo; `UserCrud` la guarda en `UserProfile.deleted_at` (`archive_lookup = "profile__deleted_at"`), porque `User` de Django no hereda de `BaseModel`, y además deja la cuenta inactiva.
+- **`can_see_archived(request)`** (v23): Quién puede ver los archivados; en usuarios solo el Super Usuario. Habilita la vista `?archivados=solo` («Usuarios eliminados»).
 - **`delete_blockers(obj)`**: Motivos por los que el registro no se puede eliminar de verdad. Por defecto revisa las relaciones inversas del modelo (`PROTECT`, `RESTRICT` y `CASCADE`) y, si otros registros lo usan, devuelve «Está en uso en N …»; así el listado puede avisar con SweetAlert2 antes de intentar el borrado. Un mantenedor puede sumar sus propios motivos (los roles: un perfil del sistema, uno con usuarios).
 - **`duplicate_message(label, archived)`**: Frase cuando el nombre ya existe sin distinguir mayúsculas; archived dice si el que existe está archivado.
 - **`validate_form(form, cleaned)`**: Reglas de negocio entre campos de un formulario de este mantenedor; se agregan con form.add_error.

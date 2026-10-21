@@ -5,7 +5,7 @@
 {% if archived %}
 <div class="archived-banner" role="status">
   <i class="bi bi-archive" aria-hidden="true"></i>
-  Este registro está archivado: no aparece en los listados normales y no se puede editar hasta restaurarlo.
+  {% if crud.archived_banner %}{{ crud.archived_banner }}{% else %}Este registro está archivado: no aparece en los listados normales y no se puede editar hasta restaurarlo.{% endif %}
 </div>
 {% endif %}
 

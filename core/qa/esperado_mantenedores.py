@@ -105,7 +105,7 @@ ESPERADO = {
         "only_the_superuser_opens_the_user_screens": "Solo el Super Usuario abre las pantallas de usuarios.",
         "the_menu_entry_is_only_for_the_superuser": "La entrada «Control de usuarios» del menú es solo del Super Usuario.",
         "a_non_superuser_cannot_edit_or_see_another_account": "Quien no es Super Usuario no puede ver ni editar otras cuentas (403).",
-        "users_are_deactivated_not_archived": "Los usuarios se desactivan, no se archivan.",
+        "users_are_sent_to_deleted_users_never_erased": "Los usuarios se eliminan enviándolos a «Usuarios eliminados», nunca se borran de la base; solo el Super Usuario ve la opción.",
     },
     "UserListTests": {
         "the_list_shows_name_profiles_and_delegation_of_each_user": "El listado muestra nombre, perfiles y delegación de cada usuario.",

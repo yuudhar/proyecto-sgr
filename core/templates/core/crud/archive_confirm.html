@@ -21,7 +21,7 @@
     </div>
     <a class="btn btn-outline-secondary" href="{{ cancel_url }}">Volver</a>
     {% else %}
-    <p>El registro deja de aparecer en los listados, queda inactivo y ya no se puede editar. No se borra de la base de datos: se guarda como archivado y se puede restaurar cuando haga falta, desde el listado con la opción «Incluir archivados».</p>
+    {% if crud.archive_note %}<p>{{ crud.archive_note }}</p>{% else %}<p>El registro deja de aparecer en los listados, queda inactivo y ya no se puede editar. No se borra de la base de datos: se guarda como archivado y se puede restaurar cuando haga falta, desde el listado con la opción «Incluir archivados».</p>{% endif %}
     <form method="post" class="d-flex flex-wrap gap-2" data-once>
       {% csrf_token %}
       <button type="submit" class="btn btn-danger"><i class="bi {% if crud.deletable %}bi-archive{% else %}bi-trash3{% endif %}" aria-hidden="true"></i> Sí, {% if crud.deletable %}archivar{% else %}eliminar{% endif %}</button>

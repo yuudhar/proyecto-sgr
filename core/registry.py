@@ -1081,7 +1081,16 @@ class UserCrud(Crud):
     title_plural = "Usuarios"
     list_title = "Control de usuarios"
     description = "Cuentas del sistema con su perfil y su delegación."
-    archivable = False
+    archive_lookup = "profile__deleted_at"
+    archived_label = "Usuarios eliminados"
+    archived_banner = (
+        "Este usuario está eliminado: no puede ingresar ni aparece en el listado de usuarios. "
+        "Solo el Super Usuario lo ve aquí y puede restaurarlo."
+    )
+    archive_note = (
+        "El usuario deja de aparecer en el listado y no podrá ingresar. No se borra de la base de datos: pasa a "
+        "«Usuarios eliminados» y el Super Usuario puede restaurarlo cuando haga falta. Su historial se conserva."
+    )
     ordering = ("username",)
     list_display = (
         Col("username", "Usuario", link=True),
@@ -1147,6 +1156,47 @@ class UserCrud(Crud):
         "password1": "password",
     }
 
+    def can_archive(self, user):
+        return user.is_superuser and super().can_archive(user)
+
+    def can_see_archived(self, request):
+        return request.user.is_superuser
+
+    def get_queryset(self, request, include_archived=False):
+        return super().get_queryset(request, include_archived=include_archived and request.user.is_superuser)
+
+    def archived_at(self, obj):
+        profile = getattr(obj, "profile", None)
+        return profile.deleted_at if profile else None
+
+    def set_archived(self, obj, when):
+        profile, _ = UserProfile.objects.get_or_create(user=obj)
+        profile.deleted_at = when
+        fields = ["deleted_at", "updated_at"]
+        if when is not None:
+            profile.status = UserProfile.Status.INACTIVE
+            fields.append("status")
+            if obj.is_active:
+                obj.is_active = False
+                obj.save(update_fields=["is_active"])
+        profile.save(update_fields=fields)
+        obj.profile = profile
+
+    def archive_guard(self, request, obj):
+        if obj.pk == request.user.pk:
+            return ["No puedes eliminar tu propia cuenta."]
+        return []
+
+    def say(self, kind, obj):
+        name = obj.get_username()
+        if kind == "archived":
+            return f"Usuario «{name}» eliminado. Lo encuentras en Usuarios eliminados."
+        if kind == "restored":
+            return (
+                f"Usuario «{name}» restaurado. Sigue inactivo: actívalo en Editar cuando deba volver a ingresar."
+            )
+        return super().say(kind, obj)
+
     def extra_detail(self, obj):
         officer = officer_of(obj)
         return [
@@ -1159,9 +1209,10 @@ class UserCrud(Crud):
 
     def record_meta(self, obj):
         text = f"Cuenta creada el {ui.fmt_datetime(obj.date_joined)}."
-        if obj.last_login:
-            return f"{text} Último ingreso el {ui.fmt_datetime(obj.last_login)}."
-        return f"{text} Todavía no ha ingresado."
+        text += f" Último ingreso el {ui.fmt_datetime(obj.last_login)}." if obj.last_login else " Todavía no ha ingresado."
+        if self.archived_at(obj):
+            text += f" Eliminado el {ui.fmt_datetime(self.archived_at(obj))}."
+        return text
 
     def prepare_object(self, request, obj, creating, form):
         if not creating:
