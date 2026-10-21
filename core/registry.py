@@ -252,6 +252,7 @@ class CommitmentCrud(Crud):
     model = Commitment
     slug = "agenda"
     icon = "bi-calendar-check"
+    deletable = True
     title = "Compromiso"
     title_plural = "Compromisos"
     list_title = "Agenda colectiva"
@@ -648,6 +649,7 @@ class TerritoryCrud(Crud):
     model = Territory
     slug = "territorios"
     icon = "bi-geo-alt"
+    deletable = True
     description = "Territorios de cada delegación."
     list_display = ("name", "delegation")
     search_fields = ("name", "delegation__name")
@@ -722,6 +724,8 @@ class PositionCrud(Crud):
     model = Position
     slug = "cargos"
     icon = "bi-person-badge"
+    deletable = True
+    state_filter = True
     description = "Cargos con su período de vigencia."
     list_display = (Col("name", "Nombre", link=True), "valid_from", "valid_until")
     search_fields = ("name",)
@@ -761,6 +765,7 @@ class ServiceCrud(Crud):
     model = Service
     slug = "servicios"
     icon = "bi-card-checklist"
+    deletable = True
     list_title = "Catálogo de servicios"
     description = "Servicios municipales que se pueden asociar a una actividad."
     list_display = (Col("name", "Nombre", link=True), "status")
@@ -879,6 +884,7 @@ class ItemCrud(ItemRules, ItemColumns, Crud):
     title_plural = "Ítems"
     list_title = "Ítems y metas"
     description = "Todos los ítems que se miden en las metas: tipos de atención y sus sub atenciones."
+    search_fields = ("name", "description")
     code_prefix = "IT"
     code_digits = 3
     list_display = (
@@ -995,6 +1001,8 @@ class ManagementTypeCrud(Crud):
     model = ManagementType
     slug = "tipos-de-gestion"
     icon = "bi-signpost-split"
+    deletable = True
+    state_filter = True
     description = "Tipos de gestión que se usan en el seguimiento de una actividad."
     list_display = (Col("name", "Nombre", link=True),)
     search_fields = ("name",)
@@ -1008,6 +1016,8 @@ class BeneficiaryCrud(Crud):
     model = Beneficiary
     slug = "beneficiarios"
     icon = "bi-person-lines-fill"
+    deletable = True
+    state_filter = True
     description = "Personas atendidas. Es un catálogo compartido entre delegaciones."
     list_display = (Col("name", "Nombre", link=True), "rut", "phone", "address")
     search_fields = ("name", "rut", "address")

@@ -720,7 +720,7 @@ Describe las pantallas de un modelo. Se subclasea en core/registry.py.
   
   Se redefine en cada mantenedor que tiene registros que dependen de otros (un tipo de atención con sub atenciones activas, por ejemplo). Lo revisa el servidor al archivar y la pantalla lo avisa antes.
 - **`restore_blockers(obj)`**: Motivos por los que un registro archivado no se puede restaurar todavía.
-- **`delete_blockers(obj)`**: Motivos por los que el registro no se puede eliminar de verdad (un perfil del sistema, uno con usuarios).
+- **`delete_blockers(obj)`**: Motivos por los que el registro no se puede eliminar de verdad. Por defecto revisa las relaciones inversas del modelo (`PROTECT`, `RESTRICT` y `CASCADE`) y, si otros registros lo usan, devuelve «Está en uso en N …»; así el listado puede avisar con SweetAlert2 antes de intentar el borrado. Un mantenedor puede sumar sus propios motivos (los roles: un perfil del sistema, uno con usuarios).
 - **`duplicate_message(label, archived)`**: Frase cuando el nombre ya existe sin distinguir mayúsculas; archived dice si el que existe está archivado.
 - **`validate_form(form, cleaned)`**: Reglas de negocio entre campos de un formulario de este mantenedor; se agregan con form.add_error.
 - **`filter_choices(request, name, model_field)`**: Opciones de un filtro del listado, como lista de (valor, texto); None usa las de siempre.
@@ -854,7 +854,7 @@ Restaura un registro archivado.
 
 ##### `CrudDeleteView` — hereda de `CrudView`
 
-Elimina de verdad un registro (solo en los mantenedores con deletable, como los perfiles).
+Elimina de verdad un registro (solo en los mantenedores con deletable: Roles, Beneficiarios, Territorios, Servicios, Cargos, Tipos de gestión y Agenda). Estos, salvo Roles, también se pueden archivar: el botón de archivar se llama «Archivar» y el de eliminar «Eliminar» (partials/delete_link.html y confirm.js).
 
 GET pide la confirmación y POST elimina. Pide el permiso delete del modelo y se niega si el registro está en uso (delete_blockers). La eliminación queda en la auditoría, y si la base de datos la rechaza porque otros registros dependen de este, no queda nada anotado ni se avisa un éxito falso.
 

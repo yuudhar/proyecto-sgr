@@ -362,7 +362,18 @@ class Crud:
         return []
 
     def delete_blockers(self, obj):
-        return []
+        reasons = []
+        for relation in self.model._meta.related_objects:
+            if relation.many_to_many or relation.on_delete not in (models.PROTECT, models.RESTRICT, models.CASCADE):
+                continue
+            total = relation.related_model._base_manager.filter(**{relation.field.name: obj}).count()
+            if total:
+                meta = relation.related_model._meta
+                name = str(meta.verbose_name if total == 1 else meta.verbose_name_plural).lower()
+                reasons.append(f"Está en uso en {total} {name}.")
+        if reasons:
+            reasons.append("Cámbialos o elimínalos antes de eliminar este registro.")
+        return reasons
 
     def duplicate_message(self, label, archived):
         if archived:
