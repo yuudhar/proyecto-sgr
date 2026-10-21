@@ -16,6 +16,7 @@ ESPERADO = {
         "a_replaced_photo_removes_the_old_file": "Al cambiar la foto se borra el archivo anterior.",
         "other_file_types_and_false_images_are_rejected": "Otros tipos de archivo e imágenes falsas se rechazan.",
         "a_photo_over_the_size_limit_is_rejected": "Una foto que pasa el tamaño máximo se rechaza.",
+        "the_photo_is_an_image_field_and_a_file_with_only_the_signature_is_rejected": "La foto es un ImageField: un archivo que solo imita la firma de una imagen se rechaza.",
         "the_photo_can_be_removed": "La foto se puede quitar.",
         "the_photo_is_only_delivered_to_people_who_signed_in": "La foto solo se entrega a quien inició sesión.",
         "changing_the_password_still_works_next_to_the_photo_form": "El cambio de contraseña sigue funcionando junto al formulario de la foto.",

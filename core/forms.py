@@ -946,7 +946,7 @@ def split_person_name(name):
 
 class ProfilePhotoForm(BootstrapFormMixin, forms.Form):
 
-    photo = forms.FileField(
+    photo = forms.ImageField(
         label="Foto de perfil",
         widget=forms.FileInput(
             attrs={
@@ -955,7 +955,10 @@ class ProfilePhotoForm(BootstrapFormMixin, forms.Form):
                 "data-accept-label": "PNG o JPG",
             }
         ),
-        error_messages={"required": "Elige una imagen para tu foto."},
+        error_messages={
+            "required": "Elige una imagen para tu foto.",
+            "invalid_image": "El archivo no es una imagen válida. Revisa que no esté dañado.",
+        },
     )
 
     def __init__(self, *args, **kwargs):

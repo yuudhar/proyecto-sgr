@@ -484,6 +484,8 @@ Foto de perfil de quien tiene la sesión iniciada (pantalla Mi perfil).
 - **`__init__(*args, **kwargs)`**: Pone la ayuda con el tamaño máximo de la foto y aplica el estilo.
 - **`clean_photo()`**: Revisa la foto: PNG o JPG, tamaño máximo y que el contenido corresponda a la extensión.
 
+  El campo `photo` es un `forms.ImageField`: antes de `clean_photo()`, Pillow comprueba que el archivo sea una imagen real (un archivo que solo imita la firma de un PNG se rechaza con «El archivo no es una imagen válida»).
+
 ##### `PortalPasswordChangeForm` — hereda de `BootstrapFormMixin`, `PasswordChangeForm`
 
 Cambio de contraseña de quien tiene la sesión iniciada (pantalla Mi perfil).
@@ -877,7 +879,7 @@ GET pide la confirmación y POST elimina. Pide el permiso delete del modelo y se
 - **`query_string(request, drop, **updates)`**: Parámetros actuales de la URL con cambios, para armar enlaces de orden y páginas.
 - **`page_size_of(request)`**: Filas por página de los listados: las que la persona eligió en esta sesión, o PAGE_SIZE.
   
-  La elección se guarda en request.session (ver set_page_size en core/views.py). Aquí se revisa otra vez contra PAGE_SIZES por si la sesión trajera otro valor.
+  La elección se guarda en request.session (ver set_page_size en core/views.py). Aquí se revisa otra vez contra PAGE_SIZES por si la sesión trajera otro valor. Las opciones son 5, 15 y 30 filas (`PAGE_SIZES`), y 15 el valor por defecto (`PAGE_SIZE`).
 
 #### `core/registry.py`
 
@@ -1341,6 +1343,8 @@ Archivos que suben las personas: evidencias y fotos de perfil.
 
 Se aceptan pocos tipos, se revisa que el contenido corresponda a la extensión (no basta con el nombre) y se limita el tamaño. Los archivos se guardan en MEDIA_ROOT con un nombre propio, sin usar el que trae el computador de quien sube, y se entregan solo mediante una vista que revisa el permiso (core/views.py), nunca por una URL pública.
 
+Qué pasa con un archivo reemplazado o sin registro: la foto anterior se borra al cambiarla o quitarla; el archivo anterior de una evidencia no se borra (queda como rastro) y archivar una evidencia no toca su archivo. No hay limpieza automática. La política completa está en el README, sección «Archivos subidos: límites y política».
+
 **Funciones**
 
 - **`extension_of(name)`**: Extensión de un nombre de archivo en minúsculas y sin el punto.
@@ -1482,7 +1486,7 @@ Perfil de un usuario de Django. Lo une con su funcionario (uno a uno, vacío sol
 | `user` | usuario | OneToOneField | relación con `settings.AUTH_USER_MODEL`; nombre inverso `profile`; CASCADE |
 | `officer` | funcionario | OneToOneField | relación con `Officer`; nombre inverso `user_profile`; PROTECT; admite nulo; opcional — Vacío solo para cuentas técnicas (superusuario) sin un funcionario asociado en terreno. |
 | `status` | estado | CharField | largo 20; con opciones; por defecto `Status.ACTIVE` |
-| `photo` | foto de perfil | FileField | largo 255; admite nulo; opcional; sube archivo |
+| `photo` | foto de perfil | ImageField | largo 255; admite nulo; opcional; sube archivo; requiere Pillow |
 
 Opciones del modelo (`Meta`): `verbose_name` = `'Perfil de usuario'`; `verbose_name_plural` = `'Perfiles de usuario'`.
 
@@ -2313,6 +2317,7 @@ Las migraciones crean y modifican las tablas de cada app.
 - `0003_create_role_profiles.py`: crea la ficha de los roles que ya existían.
 - `0004_userroledelegation.py`: crea la tabla de `UserRoleDelegation`.
 - `0005_userprofile_photo.py`: agrega el campo `userprofile.photo`.
+- `0006_userprofile_photo_imagefield.py`: cambia `userprofile.photo` de `FileField` a `ImageField`; la columna no cambia.
 
 ### `core`
 

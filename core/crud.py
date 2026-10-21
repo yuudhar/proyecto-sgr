@@ -23,8 +23,8 @@ from core.forms import CrudForm
 from core.models import BaseModel
 from core.search import word_pattern
 
-PAGE_SIZE = 20
-PAGE_SIZES = (10, 20, 50)
+PAGE_SIZE = 15
+PAGE_SIZES = (5, 15, 30)
 SESSION_PAGE_SIZE = "page_size"
 RELATED_LIMIT = 25
 SEARCH_WORDS = 10

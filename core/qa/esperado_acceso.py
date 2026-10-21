@@ -137,10 +137,11 @@ ESPERADO = {
         "the_session_cookie_only_carries_a_key_not_the_data": "La cookie de sesión lleva solo una clave, no los datos.",
     },
     "PageSizeTests": {
-        "default_is_twenty_rows": "Por defecto los listados muestran 20 filas por página.",
+        "default_is_fifteen_rows": "Por defecto los listados muestran 15 filas por página (opciones: 5, 15 y 30).",
         "choosing_a_size_stores_it_in_the_session_and_changes_every_list": "Elegir un tamaño se guarda en la sesión y cambia todos los listados.",
         "the_success_notice_appears_after_the_redirect_and_only_once": "El aviso de éxito aparece tras la redirección y una sola vez.",
         "the_button_of_the_current_size_is_marked": "El botón del tamaño actual aparece marcado.",
+        "the_chosen_size_survives_a_refresh": "El tamaño elegido (por ejemplo 30) se mantiene al refrescar la página.",
         "invalid_sizes_are_refused_and_nothing_is_stored": "Tamaños inválidos se rechazan y no se guarda nada.",
         "a_forged_value_in_the_session_falls_back_to_the_default": "Un valor adulterado en la sesión vuelve al valor por defecto.",
         "next_never_leaves_the_site": "El parámetro next nunca redirige fuera del sitio.",

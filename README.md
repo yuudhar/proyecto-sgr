@@ -47,7 +47,7 @@ Todos los listados incluyen búsqueda (sin distinguir mayúsculas ni tildes), pa
 - **Contraseñas:** de 8 a 128 caracteres, con al menos una minúscula, una mayúscula, un número y un símbolo (por ejemplo `! # $ %`); además, que no sea de uso común, que no sea solo de números y que no se parezca a los datos del usuario. El mensaje dice exactamente qué le falta. Se revisan al crear un usuario, al cambiar la contraseña desde *Mi perfil* y al recuperarla.
 - **Formatos:** RUT con dígito verificador, teléfono, correo, nombres, códigos, usuario y color (`#RRGGBB`) tienen una regla propia en `core/rules.py`, que usan igual el servidor y el navegador.
 
-Los cambios de la versión 16 (archivos de evidencia, foto de perfil, alta única de funcionario y pantalla Atención única) están resumidos en [`docs/CAMBIOS_v16.md`](docs/CAMBIOS_v16.md). En la versión 17, a un funcionario que todavía no tiene usuario se le puede dar el acceso desde su propia pantalla «Editar», sin pasar por Control de usuarios, y su ficha indica con qué usuario ingresa. En la versión 18 los listados y la pantalla Atención buscan mientras se escribe (con una pausa breve) y al cambiar un filtro, sin apretar «Buscar»; el botón y la tecla Enter siguen funcionando. La versión 19 no cambia el sistema ni la base: quita los datos de demostración y deja los scripts de la base al día (ver [`docs/CAMBIOS_v19.md`](docs/CAMBIOS_v19.md)). En la versión 20 el identificador institucional del funcionario se genera solo al guardar y ya no se escribe a mano (ver [`docs/CAMBIOS_v20.md`](docs/CAMBIOS_v20.md)).
+Los cambios de la versión 16 (archivos de evidencia, foto de perfil, alta única de funcionario y pantalla Atención única) están resumidos en [`docs/CAMBIOS_v16.md`](docs/CAMBIOS_v16.md). En la versión 17, a un funcionario que todavía no tiene usuario se le puede dar el acceso desde su propia pantalla «Editar», sin pasar por Control de usuarios, y su ficha indica con qué usuario ingresa. En la versión 18 los listados y la pantalla Atención buscan mientras se escribe (con una pausa breve) y al cambiar un filtro, sin apretar «Buscar»; el botón y la tecla Enter siguen funcionando. La versión 19 no cambia el sistema ni la base: quita los datos de demostración y deja los scripts de la base al día (ver [`docs/CAMBIOS_v19.md`](docs/CAMBIOS_v19.md)). En la versión 20 el identificador institucional del funcionario se genera solo al guardar y ya no se escribe a mano (ver [`docs/CAMBIOS_v20.md`](docs/CAMBIOS_v20.md)). En la versión 21 los listados ofrecen 5, 15 o 30 filas por página (por defecto 15), la foto de perfil pasa a `ImageField` (ahora requiere Pillow) y se documenta la política de archivos reemplazados (ver [`docs/CAMBIOS_v21.md`](docs/CAMBIOS_v21.md)).
 
 ## Requisitos
 
@@ -55,6 +55,7 @@ Los cambios de la versión 16 (archivos de evidencia, foto de perfil, alta únic
 |---|---|
 | Python | 3.12 o superior (en el servidor se usa 3.13) |
 | Django | 6.1.1 |
+| Pillow | 12.3.0 (lo exige `ImageField` de la foto de perfil; se instala con `requirements.txt`) |
 | Base de datos | SQLite (desarrollo, no necesita instalar nada) o MariaDB 10.11 / MySQL 8.4 o superior (producción) |
 | `mysqlclient` | 2.2.1 o superior, solo si se usa MariaDB o MySQL |
 | Navegador | Chrome, Edge o Firefox actualizados |
@@ -180,6 +181,34 @@ DEFAULT_FROM_EMAIL=<tu-cuenta>@gmail.com
 
 Las plantillas completas para el servidor están en `deploy/sgr.env.example` y `deploy/al2023/sgr.env.example`, siempre con los secretos en blanco.
 
+### Archivos subidos: límites y política
+
+El sistema recibe dos tipos de archivos. Ninguno se guarda dentro de la base de datos: la tabla guarda solo la ruta (`varchar(255)`) y el archivo queda en `MEDIA_ROOT`.
+
+| Qué se sube | Campo | Tipos aceptados | Máximo | Carpeta dentro de `MEDIA_ROOT` |
+|---|---|---|---|---|
+| Archivo de una evidencia | `Evidence.file_link` (`FileField`) | PDF, PNG, JPG, Word (`.docx`) o Excel (`.xlsx`) | 10 MB | `evidencias/AAAA/` |
+| Foto de perfil | `UserProfile.photo` (`ImageField`, requiere Pillow) | PNG o JPG | 2 MB | `fotos/` |
+
+Qué se revisa en el servidor (`check_upload` en `core/uploads.py`): que la extensión esté permitida, que el archivo no pese más del máximo, que no esté vacío y que el contenido corresponda a la extensión (no basta con que el nombre termine en `.pdf`). En la foto, además, `ImageField` con Pillow comprueba que sea una imagen real, no solo que empiece con la firma de una. El atributo `accept` del navegador solo orienta; la decisión es del servidor. El archivo se guarda con un nombre propio (el código de la evidencia o el usuario, más un número al azar), nunca con el que trae el computador de quien sube; el nombre original queda anotado en los metadatos de la evidencia.
+
+Cómo se entregan: no hay ninguna URL pública hacia `media/`. Los archivos se abren solo por `evidence_file` y `profile_photo` (`core/views.py`), que piden sesión iniciada; la evidencia, además, el permiso de ver evidencias y estar dentro de la delegación activa. La carpeta `media/` está en `.gitignore`: no se sube a Git. En el servidor queda en `/opt/sgr/app/media` (o en `MEDIA_ROOT` si se define) y hay que respaldarla junto con la base de datos.
+
+**Qué pasa con un archivo cuando se reemplaza, se archiva o queda sin registro**
+
+El registro y su archivo tienen ciclos de vida distintos: cambiar o archivar el registro no limpia por sí solo el archivo. Estas son las decisiones del equipo:
+
+| Situación | Qué pasa con el archivo | Por qué |
+|---|---|---|
+| Cambiar la foto de perfil | Se borra la foto anterior | Una foto vieja no tiene valor para el registro y no conviene dejar fotos de personas sin uso |
+| Quitar la foto de perfil | Se borra el archivo | Lo mismo |
+| Reemplazar el archivo de una evidencia (Editar) | El archivo anterior **no se borra**: queda en `MEDIA_ROOT` como rastro. Los metadatos de la evidencia pasan a describir el archivo nuevo (nombre original, tipo, tamaño y huella SHA-256) y, si ya estaba revisada, vuelve a «Pendiente» para una nueva revisión | Se conserva lo que alguien pudo haber revisado antes; la edición queda en la auditoría |
+| Archivar una evidencia | El archivo se conserva. Desde las pantallas del sistema las evidencias solo se archivan, no se eliminan, y un archivado se puede restaurar | Archivar no es borrar |
+| Archivo que quedó sin registro (huérfano) | Sigue en el disco, pero el sistema no lo puede abrir ni mostrar, porque cada archivo se entrega solo a partir de un registro | Un archivo suelto no se expone a nadie |
+| Limpieza | No hay limpieza automática. Si hace falta liberar espacio, se revisa a mano comparando la carpeta `media/evidencias/` con la columna `file_link` de `evidence_evidence` antes de borrar algo | Borrar sin revisar podría eliminar una evidencia que sigue en uso |
+
+En resumen: las fotos se limpian solas; los archivos de evidencia se conservan hasta que el equipo decida borrarlos a mano.
+
 ## Base de datos: migraciones y scripts
 
 El esquema se crea con las **migraciones de Django**, que vienen en el repositorio (`python manage.py migrate`):
@@ -202,7 +231,7 @@ Comandos de datos (`python manage.py <comando>`):
 | `cargar_volumen_estres` | Carga un volumen grande de registros marcados como prueba (`--limpiar` los borra); necesita funcionarios e ítems ya creados |
 | `exportar_registro_pruebas` | Genera `docs/pruebas/registro_pruebas_funcionales.csv` y `.xlsx` |
 
-La carpeta `sql/` guarda los scripts SQL de la base. **`sgr_django_v19.sql`** es la estructura real de la base del servidor (`sgr_django`, 32 tablas, MariaDB 10.11, exportada desde phpMyAdmin y puesta al día; sin datos ni contraseñas). **`sgr_django_v19_dbeaver.sql`** es el mismo esquema, pero crea una base aparte (`sgr_django_der`) y la vuelve a crear si ya existe: se abre en DBeaver con *Ejecutar script* (Alt+X) para generar los diagramas ER sin tocar la base real. `sgr_v19_modelo_relacional_completo_en.sql` es el diseño relacional de 22 tablas en inglés (el v9 se conserva sin cambios), y `sgr_v3_modelo_relacional_completo.sql` y `sgr_v5_modelo_relacional_completo.sql` (con su diagrama `sgr_v5_mer.png`) son los diseños originales, con los scripts de paso `sgr_v3_a_v5_alter.sql` y `sgr_v5_a_v3_revertir.sql`. Los cambios de la v16 sobre la base del servidor están en `sgr_v13_a_v16_alter.sql`, que no hace falta ejecutar porque `migrate` los aplica. **Cuidado:** el script en inglés borra y vuelve a crear una base llamada `sgr_db` (no `sgr_django`), así que sirve para el diagrama y para pruebas, no para actualizar la base del servidor: ahí las tablas las crea `migrate`. La v17, la v18, la v19 y la v20 no cambian ninguna tabla.
+La carpeta `sql/` guarda los scripts SQL de la base. **`sgr_django_v19.sql`** es la estructura real de la base del servidor (`sgr_django`, 32 tablas, MariaDB 10.11, exportada desde phpMyAdmin y puesta al día; sin datos ni contraseñas). **`sgr_django_v19_dbeaver.sql`** es el mismo esquema, pero crea una base aparte (`sgr_django_der`) y la vuelve a crear si ya existe: se abre en DBeaver con *Ejecutar script* (Alt+X) para generar los diagramas ER sin tocar la base real. `sgr_v19_modelo_relacional_completo_en.sql` es el diseño relacional de 22 tablas en inglés (el v9 se conserva sin cambios), y `sgr_v3_modelo_relacional_completo.sql` y `sgr_v5_modelo_relacional_completo.sql` (con su diagrama `sgr_v5_mer.png`) son los diseños originales, con los scripts de paso `sgr_v3_a_v5_alter.sql` y `sgr_v5_a_v3_revertir.sql`. Los cambios de la v16 sobre la base del servidor están en `sgr_v13_a_v16_alter.sql`, que no hace falta ejecutar porque `migrate` los aplica. **Cuidado:** el script en inglés borra y vuelve a crear una base llamada `sgr_db` (no `sgr_django`), así que sirve para el diagrama y para pruebas, no para actualizar la base del servidor: ahí las tablas las crea `migrate`. La v17, la v18, la v19 y la v20 no cambian ninguna tabla. La v21 tampoco: su migración `accounts 0006` solo cambia el tipo de campo de la foto en Django (de `FileField` a `ImageField`) y la columna `photo` sigue siendo `varchar(255)`.
 
 **Zonas horarias en MariaDB:** los informes agrupan por fecha en hora de Chile y necesitan las tablas de zonas horarias del motor. Se cargan una vez con:
 
