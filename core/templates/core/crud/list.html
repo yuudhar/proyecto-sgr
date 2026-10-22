@@ -16,7 +16,7 @@
   {% endif %}
 </section>
 
-<section class="panel" aria-label="Listado de {{ crud.title_plural|lower }}">
+<section class="panel" aria-label="Listado de {{ crud.title_plural|lower }}"{% if not only_archived %} data-live-crud="{{ crud.slug }}"{% endif %}>
   <form method="get" class="filters" role="search" data-loading data-live-search>
     <span class="visually-hidden" role="status" data-live-status></span>
     {% if crud.search_fields %}
@@ -55,6 +55,7 @@
     {% elif crud.archivable %}
     <a href="{{ archived_url }}">{% if archived %}<i class="bi bi-eye-slash" aria-hidden="true"></i> Ocultar archivados{% else %}<i class="bi bi-archive" aria-hidden="true"></i> Incluir archivados{% endif %}</a>
     {% endif %}
+    <span class="chip chip-neutral" data-live-state hidden><i class="bi bi-broadcast" aria-hidden="true"></i><span data-live-text>Conectando…</span></span>
     {% if rows %}{% include "core/partials/page_size.html" %}{% endif %}
   </div>
 

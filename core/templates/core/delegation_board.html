@@ -32,6 +32,8 @@
   </form>
 </section>
 
+<div data-live-page data-live-region>
+<p class="live-note">{% include "core/partials/live_chip.html" %}</p>
 {% if not delegation or not period %}
 <section class="panel">
   <div class="empty">
@@ -112,4 +114,5 @@
   {% endif %}
 </section>
 {% endif %}
+</div>
 {% endblock %}

@@ -25,6 +25,8 @@ ALLOWED_HOSTS = [
 
 
 INSTALLED_APPS = [
+    'daphne',  # primero, antes de staticfiles: runserver pasa a ser ASGI/Daphne
+    'channels',
     'django.contrib.admin',
     'django.contrib.auth',
     'django.contrib.contenttypes',
@@ -37,6 +39,7 @@ INSTALLED_APPS = [
     'planning',
     'operations',
     'evidence',
+    'websocket',
 ]
 
 MIDDLEWARE = [
@@ -70,6 +73,11 @@ TEMPLATES = [
 ]
 
 WSGI_APPLICATION = 'sgr_project.wsgi.application'
+ASGI_APPLICATION = 'sgr_project.asgi.application'
+
+# Capa de canales en memoria: sirve con un solo proceso (Daphne, o runserver en local). Con varios
+# procesos haría falta una capa compartida (channels_redis).
+CHANNEL_LAYERS = {"default": {"BACKEND": "channels.layers.InMemoryChannelLayer"}}
 
 
 DB_ENGINE = os.environ.get("DB_ENGINE", "sqlite").strip().lower()

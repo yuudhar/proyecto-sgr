@@ -324,7 +324,9 @@ def goal_lines(goals, indicators):
 def dashboard(request):
     user = request.user
 
-    visits = request.session.get("dashboard_visits", 0) + 1
+    # El refresco en vivo (fetch) vuelve a pedir esta pantalla sin que la persona la visite de nuevo.
+    live_refresh = request.headers.get("X-Requested-With") == "fetch"
+    visits = request.session.get("dashboard_visits", 0) + (0 if live_refresh else 1)
     request.session["dashboard_visits"] = visits
 
     officer = request_officer(request)

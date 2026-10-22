@@ -6,6 +6,7 @@ from core.qa.esperado_mantenedores import ESPERADO as _MANTENEDORES
 from core.qa.esperado_v16 import ESPERADO as _V16
 from core.qa.esperado_v22 import ESPERADO as _V22
 from core.qa.esperado_v23 import ESPERADO as _V23
+from core.qa.esperado_v24 import ESPERADO as _V24
 from core.qa.esperado_validaciones import ESPERADO as _VALIDACIONES
 
 REQUISITOS = {
@@ -53,6 +54,9 @@ REQUISITOS = {
     "A4-01": ("A4", "Revisión de estado y versión inequívoca del despliegue"),
     "A4-02": ("A4", "Ajustes de producción: DEBUG, SECRET_KEY, ALLOWED_HOSTS, CSRF, estáticos y caché compartida"),
     "A4-05": ("A4", "Migraciones y ejemplo de configuración sin secretos"),
+    "T11-01": ("Clase 11", "Django Channels y Daphne: ASGI, enrutamiento HTTP/WebSocket, capa de canales y orígenes permitidos"),
+    "T11-03": ("Clase 11", "Listados CRUD en vivo: aviso tras el commit, permisos por módulo y delegación, y nueva consulta HTTP de la tabla"),
+    "T11-04": ("Clase 11", "Dashboard, tablero y validar en vivo: el cambio de una persona se ve en la pantalla abierta de otra de la misma delegación, sin F5"),
     "C2": ("Anexo C", "Validación de código y nueva contraseña (casillas, mostrar/ocultar contraseña)"),
     "IMP-01": ("Importante", "Plantillas de los demás módulos con diseño coherente"),
     "IMP-02": ("Importante", "Interfaces por rol con sus permisos"),
@@ -172,11 +176,16 @@ CLASES = {
     "BrowserScriptTests": (["A3-02"], "Validaciones del navegador (validation.js)", _SIN_BD),
     "RealDeleteTests": (["A2-02", "A3-01"], "Eliminar de verdad con confirmación de SweetAlert2", _SEMILLA + "; sesión del Super Usuario"),
     "ListToolsTests": (["A2-03", "A2-04"], "Buscador y filtros de los catálogos", _SEMILLA + "; sesión del Super Usuario"),
+    "AsgiApplicationTests": (["T11-01"], "Aplicación ASGI (Daphne, Channels, orígenes)", _SEMILLA + "; sesión de un funcionario"),
+    "LiveListTests": (["T11-03"], "Listados en vivo", _SEMILLA + "; conexiones WebSocket"),
+    "LiveDashboardTests": (["T11-04"], "Dashboard en vivo", _SEMILLA + "; conexiones WebSocket y cambios de datos"),
+    "UserPhotoByAdminTests": (["A1-07"], "Foto de perfil de otro usuario (Super Usuario)", _SEMILLA + "; sesión del Super Usuario; imágenes de prueba"),
+    "DaphneDeployTests": (["T11-01", "A4-02"], "Despliegue con Daphne y WebSocket", _SIN_BD),
     "DeletedUsersTests": (["A1-07", "A2-02"], "Usuarios eliminados: borrar, ver y restaurar", _SEMILLA + "; sesión del Super Usuario"),
     "OnlySuperuserDeletesUsersTests": (["A1-07", "A2-02"], "Solo el Super Usuario elimina y restaura usuarios", _SEMILLA + "; usuario con permisos de usuarios sin ser Super Usuario"),
 }
 
 ESPERADO = {}
-for _grupo in (_ACCESO, _MANTENEDORES, _INGRESO, _LISTADOS, _DESPLIEGUE, _VALIDACIONES, _V16, _V22, _V23):
+for _grupo in (_ACCESO, _MANTENEDORES, _INGRESO, _LISTADOS, _DESPLIEGUE, _VALIDACIONES, _V16, _V22, _V23, _V24):
     for _clase, _metodos in _grupo.items():
         ESPERADO.setdefault(_clase, {}).update(_metodos)

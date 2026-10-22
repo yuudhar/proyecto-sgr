@@ -34,6 +34,7 @@ from core.forms import (
     split_person_name,
 )
 from core.models import AuditLog
+from core.photos import change_photo, photo_url_of, remove_photo
 from core.roles import (
     ACTIONS,
     PERMISSION_MODULES,
@@ -1199,7 +1200,9 @@ class UserCrud(Crud):
 
     def extra_detail(self, obj):
         officer = officer_of(obj)
+        photo = photo_url_of(obj)
         return [
+            ("Foto de perfil", Cell(kind="avatar", text="Foto de perfil", url=photo) if photo else Cell()),
             ("Perfiles", Cell(text=roles_text(obj))),
             ("Funcionario", Cell(text=str(officer) if officer else "")),
             ("Delegación", Cell(text=str(officer.delegation) if officer else "")),
@@ -1234,6 +1237,7 @@ class UserCrud(Crud):
             },
         )
         obj = User.objects.get(pk=obj.pk)
+        self.save_photo(request, obj, form)
         self.save_extra_delegations(request, obj, form, creating)
         if not creating:
             roles, officer_name = roles_text(obj), str(officer) if officer else ""
@@ -1247,6 +1251,14 @@ class UserCrud(Crud):
                 )
             if form.cleaned_data.get("password1"):
                 log_event(request.user, "Contraseña restablecida", obj)
+
+    def save_photo(self, request, obj, form):
+        """La foto la puede cambiar o quitar quien edita al usuario (la persona también la cambia en Mi perfil)."""
+        uploaded = form.cleaned_data.get("photo")
+        if uploaded:
+            change_photo(request.user, obj, uploaded)
+        elif form.cleaned_data.get("remove_photo"):
+            remove_photo(request.user, obj)
 
     def save_extra_delegations(self, request, obj, form, creating):
         if "extra_delegations" not in form.cleaned_data:

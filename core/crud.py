@@ -22,6 +22,7 @@ from core.colors import HEX_COLOR
 from core.forms import CrudForm
 from core.models import BaseModel
 from core.search import word_pattern
+from websocket.services import notify_crud_change
 
 PAGE_SIZE = 15
 PAGE_SIZES = (5, 15, 30)
@@ -1094,6 +1095,7 @@ class CrudFormView(CrudView):
             obj.save()
             form.save_m2m()
             self.crud.after_save(request, obj, form, creating)
+            notify_crud_change(self.crud, obj, before)
             if creating:
                 log_event(request.user, "Registro creado", obj, new=str(obj))
             else:
@@ -1208,6 +1210,7 @@ class CrudArchiveView(ArchiveObjectMixin, CrudView):
             when = timezone.now()
             with transaction.atomic():
                 self.crud.set_archived(obj, when)
+                notify_crud_change(self.crud, obj)
                 log_event(
                     request.user,
                     "Registro archivado",
@@ -1233,6 +1236,7 @@ class CrudRestoreView(CrudArchiveView):
             previous = f"deleted_at={self.crud.archived_at(obj).isoformat()}"
             with transaction.atomic():
                 self.crud.set_archived(obj, None)
+                notify_crud_change(self.crud, obj)
                 log_event(
                     request.user,
                     "Registro restaurado",
@@ -1281,6 +1285,7 @@ class CrudDeleteView(CrudView):
         try:
             with transaction.atomic():
                 log_event(request.user, "Registro eliminado", obj, previous=name)
+                notify_crud_change(self.crud, obj)
                 obj.delete()
         except models.ProtectedError:
             messages.error(

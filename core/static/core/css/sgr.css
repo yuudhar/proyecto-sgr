@@ -2552,3 +2552,14 @@ textarea.form-control {
 .atencion-filters .field {
   min-width: 11rem;
 }
+
+/* Indicador de tiempo real en las pantallas de resumen */
+.live-note {
+  margin: 0 0 .75rem;
+  text-align: right;
+}
+
+/* Foto actual encima del campo para subir otra (editar usuario) */
+.photo-current {
+  margin-bottom: .5rem;
+}

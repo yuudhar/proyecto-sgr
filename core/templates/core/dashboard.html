@@ -12,7 +12,7 @@
   </div>
 </div>
 {% else %}
-
+<div data-live-page data-live-region>
 <section class="page-head">
   <div>
     <h1 class="page-title">Hola, {{ greeting_name }}</h1>
@@ -22,7 +22,7 @@
       {% if period %}Período del {{ period.start_date|fdate }} al {{ period.end_date|fdate }}.{% endif %}
     </p>
 
-    <p class="page-sub session-note"><i class="bi bi-clock-history" aria-hidden="true"></i> Visitas al inicio en esta sesión: <strong>{{ visits }}</strong></p>
+    <p class="page-sub session-note"><i class="bi bi-clock-history" aria-hidden="true"></i> Visitas al inicio en esta sesión: <strong>{{ visits }}</strong> {% include "core/partials/live_chip.html" %}</p>
   </div>
   {% if shortcuts %}
   <div class="page-actions">
@@ -142,6 +142,7 @@
     </section>
   </div>
   {% endif %}
+</div>
 </div>
 {% endif %}
 {% endblock %}

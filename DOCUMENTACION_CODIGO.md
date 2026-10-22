@@ -35,6 +35,7 @@ organization/             delegaciones, cargos, ítems, servicios, beneficiarios
 planning/                 períodos, metas, indicadores y ajustes
 operations/               atenciones, gestiones de seguimiento y compromisos
 evidence/                 evidencias y validaciones
+websocket/                tiempo real (Clase 11): avisos de cambio para listados, dashboard, tablero y validar
 templates/                marco general, errores y pantallas sin sesión
 deploy/                   archivos para instalar y actualizar en el servidor
 sql/                      scripts de la base de datos
@@ -2309,6 +2310,41 @@ Configuración del Django Admin para `Evidence`. Columnas: 'unique_code', 'activ
 
 Configuración del Django Admin para `Validation`. Columnas: 'evidence', 'decision', 'reviewer_officer', 'date'. Filtros: 'decision',.
 
+### App `websocket`: tiempo real (Clase 11)
+
+Usa Django Channels y Daphne (servidor ASGI). El navegador **envía** por HTTP (con CSRF) y **recibe** por WebSocket. La capa de canales es `InMemoryChannelLayer`: sirve con un solo proceso (el servicio `sgr` ejecuta uno).
+
+#### `websocket/services.py`
+
+Nombres de grupos y publicación de eventos. Los mensajes se publican después de confirmar la transacción (`transaction.on_commit`), para no avisar de cambios que se deshacen.
+
+- **`crud_group(slug, delegation_id)`**: grupo `crud_<slug>_d<id>` de los avisos de un mantenedor.
+- **`publish_crud_changed(crud, *delegation_ids)`**: avisa `crud_changed` a quienes tienen abierto ese listado.
+- **`live_group(delegation_id)`**, **`live_groups_for(scope)`** y **`publish_live_changed(label, *delegation_ids)`**: grupos `live_d<id>` / `live_all` de los avisos de cambio de datos (dashboard, tablero, validar) y su publicación.
+- **`notify_crud_change(crud, obj, before=None)`**: lo llama el motor (`core/crud.py`) al guardar, archivar, restaurar y eliminar; también avisa a la delegación anterior si el registro cambió de delegación.
+
+#### `websocket/consumers.py`
+
+- **`LiveConsumer`** (`ws/live/`): exige sesión y une a la persona a `live_all` y a los grupos de las delegaciones que ve; entrega `{"type": "live_changed", "model": ...}` (sin datos).
+- **`CrudChangesConsumer`** (`ws/crud/<slug>/`): exige el permiso de ver ese mantenedor y une a la persona a los grupos de las delegaciones que puede ver.
+
+#### `core/photos.py` (foto de perfil de otra persona)
+
+- **`photo_url_of(user)`**: dirección de la foto de un usuario o texto vacío.
+- **`change_photo(actor, user, uploaded)`** y **`remove_photo(actor, user)`**: guardan o quitan la foto de `user` (la usa `UserCrud.save_photo` cuando el Super Usuario edita un usuario), borran el archivo anterior después del commit y registran el evento en la auditoría.
+
+#### `websocket/signals.py`
+
+Señales `pre_save`, `post_save` y `post_delete` de los modelos de `LIVE_MODELS` (atenciones, gestiones, compromisos, evidencias, validaciones, metas, indicadores, ajustes, períodos y funcionarios). Publican con `transaction.on_commit` un aviso a la delegación del registro (y a la anterior si cambió de delegación); un dato general avisa a todas.
+
+#### `websocket/routing.py`
+
+Rutas WebSocket (`ws/crud/<slug>/` y `ws/live/`).
+
+#### `sgr_project/asgi.py`
+
+`ProtocolTypeRouter`: HTTP a Django y WebSocket a través de `AllowedHostsOriginValidator` + `AuthMiddlewareStack` + `URLRouter`.
+
 ## 10. Migraciones
 
 Las migraciones crean y modifican las tablas de cada app.
@@ -2692,6 +2728,10 @@ Funciones:
 - **`show(visible)`**
 - **`initWidgets(root = document)`**: Prepara los campos especiales que hay dentro de root (la página entera o un formulario recién cargado).
 
+### `core/static/core/js/live-updates.js`
+
+Pantallas en vivo. Dos modos. Si la página tiene `[data-live-page]` (dashboard, tablero de delegación y validar), se conecta a `ws/live/`, y al llegar `live_changed` vuelve a pedir la misma dirección y reemplaza `[data-live-region]`. Listados en vivo: si la página tiene `[data-live-crud]`, se conecta a `ws/crud/<slug>/`; al llegar `crud_changed` espera 300 ms, vuelve a pedir la misma dirección (conserva filtros y página) y reemplaza solo la región `data-live-target="resultados"`. Muestra el estado («En vivo», «Reconectando…») y reintenta con espera creciente.
+
 ## 13. Hoja de estilos
 
 `core/static/core/css/sgr.css` es la única hoja de estilos propia (sobre Bootstrap). Sus secciones, en orden:
@@ -2727,17 +2767,18 @@ Funciones:
 |---|---|
 | `deploy/actualizar.sh` | Pone al día una instalación existente. Recibe la rama o etiqueta (por defecto `main`): baja la versión (`fetch`, `checkout`, `pull`), instala las dependencias, anota la versión desplegada en `COMMIT`, carga las variables de `/etc/sgr/sgr.env`, crea la carpeta de archivos subidos, ejecuta `check --deploy`, `migrate` y `collectstatic`, reinicia el servicio `sgr` y consulta `/salud/`. |
 | `deploy/instalar_ec2.sh` | Primera instalación en una instancia EC2 con Ubuntu: instala los paquetes (Python, git, nginx y redis), crea el usuario `sgr`, clona el repositorio en `/opt/sgr/app`, crea el entorno virtual, instala las dependencias y deja `/etc/sgr/sgr.env` para completar. |
-| `deploy/gunicorn.conf.py` | Configuración de gunicorn: dirección, procesos, hilos (clase `gthread`), tiempos y registro de acceso, con valores cambiables por variables de entorno. |
-| `deploy/nginx-sgr.conf` | Sitio de nginx que pasa el tráfico a gunicorn (puerto 8000), con límite de 12 MB por petición. |
-| `deploy/sgr.service` | Servicio de systemd que ejecuta gunicorn con el usuario `sgr`, desde `/opt/sgr/app` y con las variables de `/etc/sgr/sgr.env`. |
+| `deploy/gunicorn.conf.py` | Configuración de gunicorn (ya no la usa el servicio desde la v24; se conserva como referencia). |
+| `deploy/nginx-sgr.conf` | Sitio de nginx que pasa el tráfico a Daphne (puerto 8000), con `/ws/` preparado para WebSocket y límite de 12 MB por petición. |
+| `deploy/sgr.service` | Servicio de systemd que ejecuta Daphne (`sgr_project.asgi:application`) con el usuario `sgr`, desde `/opt/sgr/app` y con las variables de `/etc/sgr/sgr.env`. |
 | `deploy/sgr.env.example` | Modelo de las variables de entorno para un servidor (copiar a `/etc/sgr/sgr.env`). |
 | `deploy/requirements-produccion.txt` | Dependencias extra para el servidor: gunicorn, WhiteNoise y redis (y mysqlclient si la base es MySQL). |
 | `deploy/al2023/instalar_al2023.sh` | Primera instalación en Amazon Linux 2023 (Apache, MariaDB y phpMyAdmin): recibe repositorio, rama y dirección del sitio; crea el usuario y las carpetas, el entorno virtual, el servicio y el sitio de Apache. |
 | `deploy/al2023/https_certificado.sh` | Activa HTTPS en Amazon Linux 2023: pide el certificado a Let's Encrypt, pasa el sitio al puerto 443, redirige el 80 al 443 y deja la renovación automática. |
+| `deploy/al2023/agregar_websocket.sh` | Pasa un servidor ya instalado a la v24: agrega `/ws/` a Apache (con copia de respaldo y `httpd -t`), cambia el servicio a Daphne y recarga. |
 | `deploy/al2023/apache-http.conf` | Sitio de Apache por HTTP (fase 1): pasa el tráfico a gunicorn y deja fuera phpMyAdmin. |
 | `deploy/al2023/apache-https.conf` | Sitio de Apache por HTTPS (fase 2): el puerto 80 solo verifica el certificado y redirige; el 443 sirve el sistema. |
 | `deploy/al2023/sgr.env.example` | Modelo de variables de entorno para Amazon Linux 2023: modo, claves, HTTPS y proxy, base de datos, caché, correo y nivel de registro. |
-| `requirements.txt` | Dependencias de Python: Django 6.1.1, asgiref, sqlparse, python-dotenv y openpyxl (exportar a Excel); `mysqlclient` opcional para MySQL/MariaDB. |
+| `requirements.txt` | Dependencias de Python: Django 6.1.1, asgiref, sqlparse, python-dotenv, openpyxl (exportar a Excel), Channels y Daphne (tiempo real); `mysqlclient` opcional para MySQL/MariaDB. |
 | `VERSION` | Versión del sistema que muestra `/salud/`. |
 | `manage.py` | Punto de entrada de los comandos de Django. |
 
