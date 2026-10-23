@@ -1,0 +1,61 @@
+{% load core_ui %}
+{% if panel.sheet %}
+<section class="panel" aria-labelledby="titulo-ficha">
+  <div class="panel-head">
+    <h2 class="panel-title" id="titulo-ficha">Ficha del período</h2>
+    <form method="get" class="filters filters-inline" data-loading>
+      <label class="visually-hidden" for="ficha-periodo">Período</label>
+      <select class="form-select form-select-sm" id="ficha-periodo" name="periodo">
+        {% for option in panel.periods %}<option value="{{ option.pk }}"{% if option == panel.period %} selected{% endif %}>{{ option.start_date|fdate }} al {{ option.end_date|fdate }} ({{ option.get_status_display }})</option>{% endfor %}
+      </select>
+      <button type="submit" class="btn btn-outline-primary btn-sm">Ver</button>
+    </form>
+  </div>
+  <dl class="pace-grid">
+    <div><dt>Funcionario</dt><dd>{{ obj.name }}</dd></div>
+    <div><dt>Cargo</dt><dd>{{ obj.position }}</dd></div>
+    <div><dt>Delegación</dt><dd>{{ obj.delegation }}</dd></div>
+    <div><dt>Meta esperada al día</dt><dd>{{ panel.pace.expected_percent|fnumber }} %</dd></div>
+    <div><dt>Total ponderado</dt><dd class="pace-strong">{% if panel.sheet.weighted_total is not None %}{{ panel.sheet.weighted_total|fnumber }} %{% else %}Sin cálculo{% endif %}</dd></div>
+    <div><dt>Suma de ponderadores</dt><dd><span class="chip chip-{% if panel.sheet.weights_state == 'ok' %}ok{% else %}warn{% endif %}">{% if panel.sheet.weights_total is not None %}{{ panel.sheet.weights_total|fnumber }} %{% else %}Sin metas{% endif %}</span></dd></div>
+    <div><dt>Último ingreso</dt><dd>{% if panel.recent.last_date %}{{ panel.recent.last_date|fdate }} ({{ panel.recent.days_without }} día{{ panel.recent.days_without|pluralize }}){% else %}Sin ingresos{% endif %}</dd></div>
+    <div><dt>Registros del período</dt><dd>{{ panel.recent.total }}{% if panel.recent.daily_average is not None %} · {{ panel.recent.daily_average|fnumber }} por día{% endif %}</dd></div>
+  </dl>
+  {% if panel.sheet.lines %}
+  <div class="table-responsive">
+    <table class="table data-table align-middle mb-0">
+      <caption class="visually-hidden">Metas de {{ obj.name }} en el período</caption>
+      <thead>
+        <tr>
+          <th scope="col">Ítem</th>
+          <th scope="col" class="num">Objetivo</th>
+          <th scope="col" class="num">Avance</th>
+          <th scope="col" class="num">Esperado hoy</th>
+          <th scope="col">Cumplimiento</th>
+          <th scope="col" class="num">Ponderador</th>
+          <th scope="col" class="num">Ponderado</th>
+          <th scope="col">Semáforo</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for line in panel.sheet.lines %}
+        <tr>
+          <td>{{ line.item }}<span class="board-note">{{ line.scope }}</span></td>
+          <td class="num">{{ line.target }} {{ line.unit }}</td>
+          <td class="num">{% if line.indicator %}{{ line.progress }}{% else %}—{% endif %}</td>
+          <td class="num">{{ line.expected }}</td>
+          <td>{% if line.indicator %}{% meter line.compliance line.light panel.period.collective_threshold panel.period.amber_threshold compact=True %}{% else %}<span class="muted">Aún sin cálculo</span>{% endif %}</td>
+          <td class="num">{{ line.weight|fnumber }} %</td>
+          <td class="num">{% if line.weighted is not None %}{{ line.weighted|fnumber }} %{% else %}—{% endif %}</td>
+          <td>{% if line.light %}<span class="chip chip-{{ line.light|tone }}"><i class="bi {{ line.light|tone_icon }}" aria-hidden="true"></i>{{ line.light|light_label }}</span>{% endif %}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  <p class="meter-legend">Cumplimiento = actividades con evidencia aprobada ÷ objetivo × 100 (tope {{ panel.period.weighted_cap|fnumber }} %); ponderado = ponderador × cumplimiento ÷ 100.{% if panel.sheet.weights_state and panel.sheet.weights_state != "ok" %} {{ panel.sheet.weights_text }}: deben sumar 100 %.{% endif %}</p>
+  {% else %}
+  <p class="panel-body muted mb-0">{{ obj.name }} no tiene metas en este período.</p>
+  {% endif %}
+</section>
+{% endif %}

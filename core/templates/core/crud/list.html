@@ -5,17 +5,18 @@
 {% block content %}
 <section class="page-head">
   <div>
-    <h1 class="page-title"><i class="bi {{ crud.icon }}" aria-hidden="true"></i>{{ crud.list_title }}</h1>
-    {% if crud.description %}<p class="page-sub">{{ crud.description }}</p>{% endif %}
+    <h1 class="page-title"><i class="bi {% if only_archived and crud.archived_label %}bi-person-x{% else %}{{ crud.icon }}{% endif %}" aria-hidden="true"></i>{% if only_archived and crud.archived_label %}{{ crud.archived_label }}{% else %}{{ crud.list_title }}{% endif %}</h1>
+    {% if only_archived and crud.archived_label %}<p class="page-sub">{{ crud.archived_banner }}</p>
+    {% elif crud.description %}<p class="page-sub">{{ crud.description }}</p>{% endif %}
   </div>
-  {% if can_add %}
+  {% if can_add and not only_archived %}
   <div class="page-actions">
     <a class="btn btn-primary" href="{{ create_url }}" data-modal-form><i class="bi bi-plus-lg" aria-hidden="true"></i> {{ crud.new_label }}</a>
   </div>
   {% endif %}
 </section>
 
-<section class="panel" aria-label="Listado de {{ crud.title_plural|lower }}">
+<section class="panel" aria-label="Listado de {{ crud.title_plural|lower }}"{% if not only_archived %} data-live-crud="{{ crud.slug }}"{% endif %}>
   <form method="get" class="filters" role="search" data-loading data-live-search>
     <span class="visually-hidden" role="status" data-live-status></span>
     {% if crud.search_fields %}
@@ -35,7 +36,7 @@
       </select>
     </div>
     {% endfor %}
-    {% if archived %}<input type="hidden" name="archivados" value="1">{% endif %}
+    {% if archived %}<input type="hidden" name="archivados" value="{% if only_archived %}solo{% else %}1{% endif %}">{% endif %}
     {% if sort %}<input type="hidden" name="orden" value="{{ sort }}"><input type="hidden" name="dir" value="{{ direction }}">{% endif %}
     <div class="filters-actions" data-live-target="acciones">
       <button type="submit" class="btn btn-primary"><i class="bi bi-search" aria-hidden="true"></i> {% if crud.search_fields %}Buscar{% else %}Filtrar{% endif %}</button>
@@ -46,10 +47,15 @@
 
   <div data-live-target="resultados" data-live-count="{{ page.paginator.count }}">
   <div class="result-line">
-    <span>{{ page.paginator.count }} resultado{{ page.paginator.count|pluralize }}{% if archived %}, incluidos los archivados{% endif %}</span>
-    {% if crud.archivable %}
+    <span>{{ page.paginator.count }} resultado{{ page.paginator.count|pluralize }}{% if archived and not crud.archived_label %}, incluidos los archivados{% endif %}</span>
+    {% if crud.archived_label %}
+      {% if can_see_archived %}
+      <a href="{{ trash_url }}">{% if only_archived %}<i class="bi bi-arrow-left" aria-hidden="true"></i> Volver a {{ crud.title_plural|lower }}{% else %}<i class="bi bi-person-x" aria-hidden="true"></i> {{ crud.archived_label }}{% endif %}</a>
+      {% endif %}
+    {% elif crud.archivable %}
     <a href="{{ archived_url }}">{% if archived %}<i class="bi bi-eye-slash" aria-hidden="true"></i> Ocultar archivados{% else %}<i class="bi bi-archive" aria-hidden="true"></i> Incluir archivados{% endif %}</a>
     {% endif %}
+    <span class="chip chip-neutral" data-live-state hidden><i class="bi bi-broadcast" aria-hidden="true"></i><span data-live-text>Conectando…</span></span>
     {% if rows %}{% include "core/partials/page_size.html" %}{% endif %}
   </div>
 

@@ -10,6 +10,8 @@
   </div>
 </section>
 
+<div data-live-page data-live-region>
+<p class="live-note">{% include "core/partials/live_chip.html" %}</p>
 <section class="panel" aria-label="Evidencias por revisar">
   {% if items %}
   <div class="table-responsive">
@@ -65,4 +67,5 @@
   {% endif %}
 </section>
 {% endif %}
+</div>
 {% endblock %}

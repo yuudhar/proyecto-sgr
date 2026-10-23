@@ -4,6 +4,11 @@ from core.qa.esperado_ingreso_contexto import ESPERADO as _INGRESO
 from core.qa.esperado_listados_portal import ESPERADO as _LISTADOS
 from core.qa.esperado_mantenedores import ESPERADO as _MANTENEDORES
 from core.qa.esperado_v16 import ESPERADO as _V16
+from core.qa.esperado_v22 import ESPERADO as _V22
+from core.qa.esperado_v23 import ESPERADO as _V23
+from core.qa.esperado_v24 import ESPERADO as _V24
+from core.qa.esperado_v25 import ESPERADO as _V25
+from core.qa.esperado_v26 import ESPERADO as _V26
 from core.qa.esperado_validaciones import ESPERADO as _VALIDACIONES
 
 REQUISITOS = {
@@ -51,6 +56,24 @@ REQUISITOS = {
     "A4-01": ("A4", "Revisión de estado y versión inequívoca del despliegue"),
     "A4-02": ("A4", "Ajustes de producción: DEBUG, SECRET_KEY, ALLOWED_HOSTS, CSRF, estáticos y caché compartida"),
     "A4-05": ("A4", "Migraciones y ejemplo de configuración sin secretos"),
+    "T11-01": ("Clase 11", "Django Channels y Daphne: ASGI, enrutamiento HTTP/WebSocket, capa de canales y orígenes permitidos"),
+    "T11-03": ("Clase 11", "Listados CRUD en vivo: aviso tras el commit, permisos por módulo y delegación, y nueva consulta HTTP de la tabla"),
+    "T11-04": ("Clase 11", "Dashboard, tablero y validar en vivo: el cambio de una persona se ve en la pantalla abierta de otra de la misma delegación, sin F5"),
+    "RF-018": ("Informe SGR", "Gestionar estados de compromisos: Ingresado, Pendiente, En proceso y Realizado, con transiciones válidas e historial"),
+    "RF-021": ("Informe SGR", "Resumen colectivo: compromisos por funcionario y estado, con porcentaje realizado y por realizar"),
+    "RF-026": ("Informe SGR", "Meta esperada al día según días computables transcurridos y duración del período"),
+    "RF-006": ("Informe SGR", "Ponderadores por funcionario y período: deben sumar 100 %, con aviso al guardar una meta"),
+    "RF-008": ("Informe SGR", "Ficha del funcionario con sus metas, cumplimiento, ponderado y actividad reciente"),
+    "RF-014": ("Informe SGR", "Una actividad es válida para el cálculo solo si tiene evidencia aprobada"),
+    "RF-019": ("Informe SGR", "Plazos de los compromisos: vencidos, por vencer y realizados fuera de plazo"),
+    "RF-022": ("Informe SGR", "Avance de cada meta calculado solo con las actividades válidas del funcionario en el período"),
+    "RF-023": ("Informe SGR", "Cumplimiento = avance ÷ meta × 100, con tope configurable en el período"),
+    "RF-024": ("Informe SGR", "Cumplimiento ponderado = ponderador × cumplimiento ÷ 100"),
+    "RF-028": ("Informe SGR", "Inicio del funcionario con sus metas, evidencias, compromisos y actividad del período"),
+    "RF-030": ("Informe SGR", "Actividad reciente por funcionario: último ingreso, días sin ingreso, registros y promedio diario"),
+    "RF-031": ("Informe SGR", "Vista global por cargos con sus funcionarios, metas y cifras logradas por equipo"),
+    "RF-034": ("Informe SGR", "Edición concurrente: un cambio ajeno no se pisa sin aviso y se dice quién, cuándo y qué cambió"),
+    "RNF-003": ("Informe SGR", "Integridad de los datos al guardar: bloqueo de la fila y control de duplicados"),
     "C2": ("Anexo C", "Validación de código y nueva contraseña (casillas, mostrar/ocultar contraseña)"),
     "IMP-01": ("Importante", "Plantillas de los demás módulos con diseño coherente"),
     "IMP-02": ("Importante", "Interfaces por rol con sus permisos"),
@@ -168,9 +191,34 @@ CLASES = {
     "NumberRangesTests": (["A3-02", "A3-08"], "Rangos de números", _SEMILLA + "; sesión del Super Usuario"),
     "DateRulesTests": (["A3-02", "A3-08"], "Fechas entre sí y con la atención", _SEMILLA + "; sesión del Super Usuario"),
     "BrowserScriptTests": (["A3-02"], "Validaciones del navegador (validation.js)", _SIN_BD),
+    "RealDeleteTests": (["A2-02", "A3-01"], "Eliminar de verdad con confirmación de SweetAlert2", _SEMILLA + "; sesión del Super Usuario"),
+    "ListToolsTests": (["A2-03", "A2-04"], "Buscador y filtros de los catálogos", _SEMILLA + "; sesión del Super Usuario"),
+    "AsgiApplicationTests": (["T11-01"], "Aplicación ASGI (Daphne, Channels, orígenes)", _SEMILLA + "; sesión de un funcionario"),
+    "LiveListTests": (["T11-03"], "Listados en vivo", _SEMILLA + "; conexiones WebSocket"),
+    "LiveDashboardTests": (["T11-04"], "Dashboard en vivo", _SEMILLA + "; conexiones WebSocket y cambios de datos"),
+    "UserPhotoByAdminTests": (["A1-07"], "Foto de perfil de otro usuario (Super Usuario)", _SEMILLA + "; sesión del Super Usuario; imágenes de prueba"),
+    "PaceRuleTests": (["RF-026"], "Meta esperada al día (regla de cálculo)", _SIN_BD),
+    "PaceScreensTests": (["RF-026"], "Meta esperada al día en dashboard y tablero", _SEMILLA + "; sesión de un funcionario y del Super Usuario"),
+    "CommitmentStatusTests": (["RF-018"], "Estados de compromisos, transiciones e historial", _SEMILLA + "; sesión del Super Usuario"),
+    "CollectiveSummaryTests": (["RF-021"], "Resumen colectivo de la agenda", _SEMILLA + "; sesiones de Super Usuario y funcionario"),
+    "AutomaticCalculationTests": (["RF-022", "RF-023", "RF-024", "RF-014"], "Cálculo automático de indicadores", _SEMILLA),
+    "AutomaticTriggersTests": (["RF-022", "RF-014"], "Recálculo automático al cambiar actividades, evidencias y metas", _SEMILLA + "; sesión de un funcionario"),
+    "IndicatorIndexTests": (["RF-022"], "Último indicador por meta y funcionario", _SEMILLA),
+    "RecalculateScreenTests": (["RF-022", "RF-024"], "Recalcular indicadores desde el tablero", _SEMILLA + "; sesiones de Super Usuario y de otros roles"),
+    "WeightRuleTests": (["RF-006"], "Ponderadores que suman 100 %", _SEMILLA + "; sesión del Super Usuario"),
+    "OfficerSheetTests": (["RF-008"], "Ficha del funcionario", _SEMILLA + "; sesión del Super Usuario"),
+    "RecentActivityTests": (["RF-030"], "Actividad reciente por funcionario", _SEMILLA + "; sesiones de Super Usuario y funcionario"),
+    "DeadlineTests": (["RF-019"], "Plazos de compromisos (regla de cálculo)", _SIN_BD),
+    "DeadlineScreensTests": (["RF-019"], "Plazos de compromisos en agenda, resumen y dashboard", _SEMILLA + "; sesión del Super Usuario"),
+    "PersonalDashboardTests": (["RF-028"], "Inicio del funcionario", _SEMILLA + "; sesión de un funcionario"),
+    "PositionOverviewTests": (["RF-031"], "Vista por cargos", _SEMILLA + "; sesiones de Super Usuario, jefatura y funcionario"),
+    "ConcurrencyTests": (["RF-034", "RNF-003"], "Edición concurrente e integridad al guardar", _SEMILLA + "; sesión de un funcionario"),
+    "DaphneDeployTests": (["T11-01", "A4-02"], "Despliegue con Daphne y WebSocket", _SIN_BD),
+    "DeletedUsersTests": (["A1-07", "A2-02"], "Usuarios eliminados: borrar, ver y restaurar", _SEMILLA + "; sesión del Super Usuario"),
+    "OnlySuperuserDeletesUsersTests": (["A1-07", "A2-02"], "Solo el Super Usuario elimina y restaura usuarios", _SEMILLA + "; usuario con permisos de usuarios sin ser Super Usuario"),
 }
 
 ESPERADO = {}
-for _grupo in (_ACCESO, _MANTENEDORES, _INGRESO, _LISTADOS, _DESPLIEGUE, _VALIDACIONES, _V16):
+for _grupo in (_ACCESO, _MANTENEDORES, _INGRESO, _LISTADOS, _DESPLIEGUE, _VALIDACIONES, _V16, _V22, _V23, _V24, _V25, _V26):
     for _clase, _metodos in _grupo.items():
         ESPERADO.setdefault(_clase, {}).update(_metodos)

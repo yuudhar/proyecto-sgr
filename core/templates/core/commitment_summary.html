@@ -1,0 +1,119 @@
+{% extends "base.html" %}
+{% load core_ui %}
+{% block title %}Resumen colectivo{% endblock %}
+
+{% block content %}
+<section class="page-head">
+  <div>
+    <h1 class="page-title"><i class="bi bi-pie-chart" aria-hidden="true"></i>Resumen colectivo</h1>
+    <p class="page-sub">Compromisos de la agenda colectiva por funcionario y estado, con el porcentaje realizado y el que falta por realizar.</p>
+  </div>
+  <div class="page-actions">
+    <a class="btn btn-outline-primary" href="{{ agenda_url }}"><i class="bi bi-calendar-check" aria-hidden="true"></i> Ver la agenda</a>
+  </div>
+</section>
+
+<section class="panel mb-4" aria-label="Selección de delegación y período">
+  <form method="get" class="filters" data-loading>
+    {% if can_pick_delegation %}
+    <div class="field">
+      <label for="sel-delegacion">Delegación</label>
+      <select class="form-select" id="sel-delegacion" name="delegacion">
+        <option value="todas"{% if not delegation %} selected{% endif %}>Todas las delegaciones</option>
+        {% for option in delegations %}<option value="{{ option.pk }}"{% if option == delegation %} selected{% endif %}>{{ option.name }}</option>{% endfor %}
+      </select>
+    </div>
+    {% endif %}
+    <div class="field field-period">
+      <label for="sel-periodo">Período (según la fecha comprometida)</label>
+      <select class="form-select" id="sel-periodo" name="periodo">
+        <option value="todos"{% if not period %} selected{% endif %}>Todos los períodos</option>
+        {% for option in periods %}<option value="{{ option.pk }}"{% if option == period %} selected{% endif %}>{{ option.start_date|fdate }} al {{ option.end_date|fdate }} ({{ option.get_status_display }})</option>{% endfor %}
+      </select>
+    </div>
+    <div class="filters-actions">
+      <button type="submit" class="btn btn-primary"><i class="bi bi-funnel" aria-hidden="true"></i> Ver resumen</button>
+    </div>
+  </form>
+</section>
+
+<div data-live-page data-live-region>
+<p class="live-note">{% include "core/partials/live_chip.html" %}</p>
+
+<div class="stat-strip stat-strip-board">
+  <div class="stat">
+    <span class="stat-label">Realizado{% if delegation %} en {{ delegation.name }}{% else %} en total{% endif %}</span>
+    <div class="mt-2">
+      {% if total.done_percent is not None %}
+        {% if thresholds %}{% meter total.done_percent total.light thresholds.collective_threshold thresholds.amber_threshold label="Compromisos realizados" %}{% else %}{% meter total.done_percent total.light label="Compromisos realizados" %}{% endif %}
+      {% else %}
+        <span class="muted">Sin compromisos</span>
+      {% endif %}
+    </div>
+  </div>
+  <div class="stat">
+    <span class="stat-label">Compromisos</span>
+    <span class="stat-value">{{ total.total }}</span>
+  </div>
+  <div class="stat">
+    <span class="stat-label">Por realizar</span>
+    <span class="stat-value">{% if total.todo_percent is not None %}{{ total.todo_percent|fnumber }} %{% else %}—{% endif %}</span>
+  </div>
+</div>
+
+<section class="panel" aria-label="Compromisos por funcionario">
+  {% if rows %}
+  <div class="table-responsive">
+    <table class="table data-table align-middle">
+      <caption class="visually-hidden">Compromisos por funcionario y estado</caption>
+      <thead>
+        <tr>
+          <th scope="col">Funcionario</th>
+          {% for status in statuses %}<th scope="col" class="num">{{ status }}</th>{% endfor %}
+          <th scope="col" class="num">Total</th>
+          <th scope="col" class="num">Vencidos</th>
+          <th scope="col" class="num">Por vencer</th>
+          <th scope="col" class="num">Fuera de plazo</th>
+          <th scope="col">% realizado</th>
+          <th scope="col" class="num">% por realizar</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for row in rows %}
+        <tr>
+          <td>{{ row.label }}{% if row.officer %}<span class="board-note">{{ row.officer.position }}{% if not delegation %} · {{ row.officer.delegation }}{% endif %}</span>{% endif %}</td>
+          {% for count in row.counts %}<td class="num">{{ count }}</td>{% endfor %}
+          <td class="num">{{ row.total }}</td>
+          <td class="num">{% if row.overdue %}<span class="chip chip-bad">{{ row.overdue }}</span>{% else %}0{% endif %}</td>
+          <td class="num">{% if row.due_soon %}<span class="chip chip-warn">{{ row.due_soon }}</span>{% else %}0{% endif %}</td>
+          <td class="num">{{ row.late }}</td>
+          <td>{% if row.done_percent is not None %}{% if thresholds %}{% meter row.done_percent row.light thresholds.collective_threshold thresholds.amber_threshold compact=True label="Realizado" %}{% else %}{% meter row.done_percent row.light compact=True label="Realizado" %}{% endif %}{% else %}<span class="muted fw-normal">Sin compromisos</span>{% endif %}</td>
+          <td class="num">{% if row.todo_percent is not None %}{{ row.todo_percent|fnumber }} %{% else %}—{% endif %}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+      <tfoot>
+        <tr class="board-officer">
+          <th scope="row">{{ total.label }}{% if delegation %} · {{ delegation.name }}{% endif %}</th>
+          {% for count in total.counts %}<td class="num">{{ count }}</td>{% endfor %}
+          <td class="num">{{ total.total }}</td>
+          <td class="num">{{ total.overdue }}</td>
+          <td class="num">{{ total.due_soon }}</td>
+          <td class="num">{{ total.late }}</td>
+          <td>{% if total.done_percent is not None %}{% if thresholds %}{% meter total.done_percent total.light thresholds.collective_threshold thresholds.amber_threshold compact=True label="Realizado" %}{% else %}{% meter total.done_percent total.light compact=True label="Realizado" %}{% endif %}{% else %}<span class="muted fw-normal">Sin compromisos</span>{% endif %}</td>
+          <td class="num">{% if total.todo_percent is not None %}{{ total.todo_percent|fnumber }} %{% else %}—{% endif %}</td>
+        </tr>
+      </tfoot>
+    </table>
+  </div>
+  <p class="meter-legend">Vencidos: abiertos con la fecha comprometida ya pasada. Por vencer: abiertos que vencen en los próximos {{ due_soon_days }} días. Fuera de plazo: realizados después de la fecha comprometida. </p>
+  <p class="meter-legend">% realizado = compromisos en estado «Realizado» ÷ total de compromisos del funcionario × 100; % por realizar = el resto ({{ statuses.0 }}, {{ statuses.1 }} y {{ statuses.2 }}).{% if thresholds %} Las marcas de la barra son los umbrales del período: ámbar desde {{ thresholds.amber_threshold|fnumber }} % y verde desde {{ thresholds.collective_threshold|fnumber }} %.{% endif %}</p>
+  {% else %}
+  <div class="empty">
+    <i class="bi bi-calendar-check" aria-hidden="true"></i>
+    <p>No hay funcionarios ni compromisos para este filtro.</p>
+  </div>
+  {% endif %}
+</section>
+</div>
+{% endblock %}

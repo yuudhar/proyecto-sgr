@@ -1,7 +1,12 @@
+import io
+import os
+
 from django.contrib.auth.models import Group, User
 from django.contrib.staticfiles import finders
 from django.core.files.uploadedfile import SimpleUploadedFile
+from django.db import models
 from django.urls import reverse
+from PIL import Image
 
 from core.datos_prueba import demo_pdf
 from core.models import AuditLog
@@ -11,8 +16,19 @@ from operations.models import Activity
 from accounts.models import UserProfile
 from organization.models import Delegation, Officer, Position
 
-PNG = b"\x89PNG\r\n\x1a\n" + b"\x00" * 64
-JPG = b"\xff\xd8\xff\xe0" + b"\x00" * 64
+def real_image(image_format, size=(4, 4), noise=False):
+    buffer = io.BytesIO()
+    if noise:
+        image = Image.frombytes("RGB", size, os.urandom(size[0] * size[1] * 3))
+    else:
+        image = Image.new("RGB", size, (30, 90, 160))
+    image.save(buffer, format=image_format)
+    return buffer.getvalue()
+
+
+PNG = real_image("PNG")
+JPG = real_image("JPEG")
+SIGNATURE_ONLY = b"\x89PNG\r\n\x1a\n" + b"\x00" * 64
 
 
 def pdf_file(name="informe.pdf"):
@@ -171,9 +187,19 @@ class ProfilePhotoTests(PortalTestCase):
 
     def test_a_photo_over_the_size_limit_is_rejected(self):
         self.login_as("matias.cavieres")
-        response = self.upload("grande.png", PNG + b"0" * (3 * 1024 * 1024))
+        big = real_image("PNG", size=(1100, 1100), noise=True)
+        self.assertGreater(len(big), 3 * 1024 * 1024)
+        response = self.upload("grande.png", big)
         self.assertEqual(response.status_code, 200)
         self.assertIn("máximo es 2 MB", " ".join(response.context["photo_form"].errors["photo"]))
+
+    def test_the_photo_is_an_image_field_and_a_file_with_only_the_signature_is_rejected(self):
+        self.assertIsInstance(UserProfile._meta.get_field("photo"), models.ImageField)
+        self.login_as("matias.cavieres")
+        response = self.upload("firma.png", SIGNATURE_ONLY)
+        self.assertEqual(response.status_code, 200)
+        self.assertIn("no es una imagen válida", " ".join(response.context["photo_form"].errors["photo"]))
+        self.assertFalse(User.objects.get(username="matias.cavieres").profile.photo)
 
     def test_the_photo_can_be_removed(self):
         self.login_as("matias.cavieres")

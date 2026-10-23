@@ -1,4 +1,5 @@
 import csv
+from datetime import timedelta
 from decimal import ROUND_HALF_UP, Decimal
 from urllib.parse import urlsplit
 
@@ -26,14 +27,19 @@ from core.access import (
     request_delegation,
     request_officer,
 )
+from core.activity_stats import delegation_recent, recent_activity
 from core.audit import log_event, log_export
-from core.crud import CODE_COLUMN, PAGE_SIZES, SESSION_PAGE_SIZE, Col, Column, CrudListView, query_string, registry
+from core.commitments import DUE_SOON_DAYS, STATUS_ORDER, collective_summary, deadline_counts, status_label
+from core.crud import CODE_COLUMN, PAGE_SIZES, SESSION_PAGE_SIZE, Col, Column, CrudListView, conflict_message, query_string, registry, version_of
 from core.forms import PortalAuthenticationForm, PortalPasswordChangeForm, ProfilePhotoForm, ValidationForm
+from core.results import current_period, goal_lines, goals_of, light_of, mean, officer_summary, rounded, team_goals
 from core.rules import rut_with_wrong_digit
 from evidence.models import Evidence, Validation
 from operations.models import Activity, Commitment
 from organization.models import Delegation, Officer
 from planning.models import Adjustment, Goal, Indicator, Period
+from planning.calculation import IndicatorIndex
+from planning.pace import pace_of
 
 
 class PortalLoginView(auth_views.LoginView):
@@ -217,47 +223,7 @@ class AtencionView(CrudListView):
         }
 
 
-def current_period():
-    periods = Period.objects.filter(deleted_at__isnull=True).order_by("-start_date")
-    return periods.filter(status=Period.Status.ACTIVE).first() or periods.first()
-
-
-def latest_indicators(goal_ids):
-    latest = {}
-    indicators = Indicator.objects.filter(
-        goal_id__in=goal_ids, deleted_at__isnull=True
-    ).order_by("goal_id", "-calculated_at", "-pk")
-    for indicator in indicators:
-        latest.setdefault(indicator.goal_id, indicator)
-    return latest
-
-
-def goals_of(officer, goals):
-    return [
-        goal
-        for goal in goals
-        if goal.officer_id == officer.pk
-        or (goal.officer_id is None and goal.position_id == officer.position_id)
-    ]
-
-
-def mean(values):
-    values = list(values)
-    if not values:
-        return None
-    return sum(values, Decimal(0)) / len(values)
-
-
-def rounded(value):
-    if value is None:
-        return None
-    return value.quantize(Decimal("0.1"), rounding=ROUND_HALF_UP)
-
-
-def light_of(value, period):
-    if value is None:
-        return ""
-    return ui.light_for_compliance(value, period.collective_threshold, period.amber_threshold)
+latest_indicators = IndicatorIndex
 
 
 def pick_period(request):
@@ -300,40 +266,83 @@ def mini_table(crud, request, queryset, paths, limit=5):
     return columns, rows
 
 
-def goal_lines(goals, indicators):
-    lines = []
-    for goal in goals:
-        indicator = indicators.get(goal.pk)
-        lines.append(
-            {
-                "goal": goal,
-                "item": goal.item,
-                "target": ui.fmt_number(goal.target_value),
-                "unit": goal.unit,
-                "scope": "Meta personal" if goal.officer_id else "Meta del cargo",
-                "indicator": indicator,
-                "progress": ui.fmt_number(indicator.progress) if indicator else "",
-                "compliance": indicator.compliance if indicator else None,
-                "light": indicator.status_light if indicator else "",
-            }
+PACE_STANDING = {
+    "green": "Al día o sobre lo esperado",
+    "amber": "Algo bajo lo esperado",
+    "red": "Muy bajo lo esperado",
+}
+
+
+def pace_summary(period, achieved):
+    """Cuadro de ritmo del período (RF-026): lo esperado hoy frente al avance logrado."""
+    if period is None:
+        return None
+    pace = pace_of(period)
+    standing = pace.standing(achieved, period.amber_threshold)
+    difference = pace.difference(achieved)
+    return {
+        "pace": pace,
+        "achieved": rounded(achieved),
+        "difference": rounded(difference),
+        "standing": standing,
+        "standing_label": PACE_STANDING.get(standing, ""),
+        "has_achieved": achieved is not None,
+    }
+
+
+def personal_board(officer, period, pace, today):
+    """RF-028: estado de evidencias, compromisos y actividad reciente de un funcionario en el período."""
+    evidence = {status: 0 for status in Evidence.ReviewStatus.values}
+    rows = (
+        Evidence.objects.filter(
+            author_officer=officer,
+            deleted_at__isnull=True,
+            uploaded_at__date__range=(period.start_date, period.end_date),
         )
-    return lines
+        .values("review_status")
+        .annotate(total=Count("pk"))
+    )
+    for row in rows:
+        evidence[row["review_status"]] = row["total"]
+
+    owned = Commitment.objects.filter(responsible_officer=officer, deleted_at__isnull=True)
+    statuses = {status: 0 for status in Commitment.Status.values}
+    for row in owned.values("status").annotate(total=Count("pk")):
+        statuses[row["status"]] = row["total"]
+    deadlines = deadline_counts(owned, today).get(officer.pk, {})
+    return {
+        "evidence": [
+            {"label": label, "total": evidence[value], "tone": ui.tone_for(value)[0]}
+            for value, label in Evidence.ReviewStatus.choices
+        ],
+        "commitments": [
+            {"label": status_label(status), "total": statuses[status], "tone": ui.tone_for(status)[0]}
+            for status in STATUS_ORDER
+        ],
+        "overdue": deadlines.get("overdue", 0),
+        "due_soon": deadlines.get("due_soon", 0),
+        "late": deadlines.get("done_late", 0),
+        "recent": recent_activity([officer.pk], period, pace, today)[officer.pk],
+    }
 
 
 @login_required
 def dashboard(request):
     user = request.user
 
-    visits = request.session.get("dashboard_visits", 0) + 1
+    # El refresco en vivo (fetch) vuelve a pedir esta pantalla sin que la persona la visite de nuevo.
+    live_refresh = request.headers.get("X-Requested-With") == "fetch"
+    visits = request.session.get("dashboard_visits", 0) + (0 if live_refresh else 1)
     request.session["dashboard_visits"] = visits
 
     officer = request_officer(request)
-    period = current_period()
+    period, periods = pick_period(request)
     today = timezone.localdate()
 
     context = {
         "greeting_name": user.first_name or user.get_username(),
         "period": period,
+        "periods": periods,
         "visits": visits,
         "breadcrumbs": None,
     }
@@ -353,7 +362,14 @@ def dashboard(request):
             .select_related("item")
             .order_by("item__name")
         )
-        context["goal_lines"] = goal_lines(goals, latest_indicators([g.pk for g in goals]))
+        pace = pace_of(period)
+        sheet = officer_summary(officer, period, goals, latest_indicators([g.pk for g in goals]), pace)
+        context["goal_lines"] = sheet["lines"]
+        context["sheet"] = sheet
+        context["personal"] = personal_board(officer, period, pace, today)
+        if activities.has_perm(user, "view"):
+            context["activities_url"] = activities.url("list")
+        context["pace_summary"] = pace_summary(period, sheet["exact_average"])
 
     if period is not None and is_global_user(request) and user.has_perm("planning.view_indicator"):
         goals = Goal.objects.filter(deleted_at__isnull=True, period=period)
@@ -362,14 +378,19 @@ def dashboard(request):
             goals = goals.filter(Q(officer__delegation=chosen) | Q(officer__isnull=True))
         goals = list(goals)
         indicators = latest_indicators([g.pk for g in goals])
+        effective = indicators.effective()
         counts = {"green": 0, "amber": 0, "red": 0}
-        for indicator in indicators.values():
+        for indicator in effective:
             counts[indicator.status_light] = counts.get(indicator.status_light, 0) + 1
         context["light_counts"] = [
             {"light": key, "label": ui.LIGHT_LABELS[key], "total": counts[key]}
             for key in ("green", "amber", "red")
         ]
-        context["goals_without_indicator"] = len(goals) - len(indicators)
+        context["goals_without_indicator"] = len(goals) - len({indicator.goal_id for indicator in effective})
+        if officer is None:
+            context["pace_summary"] = pace_summary(
+                period, mean(indicator.compliance for indicator in effective)
+            )
 
     pending = []
     if activities.has_perm(user, "view"):
@@ -421,11 +442,17 @@ def dashboard(request):
             status=Commitment.Status.FULFILLED
         )
         overdue = commitment_qs.filter(due_date__lt=today).count()
+        due_soon = commitment_qs.filter(
+            due_date__gte=today, due_date__lte=today + timedelta(days=DUE_SOON_DAYS)
+        ).count()
+        detail = ", ".join(
+            text for text in (f"{overdue} vencido(s)" if overdue else "", f"{due_soon} por vencer" if due_soon else "") if text
+        )
         pending.append(
             {
                 "label": "Compromisos abiertos",
                 "total": commitment_qs.count(),
-                "detail": f"{overdue} vencido(s)" if overdue else "",
+                "detail": detail,
                 "icon": commitments.icon,
                 "url": commitments.url("list"),
                 "tone": "bad" if overdue else "neutral",
@@ -588,7 +615,18 @@ def validate_evidence(request, pk):
         raise PermissionDenied("No puedes validar una evidencia que subiste tú: debe revisarla otra persona.")
 
     form = ValidationForm(request.POST or None)
+    conflict = False
     if request.method == "POST" and form.is_valid():
+        opened = request.POST.get("_version", "")
+        with transaction.atomic():
+            # RF-034: si otra persona ya revisó esta evidencia mientras se miraba, se avisa en vez de duplicar la decisión.
+            locked = Evidence.objects.select_for_update().get(pk=evidence.pk)
+            if opened and opened != version_of(locked):
+                conflict = True
+                evidence = locked
+        if conflict:
+            form.add_error(None, conflict_message(evidence))
+    if request.method == "POST" and form.is_valid() and not conflict:
         with transaction.atomic():
             validation = form.save(commit=False)
             validation.evidence = evidence
@@ -628,6 +666,7 @@ def validate_evidence(request, pk):
         {
             "evidence": evidence,
             "form": form,
+            "version": version_of(evidence),
             "history": history,
             "activity_url": (
                 activity_crud.url("detail", evidence.activity_id)
@@ -646,22 +685,13 @@ def validate_evidence(request, pk):
 
 
 def officer_results(officers, goals, indicators, period):
+    pace = pace_of(period)
+    recent = recent_activity([officer.pk for officer in officers], period, pace)
     results = []
     for officer in officers:
-        own = goals_of(officer, goals)
-        lines = goal_lines(own, indicators)
-        compliances = [line["compliance"] for line in lines if line["compliance"] is not None]
-        exact = mean(compliances)
-        results.append(
-            {
-                "officer": officer,
-                "lines": lines,
-                "goal_total": len(own),
-                "exact_average": exact,
-                "average": rounded(exact),
-                "light": light_of(exact, period),
-            }
-        )
+        summary = officer_summary(officer, period, goals, indicators, pace)
+        summary["recent"] = recent[officer.pk]
+        results.append(summary)
     return results
 
 
@@ -744,6 +774,8 @@ def delegation_board(request):
             "results": results,
             "average": rounded(delegation_mean),
             "average_light": light_of(delegation_mean, period),
+            "pace_summary": pace_summary(period, delegation_mean),
+            "recent_summary": delegation_recent({row["officer"].pk: row["recent"] for row in results}, pace_of(period)),
             "light_counts": [
                 {"light": key, "label": ui.LIGHT_LABELS[key], "total": lights[key]}
                 for key in ("green", "amber", "red")
@@ -752,6 +784,141 @@ def delegation_board(request):
         }
     )
     return render(request, "core/delegation_board.html", context)
+
+
+@login_required
+@permission_required("operations.view_commitment", raise_exception=True)
+def commitment_summary(request):
+    """RF-021: compromisos por funcionario y estado, con el porcentaje realizado y el que falta por realizar."""
+    crud = registry.get("agenda")
+    delegation, delegations, can_pick = pick_delegation(request, allow_all=True)
+    periods = list(Period.objects.filter(deleted_at__isnull=True).order_by("-start_date"))
+    chosen = request.GET.get("periodo", "todos")
+    period = next((option for option in periods if str(option.pk) == chosen), None)
+
+    commitments = crud.get_queryset(request)
+    officers = Officer.objects.filter(
+        status=Officer.Status.ACTIVE, deleted_at__isnull=True
+    ).select_related("delegation", "position").order_by("name")
+    if delegation is not None:
+        commitments = commitments.filter(delegation=delegation)
+        officers = officers.filter(delegation=delegation)
+    elif not is_global_user(request):
+        officers = officers.filter(delegation__in=authorized_delegations(request))
+    if period is not None:
+        commitments = commitments.filter(due_date__range=(period.start_date, period.end_date))
+
+    rows, total = collective_summary(commitments, list(officers))
+    thresholds = period or current_period()
+    for row in [*rows, total]:
+        row["light"] = light_of(row["done_percent"], thresholds) if thresholds and row["done_percent"] is not None else ""
+
+    context = {
+        "crud": crud,
+        "delegation": delegation,
+        "delegations": delegations,
+        "can_pick_delegation": can_pick,
+        "periods": periods,
+        "period": period,
+        "thresholds": thresholds,
+        "statuses": [status_label(status) for status in STATUS_ORDER],
+        "due_soon_days": DUE_SOON_DAYS,
+        "rows": rows,
+        "total": total,
+        "agenda_url": crud.url("list"),
+        "breadcrumbs": [("Inicio", reverse("core:dashboard")), ("Resumen colectivo", None)],
+    }
+    return render(request, "core/commitment_summary.html", context)
+
+
+@login_required
+@permission_required("planning.add_indicator", raise_exception=True)
+@require_POST
+def recalculate_indicators(request):
+    """Recalcula a mano los indicadores de un período (el recálculo normal es automático al validar evidencias)."""
+    from planning import calculation
+
+    period = Period.objects.filter(pk=request.POST.get("periodo", ""), deleted_at__isnull=True).first()
+    if period is None:
+        messages.error(request, "Elige un período para recalcular sus indicadores.")
+        return redirect("core:delegation_board")
+    if period.status == Period.Status.CLOSED:
+        messages.warning(request, "El período está cerrado: sus indicadores ya no cambian.")
+        return redirect(f"{reverse('core:delegation_board')}?periodo={period.pk}")
+    with transaction.atomic():
+        created = calculation.recalculate_period(period)
+        log_event(request.user, "Indicadores recalculados", period, new=f"{created} indicador(es) nuevo(s)")
+    messages.success(
+        request,
+        f"Indicadores recalculados: {created} nuevo{'s' if created != 1 else ''}." if created
+        else "Los indicadores ya estaban al día.",
+    )
+    return redirect(f"{reverse('core:delegation_board')}?periodo={period.pk}")
+
+
+@login_required
+@permission_required("planning.view_indicator", raise_exception=True)
+def position_overview(request):
+    """RF-031: vista global por cargos, con sus funcionarios, metas y cifras logradas por equipo."""
+    delegation, delegations, can_pick = pick_delegation(request, allow_all=True)
+    period, periods = pick_period(request)
+    positions_crud = registry.get("cargos")
+    officers_crud = registry.get("funcionarios")
+    context = {
+        "delegation": delegation,
+        "delegations": delegations,
+        "can_pick_delegation": can_pick,
+        "period": period,
+        "periods": periods,
+        "groups": [],
+        "breadcrumbs": [("Inicio", reverse("core:dashboard")), ("Vista por cargos", None)],
+    }
+    if period is None:
+        return render(request, "core/position_overview.html", context)
+
+    officers = Officer.objects.filter(
+        status=Officer.Status.ACTIVE, deleted_at__isnull=True
+    ).select_related("delegation", "position")
+    if delegation is not None:
+        officers = officers.filter(delegation=delegation)
+    elif not is_global_user(request):
+        officers = officers.filter(delegation__in=authorized_delegations(request))
+    officers = list(officers.order_by("position__name", "name"))
+
+    goals = list(Goal.objects.filter(deleted_at__isnull=True, period=period).select_related("item"))
+    index = latest_indicators([goal.pk for goal in goals])
+    results = []
+    pace = pace_of(period)
+    recent = recent_activity([officer.pk for officer in officers], period, pace)
+    can_open_officer = officers_crud.has_perm(request.user, "view")
+    for officer in officers:
+        summary = officer_summary(officer, period, goals, index, pace)
+        summary["recent"] = recent[officer.pk]
+        summary["url"] = officers_crud.url("detail", officer.pk) if can_open_officer else ""
+        results.append(summary)
+
+    can_open_position = positions_crud.has_perm(request.user, "view")
+    by_position = {}
+    for summary in results:
+        by_position.setdefault(summary["officer"].position, []).append(summary)
+    for position, rows in by_position.items():
+        average = mean(row["exact_average"] for row in rows if row["exact_average"] is not None)
+        weighted = mean(row["weighted_total"] for row in rows if row["weighted_total"] is not None)
+        dates = [row["recent"].last_date for row in rows if row["recent"].last_date]
+        context["groups"].append(
+            {
+                "position": position,
+                "url": positions_crud.url("detail", position.pk) if can_open_position else "",
+                "officers": rows,
+                "team_goals": team_goals(rows),
+                "average": rounded(average),
+                "light": light_of(average, period),
+                "weighted": rounded(weighted),
+                "last_date": max(dates) if dates else None,
+            }
+        )
+    context["pace"] = pace
+    return render(request, "core/position_overview.html", context)
 
 
 def safe_cell(value):
@@ -804,9 +971,9 @@ def report_rows(delegation, period, with_adjustment):
     rows = []
     for officer in officers:
         compliances = [
-            indicators[goal.pk].compliance
+            indicators.of(goal, officer).compliance
             for goal in goals_of(officer, goals)
-            if goal.pk in indicators
+            if indicators.of(goal, officer) is not None
         ]
         exact = mean(compliances)
         rows.append(

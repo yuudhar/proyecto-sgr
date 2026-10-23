@@ -35,6 +35,7 @@ organization/             delegaciones, cargos, ítems, servicios, beneficiarios
 planning/                 períodos, metas, indicadores y ajustes
 operations/               atenciones, gestiones de seguimiento y compromisos
 evidence/                 evidencias y validaciones
+websocket/                tiempo real (Clase 11): avisos de cambio para listados, dashboard, tablero y validar
 templates/                marco general, errores y pantallas sin sesión
 deploy/                   archivos para instalar y actualizar en el servidor
 sql/                      scripts de la base de datos
@@ -484,6 +485,8 @@ Foto de perfil de quien tiene la sesión iniciada (pantalla Mi perfil).
 - **`__init__(*args, **kwargs)`**: Pone la ayuda con el tamaño máximo de la foto y aplica el estilo.
 - **`clean_photo()`**: Revisa la foto: PNG o JPG, tamaño máximo y que el contenido corresponda a la extensión.
 
+  El campo `photo` es un `forms.ImageField`: antes de `clean_photo()`, Pillow comprueba que el archivo sea una imagen real (un archivo que solo imita la firma de un PNG se rechaza con «El archivo no es una imagen válida»).
+
 ##### `PortalPasswordChangeForm` — hereda de `BootstrapFormMixin`, `PasswordChangeForm`
 
 Cambio de contraseña de quien tiene la sesión iniciada (pantalla Mi perfil).
@@ -718,7 +721,10 @@ Describe las pantallas de un modelo. Se subclasea en core/registry.py.
   
   Se redefine en cada mantenedor que tiene registros que dependen de otros (un tipo de atención con sub atenciones activas, por ejemplo). Lo revisa el servidor al archivar y la pantalla lo avisa antes.
 - **`restore_blockers(obj)`**: Motivos por los que un registro archivado no se puede restaurar todavía.
-- **`delete_blockers(obj)`**: Motivos por los que el registro no se puede eliminar de verdad (un perfil del sistema, uno con usuarios).
+- **`archive_guard(request, obj)`** (v23): Motivos que dependen de quién archiva, no del registro; en usuarios, «No puedes eliminar tu propia cuenta». `archive_problems(request, obj)` junta estos con `archive_blockers`.
+- **`archived_at(obj)` / `set_archived(obj, when)`** (v23): Leen y guardan la marca de archivado. Por defecto es el campo `deleted_at` del modelo; `UserCrud` la guarda en `UserProfile.deleted_at` (`archive_lookup = "profile__deleted_at"`), porque `User` de Django no hereda de `BaseModel`, y además deja la cuenta inactiva.
+- **`can_see_archived(request)`** (v23): Quién puede ver los archivados; en usuarios solo el Super Usuario. Habilita la vista `?archivados=solo` («Usuarios eliminados»).
+- **`delete_blockers(obj)`**: Motivos por los que el registro no se puede eliminar de verdad. Por defecto revisa las relaciones inversas del modelo (`PROTECT`, `RESTRICT` y `CASCADE`) y, si otros registros lo usan, devuelve «Está en uso en N …»; así el listado puede avisar con SweetAlert2 antes de intentar el borrado. Un mantenedor puede sumar sus propios motivos (los roles: un perfil del sistema, uno con usuarios).
 - **`duplicate_message(label, archived)`**: Frase cuando el nombre ya existe sin distinguir mayúsculas; archived dice si el que existe está archivado.
 - **`validate_form(form, cleaned)`**: Reglas de negocio entre campos de un formulario de este mantenedor; se agregan con form.add_error.
 - **`filter_choices(request, name, model_field)`**: Opciones de un filtro del listado, como lista de (valor, texto); None usa las de siempre.
@@ -852,7 +858,7 @@ Restaura un registro archivado.
 
 ##### `CrudDeleteView` — hereda de `CrudView`
 
-Elimina de verdad un registro (solo en los mantenedores con deletable, como los perfiles).
+Elimina de verdad un registro (solo en los mantenedores con deletable: Roles, Beneficiarios, Territorios, Servicios, Cargos, Tipos de gestión y Agenda). Estos, salvo Roles, también se pueden archivar: el botón de archivar se llama «Archivar» y el de eliminar «Eliminar» (partials/delete_link.html y confirm.js).
 
 GET pide la confirmación y POST elimina. Pide el permiso delete del modelo y se niega si el registro está en uso (delete_blockers). La eliminación queda en la auditoría, y si la base de datos la rechaza porque otros registros dependen de este, no queda nada anotado ni se avisa un éxito falso.
 
@@ -877,7 +883,7 @@ GET pide la confirmación y POST elimina. Pide el permiso delete del modelo y se
 - **`query_string(request, drop, **updates)`**: Parámetros actuales de la URL con cambios, para armar enlaces de orden y páginas.
 - **`page_size_of(request)`**: Filas por página de los listados: las que la persona eligió en esta sesión, o PAGE_SIZE.
   
-  La elección se guarda en request.session (ver set_page_size en core/views.py). Aquí se revisa otra vez contra PAGE_SIZES por si la sesión trajera otro valor.
+  La elección se guarda en request.session (ver set_page_size en core/views.py). Aquí se revisa otra vez contra PAGE_SIZES por si la sesión trajera otro valor. Las opciones son 5, 15 y 30 filas (`PAGE_SIZES`), y 15 el valor por defecto (`PAGE_SIZE`).
 
 #### `core/registry.py`
 
@@ -1126,6 +1132,10 @@ Pantallas especiales: ingreso, perfil, atención, inicio, validación de evidenc
 
 Las pantallas de listado, ficha y formulario de cada modelo están en core/crud.py; aquí van las que no calzan con ese esquema. Todas respetan las mismas reglas de acceso del Django Admin: permisos por modelo y alcance por delegación.
 
+Desde la v25 también están aquí `pace_summary` (cuadro «Ritmo del período» del dashboard y del tablero, RF-026) y `commitment_summary` (pantalla Resumen colectivo en `/agenda/resumen/`, RF-021).
+
+Desde la v26: `personal_board` (evidencias, compromisos y actividad del funcionario en su inicio, RF-028), `recalculate_indicators` (botón «Recalcular indicadores» del tablero, solo POST, permiso para agregar indicadores), `position_overview` (Vista por cargos en `/resultados/cargos/`, RF-031) y la comprobación de versión al validar una evidencia (RF-034).
+
 ##### `PortalLoginView` — hereda de `auth_views.LoginView`
 
 Ingreso. Usa la plantilla por defecto de LoginView: templates/registration/login.html.
@@ -1341,6 +1351,8 @@ Archivos que suben las personas: evidencias y fotos de perfil.
 
 Se aceptan pocos tipos, se revisa que el contenido corresponda a la extensión (no basta con el nombre) y se limita el tamaño. Los archivos se guardan en MEDIA_ROOT con un nombre propio, sin usar el que trae el computador de quien sube, y se entregan solo mediante una vista que revisa el permiso (core/views.py), nunca por una URL pública.
 
+Qué pasa con un archivo reemplazado o sin registro: la foto anterior se borra al cambiarla o quitarla; el archivo anterior de una evidencia no se borra (queda como rastro) y archivar una evidencia no toca su archivo. No hay limpieza automática. La política completa está en el README, sección «Archivos subidos: límites y política».
+
 **Funciones**
 
 - **`extension_of(name)`**: Extensión de un nombre de archivo en minúsculas y sin el punto.
@@ -1482,7 +1494,7 @@ Perfil de un usuario de Django. Lo une con su funcionario (uno a uno, vacío sol
 | `user` | usuario | OneToOneField | relación con `settings.AUTH_USER_MODEL`; nombre inverso `profile`; CASCADE |
 | `officer` | funcionario | OneToOneField | relación con `Officer`; nombre inverso `user_profile`; PROTECT; admite nulo; opcional — Vacío solo para cuentas técnicas (superusuario) sin un funcionario asociado en terreno. |
 | `status` | estado | CharField | largo 20; con opciones; por defecto `Status.ACTIVE` |
-| `photo` | foto de perfil | FileField | largo 255; admite nulo; opcional; sube archivo |
+| `photo` | foto de perfil | ImageField | largo 255; admite nulo; opcional; sube archivo; requiere Pillow |
 
 Opciones del modelo (`Meta`): `verbose_name` = `'Perfil de usuario'`; `verbose_name_plural` = `'Perfiles de usuario'`.
 
@@ -2049,6 +2061,9 @@ Medición de una meta: avance, cumplimiento, ponderación, color del semáforo y
 | `status_light` | semáforo | CharField | largo 20; con opciones |
 | `calculated_at` | fecha de cálculo | DateTimeField |  |
 | `goal` | meta | ForeignKey | relación con `Goal`; nombre inverso `indicators`; PROTECT |
+| `officer` | calculado para | ForeignKey | relación con `Officer`; nombre inverso `indicators`; PROTECT; puede ser nulo (v26) |
+
+Desde la v26 cada indicador lleva el funcionario para el que se calculó, porque una meta del cargo la cumple cada funcionario por separado. Los indicadores anteriores (sin funcionario) se siguen mostrando mientras no exista uno calculado para esa persona. Migración: `planning/migrations/0002_indicator_officer.py`.
 
 Opciones del modelo (`Meta`): `ordering` = `('-calculated_at',)`; `verbose_name` = `'Indicador'`; `verbose_name_plural` = `'Indicadores'`.
 
@@ -2095,6 +2110,36 @@ Configuración del Django Admin para `Indicator`. Columnas: 'goal', 'progress', 
 ##### `AdjustmentAdmin` — hereda de `SoftDeleteAdminMixin`, `admin.ModelAdmin`
 
 Configuración del Django Admin para `Adjustment`. Columnas: 'officer', 'kind', 'percentage_value', 'period', 'responsible_user', 'date'. Búsqueda por: 'officer__name', 'reason'. Filtros: 'kind', 'period'.
+
+#### `planning/pace.py` (meta esperada al día, RF-026)
+
+Regla de la guía (RN-007): meta esperada al día = días computables transcurridos ÷ días computables totales × 100. Cuentan los días de lunes a viernes; hoy ya cuenta como transcurrido; antes del inicio se espera 0 % y después del término (o con el período cerrado) 100 %, nunca más.
+
+- **`weekdays_between(start, end)`**: cantidad de días de lunes a viernes entre dos fechas, ambas incluidas.
+- **`pace_of(period, today=None)`**: devuelve un `Pace` con la fecha de hoy, el inicio y el término, los días totales (los «días computables» del período), los días transcurridos, el porcentaje esperado, el porcentaje diario y la etapa («Aún no comienza», «En curso» o «Terminado»).
+- **`Pace.expected_for(target)`**: valor esperado hoy para una meta (objetivo × porcentaje esperado).
+- **`Pace.difference(achieved)`** y **`Pace.standing(achieved, amber_threshold)`**: diferencia en puntos porcentuales y estado frente a lo esperado (verde si lo alcanza, ámbar desde el umbral ámbar de lo esperado, rojo bajo eso; RN-008).
+
+#### `planning/calculation.py` (cálculo automático, RF-022, RF-023, RF-024 y RF-014)
+
+Reglas de la guía (RN-003 a RN-005 y RN-009): el **avance** es la cantidad de actividades **válidas** del funcionario en el ítem de la meta (o en una de sus sub atenciones) dentro de las fechas del período; una actividad es válida solo si tiene una evidencia **aprobada** y no eliminada. El **cumplimiento** es avance ÷ objetivo × 100 con tope en el «tope ponderado» del período (150 %). El **ponderado** es ponderador × cumplimiento ÷ 100. El semáforo usa los umbrales del período.
+
+- **`suspended()` / `is_suspended()`**: pausa el recálculo automático (por ejemplo, mientras se cargan los datos de prueba).
+- **`officers_of(goal)`**: el funcionario de una meta personal o todos los activos del cargo en una meta del cargo.
+- **`valid_activities(goal, officer)`**: las actividades que cuentan para el avance.
+- **`compute(goal, officer)`**: devuelve un `Result` con avance, cumplimiento, ponderado, semáforo y el cumplimiento sin tope.
+- **`calculable(goal, force=False)`**: un período cerrado ya no cambia (RN-013) salvo que se fuerce.
+- **`save_if_changed(goal, officer)`**: guarda un indicador nuevo solo si cambió algún valor respecto del último del mismo funcionario y meta; así la tabla guarda el historial sin repetir filas.
+- **`recalculate_goal`, `recalculate_period`, `recalculate_all(include_closed, period)` y `recalculate_for(officer_id, item_ids, on_date)`**: recalculan una meta, un período, todo o lo que una actividad pudo haber cambiado.
+- **`IndicatorIndex(goal_ids)`**: el último indicador de cada meta y funcionario para las pantallas. `.of(goal, officer)` entrega el propio o, si no hay, el general anterior a la v26 (el más nuevo de los dos); `.effective()` entrega uno por meta y funcionario sin repetir el general.
+
+#### `planning/signals.py`
+
+Recalcula con `transaction.on_commit` cuando se guarda o elimina una actividad (también al cambiar su autor, ítem o fecha: se recalcula la situación anterior y la nueva), una evidencia o una validación, o cuando se guarda una meta o un período. Respeta `suspended()`.
+
+#### `planning/management/commands/recalcular_indicadores.py`
+
+Comando `python manage.py recalcular_indicadores [--periodo ID] [--incluir-cerrados]`. Sirve para dejar al día los indicadores después de actualizar el sistema y como respaldo del cálculo automático.
 
 ### App `operations`: atenciones, gestiones y compromisos
 
@@ -2192,7 +2237,7 @@ Opciones del modelo (`Meta`): `ordering` = `('-due_date',)`; `verbose_name` = `'
 
 Opciones de `RequesterType`: `INTERNAL` (Interno), `EXTERNAL` (Externo).
 
-Opciones de `Status`: `submitted` (Ingresado), `in_progress` (En proceso), `fulfilled` (Cumplido).
+Opciones de `Status`: `submitted` (Ingresado), `pending` (Pendiente), `in_progress` (En proceso), `fulfilled` (Realizado). `TRANSITIONS` define a qué estados se puede pasar desde cada uno; `can_move(actual, nuevo)` y `next_choices(actual)` lo consultan (RF-018, v25).
 
 - **`clean()`**: Comprueba que el territorio pertenezca a la delegación elegida.
 - **`__str__()`**: Texto con que se muestra el registro.
@@ -2302,6 +2347,63 @@ Configuración del Django Admin para `Evidence`. Columnas: 'unique_code', 'activ
 
 Configuración del Django Admin para `Validation`. Columnas: 'evidence', 'decision', 'reviewer_officer', 'date'. Filtros: 'decision',.
 
+### App `websocket`: tiempo real (Clase 11)
+
+Usa Django Channels y Daphne (servidor ASGI). El navegador **envía** por HTTP (con CSRF) y **recibe** por WebSocket. La capa de canales es `InMemoryChannelLayer`: sirve con un solo proceso (el servicio `sgr` ejecuta uno).
+
+#### `websocket/services.py`
+
+Nombres de grupos y publicación de eventos. Los mensajes se publican después de confirmar la transacción (`transaction.on_commit`), para no avisar de cambios que se deshacen.
+
+- **`crud_group(slug, delegation_id)`**: grupo `crud_<slug>_d<id>` de los avisos de un mantenedor.
+- **`publish_crud_changed(crud, *delegation_ids)`**: avisa `crud_changed` a quienes tienen abierto ese listado.
+- **`live_group(delegation_id)`**, **`live_groups_for(scope)`** y **`publish_live_changed(label, *delegation_ids)`**: grupos `live_d<id>` / `live_all` de los avisos de cambio de datos (dashboard, tablero, validar) y su publicación.
+- **`notify_crud_change(crud, obj, before=None)`**: lo llama el motor (`core/crud.py`) al guardar, archivar, restaurar y eliminar; también avisa a la delegación anterior si el registro cambió de delegación.
+
+#### `websocket/consumers.py`
+
+- **`LiveConsumer`** (`ws/live/`): exige sesión y une a la persona a `live_all` y a los grupos de las delegaciones que ve; entrega `{"type": "live_changed", "model": ...}` (sin datos).
+- **`CrudChangesConsumer`** (`ws/crud/<slug>/`): exige el permiso de ver ese mantenedor y une a la persona a los grupos de las delegaciones que puede ver.
+
+#### `core/commitments.py` (historial de estados y resumen colectivo)
+
+- **`record_status(user, commitment, previous, new)`**: deja en la auditoría el cambio de estado de un compromiso (evento «Estado de compromiso») o su estado inicial (RF-018).
+- **`history_of(commitment)`**: los cambios de estado de un compromiso, del más antiguo al más reciente, con quién y cuándo; los muestra el panel «Historial de estados» de la ficha.
+- **`collective_summary(commitments, officers)`**: totales de compromisos por funcionario y estado, con el % realizado (Realizado ÷ total) y el % por realizar (el resto), más la fila total (RF-021). Incluye a los funcionarios de la lista aunque no tengan compromisos.
+- **Plazos (RF-019, v26)**: `deadline_state(due_date, status, today, done_on)` devuelve `overdue`, `due_soon`, `on_time`, `done_on_time` o `done_late`; «por vencer» son los próximos `DUE_SOON_DAYS` días (7, configurable con `SGR_DIAS_POR_VENCER`). `fulfilled_dates` toma del historial de estados el día en que se realizó cada compromiso; `deadline_of`, `deadline_text` y `deadline_counts` los usan la lista, la ficha, el resumen colectivo y el dashboard.
+
+#### `core/results.py` (resultados por funcionario, v26)
+
+- **`officer_summary(officer, period, goals, index, pace)`**: las metas del funcionario con avance, cumplimiento, ponderador y aporte ponderado, su promedio, semáforo, suma de ponderadores y total ponderado. Lo usan el inicio, el tablero, la vista por cargos y la ficha (RF-008).
+- **`weights_state`, `officer_weights`, `weight_problems`**: la regla de que los ponderadores de un funcionario en un período sumen 100 % (RF-006); al guardar una meta se avisa, no se bloquea.
+- **`team_goals(summaries)`**, **`goal_lines`**, **`goals_of`**, **`mean`**, **`rounded`**, **`light_of`**, **`current_period`**.
+
+#### `core/activity_stats.py` (actividad reciente, RF-030)
+
+- **`recent_activity(officer_ids, period, pace, today)`**: por funcionario, el último ingreso, los días sin ingreso, los registros del período y el promedio diario (registros ÷ días computables transcurridos).
+- **`delegation_recent(recent, pace, today)`**: el resumen de varios funcionarios. `Recent.alert` marca más de 7 días sin ingreso.
+
+#### `core/crud.py`: edición concurrente (RF-034, RNF-003)
+
+`CrudFormView.save` bloquea la fila (`select_for_update`) dentro de la transacción y compara de nuevo la versión con la que se abrió el formulario; si cambió lanza `StaleRecord`. El aviso (`conflict_message`) dice quién, cuándo y qué cambió según la auditoría (`last_change_text`). Un dato repetido que la base rechaza (`IntegrityError`) se informa en el formulario (`DUPLICATE_TEXT`).
+
+#### `core/photos.py` (foto de perfil de otra persona)
+
+- **`photo_url_of(user)`**: dirección de la foto de un usuario o texto vacío.
+- **`change_photo(actor, user, uploaded)`** y **`remove_photo(actor, user)`**: guardan o quitan la foto de `user` (la usa `UserCrud.save_photo` cuando el Super Usuario edita un usuario), borran el archivo anterior después del commit y registran el evento en la auditoría.
+
+#### `websocket/signals.py`
+
+Señales `pre_save`, `post_save` y `post_delete` de los modelos de `LIVE_MODELS` (atenciones, gestiones, compromisos, evidencias, validaciones, metas, indicadores, ajustes, períodos y funcionarios). Publican con `transaction.on_commit` un aviso a la delegación del registro (y a la anterior si cambió de delegación); un dato general avisa a todas.
+
+#### `websocket/routing.py`
+
+Rutas WebSocket (`ws/crud/<slug>/` y `ws/live/`).
+
+#### `sgr_project/asgi.py`
+
+`ProtocolTypeRouter`: HTTP a Django y WebSocket a través de `AllowedHostsOriginValidator` + `AuthMiddlewareStack` + `URLRouter`.
+
 ## 10. Migraciones
 
 Las migraciones crean y modifican las tablas de cada app.
@@ -2313,6 +2415,7 @@ Las migraciones crean y modifican las tablas de cada app.
 - `0003_create_role_profiles.py`: crea la ficha de los roles que ya existían.
 - `0004_userroledelegation.py`: crea la tabla de `UserRoleDelegation`.
 - `0005_userprofile_photo.py`: agrega el campo `userprofile.photo`.
+- `0006_userprofile_photo_imagefield.py`: cambia `userprofile.photo` de `FileField` a `ImageField`; la columna no cambia.
 
 ### `core`
 
@@ -2327,6 +2430,7 @@ Las migraciones crean y modifican las tablas de cada app.
 ### `operations`
 
 - `0001_initial.py`: crea la tabla de `ManagementType`; crea la tabla de `Activity`; crea la tabla de `Commitment`; crea la tabla de `Followup`.
+- `0002_commitment_status_pending.py`: agrega el estado «Pendiente» y cambia «Cumplido» por «Realizado» en las opciones de `commitment.status`; no modifica la estructura de la tabla.
 
 ### `organization`
 
@@ -2361,6 +2465,7 @@ Plantillas de Django. Las de `templates/` son el marco general, los errores y la
 | `core/templates/core/profile.html` | Mi perfil: datos de la cuenta, foto, delegación y cambio de contraseña. |
 | `core/templates/core/administration.html` | Administración: período vigente y accesos a los mantenedores de organización, planificación y catálogos. |
 | `core/templates/core/delegation_board.html` | Tablero de delegación: promedio, semáforo, resultado de cada funcionario y tarjetas de pendientes. |
+| `core/templates/core/commitment_summary.html` | Resumen colectivo: compromisos por funcionario y estado, con % realizado y % por realizar, filtros de delegación y período y actualización en vivo. |
 | `core/templates/core/reports.html` | Informes: filtros de período y delegación, tabla por funcionario y botones para exportar a Excel, CSV o imprimir. |
 | `core/templates/core/validate_list.html` | Evidencias por revisar y últimas validaciones. |
 | `core/templates/core/validate_form.html` | Revisión de una evidencia: sus datos, el archivo, el formulario de decisión y las revisiones anteriores. |
@@ -2371,6 +2476,7 @@ Plantillas de Django. Las de `templates/` son el marco general, los errores y la
 | `core/templates/core/crud/_form_body.html` | Contenido del formulario sin los botones; lo comparten la página y la ventana modal. |
 | `core/templates/core/crud/archive_confirm.html` | Confirmación de archivar un registro, con los motivos si no se puede. |
 | `core/templates/core/crud/delete_confirm.html` | Confirmación de eliminar un registro, con los motivos si no se puede. |
+| `core/templates/core/crud/commitment_history.html` | Panel «Historial de estados» en la ficha de un compromiso. |
 | `core/templates/core/crud/role_permissions.html` | Panel de permisos en la ficha de un rol: una fila por módulo con las acciones que tiene. |
 | `core/templates/core/partials/cell.html` | Dibuja una celda según su tipo: etiqueta, sí/no, archivo con vista previa, color, enlace o texto. |
 | `core/templates/core/partials/check.html` | Casilla de verificación de un formulario. |
@@ -2382,6 +2488,7 @@ Plantillas de Django. Las de `templates/` son el marco general, los errores y la
 | `core/templates/core/partials/footer.html` | Pie de página de todas las pantallas. |
 | `core/templates/core/partials/meter.html` | Barra de cumplimiento con sus marcas de umbral. |
 | `core/templates/core/partials/mini_table.html` | Listado corto con la primera celda enlazada a la ficha. |
+| `core/templates/core/partials/pace_panel.html` | Cuadro «Ritmo del período»: meta esperada al día, % diario, avance logrado y estado frente a lo esperado. |
 | `core/templates/core/partials/page_size.html` | Selector de filas por página (se guarda en la sesión). |
 | `core/templates/core/partials/pagination.html` | Paginación con páginas anterior, siguiente y saltos. |
 | `core/templates/core/partials/public_head.html` | Cabecera simple de las páginas sin sesión. |
@@ -2684,6 +2791,10 @@ Funciones:
 - **`show(visible)`**
 - **`initWidgets(root = document)`**: Prepara los campos especiales que hay dentro de root (la página entera o un formulario recién cargado).
 
+### `core/static/core/js/live-updates.js`
+
+Pantallas en vivo. Dos modos. Si la página tiene `[data-live-page]` (dashboard, tablero de delegación y validar), se conecta a `ws/live/`, y al llegar `live_changed` vuelve a pedir la misma dirección y reemplaza `[data-live-region]`. Listados en vivo: si la página tiene `[data-live-crud]`, se conecta a `ws/crud/<slug>/`; al llegar `crud_changed` espera 300 ms, vuelve a pedir la misma dirección (conserva filtros y página) y reemplaza solo la región `data-live-target="resultados"`. Muestra el estado («En vivo», «Reconectando…») y reintenta con espera creciente.
+
 ## 13. Hoja de estilos
 
 `core/static/core/css/sgr.css` es la única hoja de estilos propia (sobre Bootstrap). Sus secciones, en orden:
@@ -2719,17 +2830,18 @@ Funciones:
 |---|---|
 | `deploy/actualizar.sh` | Pone al día una instalación existente. Recibe la rama o etiqueta (por defecto `main`): baja la versión (`fetch`, `checkout`, `pull`), instala las dependencias, anota la versión desplegada en `COMMIT`, carga las variables de `/etc/sgr/sgr.env`, crea la carpeta de archivos subidos, ejecuta `check --deploy`, `migrate` y `collectstatic`, reinicia el servicio `sgr` y consulta `/salud/`. |
 | `deploy/instalar_ec2.sh` | Primera instalación en una instancia EC2 con Ubuntu: instala los paquetes (Python, git, nginx y redis), crea el usuario `sgr`, clona el repositorio en `/opt/sgr/app`, crea el entorno virtual, instala las dependencias y deja `/etc/sgr/sgr.env` para completar. |
-| `deploy/gunicorn.conf.py` | Configuración de gunicorn: dirección, procesos, hilos (clase `gthread`), tiempos y registro de acceso, con valores cambiables por variables de entorno. |
-| `deploy/nginx-sgr.conf` | Sitio de nginx que pasa el tráfico a gunicorn (puerto 8000), con límite de 12 MB por petición. |
-| `deploy/sgr.service` | Servicio de systemd que ejecuta gunicorn con el usuario `sgr`, desde `/opt/sgr/app` y con las variables de `/etc/sgr/sgr.env`. |
+| `deploy/gunicorn.conf.py` | Configuración de gunicorn (ya no la usa el servicio desde la v24; se conserva como referencia). |
+| `deploy/nginx-sgr.conf` | Sitio de nginx que pasa el tráfico a Daphne (puerto 8000), con `/ws/` preparado para WebSocket y límite de 12 MB por petición. |
+| `deploy/sgr.service` | Servicio de systemd que ejecuta Daphne (`sgr_project.asgi:application`) con el usuario `sgr`, desde `/opt/sgr/app` y con las variables de `/etc/sgr/sgr.env`. |
 | `deploy/sgr.env.example` | Modelo de las variables de entorno para un servidor (copiar a `/etc/sgr/sgr.env`). |
 | `deploy/requirements-produccion.txt` | Dependencias extra para el servidor: gunicorn, WhiteNoise y redis (y mysqlclient si la base es MySQL). |
 | `deploy/al2023/instalar_al2023.sh` | Primera instalación en Amazon Linux 2023 (Apache, MariaDB y phpMyAdmin): recibe repositorio, rama y dirección del sitio; crea el usuario y las carpetas, el entorno virtual, el servicio y el sitio de Apache. |
 | `deploy/al2023/https_certificado.sh` | Activa HTTPS en Amazon Linux 2023: pide el certificado a Let's Encrypt, pasa el sitio al puerto 443, redirige el 80 al 443 y deja la renovación automática. |
+| `deploy/al2023/agregar_websocket.sh` | Pasa un servidor ya instalado a la v24: agrega `/ws/` a Apache (con copia de respaldo y `httpd -t`), cambia el servicio a Daphne y recarga. |
 | `deploy/al2023/apache-http.conf` | Sitio de Apache por HTTP (fase 1): pasa el tráfico a gunicorn y deja fuera phpMyAdmin. |
 | `deploy/al2023/apache-https.conf` | Sitio de Apache por HTTPS (fase 2): el puerto 80 solo verifica el certificado y redirige; el 443 sirve el sistema. |
 | `deploy/al2023/sgr.env.example` | Modelo de variables de entorno para Amazon Linux 2023: modo, claves, HTTPS y proxy, base de datos, caché, correo y nivel de registro. |
-| `requirements.txt` | Dependencias de Python: Django 6.1.1, asgiref, sqlparse, python-dotenv y openpyxl (exportar a Excel); `mysqlclient` opcional para MySQL/MariaDB. |
+| `requirements.txt` | Dependencias de Python: Django 6.1.1, asgiref, sqlparse, python-dotenv, openpyxl (exportar a Excel), Channels y Daphne (tiempo real); `mysqlclient` opcional para MySQL/MariaDB. |
 | `VERSION` | Versión del sistema que muestra `/salud/`. |
 | `manage.py` | Punto de entrada de los comandos de Django. |
 

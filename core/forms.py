@@ -13,18 +13,20 @@ from django.core.validators import MaxLengthValidator, MinValueValidator
 from django.db.models import Q
 from django.utils import timezone
 from django.utils.html import format_html, format_html_join
+from django.utils.safestring import mark_safe
 
 from accounts.delegations import stored_delegation_ids
 from accounts.models import RoleProfile, UserProfile, group_is_global, role_details
 from core import ui, uploads
 from core.access import default_delegation, request_delegation, request_officer
+from core.photos import photo_url_of
 from core.models import BaseModel
 from core.roles import MODULE_LABELS, SYSTEM_GROUPS, managed_permissions, permission_key
 from core.rules import collapse_spaces, get_rule, normalize_lines
 from core.search import plain_letter, word_pattern
 from core.widgets import ColorWidget, DelegationsWidget, DependentSelect, LookupWidget, PermissionMatrixWidget, RolesWidget
 from evidence.models import Validation
-from operations.models import Followup
+from operations.models import Commitment, Followup
 from organization.models import Beneficiary, Delegation, Item, Officer
 from planning.models import Goal, Period
 
@@ -660,6 +662,22 @@ def delegation_label(delegation):
     return f"{registry.get('delegaciones').code_of(delegation)} · {delegation.name}"
 
 
+class CurrentPhotoInput(forms.FileInput):
+    """Campo para subir una foto que, si la persona ya tiene una, la muestra encima."""
+
+    current_url = ""
+
+    def render(self, name, value, attrs=None, renderer=None):
+        html = super().render(name, value, attrs, renderer)
+        if not self.current_url:
+            return html
+        current = format_html(
+            '<div class="photo-current"><img class="avatar avatar-lg" src="{}" alt="Foto de perfil actual"></div>',
+            self.current_url,
+        )
+        return mark_safe(f"{current}{html}")
+
+
 class UserForm(CrudForm):
 
     officer = forms.ModelChoiceField(
@@ -695,9 +713,36 @@ class UserForm(CrudForm):
         strip=False,
         widget=forms.PasswordInput(attrs={"autocomplete": "new-password", "data-match": "id_password1"}),
     )
+    photo = forms.ImageField(
+        label="Foto de perfil",
+        required=False,
+        widget=CurrentPhotoInput(
+            attrs={
+                "accept": ".png,.jpg,.jpeg",
+                "data-max-mb": settings.PHOTO_MAX_MB,
+                "data-accept-label": "PNG o JPG",
+            }
+        ),
+        error_messages={"invalid_image": "El archivo no es una imagen válida. Revisa que no esté dañado."},
+    )
+    remove_photo = forms.BooleanField(label="Quitar la foto actual", required=False)
+
+    def clean_photo(self):
+        uploaded = self.cleaned_data.get("photo")
+        if isinstance(uploaded, UploadedFile):
+            uploads.check_upload(uploaded, uploads.PHOTO_TYPES, settings.PHOTO_MAX_MB)
+        return uploaded
 
     def customize_fields(self):
         creating = not self.instance.pk
+        current = photo_url_of(self.instance) if not creating else ""
+        self.fields["photo"].widget.current_url = current
+        self.fields["photo"].help_text = (
+            f"PNG o JPG de hasta {settings.PHOTO_MAX_MB} MB."
+            + (" Sube otra solo si quieres reemplazar la actual." if current else "")
+        )
+        if not current:
+            del self.fields["remove_photo"]
         groups = self.fields["groups"]
         offered = Q(role_profile__status=RoleProfile.Status.ACTIVE) | Q(role_profile__isnull=True)
         if not creating:
@@ -746,6 +791,8 @@ class UserForm(CrudForm):
                 "groups",
                 "officer",
                 "extra_delegations",
+                "photo",
+                "remove_photo",
             ]
         )
 
@@ -813,6 +860,9 @@ class UserForm(CrudForm):
                     "(como Coordinación) pueden quedar sin funcionario.",
                 )
         self.check_extra_delegations(cleaned, sees_everything)
+
+        if cleaned.get("photo") and cleaned.get("remove_photo"):
+            self.add_error("remove_photo", "Sube una foto nueva o marca quitarla, no las dos cosas.")
 
         officer = cleaned.get("officer")
         if officer is not None:
@@ -946,7 +996,7 @@ def split_person_name(name):
 
 class ProfilePhotoForm(BootstrapFormMixin, forms.Form):
 
-    photo = forms.FileField(
+    photo = forms.ImageField(
         label="Foto de perfil",
         widget=forms.FileInput(
             attrs={
@@ -955,7 +1005,10 @@ class ProfilePhotoForm(BootstrapFormMixin, forms.Form):
                 "data-accept-label": "PNG o JPG",
             }
         ),
-        error_messages={"required": "Elige una imagen para tu foto."},
+        error_messages={
+            "required": "Elige una imagen para tu foto.",
+            "invalid_image": "El archivo no es una imagen válida. Revisa que no esté dañado.",
+        },
     )
 
     def __init__(self, *args, **kwargs):
@@ -1119,6 +1172,20 @@ class CommitmentForm(CrudForm):
 
     REQUEST_MESSAGE = "La fecha de solicitud no puede ser futura."
     DUE_MESSAGE = "La fecha comprometida no puede ser anterior a la fecha de solicitud."
+
+    def customize_fields(self):
+        # RF-018: al editar, el estado solo ofrece los estados a los que se puede pasar desde el actual.
+        field = self.fields.get("status")
+        if field is None or not self.instance.pk or self.instance.status not in Commitment.TRANSITIONS:
+            return
+        current = self.instance.status
+        field.choices = Commitment.next_choices(current)
+        reachable = ", ".join(
+            f"«{label}»" for value, label in field.choices if value != current
+        )
+        field.error_messages["invalid_choice"] = (
+            f"Un compromiso «{self.instance.get_status_display()}» solo puede pasar a: {reachable}."
+        )
 
     def bounds(self):
         return {

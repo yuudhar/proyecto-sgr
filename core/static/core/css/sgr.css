@@ -1700,7 +1700,8 @@ textarea.form-control {
 
 
 
-.board-officer > td {
+.board-officer > td,
+.board-officer > th {
   border-top: 2px solid var(--line);
   background: #faf6f6;
   font-weight: 600;
@@ -2551,4 +2552,101 @@ textarea.form-control {
 
 .atencion-filters .field {
   min-width: 11rem;
+}
+
+/* Indicador de tiempo real en las pantallas de resumen */
+.live-note {
+  margin: 0 0 .75rem;
+  text-align: right;
+}
+
+/* Foto actual encima del campo para subir otra (editar usuario) */
+.photo-current {
+  margin-bottom: .5rem;
+}
+
+/* RF-026: ritmo del período (meta esperada al día) */
+.pace-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(10.5rem, 1fr));
+  gap: 0.75rem 1.25rem;
+  margin: 0;
+  padding: 0 1.25rem 0.5rem;
+}
+
+.pace-grid dt {
+  color: var(--ink-soft);
+  font-size: 0.8rem;
+  font-weight: 600;
+}
+
+.pace-grid dd {
+  margin: 0.1rem 0 0;
+  font-size: 1.05rem;
+}
+
+.pace-strong {
+  font-weight: 700;
+  font-size: 1.25rem;
+}
+
+.pace-verdict {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.6rem;
+  margin: 0.25rem 1.25rem 0.5rem;
+}
+
+/* v26: tablero personal */
+.goal-total {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.6rem;
+  margin: 0;
+  padding: 0.75rem 1.25rem;
+  border-top: 1px solid var(--line-soft);
+}
+
+.personal-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(14rem, 1fr));
+  gap: 1rem 1.5rem;
+  padding: 0 1.25rem 1rem;
+}
+
+.personal-title {
+  margin: 0 0 0.35rem;
+  font-size: 0.85rem;
+  font-weight: 700;
+  color: var(--ink-soft);
+}
+
+.personal-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+  margin: 0;
+}
+
+.personal-note {
+  margin: 0.4rem 0 0;
+  font-size: 0.9rem;
+}
+
+.filters-inline {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin: 0;
+}
+
+.filters-recalc {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.75rem 1.25rem 1rem;
+  border-top: 1px solid var(--line-soft);
 }

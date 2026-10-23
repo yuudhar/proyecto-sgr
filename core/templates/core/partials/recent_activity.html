@@ -1,0 +1,42 @@
+{% load core_ui %}
+<section class="panel mt-4" aria-labelledby="titulo-actividad">
+  <div class="panel-head">
+    <h2 class="panel-title" id="titulo-actividad">Actividad reciente</h2>
+    <span class="panel-note">Registros de atención del período</span>
+  </div>
+  <div class="table-responsive">
+    <table class="table data-table align-middle mb-0">
+      <caption class="visually-hidden">Último ingreso, días sin ingreso, cantidad de registros y promedio diario por funcionario</caption>
+      <thead>
+        <tr>
+          <th scope="col">Funcionario</th>
+          <th scope="col">Último ingreso</th>
+          <th scope="col" class="num">Días sin ingreso</th>
+          <th scope="col" class="num">Registros</th>
+          <th scope="col" class="num">Promedio diario</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% if summary %}
+        <tr class="board-officer">
+          <th scope="row">{{ summary_label }}</th>
+          <td>{% if summary.last_date %}{{ summary.last_date|fdate }}{% else %}<span class="muted fw-normal">Sin ingresos</span>{% endif %}</td>
+          <td class="num">{% if summary.days_without is not None %}{{ summary.days_without }}{% else %}—{% endif %}</td>
+          <td class="num">{{ summary.total }}</td>
+          <td class="num">{% if summary.daily_average is not None %}{{ summary.daily_average|fnumber }}{% else %}—{% endif %}</td>
+        </tr>
+        {% endif %}
+        {% for row in rows %}
+        <tr>
+          <td>{{ row.officer.name }}<span class="board-note">{{ row.officer.position }}</span></td>
+          <td>{% if row.recent.last_date %}{{ row.recent.last_date|fdate }}{% else %}<span class="muted">Sin ingresos</span>{% endif %}</td>
+          <td class="num">{% if row.recent.days_without is not None %}<span class="chip chip-{% if row.recent.alert %}warn{% else %}neutral{% endif %}">{{ row.recent.days_without }}</span>{% else %}—{% endif %}</td>
+          <td class="num">{{ row.recent.total }}</td>
+          <td class="num">{% if row.recent.daily_average is not None %}{{ row.recent.daily_average|fnumber }}{% else %}—{% endif %}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  <p class="meter-legend">Promedio diario = registros del período ÷ días computables transcurridos. Los días sin ingreso se marcan en ámbar desde el octavo día.</p>
+</section>

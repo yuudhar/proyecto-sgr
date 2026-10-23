@@ -6,8 +6,8 @@ Para una instancia EC2 con Amazon Linux 2023 que ya tiene Apache, PHP, MariaDB y
 
 | Pieza | Para qué |
 |---|---|
-| Apache (el de la AMI) | Recibe 80 y 443, pone el certificado, sirve `/static/` y `/phpMyAdmin`, y le pasa el resto a gunicorn |
-| gunicorn (servicio `sgr`) | Ejecuta Django (Apache con PHP no ejecuta Python) |
+| Apache (el de la AMI) | Recibe 80 y 443, pone el certificado, sirve `/static/` y `/phpMyAdmin`, y le pasa el resto a Daphne (`/ws/` por WebSocket) |
+| Daphne (servicio `sgr`) | Ejecuta Django por ASGI, con HTTP y WebSocket (Apache con PHP no ejecuta Python). Desde la v24 reemplaza a gunicorn |
 | MariaDB 10.11 o más | Base de datos; Django 6.1 no se conecta a la 10.5 que instala el tutorial |
 | certbot (en `/opt/certbot`) | Certificado de Let's Encrypt para la IP pública (dura 6 días, se renueva solo) o para un dominio |
 
@@ -29,6 +29,8 @@ Grupo de seguridad: 22 solo desde tu IP; 80 y 443 abiertos. El 3306 no se abre.
 ## Notas
 
 - Un certificado para IP exige certbot 5.4 o más y el perfil `shortlived`; el script lo instala en su propio entorno.
-- Un solo proceso de gunicorn con 8 hilos y caché local, para que el contador de intentos de la recuperación de contraseña sea válido. Con más procesos hace falta Redis (`CACHE_BACKEND=redis`).
+- Un solo proceso de Daphne con caché local y capa de canales en memoria (los avisos en vivo solo llegan entre conexiones del mismo proceso), para que el contador de intentos de la recuperación de contraseña sea válido. Con más procesos hace falta Redis (`CACHE_BACKEND=redis`).
 - phpMyAdmin queda detrás del mismo HTTPS. Para dejarlo solo para tu IP, descomenta el bloque `<Location /phpMyAdmin>` de `/etc/httpd/conf.d/00-sgr.conf`.
 - Actualizar: `cd /opt/sgr/app && sudo bash deploy/actualizar.sh <rama-o-etiqueta>`.
+- **Pasar un servidor instalado con gunicorn (v11 a v23) a la v24**, una sola vez: `cd /opt/sgr/app && sudo -u sgr git fetch --all && sudo -u sgr git checkout <rama> && sudo bash deploy/al2023/agregar_websocket.sh && sudo bash deploy/actualizar.sh <rama>`. El primer script deja a Apache pasando `/ws/` y cambia el servicio a Daphne; el segundo instala Channels y Daphne y reinicia. Para ver el WebSocket: abre el Dashboard en dos navegadores y mira Network → WS (101 Switching Protocols); al editar una atención en uno, el otro se actualiza solo.
+- Daphne no sirve los estáticos: los sirve Apache (`/static/`), como hasta ahora.

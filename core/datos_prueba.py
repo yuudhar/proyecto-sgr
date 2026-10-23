@@ -14,6 +14,7 @@ from core import uploads
 from core.models import AuditLog
 from evidence.models import Evidence, Validation
 from operations.models import Activity, Commitment, Followup, ManagementType
+from planning.calculation import suspended
 from organization.models import (
     Beneficiary,
     Delegation,
@@ -129,6 +130,11 @@ class CargaDatosPrueba(BaseCommand):
                 evidence.save(update_fields=["metadata", "updated_at"])
 
     def handle(self, *args, **options):
+        # El recálculo automático de indicadores queda en pausa: los datos de prueba traen sus propios indicadores.
+        with suspended():
+            return self.cargar(*args, **options)
+
+    def cargar(self, *args, **options):
         self.stdout.write("Cargando roles y catálogo de tipos de gestión...")
         call_command("seed_roles")
         call_command("seed_management_types")
@@ -766,6 +772,19 @@ class CargaDatosPrueba(BaseCommand):
                 "due_date": today + timedelta(days=10),
                 "status": Commitment.Status.SUBMITTED,
                 "responsible_officer": officer_south_2,
+            },
+        )
+        Commitment.objects.get_or_create(
+            delegation=north,
+            territory=territory_north,
+            requester="Centro de Madres Sector Norte",
+            defaults={
+                "requester_type": Commitment.RequesterType.EXTERNAL,
+                "request_date": today - timedelta(days=12),
+                "description": "Entrega de materiales para taller. Quedó pendiente a la espera de la compra.",
+                "due_date": today + timedelta(days=7),
+                "status": Commitment.Status.PENDING,
+                "responsible_officer": officer_north_2,
             },
         )
         Commitment.objects.get_or_create(

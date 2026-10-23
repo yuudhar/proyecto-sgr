@@ -12,6 +12,7 @@ from accounts.models import RoleDetails, RoleProfile, UserProfile, group_is_glob
 from core.access import active_delegation, default_delegation, request_delegation, request_officer
 from core import ui, uploads
 from core.audit import log_event
+from core.commitments import DEADLINE_LABELS, deadline_of, deadline_text, history_of, record_status
 from core.crud import CODE_COLUMN, Cell, Col, Crud, Related, is_id, registry
 from core.forms import (
     ActivityEditForm,
@@ -34,6 +35,9 @@ from core.forms import (
     split_person_name,
 )
 from core.models import AuditLog
+from core.activity_stats import recent_activity
+from core.results import current_period, officer_summary, weight_problems, weights_state
+from core.photos import change_photo, photo_url_of, remove_photo
 from core.roles import (
     ACTIONS,
     PERMISSION_MODULES,
@@ -55,7 +59,9 @@ from organization.models import (
     Service,
     Territory,
 )
+from planning.calculation import IndicatorIndex
 from planning.models import Adjustment, Goal, Indicator, Period
+from planning.pace import pace_of
 
 
 def count_text(total, one, many):
@@ -140,7 +146,7 @@ class ActivityCrud(Crud):
         "beneficiary__name",
         "beneficiary__rut",
     )
-    list_filters = ("delegation", "status", "requires_visit", "added_to_pipeline", "item")
+    list_filters = ("delegation", "status", "requires_visit", "added_to_pipeline", "item", "author_officer")
     select_related = ("delegation", "item", "item__parent_item", "author_officer", "beneficiary", "service")
     form_fields = (
         "date",
@@ -252,6 +258,7 @@ class CommitmentCrud(Crud):
     model = Commitment
     slug = "agenda"
     icon = "bi-calendar-check"
+    deletable = True
     title = "Compromiso"
     title_plural = "Compromisos"
     list_title = "Agenda colectiva"
@@ -261,9 +268,12 @@ class CommitmentCrud(Crud):
         "territory",
         "responsible_officer",
         "due_date",
+        Col("deadline", "Plazo", kind="badge", sort=False),
         "status",
         "requester_type",
     )
+    computed = {"deadline": deadline_of}
+    computed_choices = {"deadline": DEADLINE_LABELS}
     search_fields = ("requester", "territory__name", "description")
     list_filters = ("delegation", "status", "requester_type")
     select_related = ("territory", "territory__delegation", "delegation", "responsible_officer")
@@ -285,6 +295,24 @@ class CommitmentCrud(Crud):
     rules = {"requester": "label", "source": "label", "support": "label"}
     form_base = CommitmentForm
     delegation_lookup = "delegation"
+    detail_panel = "core/crud/commitment_history.html"
+
+    def panel_context(self, request, obj):
+        return {"history": history_of(obj)}
+
+    def extra_detail(self, obj):
+        state = deadline_of(obj)
+        tone, icon = ui.tone_for(state)
+        return [
+            ("Plazo", Cell(kind="badge", text=DEADLINE_LABELS[state], tone=tone, icon=icon)),
+            ("Detalle del plazo", Cell(text=deadline_text(obj))),
+        ]
+
+    def after_save(self, request, obj, form, creating):
+        # RF-018: cada estado queda en el historial, con quién lo cambió y cuándo.
+        previous = None if creating else form.initial.get("status")
+        if creating or previous != obj.status:
+            record_status(request.user, obj, previous, obj.status)
 
     def initial_values(self, request):
         initial = {"request_date": timezone.localdate()}
@@ -494,7 +522,37 @@ class GoalCrud(Crud):
     help_texts = {
         "target_value": "Debe ser mayor a 0.",
         "officer": "Elige un funcionario o un cargo para asignar la meta.",
+        "weight": "Los ponderadores de cada funcionario en el período deben sumar 100 %.",
     }
+
+    def after_save(self, request, obj, form, creating):
+        # RF-006: no se impide guardar (las metas se crean de a una), pero se avisa si la suma no llega o pasa de 100 %.
+        problems = weight_problems(obj)
+        for officer, total, state in problems[:3]:
+            verb = "no llegan a" if state == "under" else "superan"
+            messages.warning(
+                request,
+                f"Ponderadores de {officer.name} en este período: suman {ui.fmt_number(total)} % y {verb} 100 %. "
+                "Ajusta las metas para que sumen 100 %.",
+            )
+        if len(problems) > 3:
+            messages.warning(request, f"Otros {len(problems) - 3} funcionarios también tienen ponderadores que no suman 100 %.")
+
+    def extra_detail(self, obj):
+        problems = {officer.pk: (total, state) for officer, total, state in weight_problems(obj)}
+        from core.results import officer_weights
+        from planning.calculation import officers_of
+
+        officers = officers_of(obj)
+        if obj.officer_id:
+            total = officer_weights(obj.period, obj.officer)
+            text = f"{ui.fmt_number(total)} %" + ("" if weights_state(total) == "ok" else " (deben sumar 100 %)")
+            return [("Suma de ponderadores del funcionario", Cell(text=text))]
+        if not officers:
+            return []
+        bad = len(problems)
+        text = "Todos suman 100 %" if not bad else f"{bad} de {len(officers)} funcionarios no suman 100 %"
+        return [("Ponderadores de los funcionarios del cargo", Cell(text=text))]
     related = (
         Related(
             "indicadores",
@@ -648,6 +706,7 @@ class TerritoryCrud(Crud):
     model = Territory
     slug = "territorios"
     icon = "bi-geo-alt"
+    deletable = True
     description = "Territorios de cada delegación."
     list_display = ("name", "delegation")
     search_fields = ("name", "delegation__name")
@@ -687,6 +746,27 @@ class OfficerCrud(Crud):
     }
     delegation_lookup = "delegation"
     related = (Related("metas", "officer", "Metas"),)
+    detail_panel = "core/crud/officer_sheet.html"
+
+    def panel_context(self, request, obj):
+        """RF-008: ficha personal con las metas del período, el avance, el cumplimiento y el aporte ponderado."""
+        if not request.user.has_perm("planning.view_indicator"):
+            return {}
+        periods = list(Period.objects.filter(deleted_at__isnull=True).order_by("-start_date"))
+        chosen = request.GET.get("periodo", "")
+        period = next((each for each in periods if str(each.pk) == chosen), None) or current_period()
+        if period is None:
+            return {}
+        goals = list(Goal.objects.filter(deleted_at__isnull=True, period=period).select_related("item"))
+        pace = pace_of(period)
+        sheet = officer_summary(obj, period, goals, IndicatorIndex([goal.pk for goal in goals]), pace)
+        return {
+            "sheet": sheet,
+            "period": period,
+            "periods": periods,
+            "pace": pace,
+            "recent": recent_activity([obj.pk], period, pace)[obj.pk],
+        }
 
     def extra_detail(self, obj):
         account = getattr(obj, "user_profile", None)
@@ -722,6 +802,8 @@ class PositionCrud(Crud):
     model = Position
     slug = "cargos"
     icon = "bi-person-badge"
+    deletable = True
+    state_filter = True
     description = "Cargos con su período de vigencia."
     list_display = (Col("name", "Nombre", link=True), "valid_from", "valid_until")
     search_fields = ("name",)
@@ -761,6 +843,7 @@ class ServiceCrud(Crud):
     model = Service
     slug = "servicios"
     icon = "bi-card-checklist"
+    deletable = True
     list_title = "Catálogo de servicios"
     description = "Servicios municipales que se pueden asociar a una actividad."
     list_display = (Col("name", "Nombre", link=True), "status")
@@ -879,6 +962,7 @@ class ItemCrud(ItemRules, ItemColumns, Crud):
     title_plural = "Ítems"
     list_title = "Ítems y metas"
     description = "Todos los ítems que se miden en las metas: tipos de atención y sus sub atenciones."
+    search_fields = ("name", "description")
     code_prefix = "IT"
     code_digits = 3
     list_display = (
@@ -995,6 +1079,8 @@ class ManagementTypeCrud(Crud):
     model = ManagementType
     slug = "tipos-de-gestion"
     icon = "bi-signpost-split"
+    deletable = True
+    state_filter = True
     description = "Tipos de gestión que se usan en el seguimiento de una actividad."
     list_display = (Col("name", "Nombre", link=True),)
     search_fields = ("name",)
@@ -1008,6 +1094,8 @@ class BeneficiaryCrud(Crud):
     model = Beneficiary
     slug = "beneficiarios"
     icon = "bi-person-lines-fill"
+    deletable = True
+    state_filter = True
     description = "Personas atendidas. Es un catálogo compartido entre delegaciones."
     list_display = (Col("name", "Nombre", link=True), "rut", "phone", "address")
     search_fields = ("name", "rut", "address")
@@ -1071,7 +1159,16 @@ class UserCrud(Crud):
     title_plural = "Usuarios"
     list_title = "Control de usuarios"
     description = "Cuentas del sistema con su perfil y su delegación."
-    archivable = False
+    archive_lookup = "profile__deleted_at"
+    archived_label = "Usuarios eliminados"
+    archived_banner = (
+        "Este usuario está eliminado: no puede ingresar ni aparece en el listado de usuarios. "
+        "Solo el Super Usuario lo ve aquí y puede restaurarlo."
+    )
+    archive_note = (
+        "El usuario deja de aparecer en el listado y no podrá ingresar. No se borra de la base de datos: pasa a "
+        "«Usuarios eliminados» y el Super Usuario puede restaurarlo cuando haga falta. Su historial se conserva."
+    )
     ordering = ("username",)
     list_display = (
         Col("username", "Usuario", link=True),
@@ -1137,9 +1234,52 @@ class UserCrud(Crud):
         "password1": "password",
     }
 
+    def can_archive(self, user):
+        return user.is_superuser and super().can_archive(user)
+
+    def can_see_archived(self, request):
+        return request.user.is_superuser
+
+    def get_queryset(self, request, include_archived=False):
+        return super().get_queryset(request, include_archived=include_archived and request.user.is_superuser)
+
+    def archived_at(self, obj):
+        profile = getattr(obj, "profile", None)
+        return profile.deleted_at if profile else None
+
+    def set_archived(self, obj, when):
+        profile, _ = UserProfile.objects.get_or_create(user=obj)
+        profile.deleted_at = when
+        fields = ["deleted_at", "updated_at"]
+        if when is not None:
+            profile.status = UserProfile.Status.INACTIVE
+            fields.append("status")
+            if obj.is_active:
+                obj.is_active = False
+                obj.save(update_fields=["is_active"])
+        profile.save(update_fields=fields)
+        obj.profile = profile
+
+    def archive_guard(self, request, obj):
+        if obj.pk == request.user.pk:
+            return ["No puedes eliminar tu propia cuenta."]
+        return []
+
+    def say(self, kind, obj):
+        name = obj.get_username()
+        if kind == "archived":
+            return f"Usuario «{name}» eliminado. Lo encuentras en Usuarios eliminados."
+        if kind == "restored":
+            return (
+                f"Usuario «{name}» restaurado. Sigue inactivo: actívalo en Editar cuando deba volver a ingresar."
+            )
+        return super().say(kind, obj)
+
     def extra_detail(self, obj):
         officer = officer_of(obj)
+        photo = photo_url_of(obj)
         return [
+            ("Foto de perfil", Cell(kind="avatar", text="Foto de perfil", url=photo) if photo else Cell()),
             ("Perfiles", Cell(text=roles_text(obj))),
             ("Funcionario", Cell(text=str(officer) if officer else "")),
             ("Delegación", Cell(text=str(officer.delegation) if officer else "")),
@@ -1149,9 +1289,10 @@ class UserCrud(Crud):
 
     def record_meta(self, obj):
         text = f"Cuenta creada el {ui.fmt_datetime(obj.date_joined)}."
-        if obj.last_login:
-            return f"{text} Último ingreso el {ui.fmt_datetime(obj.last_login)}."
-        return f"{text} Todavía no ha ingresado."
+        text += f" Último ingreso el {ui.fmt_datetime(obj.last_login)}." if obj.last_login else " Todavía no ha ingresado."
+        if self.archived_at(obj):
+            text += f" Eliminado el {ui.fmt_datetime(self.archived_at(obj))}."
+        return text
 
     def prepare_object(self, request, obj, creating, form):
         if not creating:
@@ -1173,6 +1314,7 @@ class UserCrud(Crud):
             },
         )
         obj = User.objects.get(pk=obj.pk)
+        self.save_photo(request, obj, form)
         self.save_extra_delegations(request, obj, form, creating)
         if not creating:
             roles, officer_name = roles_text(obj), str(officer) if officer else ""
@@ -1186,6 +1328,14 @@ class UserCrud(Crud):
                 )
             if form.cleaned_data.get("password1"):
                 log_event(request.user, "Contraseña restablecida", obj)
+
+    def save_photo(self, request, obj, form):
+        """La foto la puede cambiar o quitar quien edita al usuario (la persona también la cambia en Mi perfil)."""
+        uploaded = form.cleaned_data.get("photo")
+        if uploaded:
+            change_photo(request.user, obj, uploaded)
+        elif form.cleaned_data.get("remove_photo"):
+            remove_photo(request.user, obj)
 
     def save_extra_delegations(self, request, obj, form, creating):
         if "extra_delegations" not in form.cleaned_data:

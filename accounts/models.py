@@ -38,7 +38,7 @@ class UserProfile(BaseModel):
         max_length=20, choices=Status.choices, default=Status.ACTIVE,
         verbose_name="estado",
     )
-    photo = models.FileField(
+    photo = models.ImageField(
         upload_to=photo_path,
         max_length=255,
         null=True,

@@ -59,9 +59,9 @@ class NoticeMarkupTests(PortalTestCase):
 
     def test_a_preference_change_is_a_short_toast(self):
         self.login_as("matias.cavieres")
-        level, tags, text = self.notice(self.page_size(10))
+        level, tags, text = self.notice(self.page_size(5))
         self.assertEqual((level, tags), ("success", "toast"))
-        self.assertIn("10 filas por página", text)
+        self.assertIn("5 filas por página", text)
 
     def test_an_error_is_marked_as_error_and_changes_nothing(self):
         self.login_as("matias.cavieres")
@@ -91,7 +91,7 @@ class NoticeMarkupTests(PortalTestCase):
 
     def test_without_javascript_the_notice_is_a_normal_banner_with_a_close_button(self):
         self.login_as("matias.cavieres")
-        html = self.page_size(20).content.decode()
+        html = self.page_size(15).content.decode()
         self.assertIn('class="flash"', html)
         self.assertIn('data-bs-dismiss="alert"', html)
         css = open(finders.find("core/css/sgr.css"), encoding="utf-8").read()

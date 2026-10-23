@@ -1,0 +1,107 @@
+{% extends "base.html" %}
+{% load core_ui %}
+{% block title %}Vista por cargos{% endblock %}
+
+{% block content %}
+<section class="page-head">
+  <div>
+    <h1 class="page-title"><i class="bi bi-diagram-3" aria-hidden="true"></i>Vista por cargos</h1>
+    <p class="page-sub">Cargos con sus funcionarios, las metas del equipo y las cifras logradas en el período. Desde aquí se llega a la ficha de cada cargo y de cada funcionario.</p>
+  </div>
+</section>
+
+<section class="panel mb-4" aria-label="Selección de delegación y período">
+  <form method="get" class="filters" data-loading>
+    {% if can_pick_delegation %}
+    <div class="field">
+      <label for="sel-delegacion">Delegación</label>
+      <select class="form-select" id="sel-delegacion" name="delegacion">
+        <option value="todas"{% if not delegation %} selected{% endif %}>Todas las delegaciones</option>
+        {% for option in delegations %}<option value="{{ option.pk }}"{% if option == delegation %} selected{% endif %}>{{ option.name }}</option>{% endfor %}
+      </select>
+    </div>
+    {% endif %}
+    <div class="field field-period">
+      <label for="sel-periodo">Período</label>
+      <select class="form-select" id="sel-periodo" name="periodo">
+        {% for option in periods %}<option value="{{ option.pk }}"{% if option == period %} selected{% endif %}>{{ option.start_date|fdate }} al {{ option.end_date|fdate }} ({{ option.get_status_display }})</option>{% endfor %}
+      </select>
+    </div>
+    <div class="filters-actions">
+      <button type="submit" class="btn btn-primary"><i class="bi bi-funnel" aria-hidden="true"></i> Ver cargos</button>
+    </div>
+  </form>
+</section>
+
+<div data-live-page data-live-region>
+<p class="live-note">{% include "core/partials/live_chip.html" %}</p>
+{% if not period %}
+<section class="panel"><div class="empty"><i class="bi bi-diagram-3" aria-hidden="true"></i><p>Todavía no hay períodos creados.</p></div></section>
+{% elif not groups %}
+<section class="panel"><div class="empty"><i class="bi bi-people" aria-hidden="true"></i><p>No hay funcionarios activos para mostrar con este filtro.</p></div></section>
+{% else %}
+<p class="page-sub mb-3">Período del {{ period.start_date|fdate }} al {{ period.end_date|fdate }}: {{ pace.stage_label|lower }}, con {{ pace.expected_percent|fnumber }} % esperado al día.</p>
+{% for group in groups %}
+<section class="panel mb-4" aria-labelledby="cargo-{{ group.position.pk }}">
+  <div class="panel-head">
+    <h2 class="panel-title" id="cargo-{{ group.position.pk }}">{% if group.url %}<a class="cell-link" href="{{ group.url }}">{{ group.position.name }}</a>{% else %}{{ group.position.name }}{% endif %}</h2>
+    <span class="panel-note">{{ group.officers|length }} funcionario{{ group.officers|length|pluralize }} · cargo vigente desde {{ group.position.valid_from|fdate }}{% if group.position.valid_until %} hasta {{ group.position.valid_until|fdate }}{% endif %}{% if group.last_date %} · último ingreso del equipo: {{ group.last_date|fdate }}{% endif %}</span>
+  </div>
+  <div class="stat-strip stat-strip-board">
+    <div class="stat">
+      <span class="stat-label">Cumplimiento promedio del equipo</span>
+      <div class="mt-2">{% if group.average is not None %}{% meter group.average group.light period.collective_threshold period.amber_threshold %}{% else %}<span class="muted">Sin indicadores</span>{% endif %}</div>
+    </div>
+    <div class="stat">
+      <span class="stat-label">Total ponderado promedio</span>
+      <span class="stat-value">{% if group.weighted is not None %}{{ group.weighted|fnumber }} %{% else %}—{% endif %}</span>
+    </div>
+  </div>
+
+  {% if group.team_goals %}
+  <div class="table-responsive">
+    <table class="table data-table align-middle">
+      <caption class="visually-hidden">Cifras logradas por el equipo de {{ group.position.name }}</caption>
+      <thead><tr><th scope="col">Metas del equipo</th><th scope="col" class="num">Objetivo sumado</th><th scope="col" class="num">Logrado</th><th scope="col" class="num">%</th></tr></thead>
+      <tbody>
+        {% for row in group.team_goals %}
+        <tr><td>{{ row.item }}</td><td class="num">{{ row.target|fnumber }} {{ row.unit }}</td><td class="num">{{ row.progress|fnumber }}</td><td class="num">{% if row.percent is not None %}{{ row.percent|fnumber }} %{% else %}—{% endif %}</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% endif %}
+
+  <div class="table-responsive">
+    <table class="table data-table align-middle mb-0">
+      <caption class="visually-hidden">Funcionarios de {{ group.position.name }}</caption>
+      <thead>
+        <tr>
+          <th scope="col">Funcionario</th>
+          <th scope="col">Delegación</th>
+          <th scope="col">Cumplimiento</th>
+          <th scope="col" class="num">Ponderado</th>
+          <th scope="col">Semáforo</th>
+          <th scope="col">Último ingreso</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for row in group.officers %}
+        <tr>
+          <td>{% if row.url %}<a class="cell-link" href="{{ row.url }}">{{ row.officer.name }}</a>{% else %}{{ row.officer.name }}{% endif %}<span class="board-note">{{ row.goal_total }} meta{{ row.goal_total|pluralize }}</span></td>
+          <td>{{ row.officer.delegation.name }}</td>
+          <td>{% if row.average is not None %}{% meter row.average row.light period.collective_threshold period.amber_threshold compact=True %}{% else %}<span class="muted">Sin indicadores</span>{% endif %}</td>
+          <td class="num">{% if row.weighted_total is not None %}{{ row.weighted_total|fnumber }} %{% else %}—{% endif %}{% if row.weights_state and row.weights_state != "ok" %} <span class="chip chip-warn" title="{{ row.weights_text }}">{{ row.weights_total|fnumber }} %</span>{% endif %}</td>
+          <td>{% if row.light %}<span class="chip chip-{{ row.light|tone }}"><i class="bi {{ row.light|tone_icon }}" aria-hidden="true"></i>{{ row.light|light_label }}</span>{% endif %}</td>
+          <td>{% if row.recent.last_date %}{{ row.recent.last_date|fdate }}{% else %}<span class="muted">Sin ingresos</span>{% endif %}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</section>
+{% endfor %}
+<p class="meter-legend">Los números salen de los indicadores de cada funcionario (metas personales y del cargo). Un total ponderado con una marca ámbar al lado indica que los ponderadores de esa persona no suman 100 %.</p>
+{% endif %}
+</div>
+{% endblock %}

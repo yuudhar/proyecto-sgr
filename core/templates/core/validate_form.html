@@ -14,6 +14,7 @@
   <div class="col-lg-7">
     <form method="post" class="panel" data-once data-validate data-unsaved-guard{% if form.is_bound %}="dirty"{% endif %}>
       {% csrf_token %}
+      <input type="hidden" name="_version" value="{{ version }}">
       <div class="panel-head"><h2 class="panel-title">Tu revisión</h2></div>
       <div class="panel-body">
         <p class="required-note">Los campos con <span class="required-mark">*</span> son obligatorios.</p>
@@ -21,7 +22,7 @@
         {% if form.errors %}
         <div class="alert alert-danger d-flex gap-2" role="alert">
           <i class="bi bi-x-octagon-fill" aria-hidden="true"></i>
-          <div><strong>No se pudo guardar la revisión.</strong> Revisa los campos marcados en rojo.</div>
+          <div><strong>No se pudo guardar la revisión.</strong>{% for error in form.non_field_errors %} {{ error }}{% empty %} Revisa los campos marcados en rojo.{% endfor %}</div>
         </div>
         {% endif %}
 

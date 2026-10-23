@@ -9,8 +9,8 @@ Guía para dejar el SGR funcionando en una instancia EC2 y para actualizarlo. To
 | Componente | Servicio AWS / programa | Para qué |
 |---|---|---|
 | Servidor | EC2 (Ubuntu 22.04/24.04; t3.small o superior) | Ejecuta la aplicación |
-| Aplicación | Django 6 + gunicorn (`deploy/gunicorn.conf.py`) bajo systemd (`deploy/sgr.service`) | Sirve el portal |
-| Proxy web | nginx (`deploy/nginx-sgr.conf`) | Recibe el tráfico en 80/443, sirve `/static/` y traspasa el resto a gunicorn |
+| Aplicación | Django 6 + Daphne (ASGI: HTTP y WebSocket) bajo systemd (`deploy/sgr.service`); `deploy/gunicorn.conf.py` queda sin uso desde la v24 | Sirve el portal |
+| Proxy web | nginx (`deploy/nginx-sgr.conf`) | Recibe el tráfico en 80/443, sirve `/static/` y traspasa el resto a Daphne (y `/ws/` con las cabeceras de WebSocket) |
 | Base de datos | SQLite en modo WAL (por defecto) o MySQL en RDS (`DB_ENGINE=mysql`) | Datos del sistema |
 | Caché compartida | Redis local (paquete `redis-server`) o ElastiCache | Contador de intentos de la recuperación de contraseña con varios procesos |
 | Red | Grupo de seguridad: 22 (solo tu IP), 80 y 443 (público). La base RDS, si se usa, solo acepta tráfico del grupo de la instancia | Aislamiento |

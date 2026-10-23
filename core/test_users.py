@@ -86,13 +86,13 @@ class UserAccessTests(UserTestCase):
         quiroz.refresh_from_db()
         self.assertEqual(quiroz.email, before)
 
-    def test_users_are_deactivated_not_archived(self):
+    def test_users_are_sent_to_deleted_users_never_erased(self):
         with self.assertRaises(NoReverseMatch):
-            reverse("core:usuarios_archive", args=[1])
+            reverse("core:usuarios_delete", args=[1])
         self.login_as("admin")
         quiroz = User.objects.get(username="matias.quiroz")
-        self.assertNotContains(self.client.get(reverse("core:usuarios_detail", args=[quiroz.pk])), "Eliminar")
-        self.assertNotContains(self.client.get(self.update_url(quiroz)), "Eliminar")
+        self.assertContains(self.client.get(reverse("core:usuarios_detail", args=[quiroz.pk])), "Eliminar")
+        self.assertContains(self.client.get(self.update_url(quiroz)), "Eliminar")
 
 
 class UserListTests(UserTestCase):

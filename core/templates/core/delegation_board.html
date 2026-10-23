@@ -30,8 +30,18 @@
       <button type="submit" class="btn btn-primary"><i class="bi bi-funnel" aria-hidden="true"></i> Ver tablero</button>
     </div>
   </form>
+  {% if perms.planning.add_indicator and period %}
+  <form method="post" action="{% url 'core:recalculate_indicators' %}" class="filters-recalc" data-once>
+    {% csrf_token %}
+    <input type="hidden" name="periodo" value="{{ period.pk }}">
+    <button type="submit" class="btn btn-outline-primary btn-sm"><i class="bi bi-arrow-repeat" aria-hidden="true"></i> Recalcular indicadores del período</button>
+    <span class="muted">Se recalculan solos al validar evidencias; este botón sirve para ponerlos al día después de cambios masivos.</span>
+  </form>
+  {% endif %}
 </section>
 
+<div data-live-page data-live-region>
+<p class="live-note">{% include "core/partials/live_chip.html" %}</p>
 {% if not delegation or not period %}
 <section class="panel">
   <div class="empty">
@@ -42,6 +52,7 @@
 {% else %}
 
 <h2 class="visually-hidden">Resumen de {{ delegation.name }}</h2>
+{% include "core/partials/pace_panel.html" %}
 <div class="stat-strip stat-strip-board">
   <div class="stat">
     <span class="stat-label">Cumplimiento promedio de {{ delegation.name }}</span>
@@ -77,7 +88,10 @@
           <th scope="col">Funcionario y metas</th>
           <th scope="col" class="num">Objetivo</th>
           <th scope="col" class="num">Avance</th>
+          <th scope="col" class="num">Esperado hoy</th>
           <th scope="col">Cumplimiento</th>
+          <th scope="col" class="num">Ponderador</th>
+          <th scope="col" class="num">Ponderado</th>
           <th scope="col">Semáforo</th>
         </tr>
       </thead>
@@ -87,7 +101,10 @@
           <td>{{ result.officer.name }}<span class="board-note">{{ result.officer.position }}. {{ result.goal_total }} meta{{ result.goal_total|pluralize }}</span></td>
           <td></td>
           <td></td>
+          <td></td>
           <td>{% if result.average is not None %}{% meter result.average result.light period.collective_threshold period.amber_threshold compact=True %}{% else %}<span class="muted fw-normal">Sin indicadores</span>{% endif %}</td>
+          <td class="num">{% if result.weights_total is not None %}<span class="chip chip-{% if result.weights_state == 'ok' %}ok{% else %}warn{% endif %}" title="{{ result.weights_text }}">{{ result.weights_total|fnumber }} %</span>{% endif %}</td>
+          <td class="num">{% if result.weighted_total is not None %}{{ result.weighted_total|fnumber }} %{% endif %}</td>
           <td>{% if result.light %}<span class="chip chip-{{ result.light|tone }}"><i class="bi {{ result.light|tone_icon }}" aria-hidden="true"></i>{{ result.light|light_label }}</span>{% endif %}</td>
         </tr>
         {% for line in result.lines %}
@@ -95,7 +112,10 @@
           <td>{{ line.item }}<span class="board-note">{{ line.scope }}</span></td>
           <td class="num">{{ line.target }} {{ line.unit }}</td>
           <td class="num">{% if line.indicator %}{{ line.progress }}{% else %}—{% endif %}</td>
+          <td class="num">{{ line.expected }}</td>
           <td>{% if line.indicator %}{% meter line.compliance line.light period.collective_threshold period.amber_threshold compact=True %}{% else %}<span class="muted">Aún sin cálculo</span>{% endif %}</td>
+          <td class="num">{{ line.weight|fnumber }} %</td>
+          <td class="num">{% if line.weighted is not None %}{{ line.weighted|fnumber }} %{% else %}—{% endif %}</td>
           <td>{% if line.light %}<span class="chip chip-{{ line.light|tone }}"><i class="bi {{ line.light|tone_icon }}" aria-hidden="true"></i>{{ line.light|light_label }}</span>{% endif %}</td>
         </tr>
         {% endfor %}
@@ -103,7 +123,7 @@
       </tbody>
     </table>
   </div>
-  <p class="meter-legend">Las marcas de la barra son los umbrales del período: ámbar desde {{ period.amber_threshold|fnumber }} % y verde desde {{ period.collective_threshold|fnumber }} %. El promedio de cada funcionario considera sus metas personales y las de su cargo.</p>
+  <p class="meter-legend">Las marcas de la barra son los umbrales del período: ámbar desde {{ period.amber_threshold|fnumber }} % y verde desde {{ period.collective_threshold|fnumber }} %. El promedio de cada funcionario considera sus metas personales y las de su cargo. Ponderado = ponderador × cumplimiento ÷ 100 (con tope de {{ period.weighted_cap|fnumber }} % en el cumplimiento); los ponderadores de cada funcionario deben sumar 100 %, y si no, se marcan en ámbar.</p>
   {% else %}
   <div class="empty">
     <i class="bi bi-people" aria-hidden="true"></i>
@@ -111,5 +131,10 @@
   </div>
   {% endif %}
 </section>
+
+{% if results %}
+{% include "core/partials/recent_activity.html" with rows=results summary=recent_summary summary_label=delegation.name %}
 {% endif %}
+{% endif %}
+</div>
 {% endblock %}

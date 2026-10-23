@@ -24,6 +24,9 @@ urlpatterns = [
     path("evidencias/validar/", views.validate_list, name="validate_list"),
     path("evidencias/<int:pk>/validar/", views.validate_evidence, name="validate_evidence"),
     path("tablero/delegacion/", views.delegation_board, name="delegation_board"),
+    path("agenda/resumen/", views.commitment_summary, name="commitment_summary"),
+    path("tablero/recalcular/", views.recalculate_indicators, name="recalculate_indicators"),
+    path("resultados/cargos/", views.position_overview, name="position_overview"),
     path("informes/", views.reports, name="reports"),
     path("administracion/", views.administration, name="administration"),
     path(

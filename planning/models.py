@@ -111,6 +111,16 @@ class Indicator(BaseModel):
     goal = models.ForeignKey(
         Goal, on_delete=models.PROTECT, related_name="indicators", verbose_name="meta"
     )
+    # v26: una meta del cargo la cumple cada funcionario por separado, así que el cálculo automático guarda un
+    # indicador por funcionario. Los indicadores anteriores (sin funcionario) valen para quien tenga esa meta.
+    officer = models.ForeignKey(
+        Officer,
+        on_delete=models.PROTECT,
+        null=True,
+        blank=True,
+        related_name="indicators",
+        verbose_name="calculado para",
+    )
 
     class Meta:
         ordering = ("-calculated_at",)

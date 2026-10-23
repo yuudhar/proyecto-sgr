@@ -198,7 +198,7 @@ class ModalLinksTests(PortalTestCase):
         self.login_as("admin")
         beneficiary = Beneficiary.objects.get(rut="11111111-1")
         url = reverse("core:beneficiarios_archive", args=[beneficiary.pk])
-        self.assertContains(self.client.get(url), "Eliminar beneficiario")
+        self.assertContains(self.client.get(url), "Archivar beneficiario")
         self.assertEqual(self.client.post(url).status_code, 302)
         beneficiary.refresh_from_db()
         self.assertIsNotNone(beneficiary.deleted_at)

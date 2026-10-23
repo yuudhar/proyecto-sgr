@@ -12,7 +12,7 @@
   </div>
 </div>
 {% else %}
-
+<div data-live-page data-live-region>
 <section class="page-head">
   <div>
     <h1 class="page-title">Hola, {{ greeting_name }}</h1>
@@ -22,7 +22,7 @@
       {% if period %}Período del {{ period.start_date|fdate }} al {{ period.end_date|fdate }}.{% endif %}
     </p>
 
-    <p class="page-sub session-note"><i class="bi bi-clock-history" aria-hidden="true"></i> Visitas al inicio en esta sesión: <strong>{{ visits }}</strong></p>
+    <p class="page-sub session-note"><i class="bi bi-clock-history" aria-hidden="true"></i> Visitas al inicio en esta sesión: <strong>{{ visits }}</strong> {% include "core/partials/live_chip.html" %}</p>
   </div>
   {% if shortcuts %}
   <div class="page-actions">
@@ -32,6 +32,24 @@
   </div>
   {% endif %}
 </section>
+
+{% if periods|length > 1 %}
+<section class="panel mb-4" aria-label="Período">
+  <form method="get" class="filters" data-loading>
+    <div class="field field-period">
+      <label for="sel-periodo-inicio">Período</label>
+      <select class="form-select" id="sel-periodo-inicio" name="periodo">
+        {% for option in periods %}<option value="{{ option.pk }}"{% if option == period %} selected{% endif %}>{{ option.start_date|fdate }} al {{ option.end_date|fdate }} ({{ option.get_status_display }})</option>{% endfor %}
+      </select>
+    </div>
+    <div class="filters-actions">
+      <button type="submit" class="btn btn-primary"><i class="bi bi-funnel" aria-hidden="true"></i> Ver período</button>
+    </div>
+  </form>
+</section>
+{% endif %}
+
+{% include "core/partials/pace_panel.html" %}
 
 <div class="row g-4">
   {% if me_officer or light_counts %}
@@ -47,7 +65,7 @@
         <li class="goal-row">
           <div>
             <p class="goal-name">{{ line.item }}</p>
-            <p class="goal-meta">{{ line.scope }}. Objetivo: {{ line.target }} {{ line.unit }}{% if line.indicator %}. Avance: {{ line.progress }}{% endif %}</p>
+            <p class="goal-meta">{{ line.scope }}. Objetivo: {{ line.target }} {{ line.unit }}{% if line.indicator %}. Avance: {{ line.progress }}{% endif %}. Esperado hoy: {{ line.expected }}. Ponderador: {{ line.weight|fnumber }} %{% if line.weighted is not None %}. Aporte ponderado: {{ line.weighted|fnumber }} %{% endif %}.{% if activities_url %} <a href="{{ activities_url }}?item={{ line.goal.item_id }}&amp;author_officer={{ me_officer.pk }}">Ver las actividades</a>{% endif %}</p>
           </div>
           <div>
             {% if line.indicator %}
@@ -62,7 +80,12 @@
         </li>
         {% endfor %}
       </ul>
-      <p class="meter-legend">Las marcas de la barra son los umbrales del período: ámbar desde {{ period.amber_threshold|fnumber }} % y verde desde {{ period.collective_threshold|fnumber }} %.</p>
+      <p class="goal-total">
+        <strong>Total ponderado: {% if sheet.weighted_total is not None %}{{ sheet.weighted_total|fnumber }} %{% else %}sin cálculo{% endif %}</strong>
+        <span class="chip chip-{% if sheet.weights_state == 'ok' %}ok{% else %}warn{% endif %}">Ponderadores: {{ sheet.weights_total|fnumber }} %</span>
+        {% if sheet.weights_state != "ok" %}<span class="muted">{{ sheet.weights_text }}; coordinación debe ajustarlos.</span>{% endif %}
+      </p>
+      <p class="meter-legend">Las marcas de la barra son los umbrales del período: ámbar desde {{ period.amber_threshold|fnumber }} % y verde desde {{ period.collective_threshold|fnumber }} %. Cumplimiento = actividades con evidencia aprobada ÷ objetivo × 100 (tope {{ period.weighted_cap|fnumber }} %); aporte ponderado = ponderador × cumplimiento ÷ 100.</p>
       {% else %}
       <div class="empty">
         <i class="bi bi-bullseye" aria-hidden="true"></i>
@@ -70,6 +93,27 @@
       </div>
       {% endif %}
     </section>
+
+    {% if personal %}
+    <section class="panel mt-4" aria-labelledby="titulo-personal">
+      <div class="panel-head"><h2 class="panel-title" id="titulo-personal">Mis evidencias, compromisos y actividad</h2></div>
+      <div class="personal-grid">
+        <div>
+          <h3 class="personal-title">Evidencias del período</h3>
+          <p class="personal-chips">{% for item in personal.evidence %}<span class="chip chip-{{ item.tone }}">{{ item.label }}: {{ item.total }}</span>{% endfor %}</p>
+        </div>
+        <div>
+          <h3 class="personal-title">Mis compromisos</h3>
+          <p class="personal-chips">{% for item in personal.commitments %}<span class="chip chip-{{ item.tone }}">{{ item.label }}: {{ item.total }}</span>{% endfor %}</p>
+          <p class="personal-note">{{ personal.overdue }} vencido{{ personal.overdue|pluralize }}, {{ personal.due_soon }} por vencer, {{ personal.late }} realizado{{ personal.late|pluralize }} fuera de plazo.</p>
+        </div>
+        <div>
+          <h3 class="personal-title">Mi actividad</h3>
+          <p class="personal-note">{% if personal.recent.last_date %}Último ingreso: {{ personal.recent.last_date|fdate }} ({{ personal.recent.days_without }} día{{ personal.recent.days_without|pluralize }} atrás).{% else %}Todavía no registras atenciones.{% endif %} {{ personal.recent.total }} registro{{ personal.recent.total|pluralize }} en el período{% if personal.recent.daily_average is not None %}, {{ personal.recent.daily_average|fnumber }} por día computable{% endif %}.</p>
+        </div>
+      </div>
+    </section>
+    {% endif %}
     {% else %}
     <section class="panel" aria-labelledby="titulo-semaforo">
       <div class="panel-head">
@@ -142,6 +186,7 @@
     </section>
   </div>
   {% endif %}
+</div>
 </div>
 {% endif %}
 {% endblock %}

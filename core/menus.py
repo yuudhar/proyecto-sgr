@@ -94,6 +94,7 @@ MENU = [
                 [
                     crud_entry("gestiones"),
                     crud_entry("agenda", "Agenda colectiva"),
+                    page_entry("commitment_summary", "Resumen colectivo", "bi-pie-chart", "operations.view_commitment"),
                     crud_entry("evidencias"),
                     page_entry("validate_list", "Validar evidencias", "bi-patch-check", "evidence.add_validation"),
                 ],
@@ -110,6 +111,7 @@ MENU = [
                 "",
                 [
                     page_entry("delegation_board", "Tablero de delegación", "bi-columns-gap", "planning.view_indicator"),
+                    page_entry("position_overview", "Vista por cargos", "bi-diagram-3", "planning.view_indicator"),
                     page_entry("reports", "Informes", "bi-file-earmark-bar-graph", "planning.view_indicator"),
                     crud_entry("indicadores"),
                 ],
