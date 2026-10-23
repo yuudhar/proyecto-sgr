@@ -12,6 +12,7 @@ from accounts.models import RoleDetails, RoleProfile, UserProfile, group_is_glob
 from core.access import active_delegation, default_delegation, request_delegation, request_officer
 from core import ui, uploads
 from core.audit import log_event
+from core.commitments import history_of, record_status
 from core.crud import CODE_COLUMN, Cell, Col, Crud, Related, is_id, registry
 from core.forms import (
     ActivityEditForm,
@@ -287,6 +288,16 @@ class CommitmentCrud(Crud):
     rules = {"requester": "label", "source": "label", "support": "label"}
     form_base = CommitmentForm
     delegation_lookup = "delegation"
+    detail_panel = "core/crud/commitment_history.html"
+
+    def panel_context(self, request, obj):
+        return {"history": history_of(obj)}
+
+    def after_save(self, request, obj, form, creating):
+        # RF-018: cada estado queda en el historial, con quién lo cambió y cuándo.
+        previous = None if creating else form.initial.get("status")
+        if creating or previous != obj.status:
+            record_status(request.user, obj, previous, obj.status)
 
     def initial_values(self, request):
         initial = {"request_date": timezone.localdate()}

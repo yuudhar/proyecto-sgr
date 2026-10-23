@@ -770,6 +770,19 @@ class CargaDatosPrueba(BaseCommand):
         )
         Commitment.objects.get_or_create(
             delegation=north,
+            territory=territory_north,
+            requester="Centro de Madres Sector Norte",
+            defaults={
+                "requester_type": Commitment.RequesterType.EXTERNAL,
+                "request_date": today - timedelta(days=12),
+                "description": "Entrega de materiales para taller. Quedó pendiente a la espera de la compra.",
+                "due_date": today + timedelta(days=7),
+                "status": Commitment.Status.PENDING,
+                "responsible_officer": officer_north_2,
+            },
+        )
+        Commitment.objects.get_or_create(
+            delegation=north,
             territory=territory_north_2,
             requester="Jefatura Delegación Norte",
             defaults={

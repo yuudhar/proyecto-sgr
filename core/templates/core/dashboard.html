@@ -33,6 +33,8 @@
   {% endif %}
 </section>
 
+{% include "core/partials/pace_panel.html" %}
+
 <div class="row g-4">
   {% if me_officer or light_counts %}
   <div class="{% if pending %}col-lg-8{% else %}col-12{% endif %}">
@@ -47,7 +49,7 @@
         <li class="goal-row">
           <div>
             <p class="goal-name">{{ line.item }}</p>
-            <p class="goal-meta">{{ line.scope }}. Objetivo: {{ line.target }} {{ line.unit }}{% if line.indicator %}. Avance: {{ line.progress }}{% endif %}</p>
+            <p class="goal-meta">{{ line.scope }}. Objetivo: {{ line.target }} {{ line.unit }}{% if line.indicator %}. Avance: {{ line.progress }}{% endif %}. Esperado hoy: {{ line.expected }}</p>
           </div>
           <div>
             {% if line.indicator %}

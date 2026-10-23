@@ -164,8 +164,27 @@ class Commitment(BaseModel):
 
     class Status(models.TextChoices):
         SUBMITTED = "submitted", "Ingresado"
+        PENDING = "pending", "Pendiente"
         IN_PROGRESS = "in_progress", "En proceso"
-        FULFILLED = "fulfilled", "Cumplido"
+        FULFILLED = "fulfilled", "Realizado"
+
+    # RF-018: a qué estados se puede pasar desde cada uno. «Ingresado» es solo el estado inicial; un compromiso
+    # «Realizado» solo se puede reabrir a «En proceso» (el cambio queda en el historial).
+    TRANSITIONS = {
+        "submitted": ("pending", "in_progress", "fulfilled"),
+        "pending": ("in_progress", "fulfilled"),
+        "in_progress": ("pending", "fulfilled"),
+        "fulfilled": ("in_progress",),
+    }
+
+    @classmethod
+    def can_move(cls, current, new):
+        return current == new or new in cls.TRANSITIONS.get(current, ())
+
+    @classmethod
+    def next_choices(cls, current):
+        """Opciones válidas para un compromiso que hoy está en ese estado: el actual y los que se pueden alcanzar."""
+        return [(value, label) for value, label in cls.Status.choices if cls.can_move(current, value)]
 
     source = models.CharField(
         max_length=100, blank=True, null=True, verbose_name="origen"

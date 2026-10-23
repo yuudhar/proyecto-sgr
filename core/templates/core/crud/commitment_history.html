@@ -1,0 +1,32 @@
+{% load core_ui %}
+<section class="panel" aria-label="Historial de estados">
+  <div class="panel-head">
+    <h2 class="panel-title">Historial de estados</h2>
+    <span class="panel-note">{{ panel.history|length }} cambio{{ panel.history|length|pluralize }}</span>
+  </div>
+  {% if panel.history %}
+  <div class="table-responsive">
+    <table class="table data-table align-middle mb-0">
+      <caption class="visually-hidden">Cambios de estado de este compromiso, del más antiguo al más reciente</caption>
+      <thead>
+        <tr>
+          <th scope="col">Fecha</th>
+          <th scope="col">Cambio</th>
+          <th scope="col">Quién</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for entry in panel.history %}
+        <tr>
+          <td>{{ entry.date|fdatetime }}</td>
+          <td>{% if entry.previous %}{{ entry.previous }} <i class="bi bi-arrow-right" aria-hidden="true"></i><span class="visually-hidden">a</span> {% else %}Estado inicial: {% endif %}<strong>{{ entry.new }}</strong></td>
+          <td>{{ entry.user }}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% else %}
+  <p class="panel-body muted mb-0">Este compromiso aún no tiene cambios de estado registrados.</p>
+  {% endif %}
+</section>

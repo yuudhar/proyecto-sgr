@@ -44,6 +44,7 @@
 {% else %}
 
 <h2 class="visually-hidden">Resumen de {{ delegation.name }}</h2>
+{% include "core/partials/pace_panel.html" %}
 <div class="stat-strip stat-strip-board">
   <div class="stat">
     <span class="stat-label">Cumplimiento promedio de {{ delegation.name }}</span>
@@ -79,6 +80,7 @@
           <th scope="col">Funcionario y metas</th>
           <th scope="col" class="num">Objetivo</th>
           <th scope="col" class="num">Avance</th>
+          <th scope="col" class="num">Esperado hoy</th>
           <th scope="col">Cumplimiento</th>
           <th scope="col">Semáforo</th>
         </tr>
@@ -89,6 +91,7 @@
           <td>{{ result.officer.name }}<span class="board-note">{{ result.officer.position }}. {{ result.goal_total }} meta{{ result.goal_total|pluralize }}</span></td>
           <td></td>
           <td></td>
+          <td></td>
           <td>{% if result.average is not None %}{% meter result.average result.light period.collective_threshold period.amber_threshold compact=True %}{% else %}<span class="muted fw-normal">Sin indicadores</span>{% endif %}</td>
           <td>{% if result.light %}<span class="chip chip-{{ result.light|tone }}"><i class="bi {{ result.light|tone_icon }}" aria-hidden="true"></i>{{ result.light|light_label }}</span>{% endif %}</td>
         </tr>
@@ -97,6 +100,7 @@
           <td>{{ line.item }}<span class="board-note">{{ line.scope }}</span></td>
           <td class="num">{{ line.target }} {{ line.unit }}</td>
           <td class="num">{% if line.indicator %}{{ line.progress }}{% else %}—{% endif %}</td>
+          <td class="num">{{ line.expected }}</td>
           <td>{% if line.indicator %}{% meter line.compliance line.light period.collective_threshold period.amber_threshold compact=True %}{% else %}<span class="muted">Aún sin cálculo</span>{% endif %}</td>
           <td>{% if line.light %}<span class="chip chip-{{ line.light|tone }}"><i class="bi {{ line.light|tone_icon }}" aria-hidden="true"></i>{{ line.light|light_label }}</span>{% endif %}</td>
         </tr>

@@ -26,7 +26,7 @@ from core.rules import collapse_spaces, get_rule, normalize_lines
 from core.search import plain_letter, word_pattern
 from core.widgets import ColorWidget, DelegationsWidget, DependentSelect, LookupWidget, PermissionMatrixWidget, RolesWidget
 from evidence.models import Validation
-from operations.models import Followup
+from operations.models import Commitment, Followup
 from organization.models import Beneficiary, Delegation, Item, Officer
 from planning.models import Goal, Period
 
@@ -1172,6 +1172,20 @@ class CommitmentForm(CrudForm):
 
     REQUEST_MESSAGE = "La fecha de solicitud no puede ser futura."
     DUE_MESSAGE = "La fecha comprometida no puede ser anterior a la fecha de solicitud."
+
+    def customize_fields(self):
+        # RF-018: al editar, el estado solo ofrece los estados a los que se puede pasar desde el actual.
+        field = self.fields.get("status")
+        if field is None or not self.instance.pk or self.instance.status not in Commitment.TRANSITIONS:
+            return
+        current = self.instance.status
+        field.choices = Commitment.next_choices(current)
+        reachable = ", ".join(
+            f"«{label}»" for value, label in field.choices if value != current
+        )
+        field.error_messages["invalid_choice"] = (
+            f"Un compromiso «{self.instance.get_status_display()}» solo puede pasar a: {reachable}."
+        )
 
     def bounds(self):
         return {

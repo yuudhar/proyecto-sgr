@@ -27,6 +27,7 @@ from core.access import (
     request_officer,
 )
 from core.audit import log_event, log_export
+from core.commitments import STATUS_ORDER, collective_summary, status_label
 from core.crud import CODE_COLUMN, PAGE_SIZES, SESSION_PAGE_SIZE, Col, Column, CrudListView, query_string, registry
 from core.forms import PortalAuthenticationForm, PortalPasswordChangeForm, ProfilePhotoForm, ValidationForm
 from core.rules import rut_with_wrong_digit
@@ -34,6 +35,7 @@ from evidence.models import Evidence, Validation
 from operations.models import Activity, Commitment
 from organization.models import Delegation, Officer
 from planning.models import Adjustment, Goal, Indicator, Period
+from planning.pace import pace_of
 
 
 class PortalLoginView(auth_views.LoginView):
@@ -300,7 +302,31 @@ def mini_table(crud, request, queryset, paths, limit=5):
     return columns, rows
 
 
-def goal_lines(goals, indicators):
+PACE_STANDING = {
+    "green": "Al día o sobre lo esperado",
+    "amber": "Algo bajo lo esperado",
+    "red": "Muy bajo lo esperado",
+}
+
+
+def pace_summary(period, achieved):
+    """Cuadro de ritmo del período (RF-026): lo esperado hoy frente al avance logrado."""
+    if period is None:
+        return None
+    pace = pace_of(period)
+    standing = pace.standing(achieved, period.amber_threshold)
+    difference = pace.difference(achieved)
+    return {
+        "pace": pace,
+        "achieved": rounded(achieved),
+        "difference": rounded(difference),
+        "standing": standing,
+        "standing_label": PACE_STANDING.get(standing, ""),
+        "has_achieved": achieved is not None,
+    }
+
+
+def goal_lines(goals, indicators, pace=None):
     lines = []
     for goal in goals:
         indicator = indicators.get(goal.pk)
@@ -309,6 +335,7 @@ def goal_lines(goals, indicators):
                 "goal": goal,
                 "item": goal.item,
                 "target": ui.fmt_number(goal.target_value),
+                "expected": ui.fmt_number(pace.expected_for(goal.target_value)) if pace else "",
                 "unit": goal.unit,
                 "scope": "Meta personal" if goal.officer_id else "Meta del cargo",
                 "indicator": indicator,
@@ -355,7 +382,11 @@ def dashboard(request):
             .select_related("item")
             .order_by("item__name")
         )
-        context["goal_lines"] = goal_lines(goals, latest_indicators([g.pk for g in goals]))
+        lines = goal_lines(goals, latest_indicators([g.pk for g in goals]), pace_of(period))
+        context["goal_lines"] = lines
+        context["pace_summary"] = pace_summary(
+            period, mean(line["compliance"] for line in lines if line["compliance"] is not None)
+        )
 
     if period is not None and is_global_user(request) and user.has_perm("planning.view_indicator"):
         goals = Goal.objects.filter(deleted_at__isnull=True, period=period)
@@ -372,6 +403,10 @@ def dashboard(request):
             for key in ("green", "amber", "red")
         ]
         context["goals_without_indicator"] = len(goals) - len(indicators)
+        if officer is None:
+            context["pace_summary"] = pace_summary(
+                period, mean(indicator.compliance for indicator in indicators.values())
+            )
 
     pending = []
     if activities.has_perm(user, "view"):
@@ -649,9 +684,10 @@ def validate_evidence(request, pk):
 
 def officer_results(officers, goals, indicators, period):
     results = []
+    pace = pace_of(period)
     for officer in officers:
         own = goals_of(officer, goals)
-        lines = goal_lines(own, indicators)
+        lines = goal_lines(own, indicators, pace)
         compliances = [line["compliance"] for line in lines if line["compliance"] is not None]
         exact = mean(compliances)
         results.append(
@@ -746,6 +782,7 @@ def delegation_board(request):
             "results": results,
             "average": rounded(delegation_mean),
             "average_light": light_of(delegation_mean, period),
+            "pace_summary": pace_summary(period, delegation_mean),
             "light_counts": [
                 {"light": key, "label": ui.LIGHT_LABELS[key], "total": lights[key]}
                 for key in ("green", "amber", "red")
@@ -754,6 +791,50 @@ def delegation_board(request):
         }
     )
     return render(request, "core/delegation_board.html", context)
+
+
+@login_required
+@permission_required("operations.view_commitment", raise_exception=True)
+def commitment_summary(request):
+    """RF-021: compromisos por funcionario y estado, con el porcentaje realizado y el que falta por realizar."""
+    crud = registry.get("agenda")
+    delegation, delegations, can_pick = pick_delegation(request, allow_all=True)
+    periods = list(Period.objects.filter(deleted_at__isnull=True).order_by("-start_date"))
+    chosen = request.GET.get("periodo", "todos")
+    period = next((option for option in periods if str(option.pk) == chosen), None)
+
+    commitments = crud.get_queryset(request)
+    officers = Officer.objects.filter(
+        status=Officer.Status.ACTIVE, deleted_at__isnull=True
+    ).select_related("delegation", "position").order_by("name")
+    if delegation is not None:
+        commitments = commitments.filter(delegation=delegation)
+        officers = officers.filter(delegation=delegation)
+    elif not is_global_user(request):
+        officers = officers.filter(delegation__in=authorized_delegations(request))
+    if period is not None:
+        commitments = commitments.filter(due_date__range=(period.start_date, period.end_date))
+
+    rows, total = collective_summary(commitments, list(officers))
+    thresholds = period or current_period()
+    for row in [*rows, total]:
+        row["light"] = light_of(row["done_percent"], thresholds) if thresholds and row["done_percent"] is not None else ""
+
+    context = {
+        "crud": crud,
+        "delegation": delegation,
+        "delegations": delegations,
+        "can_pick_delegation": can_pick,
+        "periods": periods,
+        "period": period,
+        "thresholds": thresholds,
+        "statuses": [status_label(status) for status in STATUS_ORDER],
+        "rows": rows,
+        "total": total,
+        "agenda_url": crud.url("list"),
+        "breadcrumbs": [("Inicio", reverse("core:dashboard")), ("Resumen colectivo", None)],
+    }
+    return render(request, "core/commitment_summary.html", context)
 
 
 def safe_cell(value):

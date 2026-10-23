@@ -1132,6 +1132,8 @@ Pantallas especiales: ingreso, perfil, atención, inicio, validación de evidenc
 
 Las pantallas de listado, ficha y formulario de cada modelo están en core/crud.py; aquí van las que no calzan con ese esquema. Todas respetan las mismas reglas de acceso del Django Admin: permisos por modelo y alcance por delegación.
 
+Desde la v25 también están aquí `pace_summary` (cuadro «Ritmo del período» del dashboard y del tablero, RF-026) y `commitment_summary` (pantalla Resumen colectivo en `/agenda/resumen/`, RF-021).
+
 ##### `PortalLoginView` — hereda de `auth_views.LoginView`
 
 Ingreso. Usa la plantilla por defecto de LoginView: templates/registration/login.html.
@@ -2104,6 +2106,15 @@ Configuración del Django Admin para `Indicator`. Columnas: 'goal', 'progress', 
 
 Configuración del Django Admin para `Adjustment`. Columnas: 'officer', 'kind', 'percentage_value', 'period', 'responsible_user', 'date'. Búsqueda por: 'officer__name', 'reason'. Filtros: 'kind', 'period'.
 
+#### `planning/pace.py` (meta esperada al día, RF-026)
+
+Regla de la guía (RN-007): meta esperada al día = días computables transcurridos ÷ días computables totales × 100. Cuentan los días de lunes a viernes; hoy ya cuenta como transcurrido; antes del inicio se espera 0 % y después del término (o con el período cerrado) 100 %, nunca más.
+
+- **`weekdays_between(start, end)`**: cantidad de días de lunes a viernes entre dos fechas, ambas incluidas.
+- **`pace_of(period, today=None)`**: devuelve un `Pace` con la fecha de hoy, el inicio y el término, los días totales (los «días computables» del período), los días transcurridos, el porcentaje esperado, el porcentaje diario y la etapa («Aún no comienza», «En curso» o «Terminado»).
+- **`Pace.expected_for(target)`**: valor esperado hoy para una meta (objetivo × porcentaje esperado).
+- **`Pace.difference(achieved)`** y **`Pace.standing(achieved, amber_threshold)`**: diferencia en puntos porcentuales y estado frente a lo esperado (verde si lo alcanza, ámbar desde el umbral ámbar de lo esperado, rojo bajo eso; RN-008).
+
 ### App `operations`: atenciones, gestiones y compromisos
 
 #### `operations/apps.py`
@@ -2200,7 +2211,7 @@ Opciones del modelo (`Meta`): `ordering` = `('-due_date',)`; `verbose_name` = `'
 
 Opciones de `RequesterType`: `INTERNAL` (Interno), `EXTERNAL` (Externo).
 
-Opciones de `Status`: `submitted` (Ingresado), `in_progress` (En proceso), `fulfilled` (Cumplido).
+Opciones de `Status`: `submitted` (Ingresado), `pending` (Pendiente), `in_progress` (En proceso), `fulfilled` (Realizado). `TRANSITIONS` define a qué estados se puede pasar desde cada uno; `can_move(actual, nuevo)` y `next_choices(actual)` lo consultan (RF-018, v25).
 
 - **`clean()`**: Comprueba que el territorio pertenezca a la delegación elegida.
 - **`__str__()`**: Texto con que se muestra el registro.
@@ -2328,6 +2339,12 @@ Nombres de grupos y publicación de eventos. Los mensajes se publican después d
 - **`LiveConsumer`** (`ws/live/`): exige sesión y une a la persona a `live_all` y a los grupos de las delegaciones que ve; entrega `{"type": "live_changed", "model": ...}` (sin datos).
 - **`CrudChangesConsumer`** (`ws/crud/<slug>/`): exige el permiso de ver ese mantenedor y une a la persona a los grupos de las delegaciones que puede ver.
 
+#### `core/commitments.py` (historial de estados y resumen colectivo)
+
+- **`record_status(user, commitment, previous, new)`**: deja en la auditoría el cambio de estado de un compromiso (evento «Estado de compromiso») o su estado inicial (RF-018).
+- **`history_of(commitment)`**: los cambios de estado de un compromiso, del más antiguo al más reciente, con quién y cuándo; los muestra el panel «Historial de estados» de la ficha.
+- **`collective_summary(commitments, officers)`**: totales de compromisos por funcionario y estado, con el % realizado (Realizado ÷ total) y el % por realizar (el resto), más la fila total (RF-021). Incluye a los funcionarios de la lista aunque no tengan compromisos.
+
 #### `core/photos.py` (foto de perfil de otra persona)
 
 - **`photo_url_of(user)`**: dirección de la foto de un usuario o texto vacío.
@@ -2371,6 +2388,7 @@ Las migraciones crean y modifican las tablas de cada app.
 ### `operations`
 
 - `0001_initial.py`: crea la tabla de `ManagementType`; crea la tabla de `Activity`; crea la tabla de `Commitment`; crea la tabla de `Followup`.
+- `0002_commitment_status_pending.py`: agrega el estado «Pendiente» y cambia «Cumplido» por «Realizado» en las opciones de `commitment.status`; no modifica la estructura de la tabla.
 
 ### `organization`
 
@@ -2405,6 +2423,7 @@ Plantillas de Django. Las de `templates/` son el marco general, los errores y la
 | `core/templates/core/profile.html` | Mi perfil: datos de la cuenta, foto, delegación y cambio de contraseña. |
 | `core/templates/core/administration.html` | Administración: período vigente y accesos a los mantenedores de organización, planificación y catálogos. |
 | `core/templates/core/delegation_board.html` | Tablero de delegación: promedio, semáforo, resultado de cada funcionario y tarjetas de pendientes. |
+| `core/templates/core/commitment_summary.html` | Resumen colectivo: compromisos por funcionario y estado, con % realizado y % por realizar, filtros de delegación y período y actualización en vivo. |
 | `core/templates/core/reports.html` | Informes: filtros de período y delegación, tabla por funcionario y botones para exportar a Excel, CSV o imprimir. |
 | `core/templates/core/validate_list.html` | Evidencias por revisar y últimas validaciones. |
 | `core/templates/core/validate_form.html` | Revisión de una evidencia: sus datos, el archivo, el formulario de decisión y las revisiones anteriores. |
@@ -2415,6 +2434,7 @@ Plantillas de Django. Las de `templates/` son el marco general, los errores y la
 | `core/templates/core/crud/_form_body.html` | Contenido del formulario sin los botones; lo comparten la página y la ventana modal. |
 | `core/templates/core/crud/archive_confirm.html` | Confirmación de archivar un registro, con los motivos si no se puede. |
 | `core/templates/core/crud/delete_confirm.html` | Confirmación de eliminar un registro, con los motivos si no se puede. |
+| `core/templates/core/crud/commitment_history.html` | Panel «Historial de estados» en la ficha de un compromiso. |
 | `core/templates/core/crud/role_permissions.html` | Panel de permisos en la ficha de un rol: una fila por módulo con las acciones que tiene. |
 | `core/templates/core/partials/cell.html` | Dibuja una celda según su tipo: etiqueta, sí/no, archivo con vista previa, color, enlace o texto. |
 | `core/templates/core/partials/check.html` | Casilla de verificación de un formulario. |
@@ -2426,6 +2446,7 @@ Plantillas de Django. Las de `templates/` son el marco general, los errores y la
 | `core/templates/core/partials/footer.html` | Pie de página de todas las pantallas. |
 | `core/templates/core/partials/meter.html` | Barra de cumplimiento con sus marcas de umbral. |
 | `core/templates/core/partials/mini_table.html` | Listado corto con la primera celda enlazada a la ficha. |
+| `core/templates/core/partials/pace_panel.html` | Cuadro «Ritmo del período»: meta esperada al día, % diario, avance logrado y estado frente a lo esperado. |
 | `core/templates/core/partials/page_size.html` | Selector de filas por página (se guarda en la sesión). |
 | `core/templates/core/partials/pagination.html` | Paginación con páginas anterior, siguiente y saltos. |
 | `core/templates/core/partials/public_head.html` | Cabecera simple de las páginas sin sesión. |

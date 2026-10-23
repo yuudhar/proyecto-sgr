@@ -7,6 +7,7 @@ from core.qa.esperado_v16 import ESPERADO as _V16
 from core.qa.esperado_v22 import ESPERADO as _V22
 from core.qa.esperado_v23 import ESPERADO as _V23
 from core.qa.esperado_v24 import ESPERADO as _V24
+from core.qa.esperado_v25 import ESPERADO as _V25
 from core.qa.esperado_validaciones import ESPERADO as _VALIDACIONES
 
 REQUISITOS = {
@@ -57,6 +58,9 @@ REQUISITOS = {
     "T11-01": ("Clase 11", "Django Channels y Daphne: ASGI, enrutamiento HTTP/WebSocket, capa de canales y orígenes permitidos"),
     "T11-03": ("Clase 11", "Listados CRUD en vivo: aviso tras el commit, permisos por módulo y delegación, y nueva consulta HTTP de la tabla"),
     "T11-04": ("Clase 11", "Dashboard, tablero y validar en vivo: el cambio de una persona se ve en la pantalla abierta de otra de la misma delegación, sin F5"),
+    "RF-018": ("Informe SGR", "Gestionar estados de compromisos: Ingresado, Pendiente, En proceso y Realizado, con transiciones válidas e historial"),
+    "RF-021": ("Informe SGR", "Resumen colectivo: compromisos por funcionario y estado, con porcentaje realizado y por realizar"),
+    "RF-026": ("Informe SGR", "Meta esperada al día según días computables transcurridos y duración del período"),
     "C2": ("Anexo C", "Validación de código y nueva contraseña (casillas, mostrar/ocultar contraseña)"),
     "IMP-01": ("Importante", "Plantillas de los demás módulos con diseño coherente"),
     "IMP-02": ("Importante", "Interfaces por rol con sus permisos"),
@@ -180,12 +184,16 @@ CLASES = {
     "LiveListTests": (["T11-03"], "Listados en vivo", _SEMILLA + "; conexiones WebSocket"),
     "LiveDashboardTests": (["T11-04"], "Dashboard en vivo", _SEMILLA + "; conexiones WebSocket y cambios de datos"),
     "UserPhotoByAdminTests": (["A1-07"], "Foto de perfil de otro usuario (Super Usuario)", _SEMILLA + "; sesión del Super Usuario; imágenes de prueba"),
+    "PaceRuleTests": (["RF-026"], "Meta esperada al día (regla de cálculo)", _SIN_BD),
+    "PaceScreensTests": (["RF-026"], "Meta esperada al día en dashboard y tablero", _SEMILLA + "; sesión de un funcionario y del Super Usuario"),
+    "CommitmentStatusTests": (["RF-018"], "Estados de compromisos, transiciones e historial", _SEMILLA + "; sesión del Super Usuario"),
+    "CollectiveSummaryTests": (["RF-021"], "Resumen colectivo de la agenda", _SEMILLA + "; sesiones de Super Usuario y funcionario"),
     "DaphneDeployTests": (["T11-01", "A4-02"], "Despliegue con Daphne y WebSocket", _SIN_BD),
     "DeletedUsersTests": (["A1-07", "A2-02"], "Usuarios eliminados: borrar, ver y restaurar", _SEMILLA + "; sesión del Super Usuario"),
     "OnlySuperuserDeletesUsersTests": (["A1-07", "A2-02"], "Solo el Super Usuario elimina y restaura usuarios", _SEMILLA + "; usuario con permisos de usuarios sin ser Super Usuario"),
 }
 
 ESPERADO = {}
-for _grupo in (_ACCESO, _MANTENEDORES, _INGRESO, _LISTADOS, _DESPLIEGUE, _VALIDACIONES, _V16, _V22, _V23, _V24):
+for _grupo in (_ACCESO, _MANTENEDORES, _INGRESO, _LISTADOS, _DESPLIEGUE, _VALIDACIONES, _V16, _V22, _V23, _V24, _V25):
     for _clase, _metodos in _grupo.items():
         ESPERADO.setdefault(_clase, {}).update(_metodos)
