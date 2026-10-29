@@ -2650,3 +2650,252 @@ textarea.form-control {
   padding: 0.75rem 1.25rem 1rem;
   border-top: 1px solid var(--line-soft);
 }
+
+/* Selector con buscador (searchable-select.js): el <select> queda oculto pero sigue siendo el que guarda el valor. */
+.ss {
+  position: relative;
+}
+
+.ss-native {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  opacity: 0;
+  pointer-events: none;
+  overflow: hidden;
+}
+
+.ss-input {
+  text-overflow: ellipsis;
+}
+
+.ss-input:focus {
+  position: relative;
+  z-index: 2;
+}
+
+.ss-toggle {
+  border-color: var(--bs-border-color, #ced4da);
+}
+
+.ss-list {
+  position: fixed;
+  z-index: 1080;
+  margin: 0;
+  padding: 0.25rem 0;
+  list-style: none;
+  overflow-y: auto;
+  background: #fff;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  box-shadow: 0 8px 24px rgba(38, 34, 31, 0.18);
+}
+
+.ss-list[hidden] {
+  display: none;
+}
+
+.ss-option {
+  padding: 0.45rem 0.85rem;
+  cursor: pointer;
+  line-height: 1.3;
+}
+
+.ss-option.is-active {
+  background: var(--wine-tint);
+  color: var(--wine-dark);
+}
+
+.ss-option[aria-selected="true"] {
+  font-weight: 600;
+  box-shadow: inset 3px 0 0 var(--wine);
+}
+
+.ss-empty-choice {
+  color: var(--ink-soft);
+  font-style: italic;
+}
+
+.ss-note {
+  padding: 0.45rem 0.85rem;
+  color: var(--ink-soft);
+  font-size: 0.875rem;
+  border-top: 1px solid var(--line-soft);
+}
+
+/* Gráficos (core/charts.py): anillo y barras, sin librerías. Siempre llevan los números escritos al lado. */
+.chart {
+  margin: 0;
+}
+
+.chart-title {
+  display: block;
+  margin-bottom: 0.5rem;
+  font-weight: 600;
+}
+
+.chart-donut {
+  display: flex;
+  align-items: center;
+  gap: 1.25rem;
+  flex-wrap: wrap;
+}
+
+.donut {
+  width: 9.5rem;
+  height: 9.5rem;
+  flex: 0 0 auto;
+}
+
+.donut-ring {
+  stroke: var(--line-soft);
+}
+
+.donut-seg {
+  stroke: var(--ink-soft);
+}
+
+.donut-total {
+  font-size: 0.5rem;
+  font-weight: 700;
+  fill: var(--ink);
+}
+
+.donut-sub {
+  font-size: 0.19rem;
+  fill: var(--ink-soft);
+}
+
+.donut-ok { stroke: #2f8f4e; background: #2f8f4e; }
+.donut-warn { stroke: #d99a1c; background: #d99a1c; }
+.donut-bad { stroke: #c0392b; background: #c0392b; }
+.donut-info { stroke: #2f78b7; background: #2f78b7; }
+.donut-neutral { stroke: #8a857d; background: #8a857d; }
+
+.chart-legend {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 0.3rem;
+}
+
+.chart-legend li {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.chart-legend .swatch {
+  width: 0.8rem;
+  height: 0.8rem;
+  border-radius: 2px;
+  flex: 0 0 auto;
+}
+
+.legend-label {
+  min-width: 6.5rem;
+}
+
+.hbars {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 0.55rem;
+}
+
+.hbar {
+  display: grid;
+  grid-template-columns: minmax(7rem, 11rem) 1fr 4.5rem;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.hbar-label {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.hbar-track {
+  display: block;
+  height: 0.85rem;
+  background: var(--line-soft);
+  border-radius: 999px;
+  overflow: hidden;
+}
+
+.hbar-fill {
+  display: block;
+  height: 100%;
+  border-radius: 999px;
+  background: #8a857d;
+}
+
+.hbar-ok { background: #2f8f4e; }
+.hbar-warn { background: #d99a1c; }
+.hbar-bad { background: #c0392b; }
+.hbar-info { background: #2f78b7; }
+.hbar-neutral { background: #8a857d; }
+
+.hbar-value {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+
+.chart-panel {
+  display: grid;
+  gap: 1.5rem;
+  grid-template-columns: repeat(auto-fit, minmax(18rem, 1fr));
+  padding: 1rem 1.25rem 1.25rem;
+}
+
+@media (max-width: 575.98px) {
+  .hbar {
+    grid-template-columns: 1fr 4rem;
+  }
+  .hbar-track {
+    grid-column: 1 / -1;
+    grid-row: 2;
+  }
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .hbar-fill {
+    transition: width 0.4s ease;
+  }
+}
+
+.columns {
+  width: 100%;
+  max-height: 13rem;
+}
+
+.chart-wide {
+  grid-column: 1 / -1;
+}
+
+.columns-base {
+  stroke: var(--line);
+  stroke-width: 0.4;
+}
+
+.columns-bar {
+  fill: var(--wine);
+}
+
+.columns-bar.is-zero {
+  fill: var(--line);
+}
+
+.columns-value {
+  font-size: 4.2px;
+  font-weight: 700;
+  fill: var(--ink);
+}
+
+.columns-label {
+  font-size: 3.6px;
+  fill: var(--ink-soft);
+}

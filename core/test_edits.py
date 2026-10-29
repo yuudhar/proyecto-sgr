@@ -101,13 +101,12 @@ class EvidenceEditTests(PortalTestCase):
     def evidence_data(self, evidence, **changes):
         data = {
             "activity": evidence.activity_id,
-            "unique_code": evidence.unique_code,
             "author_officer": evidence.author_officer_id,
         }
         data.update(changes)
         return data
 
-    def test_unique_code_is_asked_on_creation_but_cannot_change_afterwards(self):
+    def test_unique_code_is_assigned_by_the_system_and_cannot_change(self):
         self.login_as("matias.cavieres")
         evidence = Evidence.objects.filter(
             unique_code__startswith="EVD-NORTE-", deleted_at__isnull=True
@@ -116,13 +115,14 @@ class EvidenceEditTests(PortalTestCase):
         form = self.client.get(url).context["form"]
         self.assertTrue(form.fields["unique_code"].disabled)
 
+        code = evidence.unique_code
         response = self.client.post(url, self.evidence_data(evidence, unique_code="EVD-NORTE-9999"))
         self.assertEqual(response.status_code, 302)
         evidence.refresh_from_db()
-        self.assertNotEqual(evidence.unique_code, "EVD-NORTE-9999")
+        self.assertEqual(evidence.unique_code, code)
 
         create = self.client.get(reverse("core:evidencias_create")).context["form"]
-        self.assertFalse(create.fields["unique_code"].disabled)
+        self.assertNotIn("unique_code", create.fields)
 
     def test_changing_the_file_of_a_reviewed_evidence_sends_it_back_to_pending(self):
         self.login_as("admin")
@@ -170,19 +170,18 @@ class IdParameterTests(PortalTestCase):
             with self.subTest(params=params):
                 response = self.client.get(reverse("core:evidencias_create"), params)
                 self.assertEqual(response.status_code, 200)
-                self.assertEqual(response.context["form"].initial["unique_code"], "EVD-NORTE-0004")
+                self.assertNotIn("unique_code", response.context["form"].fields)
         response = self.client.get(reverse("core:gestiones_create"), {"activity": "²"})
         self.assertEqual(response.status_code, 200)
 
-    def test_codes_with_unexpected_numbers_do_not_break_the_suggestion(self):
-        admin = self.login_as("admin")
+    def test_codes_with_unexpected_numbers_do_not_break_the_automatic_code(self):
+        self.login_as("admin")
         activity = self.activity("María Pérez")
         Evidence.objects.create(
             unique_code="EVD-NORTE-²", file_link="x", activity=activity, author_officer=self.officer("F-1001")
         )
-        response = self.client.get(reverse("core:evidencias_create"), {"activity": activity.pk})
-        self.assertEqual(response.context["form"].initial["unique_code"], "EVD-NORTE-0004")
-        self.assertIsNotNone(admin)
+        new = Evidence.objects.create(file_link="x", activity=activity, author_officer=self.officer("F-1001"))
+        self.assertEqual(new.unique_code, "EVD-NORTE-0004")
 
 
 class PlanningFormRuleTests(PortalTestCase):

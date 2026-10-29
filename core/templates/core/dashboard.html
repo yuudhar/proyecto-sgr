@@ -51,6 +51,17 @@
 
 {% include "core/partials/pace_panel.html" %}
 
+{% if charts.any %}
+<section class="panel mb-4" aria-labelledby="titulo-graficos">
+  <div class="panel-head"><h2 class="panel-title" id="titulo-graficos">Gráficos del período</h2></div>
+  <div class="chart-panel">
+    {% for chart in charts.donuts %}<div>{% show_donut chart %}</div>{% endfor %}
+    {% if charts.bars %}<div class="chart-wide">{% show_bars charts.bars %}</div>{% endif %}
+    {% if charts.daily %}<div class="chart-wide">{% show_columns charts.daily %}</div>{% endif %}
+  </div>
+</section>
+{% endif %}
+
 <div class="row g-4">
   {% if me_officer or light_counts %}
   <div class="{% if pending %}col-lg-8{% else %}col-12{% endif %}">

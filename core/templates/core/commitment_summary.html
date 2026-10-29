@@ -61,6 +61,14 @@
   </div>
 </div>
 
+<section class="panel mb-4" aria-labelledby="titulo-graficos">
+  <div class="panel-head"><h2 class="panel-title" id="titulo-graficos">Gráficos</h2></div>
+  <div class="chart-panel">
+    {% for chart in charts.donuts %}<div>{% show_donut chart %}</div>{% endfor %}
+    {% if total.total %}{% if charts.bars.rows %}<div class="chart-wide">{% show_bars charts.bars %}</div>{% endif %}{% endif %}
+  </div>
+</section>
+
 <section class="panel" aria-label="Compromisos por funcionario">
   {% if rows %}
   <div class="table-responsive">

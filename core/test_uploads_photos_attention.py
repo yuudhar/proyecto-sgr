@@ -45,7 +45,6 @@ class EvidenceUploadTests(PortalTestCase):
         ).first() or Activity.objects.filter(delegation=self.north, deleted_at__isnull=True).first()
         data = {
             "activity": activity.pk,
-            "unique_code": "EVD-NORTE-7001",
             "author_officer": self.officer("F-1001").pk,
             "file_link": pdf_file(),
         }
@@ -56,7 +55,7 @@ class EvidenceUploadTests(PortalTestCase):
         self.login_as("matias.cavieres")
         response = self.client.post(reverse("core:evidencias_create"), self.new_data())
         self.assertEqual(response.status_code, 302)
-        evidence = Evidence.objects.get(unique_code="EVD-NORTE-7001")
+        evidence = Evidence.objects.get(unique_code="EVD-NORTE-0004")
         self.assertTrue(evidence.file_link.name.startswith("evidencias/"))
         self.assertTrue(evidence.file_link.storage.exists(evidence.file_link.name))
         self.assertIn("Archivo original: informe.pdf", evidence.metadata)
@@ -78,7 +77,7 @@ class EvidenceUploadTests(PortalTestCase):
         response = self.client.post(reverse("core:evidencias_create"), self.new_data(file_link=bad))
         self.assertEqual(response.status_code, 200)
         self.assertIn("no se acepta", " ".join(response.context["form"].errors["file_link"]))
-        self.assertFalse(Evidence.objects.filter(unique_code="EVD-NORTE-7001").exists())
+        self.assertFalse(Evidence.objects.filter(unique_code="EVD-NORTE-0004").exists())
 
     def test_a_file_whose_content_does_not_match_its_extension_is_rejected(self):
         self.login_as("matias.cavieres")

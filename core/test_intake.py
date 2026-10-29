@@ -1,8 +1,6 @@
 import json
 import re
-from zoneinfo import ZoneInfo
 
-from django.conf import settings
 from django.contrib.auth.models import Group, Permission, User
 from django.contrib.messages import get_messages
 from django.core.exceptions import FieldDoesNotExist
@@ -10,15 +8,10 @@ from django.urls import reverse
 from django.utils import timezone
 
 from core.models import AuditLog
-from core.testing import PortalTestCase
+from core.testing import PortalTestCase, portal_today
 from core.registry import attention_type_name, sub_attention_name
 from operations.models import Activity
 from organization.models import Beneficiary, Item, Service
-
-
-def portal_today():
-    with timezone.override(ZoneInfo(settings.PORTAL_TIME_ZONE)):
-        return timezone.localdate()
 
 
 def user_named(username):

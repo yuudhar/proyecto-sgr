@@ -923,7 +923,7 @@ CRUD de evidencias: sube el archivo, calcula sus metadatos y muestra su estado d
 
 Atributos principales: `model` = `Evidence`; `slug` = `'evidencias'`; `icon` = `'bi-file-earmark-check'`; `gender` = `'f'`; `description` = `'Archivos que respaldan cada actividad y su estado de revisión.'`; `list_display` = `unique_code, activity, author_officer, review_status, uploaded_at`; `search_fields` = `unique_code, file_link, activity__contact_name`; `form_fields` = `activity, unique_code, file_link, author_officer`.
 
-- **`initial_values(request)`**: Valores de partida de una evidencia: el funcionario autor y un código único sugerido para la actividad.
+- **`initial_values(request)`**: Valores de partida de una evidencia: el funcionario autor y, si viene `?activity=`, esa actividad ya elegida. El código único no se pide: lo asigna `Evidence.next_code()` al guardar.
 - **`prepare_object(request, obj, creating, form)`**: Antes de guardar, si cambió el archivo calcula sus metadatos (nombre, tipo, tamaño, huella). Si se edita una evidencia ya revisada y cambia el archivo o la actividad, la deja otra vez pendiente y avisa.
 - **`make_cell(obj, column)`**: Celda del archivo: nombre con enlace para verlo o descargarlo (o aviso si el archivo no está en el sistema) y celda de los metadatos en una sola línea.
 - **`extra_actions(request, obj)`**: Agrega el botón «Validar evidencia» cuando la evidencia no está archivada, no la subió la propia persona y esta tiene permiso para validar.
@@ -1110,7 +1110,6 @@ Atributos principales: `model` = `AuditLog`; `slug` = `'auditoria'`; `icon` = `'
 - **`visible_beneficiary(request, pk)`**: Beneficiario con ese id si el usuario puede verlo: tiene permiso sobre Beneficiarios o ya lo atendió.
 - **`attention_type_name(activity)`**: Tipo de atención de una actividad: su ítem padre o, si el ítem es un tipo, el ítem mismo.
 - **`sub_attention_name(activity)`**: Sub atención de una actividad: su ítem, si es una sub atención; si es un tipo, queda vacía.
-- **`suggest_evidence_code(request, activity)`**: Código sugerido como EVD-NORTE-0003: delegación en mayúsculas y número correlativo.
 - **`officer_access_text(officer)`**: Con qué usuario ingresa el funcionario, o «Sin acceso».
 - **`item_state(item)`**: Estado de un ítem: no se guarda, sale de deleted_at (archivado = Inactivo).
 - **`item_class(item)`**: «Tipo de atención» si el ítem no tiene padre y «Sub atención» si lo tiene.
@@ -1285,6 +1284,10 @@ Muestran datos de la sesión iniciada: así, después de cerrar sesión, el bot�
 
 - **`__init__(get_response)`**: Guarda la función que sigue en la cadena de middleware.
 - **`__call__(request)`**: Fuera de `/admin/` y de los archivos estáticos, agrega a la respuesta las cabeceras para que el navegador no guarde las pantallas.
+
+#### `core/charts.py`
+
+Gráficos sin librerías (v28). `donut(items, title, center)` calcula los arcos de un anillo (el círculo mide 100 unidades, así el largo de cada arco es su porcentaje) y su leyenda; `bars(items, title, unit, maximum)` las barras horizontales con su valor escrito; `columns(items, title)` columnas verticales (atenciones por día). Cada gráfico trae un texto alternativo con todos sus valores. Se dibujan con las etiquetas `show_donut`, `show_bars` y `show_columns` (`core/templatetags/core_ui.py`).
 
 #### `core/ui.py`
 
@@ -2200,7 +2203,7 @@ Gestión de seguimiento de una actividad (hasta tres): número, tipo de gestión
 
 | Campo | Nombre visible | Tipo | Detalle |
 |---|---|---|---|
-| `sequence_number` | número de gestión | PositiveSmallIntegerField | con validadores — 1ra, 2da o 3ra gestión sobre la misma actividad. |
+| `sequence_number` | número de gestión | PositiveSmallIntegerField | con validadores — 1ra, 2da o 3ra gestión sobre la misma actividad. Lo asigna `FollowupForm.clean()` (primer número libre, 1 a 3); con las tres hechas el formulario rechaza la cuarta. |
 | `management_type` | tipo de gestión | ForeignKey | relación con `ManagementType`; nombre inverso `followups`; PROTECT; admite nulo; opcional |
 | `date` | fecha | DateField |  |
 | `result` | resultado | CharField | largo 255 |
@@ -2296,7 +2299,7 @@ Archivo que respalda una actividad: código único, archivo, fecha de subida, es
 
 | Campo | Nombre visible | Tipo | Detalle |
 |---|---|---|---|
-| `unique_code` | código único | CharField | largo 50; único |
+| `unique_code` | código único | CharField | largo 50; único. Lo asigna el sistema (`Evidence.next_code()`: `EVD-<DELEGACIÓN>-0001`, cuenta también las archivadas y reintenta si dos personas guardan a la vez); no se pide en el formulario y no se puede cambiar |
 | `file_link` | archivo | FileField | largo 255; sube archivo — PDF, imagen (PNG o JPG), Word o Excel de hasta 10 MB. |
 | `uploaded_at` | fecha de carga | DateTimeField |  |
 | `review_status` | estado de revisión | CharField | largo 30; con opciones; por defecto `ReviewStatus.PENDING` |
@@ -2494,6 +2497,7 @@ Plantillas de Django. Las de `templates/` son el marco general, los errores y la
 | `core/templates/core/partials/public_head.html` | Cabecera simple de las páginas sin sesión. |
 | `core/templates/core/partials/sidebar.html` | Barra lateral: marca, delegación con su color, perfiles y menú. |
 | `core/templates/core/partials/topbar.html` | Franja de arriba: delegación, persona con sesión, perfil y cerrar sesión; con varias delegaciones, el selector. |
+| `core/templates/core/partials/chart_donut.html`, `chart_bars.html`, `chart_columns.html` | Gráficos de anillo, barras horizontales y columnas hechos con SVG/CSS, con leyenda y números escritos (los arma `core/charts.py`). |
 | `core/templates/core/widgets/color.html` | Campo de color: muestra, texto `#RRGGBB` y selector de color del navegador. |
 | `core/templates/core/widgets/delegations.html` | Delegaciones adicionales de un usuario: una casilla por delegación con su color. |
 | `core/templates/core/widgets/lookup.html` | Campo de texto con lista de sugerencias y lupa para buscar. |
@@ -2793,7 +2797,11 @@ Funciones:
 
 ### `core/static/core/js/live-updates.js`
 
-Pantallas en vivo. Dos modos. Si la página tiene `[data-live-page]` (dashboard, tablero de delegación y validar), se conecta a `ws/live/`, y al llegar `live_changed` vuelve a pedir la misma dirección y reemplaza `[data-live-region]`. Listados en vivo: si la página tiene `[data-live-crud]`, se conecta a `ws/crud/<slug>/`; al llegar `crud_changed` espera 300 ms, vuelve a pedir la misma dirección (conserva filtros y página) y reemplaza solo la región `data-live-target="resultados"`. Muestra el estado («En vivo», «Reconectando…») y reintenta con espera creciente.
+Pantallas en vivo. Dos modos. Si la página tiene `[data-live-page]` (dashboard, tablero de delegación y validar), se conecta a `ws/live/`, y al llegar `live_changed` vuelve a pedir la misma dirección y reemplaza `[data-live-region]`. Listados en vivo: si la página tiene `[data-live-crud]`, se conecta a `ws/crud/<slug>/`; al llegar `crud_changed` espera 300 ms, vuelve a pedir la misma dirección (conserva filtros y página) y reemplaza solo la región `data-live-target="resultados"`. Muestra el estado («En vivo», «Reconectando…») y reintenta con espera creciente. Desde la v28 tiene respaldo por consulta: si el WebSocket no conecta, la pantalla se revisa sola cada 8 segundos (y cada 60 s como respaldo con WebSocket abierto, solo con la pestaña visible); una revisión que no cambia nada (se ignora el token CSRF y el indicador) no toca la pantalla.
+
+### `core/static/core/js/searchable-select.js`
+
+Selector con buscador (v28). Los `<select>` con `data-searchable` y 8 opciones o más (o `data-searchable="always"`) reciben encima una caja de texto con lista desplegable: filtra por todas las palabras escritas, sin importar tildes, mayúsculas ni orden; dibuja como máximo 60 filas y avisa cuántas coincidencias más hay; funciona con teclado (flechas, Enter, Esc, Tab) y roles `combobox`/`listbox`. El `<select>` original sigue guardando el valor (se oculta visualmente), así que validación, búsqueda en vivo y envío no cambian. `CrudForm` marca con `data-searchable` todos los selectores de un solo registro y los filtros de los listados lo llevan en la plantilla.
 
 ## 13. Hoja de estilos
 
@@ -2828,7 +2836,8 @@ Pantallas en vivo. Dos modos. Si la página tiene `[data-live-page]` (dashboard,
 
 | Archivo | Qué hace |
 |---|---|
-| `deploy/actualizar.sh` | Pone al día una instalación existente. Recibe la rama o etiqueta (por defecto `main`): baja la versión (`fetch`, `checkout`, `pull`), instala las dependencias, anota la versión desplegada en `COMMIT`, carga las variables de `/etc/sgr/sgr.env`, crea la carpeta de archivos subidos, ejecuta `check --deploy`, `migrate` y `collectstatic`, reinicia el servicio `sgr` y consulta `/salud/`. |
+| `deploy/probar_websocket.py` | Prueba de verdad el WebSocket: handshake a `/ws/live/` directo en Daphne y a través de Apache; da por bueno un 101 o el «403 Access denied» de Daphne y explica qué revisar si no llega. `actualizar.sh` lo corre al terminar. |
+| `deploy/actualizar.sh` | Pone al día una instalación existente. Desde la v28 deja listo el WebSocket (corre `al2023/agregar_websocket.sh`: Apache pasa `/ws/` y el servicio es Daphne) y al terminar prueba el WebSocket. Recibe la rama o etiqueta (por defecto `main`): baja la versión (`fetch`, `checkout`, `pull`), instala las dependencias, anota la versión desplegada en `COMMIT`, carga las variables de `/etc/sgr/sgr.env`, crea la carpeta de archivos subidos, ejecuta `check --deploy`, `migrate` y `collectstatic`, reinicia el servicio `sgr` y consulta `/salud/`. |
 | `deploy/instalar_ec2.sh` | Primera instalación en una instancia EC2 con Ubuntu: instala los paquetes (Python, git, nginx y redis), crea el usuario `sgr`, clona el repositorio en `/opt/sgr/app`, crea el entorno virtual, instala las dependencias y deja `/etc/sgr/sgr.env` para completar. |
 | `deploy/gunicorn.conf.py` | Configuración de gunicorn (ya no la usa el servicio desde la v24; se conserva como referencia). |
 | `deploy/nginx-sgr.conf` | Sitio de nginx que pasa el tráfico a Daphne (puerto 8000), con `/ws/` preparado para WebSocket y límite de 12 MB por petición. |

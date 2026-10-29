@@ -1,5 +1,9 @@
+from zoneinfo import ZoneInfo
+
+from django.conf import settings
 from django.contrib.auth.models import Group, Permission, User
 from django.test import TestCase
+from django.utils import timezone
 
 from accounts.models import UserProfile
 from core.datos_prueba import cargar_datos_prueba
@@ -7,6 +11,13 @@ from operations.models import Activity
 from organization.models import Delegation, Item, Officer
 
 PASSWORD = "Hola123!"
+
+
+def portal_today():
+    """La fecha de hoy en la zona del portal (Santiago): la misma que usa el sistema dentro de una petición."""
+    return timezone.localtime(timezone.now(), ZoneInfo(settings.PORTAL_TIME_ZONE)).date()
+
+
 ALL_USERS = ("admin", "matias.cavieres", "matias.quiroz", "coordinacion1", "jefatura1", "consulta1")
 
 

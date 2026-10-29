@@ -14,7 +14,7 @@ from openpyxl.utils import get_column_letter
 from core import export
 from core.crud import PAGE_SIZE, registry
 from core.models import AuditLog
-from core.testing import PortalTestCase
+from core.testing import PortalTestCase, portal_today
 from organization.models import Beneficiary, Officer
 
 
@@ -110,7 +110,7 @@ class ListExportTests(ExcelTestCase):
         response = self.download("core:atencion")
         self.assertEqual(response["Content-Type"], export.CONTENT_TYPE)
         with timezone.override(ZoneInfo(settings.PORTAL_TIME_ZONE)):
-            today = timezone.localdate().isoformat()
+            today = portal_today().isoformat()
         self.assertEqual(response["Content-Disposition"], f'attachment; filename="atenciones-{today}.xlsx"')
 
     def test_sheet_has_title_author_filters_header_and_rows(self):

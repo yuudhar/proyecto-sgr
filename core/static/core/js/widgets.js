@@ -1,4 +1,5 @@
 import * as dialog from "./dialog.js";
+import { initSearchable } from "./searchable-select.js";
 
 const HEX_COLOR = /^#[0-9a-fA-F]{6}$/;
 
@@ -222,6 +223,7 @@ export function initWidgets(root = document) {
   root.querySelectorAll("[data-color-field]").forEach(setUpColor);
   root.querySelectorAll(".perm-field").forEach(setUpPermissions);
   root.querySelectorAll("select[data-depends-on]").forEach((select) => setUpDependent(select, root));
+  initSearchable(root);
   if (dialog.available) root.querySelectorAll("[data-lookup-field]").forEach((box) => setUpLookup(box, root));
 }
 

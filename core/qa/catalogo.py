@@ -10,6 +10,7 @@ from core.qa.esperado_tiempo_real import ESPERADO as _TIEMPO_REAL
 from core.qa.esperado_ritmo_y_compromisos import ESPERADO as _RITMO_Y_COMPROMISOS
 from core.qa.esperado_resultados_y_calculo import ESPERADO as _RESULTADOS_Y_CALCULO
 from core.qa.esperado_validaciones import ESPERADO as _VALIDACIONES
+from core.qa.esperado_codes_search_and_charts import ESPERADO as _CODES_SEARCH_AND_CHARTS
 
 REQUISITOS = {
     "A1-01": ("A1", "Login: usuario o correo más contraseña, validación y acceso según perfil"),
@@ -59,6 +60,10 @@ REQUISITOS = {
     "T11-01": ("Clase 11", "Django Channels y Daphne: ASGI, enrutamiento HTTP/WebSocket, capa de canales y orígenes permitidos"),
     "T11-03": ("Clase 11", "Listados CRUD en vivo: aviso tras el commit, permisos por módulo y delegación, y nueva consulta HTTP de la tabla"),
     "T11-05": ("Clase 11", "Tiempo real en todas las pantallas compartidas: Atención, fichas, informes, administración, catálogos y auditoría se actualizan sin F5"),
+    "V28-01": ("Versión 28", "Códigos y números automáticos: código de evidencia y número de gestión los asigna el sistema, sin escribirlos a mano"),
+    "V28-02": ("Versión 28", "Selector con buscador en listas largas (actividades, funcionarios…), con teclado y sin perder el formulario"),
+    "V28-03": ("Versión 28", "Gráficos de anillo, barras y columnas en dashboard, tablero, resumen colectivo e informes, con los números escritos"),
+    "V28-04": ("Versión 28", "Pantallas en vivo aunque el WebSocket no conecte: revisión periódica y prueba del WebSocket al desplegar"),
     "T11-04": ("Clase 11", "Dashboard, tablero y validar en vivo: el cambio de una persona se ve en la pantalla abierta de otra de la misma delegación, sin F5"),
     "RF-018": ("Informe SGR", "Gestionar estados de compromisos: Ingresado, Pendiente, En proceso y Realizado, con transiciones válidas e historial"),
     "RF-021": ("Informe SGR", "Resumen colectivo: compromisos por funcionario y estado, con porcentaje realizado y por realizar"),
@@ -218,12 +223,18 @@ CLASES = {
     "LiveCatalogChangesTests": (["T11-05"], "Avisos de catálogos y auditoría", _SEMILLA + "; conexiones WebSocket"),
     "EveryScreenIsLiveExceptFormsTests": (["T11-05"], "Todo en vivo, salvo los formularios", _SEMILLA + "; sesión del Super Usuario"),
     "AssetVersionTests": (["A4-01"], "Versión de CSS y JS en cada entrega", _SEMILLA + "; sesión del Super Usuario"),
+    "AutomaticCodeTests": (["V28-01"], "Códigos y números automáticos", _SEMILLA + "; sesión de Matías Cavieres (Norte)"),
+    "SearchableSelectTests": (["V28-02"], "Selector con buscador", _SEMILLA + "; sesión de Matías Cavieres (Norte)"),
+    "ChartMathTests": (["V28-03"], "Gráficos (cálculo)", _SIN_BD),
+    "ChartScreenTests": (["V28-03"], "Gráficos en las pantallas", _SEMILLA + "; sesiones de Super Usuario y funcionario"),
+    "LiveFallbackTests": (["V28-04"], "Respaldo del tiempo real y despliegue", _SEMILLA),
+    "WebsocketProbeTests": (["V28-04"], "Prueba del WebSocket del servidor", _SIN_BD),
     "DaphneDeployTests": (["T11-01", "A4-02"], "Despliegue con Daphne y WebSocket", _SIN_BD),
     "DeletedUsersTests": (["A1-07", "A2-02"], "Usuarios eliminados: borrar, ver y restaurar", _SEMILLA + "; sesión del Super Usuario"),
     "OnlySuperuserDeletesUsersTests": (["A1-07", "A2-02"], "Solo el Super Usuario elimina y restaura usuarios", _SEMILLA + "; usuario con permisos de usuarios sin ser Super Usuario"),
 }
 
 ESPERADO = {}
-for _grupo in (_ACCESO, _MANTENEDORES, _INGRESO, _LISTADOS, _DESPLIEGUE, _VALIDACIONES, _ARCHIVOS_Y_FOTO, _ELIMINAR_Y_LISTADOS, _USUARIOS_ELIMINADOS, _TIEMPO_REAL, _RITMO_Y_COMPROMISOS, _RESULTADOS_Y_CALCULO, ):
+for _grupo in (_ACCESO, _MANTENEDORES, _INGRESO, _LISTADOS, _DESPLIEGUE, _VALIDACIONES, _ARCHIVOS_Y_FOTO, _ELIMINAR_Y_LISTADOS, _USUARIOS_ELIMINADOS, _TIEMPO_REAL, _RITMO_Y_COMPROMISOS, _RESULTADOS_Y_CALCULO, _CODES_SEARCH_AND_CHARTS, ):
     for _clase, _metodos in _grupo.items():
         ESPERADO.setdefault(_clase, {}).update(_metodos)

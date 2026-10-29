@@ -5,7 +5,6 @@ from django.contrib.auth.models import Group, User
 from django.db.models import Count, Q
 from django.urls import reverse
 from django.utils import timezone
-from django.utils.text import slugify
 
 from accounts.delegations import listed_extra_delegations, stored_delegation_ids, sync_extra_delegations
 from accounts.models import RoleDetails, RoleProfile, UserProfile, group_is_global, role_details
@@ -238,7 +237,6 @@ class FollowupCrud(Crud):
     )
     full_width = ("result",)
     rules = {"result": "label"}
-    bounds = {"sequence_number": {"min": "1", "max": "3"}}
     form_base = FollowupForm
     delegation_lookup = "activity__delegation"
 
@@ -246,10 +244,7 @@ class FollowupCrud(Crud):
         initial = {"date": timezone.localdate()}
         activity = visible_activity(request, request.GET.get("activity", ""))
         if activity is not None:
-            used = set(activity.followups.values_list("sequence_number", flat=True))
-            free = [n for n in (1, 2, 3) if n not in used]
-            if free:
-                initial["sequence_number"] = free[0]
+            initial["activity"] = activity.pk
         return initial
 
 
@@ -323,23 +318,6 @@ class CommitmentCrud(Crud):
         return initial
 
 
-def suggest_evidence_code(request, activity):
-    delegation = activity.delegation if activity is not None else default_delegation(request)
-    if delegation is None:
-        return ""
-    name = delegation.name
-    if name.lower().startswith("delegación "):
-        name = name[len("delegación "):]
-    prefix = f"EVD-{slugify(name).upper()}-"
-    numbers = [
-        int(code[len(prefix):])
-        for code in Evidence._default_manager.filter(unique_code__startswith=prefix)
-        .values_list("unique_code", flat=True)
-        if is_id(code[len(prefix):])
-    ]
-    return f"{prefix}{max(numbers, default=0) + 1:04d}"
-
-
 @registry.register
 class EvidenceCrud(Crud):
     model = Evidence
@@ -363,7 +341,7 @@ class EvidenceCrud(Crud):
     readonly_on_edit = ("unique_code",)
     rules = {"unique_code": "code"}
     help_texts = {
-        "unique_code": "Identifica la evidencia y no se puede cambiar después de crearla.",
+        "unique_code": "Se asignó sola al subir la evidencia y no se puede cambiar.",
     }
     delegation_lookup = "activity__delegation"
     related = (
@@ -378,7 +356,8 @@ class EvidenceCrud(Crud):
     def initial_values(self, request):
         initial = own_officer_defaults(request, "author_officer")
         activity = visible_activity(request, request.GET.get("activity", ""))
-        initial["unique_code"] = suggest_evidence_code(request, activity)
+        if activity is not None:
+            initial["activity"] = activity.pk
         return initial
 
     def prepare_object(self, request, obj, creating, form):

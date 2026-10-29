@@ -22,7 +22,7 @@ from core.commitments import (
 from core.crud import conflict_message, last_change_text
 from core.models import AuditLog
 from core.results import officer_summary, officer_weights, weight_problems, weights_state
-from core.testing import PortalTestCase
+from core.testing import PortalTestCase, portal_today
 from evidence.models import Evidence
 from operations.models import Activity, Commitment
 from organization.models import Item, Officer
@@ -764,7 +764,7 @@ class DeadlineTests(SimpleTestCase):
 class DeadlineScreensTests(PortalTestCase):
 
     def setUp(self):
-        self.today = timezone.localdate()
+        self.today = portal_today()
         self.admin_officer = self.officer("F-1001")
 
     def make(self, days, status=Commitment.Status.IN_PROGRESS, officer=None, label="x"):
@@ -887,7 +887,7 @@ class PersonalDashboardTests(PortalTestCase):
 
     def test_overdue_and_due_soon_are_counted(self):
         officer = self.officer("F-1001")
-        today = timezone.localdate()
+        today = portal_today()
         for days in (-3, 2):
             Commitment.objects.create(
                 requester=f"Personal {days}",

@@ -45,6 +45,14 @@
 {% if not period %}
 <section class="panel"><div class="empty"><i class="bi bi-calendar-range" aria-hidden="true"></i><p>Todavía no hay períodos creados, así que no hay nada que informar.</p></div></section>
 {% else %}
+{% if rows %}<section class="panel mb-4" aria-labelledby="titulo-graficos">
+  <div class="panel-head"><h2 class="panel-title" id="titulo-graficos">Gráficos</h2></div>
+  <div class="chart-panel">
+    {% for chart in charts.donuts %}<div>{% show_donut chart %}</div>{% endfor %}
+    {% if charts.bars.rows %}<div class="chart-wide">{% show_bars charts.bars %}</div>{% endif %}
+  </div>
+</section>{% endif %}
+
 <section class="panel" aria-label="Informe por funcionario">
   <div class="panel-head">
     <h2 class="panel-title">{{ scope_label }}</h2>

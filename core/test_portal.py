@@ -504,39 +504,42 @@ class CrudFlowTests(PortalTestCase):
             "date": activity.date.isoformat(),
             "result": "Se llamó por teléfono.",
         }
+        # El número de gestión lo asigna el sistema: no se escribe en el formulario.
+        response = self.client.get(reverse("core:gestiones_create"))
+        self.assertNotIn("sequence_number", response.context["form"].fields)
+        # Un número escrito a mano se ignora: la gestión toma el primer número libre (la 3).
         response = self.client.post(
             reverse("core:gestiones_create"), {**base, "sequence_number": 1}
         )
-        self.assertEqual(response.status_code, 200)
-        self.assertTrue(response.context["form"].non_field_errors() or response.context["form"].errors)
-        response = self.client.post(
-            reverse("core:gestiones_create"), {**base, "sequence_number": 4}
-        )
-        self.assertEqual(response.status_code, 200)
-        self.assertIn("sequence_number", response.context["form"].errors)
-        response = self.client.post(
-            reverse("core:gestiones_create"), {**base, "sequence_number": 3}
-        )
         self.assertEqual(response.status_code, 302)
         self.assertTrue(Followup.objects.filter(activity=activity, sequence_number=3).exists())
+        # Con las 3 gestiones hechas, la cuarta se rechaza.
+        response = self.client.post(reverse("core:gestiones_create"), base)
+        self.assertEqual(response.status_code, 200)
+        self.assertIn("activity", response.context["form"].errors)
+        self.assertEqual(Followup.objects.filter(activity=activity).count(), 3)
 
     def test_get_form_from_activity_detail_preselects_the_activity(self):
         self.login_as("matias.cavieres")
         activity = self.activity("María Pérez")
         response = self.client.get(reverse("core:gestiones_create"), {"activity": activity.pk})
-        self.assertEqual(response.context["form"].initial["activity"], str(activity.pk))
-        self.assertEqual(response.context["form"].initial["sequence_number"], 3)
+        self.assertEqual(str(response.context["form"].initial["activity"]), str(activity.pk))
         foreign = self.activity("Ana Rojas")
         response = self.client.get(reverse("core:gestiones_create"), {"activity": foreign.pk})
-        self.assertNotIn("sequence_number", response.context["form"].initial)
+        self.assertFalse(response.context["form"].fields["activity"].queryset.filter(pk=foreign.pk).exists())
 
-    def test_evidence_code_is_suggested_per_delegation(self):
+    def test_evidence_code_is_assigned_per_delegation(self):
         self.login_as("matias.cavieres")
         response = self.client.get(reverse("core:evidencias_create"))
-        self.assertEqual(response.context["form"].initial["unique_code"], "EVD-NORTE-0004")
-        self.login_as("matias.quiroz")
-        response = self.client.get(reverse("core:evidencias_create"))
-        self.assertEqual(response.context["form"].initial["unique_code"], "EVD-SUR-0004")
+        self.assertNotIn("unique_code", response.context["form"].fields)
+        north = Evidence.objects.create(
+            file_link="x", activity=self.activity("María Pérez"), author_officer=self.officer("F-1001")
+        )
+        south = Evidence.objects.create(
+            file_link="x", activity=self.activity("Ana Rojas"), author_officer=self.officer("F-2001")
+        )
+        self.assertEqual(north.unique_code, "EVD-NORTE-0004")
+        self.assertEqual(south.unique_code, "EVD-SUR-0004")
 
     def test_coordination_manages_periods_and_adjustments(self):
         self.login_as("coordinacion1")

@@ -4,7 +4,6 @@ import shutil
 import subprocess
 import unittest
 from datetime import timedelta
-from zoneinfo import ZoneInfo
 
 from django import forms
 from django.conf import settings
@@ -14,25 +13,19 @@ from django.contrib.sessions.backends.db import SessionStore
 from django.core.exceptions import ValidationError
 from django.test import RequestFactory, SimpleTestCase
 from django.urls import reverse
-from django.utils import timezone
 
-import core.registry
+import core.registry  # noqa: F401  (registra los mantenedores)
 from accounts.forms import RecoveryPasswordForm
 from accounts.validators import PasswordPolicyValidator
 from core import rules
 from core.crud import registry
-from core.forms import LONG_TEXT_MAX, PortalPasswordChangeForm, ValidationForm
+from core.forms import LONG_TEXT_MAX, ValidationForm
 from core.test_users import NEW_PASSWORD, UserTestCase
-from core.testing import PASSWORD, PortalTestCase
-from evidence.models import Evidence, Validation
+from core.testing import PASSWORD, PortalTestCase, portal_today
+from evidence.models import Validation
 from operations.models import Activity, Commitment, Followup, ManagementType
 from organization.models import Item, Position, PositionItem, Territory
-from planning.models import Goal, Period
-
-
-def portal_today():
-    with timezone.override(ZoneInfo(settings.PORTAL_TIME_ZONE)):
-        return timezone.localdate()
+from planning.models import Goal
 
 
 def input_tag(html, field):
@@ -469,7 +462,7 @@ class NumberRangesTests(FormFactory, PortalTestCase):
         self.assertEqual(response.status_code, 200)
         self.assertIn("max_cap", response.context["form"].errors)
 
-    def test_the_followup_number_goes_from_1_to_3(self):
+    def test_the_followup_number_is_automatic_and_goes_from_1_to_3(self):
         activity = self.activity("María Pérez")
         base = {
             "activity": activity.pk,
@@ -477,11 +470,15 @@ class NumberRangesTests(FormFactory, PortalTestCase):
             "date": activity.date.isoformat(),
             "result": "Se llamó por teléfono.",
         }
+        form = self.client.get(reverse("core:gestiones_create")).context["form"]
+        self.assertNotIn("sequence_number", form.fields)
+        # Aunque alguien mande un número a mano (0, -1, 4), el sistema usa el primero libre.
         for number in ("0", "-1", "4"):
             with self.subTest(number=number):
+                Followup.objects.filter(activity=activity, sequence_number=3).delete()
                 response = self.client.post(reverse("core:gestiones_create"), {**base, "sequence_number": number})
-                self.assertEqual(response.status_code, 200)
-                self.assertIn("sequence_number", response.context["form"].errors)
+                self.assertEqual(response.status_code, 302)
+                self.assertTrue(Followup.objects.filter(activity=activity, sequence_number=3).exists())
 
     def test_the_goal_target_must_be_above_zero(self):
         goal = Goal.objects.filter(officer__isnull=False).first()
@@ -506,7 +503,6 @@ class NumberRangesTests(FormFactory, PortalTestCase):
     def test_the_numbers_reach_the_browser_with_their_limits(self):
         expected = {
             "core:items_de_cargo_create": {"weight": ('min="0.01"', 'max="100"'), "max_cap": ('min="0.01"',)},
-            "core:gestiones_create": {"sequence_number": ('min="1"', 'max="3"')},
             "core:periodos_create": {
                 "computable_days": ('min="1"',),
                 "collective_threshold": ('min="0.01"', 'max="100"'),

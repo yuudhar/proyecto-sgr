@@ -11,11 +11,40 @@ Nombres que cambiaron en la v27 (los textos antiguos los mencionan con el nombre
 | `core/test_v16.py` | `core/test_uploads_photos_attention.py` |
 | `core/test_v22.py` | `core/test_delete_and_list_tools.py` |
 | `core/test_v23.py` | `core/test_deleted_users.py` |
-| `core/test_v24.py`, `core/test_v27.py`, `core/test_v28.py` | `core/test_realtime.py` (y `DaphneDeployTests` en `core/test_deploy.py`, `UserPhotoByAdminTests` en `core/test_uploads_photos_attention.py`) |
+| `core/test_v24.py`, `core/test_v27.py`, `core/test_v28.py` (el de la v27) | `core/test_realtime.py` (y `DaphneDeployTests` en `core/test_deploy.py`, `UserPhotoByAdminTests` en `core/test_uploads_photos_attention.py`) |
 | `core/test_v25.py` | `core/test_pace_and_commitments.py` |
 | `core/test_v26.py` | `core/test_results_and_calculation.py` |
 | `core/qa/esperado_vNN.py` | `core/qa/esperado_<tema>.py` (mismo tema que su archivo de pruebas) |
 | `sql/*.sql` (todos) | `sql/sgr_django.sql` (estructura vigente) |
+
+## Versión 28
+
+### Pantallas en vivo aunque el WebSocket no conecte
+
+En las capturas de la v27 un navegador decía «Reconectando…» y el otro «Sin actualización en vivo»: el WebSocket no llegaba a Daphne (Apache sin `ProxyPass /ws/` o servicio todavía en gunicorn). El código funciona (probado con dos navegadores reales), pero `actualizar.sh` no dejaba el servidor listo. Ahora:
+
+- `deploy/actualizar.sh` corre `deploy/al2023/agregar_websocket.sh` (Apache pasa `/ws/`, el servicio es Daphne) antes de reiniciar, y al terminar corre `deploy/probar_websocket.py`, que prueba el WebSocket directo y a través de Apache y dice qué revisar si falla.
+- `live-updates.js` tiene respaldo: sin WebSocket revisa la pantalla cada 8 s; con WebSocket, cada 60 s por si se perdió un aviso. Solo con la pestaña visible, y solo reemplaza la pantalla si el contenido cambió.
+
+### Códigos y números automáticos
+
+| Dato | Antes | Ahora |
+|---|---|---|
+| Código de evidencia | Se escribía (venía sugerido) | Lo asigna el sistema al guardar: `EVD-<DELEGACIÓN>-0001`… (cuenta también las archivadas; reintenta si dos personas guardan a la vez). No aparece al crear y no cambia al editar |
+| Número de gestión | Se escribía (1 a 3) | Lo asigna el sistema (primer número libre); con las tres hechas se rechaza la cuarta |
+| Código de funcionario | Automático desde la v20 | Sin cambios |
+
+### Selector con buscador
+
+Los selectores de un solo registro (actividad, funcionario, territorio…) y los filtros de los listados con 8 opciones o más muestran una caja para escribir y filtrar (`core/static/core/js/searchable-select.js`). Ignora tildes, mayúsculas y orden de palabras, dibuja como máximo 60 filas y se maneja con teclado. Las actividades ahora muestran también su ítem para poder buscar por él, y se traen en una sola consulta.
+
+### Gráficos
+
+Anillos, barras y columnas con SVG y CSS (sin librerías), siempre con los números escritos: dashboard (semáforo de metas, evidencias y compromisos propios, cumplimiento por meta, atenciones de los últimos 14 días), tablero de delegación, resumen colectivo e informes. Código en `core/charts.py`.
+
+### Pruebas
+
+`core/test_codes_search_and_charts.py` (códigos automáticos, buscador, gráficos, respaldo del tiempo real, prueba del WebSocket). Las pruebas que dependían de la fecha de hoy ahora usan la fecha de Santiago (`core.testing.portal_today`), así no fallan entre las 21:00 y la medianoche.
 
 ## Versión 27
 

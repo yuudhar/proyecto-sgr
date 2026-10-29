@@ -149,9 +149,9 @@ ESPERADO = {
     "CrudFlowTests": {
         "create_update_archive_and_restore_an_activity": "Se puede crear, editar, archivar y restaurar una atención.",
         "required_fields_show_messages_and_keep_what_was_typed": "Los campos obligatorios muestran mensajes y conservan lo escrito.",
-        "followup_rules_are_checked_by_the_form": "El formulario valida las reglas de seguimiento.",
+        "followup_rules_are_checked_by_the_form": "La gestión toma sola el primer número libre (ignora el que se mande a mano) y la cuarta se rechaza.",
         "get_form_from_activity_detail_preselects_the_activity": "Abrir el formulario desde la ficha preselecciona la atención.",
-        "evidence_code_is_suggested_per_delegation": "El código de evidencia se sugiere por delegación.",
+        "evidence_code_is_assigned_per_delegation": "El código de evidencia lo asigna el sistema por delegación (EVD-NORTE-0004, EVD-SUR-0004…) y el formulario no lo pide.",
         "coordination_manages_periods_and_adjustments": "Coordinación administra períodos y ajustes.",
         "validations_cannot_be_created_edited_or_archived_by_url": "Las validaciones no se pueden crear, editar ni archivar por URL.",
         "list_parameters_are_safe": "Los parámetros de listado son seguros ante valores raros.",
@@ -237,7 +237,7 @@ ESPERADO = {
         "saving_over_a_newer_version_asks_to_review_and_saves_nothing": "Guardar sobre una versión más nueva pide revisar y no guarda nada.",
     },
     "EvidenceEditTests": {
-        "unique_code_is_asked_on_creation_but_cannot_change_afterwards": "El código único se pide al crear y no cambia después.",
+        "unique_code_is_assigned_by_the_system_and_cannot_change": "El código único no se pide al crear (lo asigna el sistema) y no cambia al editar.",
         "changing_the_file_of_a_reviewed_evidence_sends_it_back_to_pending": "Cambiar el archivo de una evidencia revisada la devuelve a pendiente.",
         "a_change_that_does_not_alter_the_reviewed_file_keeps_the_review": "Un cambio que no toca el archivo revisado conserva la revisión.",
     },
@@ -246,7 +246,7 @@ ESPERADO = {
     },
     "IdParameterTests": {
         "non_ascii_digits_are_not_taken_as_ids": "Los dígitos no ASCII no se toman como ids.",
-        "codes_with_unexpected_numbers_do_not_break_the_suggestion": "Códigos con números inesperados no rompen la sugerencia.",
+        "codes_with_unexpected_numbers_do_not_break_the_automatic_code": "Códigos con números inesperados no rompen la asignación automática.",
     },
     "PlanningFormRuleTests": {
         "period_thresholds_and_days_have_limits": "Umbrales y días del período tienen límites.",

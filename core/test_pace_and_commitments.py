@@ -1,7 +1,10 @@
+from zoneinfo import ZoneInfo
+
 from datetime import date, timedelta
 from decimal import Decimal
 from types import SimpleNamespace
 
+from django.conf import settings
 from django.contrib.auth.models import User
 from django.test import SimpleTestCase
 from django.urls import reverse
@@ -10,7 +13,7 @@ from django.utils import timezone
 from core import ui
 from core.commitments import STATUS_EVENT, collective_summary, history_of
 from core.models import AuditLog
-from core.testing import PortalTestCase
+from core.testing import PortalTestCase, portal_today
 from operations.models import Commitment
 from organization.models import Officer
 from planning.models import Period
@@ -100,7 +103,8 @@ class PaceScreensTests(PortalTestCase):
         self.login_as("admin")
         response = self.client.get(reverse("core:delegation_board"), {"delegacion": self.north.pk})
         summary = response.context["pace_summary"]
-        self.assertEqual(summary["pace"], pace_of(response.context["period"]))
+        with timezone.override(ZoneInfo(settings.PORTAL_TIME_ZONE)):  # el día de Santiago, como en la pantalla
+            self.assertEqual(summary["pace"], pace_of(response.context["period"]))
         self.assertContains(response, "Ritmo del período")
         self.assertContains(response, "Meta esperada al día")
         self.assertContains(response, "% diario esperado")
@@ -157,8 +161,8 @@ class CommitmentStatusTests(PortalTestCase):
         return Commitment.objects.create(
             requester=f"Solicitante {status}",
             territory=territory,
-            due_date=timezone.localdate() + timedelta(days=10),
-            request_date=timezone.localdate(),
+            due_date=portal_today() + timedelta(days=10),
+            request_date=portal_today(),
             status=status,
             responsible_officer=officer,
             delegation=delegation,
@@ -272,8 +276,8 @@ class CommitmentStatusTests(PortalTestCase):
             {
                 "requester": "Vecinos de prueba",
                 "requester_type": "EXTERNAL",
-                "request_date": timezone.localdate().isoformat(),
-                "due_date": (timezone.localdate() + timedelta(days=5)).isoformat(),
+                "request_date": portal_today().isoformat(),
+                "due_date": (portal_today() + timedelta(days=5)).isoformat(),
                 "territory": territory.pk,
                 "status": "submitted",
                 "responsible_officer": officer.pk,
@@ -326,8 +330,8 @@ class CollectiveSummaryTests(PortalTestCase):
         return Commitment.objects.create(
             requester=requester,
             territory=officer.delegation.territories.first(),
-            due_date=due or timezone.localdate() + timedelta(days=3),
-            request_date=timezone.localdate(),
+            due_date=due or portal_today() + timedelta(days=3),
+            request_date=portal_today(),
             status=status,
             responsible_officer=officer,
             delegation=officer.delegation,

@@ -1,0 +1,13 @@
+<figure class="chart chart-columns">
+  <figcaption class="chart-title">{{ title }}<span class="muted fw-normal"> · {{ total }} en total</span></figcaption>
+  <svg class="columns" viewBox="0 0 {{ width }} {{ height|add:'16' }}" role="img" aria-label="{{ summary }}" preserveAspectRatio="xMidYMid meet">
+    <line class="columns-base" x1="0" y1="{{ height|add:'4' }}" x2="{{ width }}" y2="{{ height|add:'4' }}"></line>
+    {% for col in cols %}
+    <g transform="translate(0 4)">
+      <rect class="columns-bar{% if not col.value %} is-zero{% endif %}" x="{{ col.x }}" y="{{ col.y }}" width="12" height="{% if col.value %}{{ col.height }}{% else %}0.6{% endif %}" rx="1.5"{% if not col.value %} y="{{ height }}"{% endif %}><title>{{ col.label }}: {{ col.value }}</title></rect>
+      {% if col.value %}<text class="columns-value" x="{{ col.mid }}" y="{{ col.y }}" dy="-1.2" text-anchor="middle" aria-hidden="true">{{ col.value }}</text>{% endif %}
+    </g>
+    {% if col.show_label %}<text class="columns-label" x="{{ col.mid }}" y="{{ height|add:'12' }}" text-anchor="middle" aria-hidden="true">{{ col.label }}</text>{% endif %}
+    {% endfor %}
+  </svg>
+</figure>

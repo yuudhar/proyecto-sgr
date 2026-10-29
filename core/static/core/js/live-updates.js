@@ -11,10 +11,23 @@ import { aviso } from "./alerts.js";
 
 const scheme = location.protocol === "https:" ? "wss" : "ws";
 const MAX_RETRIES = 5;
+const POLL_FALLBACK_MS = 8000; // sin WebSocket (proxy mal configurado, red que lo corta…) la pantalla se revisa sola cada tanto
+const POLL_SAFETY_MS = 60000; // con WebSocket, una revisión de respaldo por si se perdió algún aviso
+
+// Huella del contenido de una región: ignora lo que cambia en cada respuesta sin que cambie el dato
+// (el token CSRF de los formularios y el indicador de conexión).
+function signature(region) {
+  const copy = region.cloneNode(true);
+  copy.querySelectorAll("[data-live-state]").forEach((node) => node.remove());
+  copy.querySelectorAll('input[name="csrfmiddlewaretoken"]').forEach((node) => node.setAttribute("value", ""));
+  return copy.innerHTML;
+}
 
 function startLive({ sources, selector, message }) {
   let refreshTimer = null;
+  let pollTimer = null;
   let ticket = 0;
+  let connected = false; // el canal principal está abierto
   let current = { text: "Conectando…", tone: "neutral" };
 
   function setState(text, tone) {
@@ -39,6 +52,7 @@ function startLive({ sources, selector, message }) {
       const region = document.querySelector(selector);
       const next = fresh.querySelector(selector);
       if (!region || !next) return;
+      if (signature(region) === signature(next)) return; // nada cambió para esta persona: no se toca la pantalla
       region.replaceWith(next);
       setState(current.text, current.tone); // la región nueva trae el indicador oculto: se vuelve a mostrar
       const status = document.querySelector("[data-live-status]");
@@ -54,6 +68,18 @@ function startLive({ sources, selector, message }) {
     refreshTimer = window.setTimeout(refresh, 300); // varios avisos seguidos → una sola actualización
   }
 
+  // Respaldo por consulta periódica: con el WebSocket caído la pantalla igual se pone al día sola.
+  function poll() {
+    window.clearTimeout(pollTimer);
+    pollTimer = window.setTimeout(() => {
+      if (!document.hidden) refresh();
+      poll();
+    }, connected ? POLL_SAFETY_MS : POLL_FALLBACK_MS);
+  }
+  document.addEventListener("visibilitychange", () => {
+    if (!document.hidden) schedule();
+  });
+
   function connect(source, primary) {
     let attempts = 0;
     function open() {
@@ -62,14 +88,22 @@ function startLive({ sources, selector, message }) {
       socket.onopen = () => {
         opened = true;
         attempts = 0;
-        if (primary) setState("En vivo", "ok");
+        if (primary) {
+          connected = true;
+          setState("En vivo", "ok");
+          poll();
+        }
       };
       socket.onmessage = (event) => {
         if (source.accepts(JSON.parse(event.data))) schedule();
       };
       socket.onclose = () => {
+        if (primary) {
+          connected = false;
+          poll(); // mientras no haya conexión, se revisa cada pocos segundos
+        }
         if (!opened && attempts >= MAX_RETRIES) {
-          if (primary) setState("Sin actualización en vivo", "neutral");
+          if (primary) setState("Se actualiza cada 8 s", "neutral");
           return;
         }
         if (primary) setState("Reconectando…", "warn");
@@ -81,6 +115,7 @@ function startLive({ sources, selector, message }) {
     open();
   }
 
+  poll();
   sources.forEach((source, index) => connect(source, index === 0));
 }
 

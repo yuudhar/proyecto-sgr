@@ -1,0 +1,14 @@
+<figure class="chart chart-bars">
+  <figcaption class="chart-title">{{ title }}</figcaption>
+  {% if rows %}
+  <ul class="hbars">
+    {% for row in rows %}
+    <li class="hbar">
+      <span class="hbar-label">{{ row.label }}</span>
+      <span class="hbar-track" aria-hidden="true"><span class="hbar-fill hbar-{{ row.tone }}" style="width: {{ row.width }}%"></span></span>
+      <strong class="hbar-value">{{ row.text }}</strong>
+    </li>
+    {% endfor %}
+  </ul>
+  {% else %}<p class="muted mb-0">Sin datos todavía.</p>{% endif %}
+</figure>

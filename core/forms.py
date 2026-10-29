@@ -26,7 +26,7 @@ from core.rules import collapse_spaces, get_rule, normalize_lines
 from core.search import plain_letter, word_pattern
 from core.widgets import ColorWidget, DelegationsWidget, DependentSelect, LookupWidget, PermissionMatrixWidget, RolesWidget
 from evidence.models import Validation
-from operations.models import Commitment
+from operations.models import Commitment, Followup
 from organization.models import Beneficiary, Delegation, Item, Officer
 from planning.models import Goal, Period
 
@@ -57,6 +57,8 @@ class BootstrapFormMixin:
                 css = "form-check-input"
             elif isinstance(widget, (forms.Select, forms.SelectMultiple)):
                 css = "form-select"
+                if isinstance(field, forms.ModelChoiceField) and not isinstance(widget, forms.SelectMultiple):
+                    widget.attrs.setdefault("data-searchable", "1")  # con 8 o más opciones se puede buscar escribiendo
             else:
                 css = "form-control"
             widget.attrs["class"] = f"{widget.attrs.get('class', '')} {css}".strip()
@@ -165,7 +167,20 @@ class CrudForm(BootstrapFormMixin, forms.ModelForm):
         self.apply_rules()
         self.use_date_inputs()
         self.apply_bounds()
+        self.describe_choices()
         self.style_fields()
+
+    def describe_choices(self):
+        """Con cientos de actividades, la fecha y el nombre no bastan para encontrar una: se agrega el ítem
+        (así se puede buscar por «visita», «entrega»…). El ítem se trae en la misma consulta."""
+        from operations.models import Activity
+
+        for field in self.fields.values():
+            if isinstance(field, forms.ModelChoiceField) and field.queryset.model is Activity:
+                field.queryset = field.queryset.select_related("item")
+                field.label_from_instance = lambda activity: ui.humanize_dates(
+                    f"{activity} · {activity.item.name}" if activity.item_id else activity
+                )
 
     def customize_fields(self):
         pass
@@ -510,6 +525,12 @@ def find_beneficiary(text):
 class EvidenceForm(CrudForm):
 
     def customize_fields(self):
+        if self.instance.pk:
+            code = self.fields["unique_code"]
+            code.required = False
+            code.disabled = True
+        else:
+            del self.fields["unique_code"]  # el código se asigna solo al guardar (Evidence.next_code)
         field = self.fields["file_link"]
         field.label = "Archivo"
         field.widget = forms.FileInput(
@@ -1220,6 +1241,17 @@ class FollowupForm(CrudForm):
         "benefit_delivery_date": "La entrega del beneficio",
     }
 
+    MAX_FOLLOWUPS = 3
+
+    def customize_fields(self):
+        if self.instance.pk:
+            number = self.fields["sequence_number"]
+            number.required = False
+            number.disabled = True
+            number.help_text = "Se asignó sola al crear la gestión y no se puede cambiar."
+        else:
+            del self.fields["sequence_number"]  # el número se asigna solo (primer N° libre de la atención)
+
     def bounds(self):
         found = {name: self.until_today(message) for name, message in self.TODAY.items()}
         for name, message in self.AFTER_VISIT.items():
@@ -1236,6 +1268,13 @@ class FollowupForm(CrudForm):
         if activity is not None:
             for name, label in self.LABELS.items():
                 self.check_not_before_day(cleaned, name, activity.date, label)
+            if not self.instance.pk:
+                used = set(Followup._base_manager.filter(activity=activity).values_list("sequence_number", flat=True))
+                free = [number for number in range(1, self.MAX_FOLLOWUPS + 1) if number not in used]
+                if free:
+                    self.instance.sequence_number = free[0]
+                else:
+                    self.add_error("activity", f"Esta atención ya tiene sus {self.MAX_FOLLOWUPS} gestiones.")
         return cleaned
 
 

@@ -28,7 +28,7 @@
     {% for filter in filters %}
     <div class="field">
       <label for="filtro-{{ filter.name }}">{{ filter.label }}</label>
-      <select class="form-select" id="filtro-{{ filter.name }}" name="{{ filter.name }}">
+      <select class="form-select" id="filtro-{{ filter.name }}" name="{{ filter.name }}" data-searchable>
         <option value="">Todos</option>
         {% for value, label in filter.options %}
         <option value="{{ value }}"{% if value == filter.selected %} selected{% endif %}>{{ label }}</option>

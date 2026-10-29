@@ -17,7 +17,7 @@ from django.utils.http import url_has_allowed_host_and_scheme
 from django.views.decorators.http import require_POST
 
 from accounts.models import UserProfile
-from core import export, ui, uploads
+from core import charts, export, ui, uploads
 from core.access import (
     active_delegation,
     authorized_delegations,
@@ -493,7 +493,64 @@ def dashboard(request):
         )
         context["upcoming_commitments"] = {"columns": columns, "rows": rows, "list_url": commitments.url("list")}
 
+    daily = None
+    if activities.has_perm(user, "view"):
+        qs = activities.get_queryset(request).filter(date__range=(today - timedelta(days=13), today))
+        if officer is not None:
+            qs = qs.filter(author_officer=officer)
+        per_day = {row["date"]: row["total"] for row in qs.values("date").annotate(total=Count("pk"))}
+        days = [today - timedelta(days=back) for back in range(13, -1, -1)]
+        daily = [{"label": f"{day:%d/%m}", "value": per_day.get(day, 0)} for day in days]
+    context["charts"] = dashboard_charts(context, daily)
+
     return render(request, "core/dashboard.html", context)
+
+
+def dashboard_charts(context, daily):
+    """Gráficos del dashboard: se arman con los mismos datos que ya muestran las tarjetas de la pantalla."""
+    result = {"donuts": [], "bars": None, "daily": None}
+    if context.get("light_counts") is not None:
+        result["donuts"].append(
+            charts.donut(
+                [
+                    {"label": cell["label"], "value": cell["total"], "tone": ui.tone_for(cell["light"])[0]}
+                    for cell in context["light_counts"]
+                ],
+                "Metas por semáforo",
+                "metas",
+            )
+        )
+    personal = context.get("personal")
+    if personal:
+        result["donuts"].append(
+            charts.donut(
+                [{"label": i["label"], "value": i["total"], "tone": i["tone"]} for i in personal["evidence"]],
+                "Mis evidencias del período",
+                "evidencias",
+            )
+        )
+        result["donuts"].append(
+            charts.donut(
+                [{"label": i["label"], "value": i["total"], "tone": i["tone"]} for i in personal["commitments"]],
+                "Mis compromisos",
+                "compromisos",
+            )
+        )
+    lines = [line for line in context.get("goal_lines", []) if line.get("indicator")]
+    if lines:
+        result["bars"] = charts.bars(
+            [
+                {"label": line["item"], "value": line["compliance"], "tone": ui.tone_for(line["light"])[0]}
+                for line in lines
+            ],
+            "Cumplimiento por meta",
+            " %",
+            maximum=100,
+        )
+    if daily:
+        result["daily"] = charts.columns(daily, "Atenciones de los últimos 14 días")
+    result["any"] = bool(result["donuts"] or result["bars"] or result["daily"])
+    return result
 
 
 STATUS_AFTER_DECISION = {
@@ -781,6 +838,28 @@ def delegation_board(request):
                 for key in ("green", "amber", "red")
             ],
             "tiles": tiles,
+            "charts": {
+                "donuts": [
+                    charts.donut(
+                        [
+                            {"label": ui.LIGHT_LABELS[key], "value": lights[key], "tone": ui.tone_for(key)[0]}
+                            for key in ("green", "amber", "red")
+                        ],
+                        "Funcionarios por semáforo",
+                        "funcionarios",
+                    )
+                ],
+                "bars": charts.bars(
+                    [
+                        {"label": row["officer"].name, "value": row["average"], "tone": ui.tone_for(row["light"])[0]}
+                        for row in results
+                        if row["average"] is not None
+                    ],
+                    "Cumplimiento promedio por funcionario",
+                    " %",
+                    maximum=100,
+                ),
+            },
         }
     )
     return render(request, "core/delegation_board.html", context)
@@ -826,6 +905,28 @@ def commitment_summary(request):
         "rows": rows,
         "total": total,
         "agenda_url": crud.url("list"),
+        "charts": {
+            "donuts": [
+                charts.donut(
+                    [
+                        {"label": status_label(status), "value": count, "tone": ui.tone_for(status)[0]}
+                        for status, count in zip(STATUS_ORDER, total["counts"])
+                    ],
+                    "Compromisos por estado",
+                    "compromisos",
+                )
+            ],
+            "bars": charts.bars(
+                [
+                    {"label": row["label"], "value": row["done_percent"], "tone": ui.tone_for(row["light"])[0]}
+                    for row in rows
+                    if row["done_percent"] is not None
+                ],
+                "Compromisos realizados por funcionario",
+                " %",
+                maximum=100,
+            ),
+        },
         "breadcrumbs": [("Inicio", reverse("core:dashboard")), ("Resumen colectivo", None)],
     }
     return render(request, "core/commitment_summary.html", context)
@@ -1103,6 +1204,23 @@ def reports(request):
                 "approved": sum(r["approved"] for r in rows),
                 "pending": sum(r["pending"] for r in rows),
                 "rejected": sum(r["rejected"] for r in rows),
+            },
+            "charts": {
+                "donuts": [
+                    charts.donut(
+                        [
+                            {"label": "Aprobadas", "value": sum(r["approved"] for r in rows), "tone": "ok"},
+                            {"label": "Pendientes", "value": sum(r["pending"] for r in rows), "tone": "warn"},
+                            {"label": "Rechazadas", "value": sum(r["rejected"] for r in rows), "tone": "bad"},
+                        ],
+                        "Evidencias por estado",
+                        "evidencias",
+                    )
+                ],
+                "bars": charts.bars(
+                    [{"label": r["officer"].name, "value": r["activities"], "tone": "info"} for r in rows],
+                    "Actividades por funcionario",
+                ),
             },
             "scope_label": delegation.name if delegation else "Todas las delegaciones",
             "csv_url": query_string(request, formato="csv"),
