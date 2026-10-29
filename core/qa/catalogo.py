@@ -3,12 +3,12 @@ from core.qa.esperado_despliegue import ESPERADO as _DESPLIEGUE
 from core.qa.esperado_ingreso_contexto import ESPERADO as _INGRESO
 from core.qa.esperado_listados_portal import ESPERADO as _LISTADOS
 from core.qa.esperado_mantenedores import ESPERADO as _MANTENEDORES
-from core.qa.esperado_v16 import ESPERADO as _V16
-from core.qa.esperado_v22 import ESPERADO as _V22
-from core.qa.esperado_v23 import ESPERADO as _V23
-from core.qa.esperado_v24 import ESPERADO as _V24
-from core.qa.esperado_v25 import ESPERADO as _V25
-from core.qa.esperado_v26 import ESPERADO as _V26
+from core.qa.esperado_archivos_y_foto import ESPERADO as _ARCHIVOS_Y_FOTO
+from core.qa.esperado_eliminar_y_listados import ESPERADO as _ELIMINAR_Y_LISTADOS
+from core.qa.esperado_usuarios_eliminados import ESPERADO as _USUARIOS_ELIMINADOS
+from core.qa.esperado_tiempo_real import ESPERADO as _TIEMPO_REAL
+from core.qa.esperado_ritmo_y_compromisos import ESPERADO as _RITMO_Y_COMPROMISOS
+from core.qa.esperado_resultados_y_calculo import ESPERADO as _RESULTADOS_Y_CALCULO
 from core.qa.esperado_validaciones import ESPERADO as _VALIDACIONES
 
 REQUISITOS = {
@@ -58,6 +58,7 @@ REQUISITOS = {
     "A4-05": ("A4", "Migraciones y ejemplo de configuración sin secretos"),
     "T11-01": ("Clase 11", "Django Channels y Daphne: ASGI, enrutamiento HTTP/WebSocket, capa de canales y orígenes permitidos"),
     "T11-03": ("Clase 11", "Listados CRUD en vivo: aviso tras el commit, permisos por módulo y delegación, y nueva consulta HTTP de la tabla"),
+    "T11-05": ("Clase 11", "Tiempo real en todas las pantallas compartidas: Atención, fichas, informes, administración, catálogos y auditoría se actualizan sin F5"),
     "T11-04": ("Clase 11", "Dashboard, tablero y validar en vivo: el cambio de una persona se ve en la pantalla abierta de otra de la misma delegación, sin F5"),
     "RF-018": ("Informe SGR", "Gestionar estados de compromisos: Ingresado, Pendiente, En proceso y Realizado, con transiciones válidas e historial"),
     "RF-021": ("Informe SGR", "Resumen colectivo: compromisos por funcionario y estado, con porcentaje realizado y por realizar"),
@@ -213,12 +214,16 @@ CLASES = {
     "PersonalDashboardTests": (["RF-028"], "Inicio del funcionario", _SEMILLA + "; sesión de un funcionario"),
     "PositionOverviewTests": (["RF-031"], "Vista por cargos", _SEMILLA + "; sesiones de Super Usuario, jefatura y funcionario"),
     "ConcurrencyTests": (["RF-034", "RNF-003"], "Edición concurrente e integridad al guardar", _SEMILLA + "; sesión de un funcionario"),
+    "LiveEverywhereTests": (["T11-05"], "Pantallas en vivo en todo el sistema", _SEMILLA + "; sesión del Super Usuario"),
+    "LiveCatalogChangesTests": (["T11-05"], "Avisos de catálogos y auditoría", _SEMILLA + "; conexiones WebSocket"),
+    "EveryScreenIsLiveExceptFormsTests": (["T11-05"], "Todo en vivo, salvo los formularios", _SEMILLA + "; sesión del Super Usuario"),
+    "AssetVersionTests": (["A4-01"], "Versión de CSS y JS en cada entrega", _SEMILLA + "; sesión del Super Usuario"),
     "DaphneDeployTests": (["T11-01", "A4-02"], "Despliegue con Daphne y WebSocket", _SIN_BD),
     "DeletedUsersTests": (["A1-07", "A2-02"], "Usuarios eliminados: borrar, ver y restaurar", _SEMILLA + "; sesión del Super Usuario"),
     "OnlySuperuserDeletesUsersTests": (["A1-07", "A2-02"], "Solo el Super Usuario elimina y restaura usuarios", _SEMILLA + "; usuario con permisos de usuarios sin ser Super Usuario"),
 }
 
 ESPERADO = {}
-for _grupo in (_ACCESO, _MANTENEDORES, _INGRESO, _LISTADOS, _DESPLIEGUE, _VALIDACIONES, _V16, _V22, _V23, _V24, _V25, _V26):
+for _grupo in (_ACCESO, _MANTENEDORES, _INGRESO, _LISTADOS, _DESPLIEGUE, _VALIDACIONES, _ARCHIVOS_Y_FOTO, _ELIMINAR_Y_LISTADOS, _USUARIOS_ELIMINADOS, _TIEMPO_REAL, _RITMO_Y_COMPROMISOS, _RESULTADOS_Y_CALCULO, ):
     for _clase, _metodos in _grupo.items():
         ESPERADO.setdefault(_clase, {}).update(_metodos)

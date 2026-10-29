@@ -26,7 +26,7 @@ from core.rules import collapse_spaces, get_rule, normalize_lines
 from core.search import plain_letter, word_pattern
 from core.widgets import ColorWidget, DelegationsWidget, DependentSelect, LookupWidget, PermissionMatrixWidget, RolesWidget
 from evidence.models import Validation
-from operations.models import Commitment, Followup
+from operations.models import Commitment
 from organization.models import Beneficiary, Delegation, Item, Officer
 from planning.models import Goal, Period
 

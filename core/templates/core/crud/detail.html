@@ -2,6 +2,8 @@
 {% block title %}{{ obj_name }}{% endblock %}
 
 {% block content %}
+<div data-live-page data-live-region data-live-slug="{{ crud.slug }}">
+<p class="live-note">{% include "core/partials/live_chip.html" %}</p>
 {% if archived %}
 <div class="archived-banner" role="status">
   <i class="bi bi-archive" aria-hidden="true"></i>
@@ -61,4 +63,5 @@
 </div>
 
 <p class="record-meta">{{ record_meta }}</p>
+</div>
 {% endblock %}

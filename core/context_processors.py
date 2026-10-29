@@ -1,3 +1,4 @@
+from django.conf import settings
 from django.core.exceptions import PermissionDenied
 from django.urls import reverse
 
@@ -15,6 +16,21 @@ from core.colors import DEFAULT_COLOR, palette
 from core.crud import registry
 from core.menus import build_menu
 from core.roles import role_info
+
+def _read_text(name):
+    try:
+        return (settings.BASE_DIR / name).read_text(encoding="utf-8").strip()
+    except OSError:
+        return ""
+
+
+# Cambia en cada entrega (VERSION) y en cada despliegue (COMMIT): el navegador no reutiliza CSS ni JS viejos.
+ASSET_VERSION = "-".join(filter(None, (_read_text("VERSION"), _read_text("COMMIT")))) or "dev"
+
+
+def assets(request):
+    return {"asset_version": ASSET_VERSION}
+
 
 ALL_LABEL = "Todas las delegaciones"
 NO_DELEGATION_LABEL = "Sin delegación asignada"

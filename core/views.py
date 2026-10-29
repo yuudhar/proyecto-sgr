@@ -1,6 +1,6 @@
 import csv
 from datetime import timedelta
-from decimal import ROUND_HALF_UP, Decimal
+from decimal import Decimal
 from urllib.parse import urlsplit
 
 from django.contrib import messages
@@ -32,12 +32,12 @@ from core.audit import log_event, log_export
 from core.commitments import DUE_SOON_DAYS, STATUS_ORDER, collective_summary, deadline_counts, status_label
 from core.crud import CODE_COLUMN, PAGE_SIZES, SESSION_PAGE_SIZE, Col, Column, CrudListView, conflict_message, query_string, registry, version_of
 from core.forms import PortalAuthenticationForm, PortalPasswordChangeForm, ProfilePhotoForm, ValidationForm
-from core.results import current_period, goal_lines, goals_of, light_of, mean, officer_summary, rounded, team_goals
+from core.results import current_period, goals_of, light_of, mean, officer_summary, rounded, team_goals
 from core.rules import rut_with_wrong_digit
 from evidence.models import Evidence, Validation
 from operations.models import Activity, Commitment
 from organization.models import Delegation, Officer
-from planning.models import Adjustment, Goal, Indicator, Period
+from planning.models import Adjustment, Goal, Period
 from planning.calculation import IndicatorIndex
 from planning.pace import pace_of
 

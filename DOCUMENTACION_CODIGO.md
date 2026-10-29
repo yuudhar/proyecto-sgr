@@ -38,7 +38,7 @@ evidence/                 evidencias y validaciones
 websocket/                tiempo real (Clase 11): avisos de cambio para listados, dashboard, tablero y validar
 templates/                marco general, errores y pantallas sin sesión
 deploy/                   archivos para instalar y actualizar en el servidor
-sql/                      scripts de la base de datos
+sql/                      estructura de la base de datos (sgr_django.sql)
 docs/                     documentos del proyecto
 ```
 
@@ -2394,7 +2394,7 @@ Nombres de grupos y publicación de eventos. Los mensajes se publican después d
 
 #### `websocket/signals.py`
 
-Señales `pre_save`, `post_save` y `post_delete` de los modelos de `LIVE_MODELS` (atenciones, gestiones, compromisos, evidencias, validaciones, metas, indicadores, ajustes, períodos y funcionarios). Publican con `transaction.on_commit` un aviso a la delegación del registro (y a la anterior si cambió de delegación); un dato general avisa a todas.
+Señales `pre_save`, `post_save` y `post_delete` de los modelos de `LIVE_MODELS` (atenciones, gestiones, compromisos, evidencias, validaciones, metas, indicadores, ajustes, períodos y funcionarios). Publican con `transaction.on_commit` un aviso a la delegación del registro (y a la anterior si cambió de delegación); un dato general avisa a todas. Desde la v27 `LIVE_MODELS` incluye también los catálogos (tipos de atención, delegaciones, cargos, ítems de cargo, ítems, servicios, territorios, beneficiarios, usuarios y roles) y `audit_saved` avisa solo al listado de Auditoría cuando se crea una entrada. En el navegador, `core/static/core/js/live-updates.js` escucha `/ws/live/` y, en listados y fichas, también `/ws/crud/<slug>/`; las fichas llevan `data-live-page data-live-slug`, Atención `data-live-results`.
 
 #### `websocket/routing.py`
 
@@ -2849,12 +2849,4 @@ Pantallas en vivo. Dos modos. Si la página tiene `[data-live-page]` (dashboard,
 
 | Archivo | Qué hace |
 |---|---|
-| `sql/sgr_django_v19.sql` | Estructura completa de la base `sgr_django` (32 tablas: 22 del proyecto, 6 del framework, 3 de unión y `django_migrations`) para MariaDB 10.11 / MySQL 8. |
-| `sql/sgr_django_v19_dbeaver.sql` | El mismo esquema, pero crea una base aparte llamada `sgr_django_der` para abrirla en DBeaver y generar el diagrama. |
-| `sql/sgr_v19_modelo_relacional_completo_en.sql` | Modelo relacional completo con nombres en inglés (`sgr_db`). |
-| `sql/sgr_v13_a_v16_alter.sql` | Cambios de la base entre la v13 y la v16 (equivalen a las migraciones de `evidence` 0002 y 0003 y `accounts` 0005). |
-| `sql/sgr_v3_modelo_relacional_completo.sql` | Modelo relacional de la v3. |
-| `sql/sgr_v3_a_v5_alter.sql` | Agrega el color de la delegación a una base de la v3. |
-| `sql/sgr_v5_a_v3_revertir.sql` | Quita el color de la delegación (deshace el anterior). |
-| `sql/sgr_v5_modelo_relacional_completo.sql` | Modelo relacional de la v5 (la v3 más el color de la delegación). |
-| `sql/sgr_v9_modelo_relacional_completo_en.sql` | Modelo relacional de la v9 con nombres en inglés. |
+| `sql/sgr_django.sql` | Estructura completa de la base `sgr_django` (32 tablas: 22 del proyecto, 6 del framework, 3 de unión y `django_migrations`) para MariaDB 10.11 / MySQL 8, al día con las migraciones (incluye `planning_indicator.officer_id`). |

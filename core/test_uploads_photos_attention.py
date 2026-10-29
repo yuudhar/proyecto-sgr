@@ -1,18 +1,21 @@
+from django.contrib.auth.models import User
+from django.core.files.uploadedfile import SimpleUploadedFile
+from django.urls import reverse
+from core.models import AuditLog
+from core.test_users import UserTestCase
+from core.testing import PortalTestCase
+from evidence.models import Evidence
+from operations.models import Activity
 import io
 import os
 
-from django.contrib.auth.models import Group, User
+from django.contrib.auth.models import Group
 from django.contrib.staticfiles import finders
-from django.core.files.uploadedfile import SimpleUploadedFile
 from django.db import models
-from django.urls import reverse
 from PIL import Image
 
 from core.datos_prueba import demo_pdf
-from core.models import AuditLog
-from core.testing import PASSWORD, PortalTestCase
-from evidence.models import Evidence
-from operations.models import Activity
+from core.testing import PASSWORD
 from accounts.models import UserProfile
 from organization.models import Delegation, Officer, Position
 
@@ -479,3 +482,110 @@ class LiveSearchTests(PortalTestCase):
         self.assertIn(f'data-live-count="{total}"', html)
         none = self.client.get(reverse("core:usuarios_list"), {"q": "zzzz-no-existe"}).content.decode()
         self.assertIn('data-live-count="0"', none)
+
+
+class UserPhotoByAdminTests(UserTestCase):
+    """El Super Usuario ve la foto de otra persona y puede cambiarla o quitársela al editar su usuario."""
+
+    def setUp(self):
+        self.target = User.objects.get(username="matias.quiroz")
+        self.login_as("admin")
+
+    def photo(self, content=PNG, name="foto.png", kind="image/png"):
+        return SimpleUploadedFile(name, content, content_type=kind)
+
+    def save(self, **changes):
+        data = self.edit_data(self.target, **changes)
+        with self.captureOnCommitCallbacks(execute=True):
+            return self.client.post(self.update_url(self.target), data)
+
+    def stored(self):
+        return User.objects.get(pk=self.target.pk).profile.photo
+
+    def test_the_detail_shows_the_photo_or_says_there_is_none(self):
+        detail = reverse("core:usuarios_detail", args=[self.target.pk])
+        page = self.client.get(detail)
+        self.assertContains(page, "Foto de perfil")
+        self.assertNotContains(page, "avatar-lg")
+        self.save(photo=self.photo())
+        page = self.client.get(detail)
+        self.assertContains(page, reverse("core:profile_photo", args=[self.target.pk]))
+        self.assertContains(page, 'class="avatar avatar-lg"')
+
+    def test_the_edit_form_accepts_files_and_shows_the_current_photo(self):
+        page = self.client.get(self.update_url(self.target))
+        self.assertContains(page, 'enctype="multipart/form-data"')
+        self.assertContains(page, 'name="photo"')
+        self.assertNotContains(page, 'name="remove_photo"')  # sin foto no hay nada que quitar
+        self.save(photo=self.photo())
+        page = self.client.get(self.update_url(self.target))
+        self.assertContains(page, "photo-current")
+        self.assertContains(page, 'name="remove_photo"')
+
+    def test_the_superuser_sets_and_replaces_the_photo_of_another_person(self):
+        response = self.save(photo=self.photo())
+        self.assertEqual(response.status_code, 302)
+        first = self.stored()
+        self.assertTrue(first.name.startswith("fotos/"))
+        self.assertTrue(first.storage.exists(first.name))
+        event = AuditLog.objects.filter(event="Foto de perfil cambiada").latest("pk")
+        self.assertEqual((event.user.username, event.record_id), ("admin", self.target.pk))
+        self.save(photo=self.photo(JPG, "otra.jpg", "image/jpeg"))
+        second = self.stored()
+        self.assertNotEqual(second.name, first.name)
+        self.assertFalse(second.storage.exists(first.name), "la foto anterior se borra al confirmar el cambio")
+        self.assertTrue(second.storage.exists(second.name))
+
+    def test_the_superuser_removes_the_photo_of_another_person(self):
+        self.save(photo=self.photo())
+        name = self.stored().name
+        storage = self.stored().storage
+        response = self.save(remove_photo="on")
+        self.assertEqual(response.status_code, 302)
+        self.assertFalse(self.stored())
+        self.assertFalse(storage.exists(name))
+        self.assertTrue(AuditLog.objects.filter(event="Foto de perfil quitada", record_id=self.target.pk, user__username="admin").exists())
+
+    def test_saving_without_touching_the_photo_keeps_it(self):
+        self.save(photo=self.photo())
+        name = self.stored().name
+        self.save(first_name="Matías S.")
+        self.assertEqual(self.stored().name, name)
+
+    def test_invalid_files_are_rejected_and_nothing_changes(self):
+        for bad in (
+            self.photo(SIGNATURE_ONLY),
+            self.photo(b"texto", "nota.txt", "text/plain"),
+            self.photo(PNG + b"\0" * (2 * 1024 * 1024), "grande.png"),
+        ):
+            with self.subTest(name=bad.name):
+                response = self.save(photo=bad)
+                self.assertEqual(response.status_code, 200)
+                self.assertTrue(response.context["form"].errors["photo"])
+                self.assertFalse(self.stored())
+
+    def test_a_new_photo_and_remove_together_is_an_error(self):
+        self.save(photo=self.photo())
+        response = self.save(photo=self.photo(JPG, "otra.jpg", "image/jpeg"), remove_photo="on")
+        self.assertEqual(response.status_code, 200)
+        self.assertIn("no las dos cosas", " ".join(response.context["form"].errors["remove_photo"]))
+
+    def test_a_new_user_can_be_created_with_a_photo(self):
+        data = self.user_data(photo=self.photo())
+        with self.captureOnCommitCallbacks(execute=True):
+            response = self.client.post(reverse("core:usuarios_create"), data)
+        self.assertEqual(response.status_code, 302)
+        self.assertTrue(User.objects.get(username="ana.torres").profile.photo)
+
+    def test_the_person_sees_the_photo_the_superuser_gave_them(self):
+        self.save(photo=self.photo())
+        self.login_as("matias.quiroz")
+        page = self.client.get(reverse("core:profile"))
+        self.assertContains(page, reverse("core:profile_photo", args=[self.target.pk]))
+        self.assertEqual(self.client.get(reverse("core:profile_photo", args=[self.target.pk])).status_code, 200)
+
+    def test_only_the_superuser_can_change_someone_elses_photo(self):
+        self.login_as("matias.cavieres")
+        response = self.client.post(self.update_url(self.target), self.edit_data(self.target, photo=self.photo()))
+        self.assertEqual(response.status_code, 403)
+        self.assertFalse(self.stored())

@@ -10,9 +10,9 @@
   <link rel="stylesheet" href="{% static 'core/vendor/bootstrap/bootstrap.min.css' %}">
   <link rel="stylesheet" href="{% static 'core/vendor/bootstrap-icons/bootstrap-icons.min.css' %}">
   <link rel="stylesheet" href="{% static 'core/vendor/sweetalert2/sweetalert2.min.css' %}">
-  <link rel="stylesheet" href="{% static 'core/css/sgr.css' %}">
+  <link rel="stylesheet" href="{% static 'core/css/sgr.css' %}?v={{ asset_version|urlencode }}">
 
-  <script src="{% static 'core/js/has-js.js' %}"></script>
+  <script src="{% static 'core/js/has-js.js' %}?v={{ asset_version|urlencode }}"></script>
   {% block extra_head %}{% endblock %}
 </head>
 <body class="{% block body_class %}{% endblock %}">
@@ -64,16 +64,16 @@
 {% endif %}
 
 <script src="{% static 'core/vendor/bootstrap/bootstrap.bundle.min.js' %}"></script>
-<script src="{% static 'core/js/sgr.js' %}"></script>
-<script type="module" src="{% static 'core/js/busy.js' %}"></script>
-<script type="module" src="{% static 'core/js/validation.js' %}"></script>
-<script type="module" src="{% static 'core/js/widgets.js' %}"></script>
-<script type="module" src="{% static 'core/js/live-search.js' %}"></script>
-<script type="module" src="{% static 'core/js/live-updates.js' %}"></script>
-<script type="module" src="{% static 'core/js/crud-modal.js' %}"></script>
-<script type="module" src="{% static 'core/js/confirm.js' %}"></script>
-<script type="module" src="{% static 'core/js/context.js' %}"></script>
-<script type="module" src="{% static 'core/js/flash.js' %}"></script>
+<script src="{% static 'core/js/sgr.js' %}?v={{ asset_version|urlencode }}"></script>
+<script type="module" src="{% static 'core/js/busy.js' %}?v={{ asset_version|urlencode }}"></script>
+<script type="module" src="{% static 'core/js/validation.js' %}?v={{ asset_version|urlencode }}"></script>
+<script type="module" src="{% static 'core/js/widgets.js' %}?v={{ asset_version|urlencode }}"></script>
+<script type="module" src="{% static 'core/js/live-search.js' %}?v={{ asset_version|urlencode }}"></script>
+<script type="module" src="{% static 'core/js/live-updates.js' %}?v={{ asset_version|urlencode }}"></script>
+<script type="module" src="{% static 'core/js/crud-modal.js' %}?v={{ asset_version|urlencode }}"></script>
+<script type="module" src="{% static 'core/js/confirm.js' %}?v={{ asset_version|urlencode }}"></script>
+<script type="module" src="{% static 'core/js/context.js' %}?v={{ asset_version|urlencode }}"></script>
+<script type="module" src="{% static 'core/js/flash.js' %}?v={{ asset_version|urlencode }}"></script>
 {% block extra_js %}{% endblock %}
 </body>
 </html>

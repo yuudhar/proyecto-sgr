@@ -1,12 +1,10 @@
 import struct
-import tempfile
 from io import BytesIO
 from pathlib import Path
 from unittest import mock
 
 from django.contrib.auth.models import Group, User
 from django.contrib.staticfiles import finders
-from django.test import override_settings
 from django.urls import reverse
 from openpyxl import load_workbook
 

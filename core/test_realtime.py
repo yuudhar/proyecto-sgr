@@ -1,25 +1,24 @@
 import json
-
 from asgiref.sync import async_to_sync, sync_to_async
+from django.conf import settings
+from django.contrib.auth.models import User
+from django.urls import reverse
+from core.models import AuditLog
+from core.testing import PortalTestCase
+from evidence.models import Evidence
+from operations.models import Activity
+from organization.models import Beneficiary, Officer, Territory
+from core.crud import registry
+
 from channels.layers import get_channel_layer
 from channels.routing import URLRouter
 from channels.testing import WebsocketCommunicator
-from django.conf import settings
-from django.contrib.auth.models import AnonymousUser, User
+from django.contrib.auth.models import AnonymousUser
 from django.contrib.sessions.backends.db import SessionStore
-from django.core.files.uploadedfile import SimpleUploadedFile
 from django.db import transaction
-from django.urls import reverse
 
 from core.access import ALL_DELEGATIONS, SESSION_DELEGATION
-from core.crud import registry
-from core.models import AuditLog
-from core.test_users import UserTestCase
-from core.test_v16 import JPG, PNG, SIGNATURE_ONLY
-from core.testing import PortalTestCase
-from evidence.models import Evidence
-from operations.models import Activity, Commitment
-from organization.models import Beneficiary, Territory
+from operations.models import Commitment
 from planning.models import Period
 from sgr_project.asgi import application
 from websocket.routing import websocket_urlpatterns
@@ -126,10 +125,10 @@ class LiveListTests(PortalTestCase):
         self.assertIn("location.href", script)
         self.assertIn('[data-live-target="resultados"]', script)
 
-    def test_the_deleted_users_view_is_not_live(self):
+    def test_the_deleted_users_view_is_live_too(self):
         self.login_as("admin")
         page = self.client.get(reverse("core:usuarios_list"), {"archivados": "solo"})
-        self.assertNotContains(page, "data-live-crud")
+        self.assertContains(page, 'data-live-crud="usuarios"')
 
     def test_an_edit_is_announced_to_the_same_delegation_only_after_the_commit(self):
         self.login_as("admin")
@@ -394,11 +393,9 @@ class LiveDashboardTests(PortalTestCase):
         self.assertTrue(quiet)
 
     def test_data_the_summary_screens_do_not_show_stays_quiet(self):
-        territory = Territory.objects.filter(delegation=self.north).first()
-
         def save():
             with self.captureOnCommitCallbacks(execute=True):
-                territory.save()
+                AuditLog.objects.create(event="Prueba", affected_entity="Territory", record_id=1, user=self.admin)
 
         async def scenario():
             watcher, _ = await open_socket(self.norte, "/ws/live/")
@@ -432,148 +429,162 @@ class LiveDashboardTests(PortalTestCase):
         self.assertEqual(got["type"], "live_changed")
 
 
-class UserPhotoByAdminTests(UserTestCase):
-    """El Super Usuario ve la foto de otra persona y puede cambiarla o quitársela al editar su usuario."""
+SCRIPT = settings.BASE_DIR / "core/static/core/js/live-updates.js"
+
+
+class LiveEverywhereTests(PortalTestCase):
+    """v27: toda pantalla donde puedan coincidir varias personas se actualiza sola."""
 
     def setUp(self):
-        self.target = User.objects.get(username="matias.quiroz")
+        self.login_as("admin")
+        self.script = SCRIPT.read_text(encoding="utf-8")
+
+    def test_the_attention_page_refreshes_only_its_results(self):
+        page = self.client.get(reverse("core:atencion"))
+        self.assertContains(page, "data-live-results")
+        self.assertContains(page, "data-live-state")
+        self.assertContains(page, "core/js/live-updates.js")
+        self.assertIn("[data-live-results]", self.script)
+
+    def test_a_list_listens_to_its_own_module_and_to_any_other_change(self):
+        page = self.client.get(reverse("core:funcionarios_list"))
+        self.assertContains(page, 'data-live-crud="funcionarios"')
+        self.assertIn("crudChanged(panel.dataset.liveCrud), liveChanged", self.script)
+
+    def test_every_record_sheet_is_live_and_knows_its_module(self):
+        for slug, model in (("territorios", Territory), ("funcionarios", Officer), ("actividades", Activity), ("evidencias", Evidence)):
+            with self.subTest(slug=slug):
+                obj = model.objects.first()
+                page = self.client.get(reverse(f"core:{slug}_detail", args=[obj.pk]))
+                self.assertContains(page, "data-live-page")
+                self.assertContains(page, "data-live-region")
+                self.assertContains(page, f'data-live-slug="{slug}"')
+                self.assertContains(page, "data-live-state")
+        self.assertIn("page.dataset.liveSlug", self.script)
+
+    def test_the_reports_and_the_administration_hub_are_live(self):
+        for name in ("core:reports", "core:administration"):
+            with self.subTest(name=name):
+                page = self.client.get(reverse(name))
+                self.assertContains(page, "data-live-page")
+                self.assertContains(page, "data-live-region")
+                self.assertContains(page, "data-live-state")
+
+    def test_a_refresh_of_a_sheet_returns_the_same_region(self):
+        obj = Territory.objects.first()
+        refreshed = self.client.get(reverse("core:territorios_detail", args=[obj.pk]), HTTP_X_REQUESTED_WITH="fetch")
+        self.assertContains(refreshed, "data-live-region")
+
+    def test_the_other_screens_with_forms_stay_still(self):
+        # Los formularios de alta y edición no se reemplazan solos: se perdería lo que la persona está escribiendo.
+        page = self.client.get(reverse("core:territorios_create"))
+        self.assertNotContains(page, "data-live-region")
+        self.assertNotContains(page, "data-live-results")
+
+
+class LiveCatalogChangesTests(PortalTestCase):
+    """Los catálogos (territorios, beneficiarios, cargos…) avisan a todas las delegaciones."""
+
+    def setUp(self):
+        self.norte = User.objects.get(username=NORTE)
+        self.sur = User.objects.get(username=SUR)
+        self.admin = User.objects.get(username="admin")
+
+    def save(self, obj):
+        with self.captureOnCommitCallbacks(execute=True):
+            obj.save()
+
+    def test_a_catalog_change_reaches_every_delegation(self):
+        territory = Territory.objects.filter(delegation=self.north).first()
+
+        async def scenario():
+            north, _ = await open_socket(self.norte, "/ws/live/")
+            south, _ = await open_socket(self.sur, "/ws/live/")
+            await sync_to_async(self.save)(territory)
+            got = [json.loads(await c.receive_from(timeout=2)) for c in (north, south)]
+            await north.disconnect()
+            await south.disconnect()
+            return got
+
+        for message in async_to_sync(scenario)():
+            self.assertEqual(message, {"type": "live_changed", "model": "organization.territory"})
+
+    def test_a_beneficiary_change_is_announced(self):
+        beneficiary = Beneficiary.objects.first()
+
+        async def scenario():
+            watcher, _ = await open_socket(self.norte, "/ws/live/")
+            await sync_to_async(self.save)(beneficiary)
+            got = json.loads(await watcher.receive_from(timeout=2))
+            await watcher.disconnect()
+            return got
+
+        self.assertEqual(async_to_sync(scenario)()["model"], "organization.beneficiary")
+
+    def test_an_audit_entry_reaches_the_audit_list_but_not_the_dashboards(self):
+        def create():
+            with self.captureOnCommitCallbacks(execute=True):
+                AuditLog.objects.create(event="Prueba", affected_entity="Territory", record_id=1, user=self.admin)
+
+        async def scenario():
+            audit, ok = await open_socket(self.admin, "/ws/crud/auditoria/")
+            dashboard, _ = await open_socket(self.admin, "/ws/live/")
+            await sync_to_async(create)()
+            got = json.loads(await audit.receive_from(timeout=2))
+            quiet = await nothing_arrives(dashboard)
+            await audit.disconnect()
+            await dashboard.disconnect()
+            return ok, got, quiet
+
+        ok, got, quiet = async_to_sync(scenario)()
+        self.assertTrue(ok)
+        self.assertEqual(got, {"type": "crud_changed", "slug": "auditoria"})
+        self.assertTrue(quiet)
+
+    def test_an_edited_audit_entry_announces_nothing(self):
+        entry = AuditLog.objects.create(event="Prueba", affected_entity="Territory", record_id=1, user=self.admin)
+
+        async def scenario():
+            audit, _ = await open_socket(self.admin, "/ws/crud/auditoria/")
+            await sync_to_async(self.save)(entry)
+            quiet = await nothing_arrives(audit)
+            await audit.disconnect()
+            return quiet
+
+        self.assertTrue(async_to_sync(scenario)())
+
+
+class EveryScreenIsLiveExceptFormsTests(PortalTestCase):
+    """v28: todo listado y ficha se actualiza solo; los formularios de registro y edición, no."""
+
+    def setUp(self):
         self.login_as("admin")
 
-    def photo(self, content=PNG, name="foto.png", kind="image/png"):
-        return SimpleUploadedFile(name, content, content_type=kind)
+    def test_every_list_is_live_including_the_deleted_users_view(self):
+        for crud in registry.all():
+            if crud.list_redirect:
+                continue
+            with self.subTest(slug=crud.slug):
+                page = self.client.get(reverse(f"core:{crud.route_name('list')}"))
+                self.assertContains(page, f'data-live-crud="{crud.slug}"')
+        archived = self.client.get(reverse("core:usuarios_list"), {"archivados": "solo"})
+        self.assertContains(archived, 'data-live-crud="usuarios"')
 
-    def save(self, **changes):
-        data = self.edit_data(self.target, **changes)
-        with self.captureOnCommitCallbacks(execute=True):
-            return self.client.post(self.update_url(self.target), data)
-
-    def stored(self):
-        return User.objects.get(pk=self.target.pk).profile.photo
-
-    def test_the_detail_shows_the_photo_or_says_there_is_none(self):
-        detail = reverse("core:usuarios_detail", args=[self.target.pk])
-        page = self.client.get(detail)
-        self.assertContains(page, "Foto de perfil")
-        self.assertNotContains(page, "avatar-lg")
-        self.save(photo=self.photo())
-        page = self.client.get(detail)
-        self.assertContains(page, reverse("core:profile_photo", args=[self.target.pk]))
-        self.assertContains(page, 'class="avatar avatar-lg"')
-
-    def test_the_edit_form_accepts_files_and_shows_the_current_photo(self):
-        page = self.client.get(self.update_url(self.target))
-        self.assertContains(page, 'enctype="multipart/form-data"')
-        self.assertContains(page, 'name="photo"')
-        self.assertNotContains(page, 'name="remove_photo"')  # sin foto no hay nada que quitar
-        self.save(photo=self.photo())
-        page = self.client.get(self.update_url(self.target))
-        self.assertContains(page, "photo-current")
-        self.assertContains(page, 'name="remove_photo"')
-
-    def test_the_superuser_sets_and_replaces_the_photo_of_another_person(self):
-        response = self.save(photo=self.photo())
-        self.assertEqual(response.status_code, 302)
-        first = self.stored()
-        self.assertTrue(first.name.startswith("fotos/"))
-        self.assertTrue(first.storage.exists(first.name))
-        event = AuditLog.objects.filter(event="Foto de perfil cambiada").latest("pk")
-        self.assertEqual((event.user.username, event.record_id), ("admin", self.target.pk))
-        self.save(photo=self.photo(JPG, "otra.jpg", "image/jpeg"))
-        second = self.stored()
-        self.assertNotEqual(second.name, first.name)
-        self.assertFalse(second.storage.exists(first.name), "la foto anterior se borra al confirmar el cambio")
-        self.assertTrue(second.storage.exists(second.name))
-
-    def test_the_superuser_removes_the_photo_of_another_person(self):
-        self.save(photo=self.photo())
-        name = self.stored().name
-        storage = self.stored().storage
-        response = self.save(remove_photo="on")
-        self.assertEqual(response.status_code, 302)
-        self.assertFalse(self.stored())
-        self.assertFalse(storage.exists(name))
-        self.assertTrue(AuditLog.objects.filter(event="Foto de perfil quitada", record_id=self.target.pk, user__username="admin").exists())
-
-    def test_saving_without_touching_the_photo_keeps_it(self):
-        self.save(photo=self.photo())
-        name = self.stored().name
-        self.save(first_name="Matías S.")
-        self.assertEqual(self.stored().name, name)
-
-    def test_invalid_files_are_rejected_and_nothing_changes(self):
-        for bad in (
-            self.photo(SIGNATURE_ONLY),
-            self.photo(b"texto", "nota.txt", "text/plain"),
-            self.photo(PNG + b"\0" * (2 * 1024 * 1024), "grande.png"),
+    def test_the_registration_and_edit_forms_are_not_live(self):
+        for name, args in (
+            ("core:usuarios_create", []),
+            ("core:funcionarios_create", []),
+            ("core:profile", []),
         ):
-            with self.subTest(name=bad.name):
-                response = self.save(photo=bad)
-                self.assertEqual(response.status_code, 200)
-                self.assertTrue(response.context["form"].errors["photo"])
-                self.assertFalse(self.stored())
+            with self.subTest(name=name):
+                page = self.client.get(reverse(name, args=args))
+                self.assertNotContains(page, "data-live-region")
+                self.assertNotContains(page, "data-live-crud")
+                self.assertNotContains(page, "data-live-results")
 
-    def test_a_new_photo_and_remove_together_is_an_error(self):
-        self.save(photo=self.photo())
-        response = self.save(photo=self.photo(JPG, "otra.jpg", "image/jpeg"), remove_photo="on")
-        self.assertEqual(response.status_code, 200)
-        self.assertIn("no las dos cosas", " ".join(response.context["form"].errors["remove_photo"]))
+    def test_the_evidence_validation_form_is_not_live(self):
+        from evidence.models import Evidence
 
-    def test_a_new_user_can_be_created_with_a_photo(self):
-        data = self.user_data(photo=self.photo())
-        with self.captureOnCommitCallbacks(execute=True):
-            response = self.client.post(reverse("core:usuarios_create"), data)
-        self.assertEqual(response.status_code, 302)
-        self.assertTrue(User.objects.get(username="ana.torres").profile.photo)
-
-    def test_the_person_sees_the_photo_the_superuser_gave_them(self):
-        self.save(photo=self.photo())
-        self.login_as("matias.quiroz")
-        page = self.client.get(reverse("core:profile"))
-        self.assertContains(page, reverse("core:profile_photo", args=[self.target.pk]))
-        self.assertEqual(self.client.get(reverse("core:profile_photo", args=[self.target.pk])).status_code, 200)
-
-    def test_only_the_superuser_can_change_someone_elses_photo(self):
-        self.login_as("matias.cavieres")
-        response = self.client.post(self.update_url(self.target), self.edit_data(self.target, photo=self.photo()))
-        self.assertEqual(response.status_code, 403)
-        self.assertFalse(self.stored())
-
-
-class DaphneDeployTests(PortalTestCase):
-
-    base = settings.BASE_DIR
-
-    def read(self, *parts):
-        return self.base.joinpath(*parts).read_text(encoding="utf-8")
-
-    def test_the_service_runs_daphne_on_the_asgi_application(self):
-        unit = self.read("deploy", "sgr.service")
-        self.assertIn("/opt/sgr/venv/bin/daphne", unit)
-        self.assertIn("-b 127.0.0.1 -p 8000", unit)
-        self.assertIn("--proxy-headers", unit)
-        self.assertIn("sgr_project.asgi:application", unit)
-        self.assertNotIn("gunicorn", unit)
-
-    def test_apache_passes_the_websocket_before_everything_else(self):
-        for name in ("apache-http.conf", "apache-https.conf"):
-            text = self.read("deploy", "al2023", name)
-            self.assertIn("ProxyPass /ws/ ws://127.0.0.1:8000/ws/", text, name)
-            self.assertLess(text.index("ProxyPass /ws/"), text.index("ProxyPass / http://"), name)
-
-    def test_nginx_passes_the_upgrade_headers_for_the_websocket(self):
-        text = self.read("deploy", "nginx-sgr.conf")
-        block = text[text.index("location /ws/") :]
-        self.assertIn("proxy_set_header Upgrade $http_upgrade;", block)
-        self.assertIn('proxy_set_header Connection "upgrade";', block)
-
-    def test_the_upgrade_script_for_an_existing_server_is_safe_to_repeat(self):
-        script = self.read("deploy", "al2023", "agregar_websocket.sh")
-        self.assertIn("grep -q 'ProxyPass /ws/'", script)
-        self.assertIn("httpd -t", script)
-        self.assertIn("antes-websocket", script)
-        self.assertIn("daemon-reload", script)
-
-    def test_the_requirements_pin_channels_and_daphne(self):
-        requirements = self.read("requirements.txt")
-        self.assertRegex(requirements, r"(?m)^channels==\d+\.\d+\.\d+$")
-        self.assertRegex(requirements, r"(?m)^daphne==\d+\.\d+\.\d+$")
+        evidence = Evidence.objects.first()
+        page = self.client.get(reverse("core:validate_evidence", args=[evidence.pk]))
+        self.assertNotContains(page, "data-live-region")

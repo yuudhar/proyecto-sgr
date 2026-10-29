@@ -1,3 +1,6 @@
+-- Estructura de la base `sgr_django` (MariaDB/MySQL) al día con las migraciones de Django.
+-- Sirve para crear la base a mano en phpMyAdmin; con `python manage.py migrate` se obtiene lo mismo.
+
 CREATE DATABASE IF NOT EXISTS `sgr_django` CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
 USE `sgr_django`;
 
@@ -350,7 +353,8 @@ CREATE TABLE `planning_indicator` (
   `weighting` decimal(5,2) NOT NULL,
   `status_light` varchar(20) NOT NULL,
   `calculated_at` datetime(6) NOT NULL,
-  `goal_id` bigint(20) NOT NULL
+  `goal_id` bigint(20) NOT NULL,
+  `officer_id` bigint(20) DEFAULT NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 CREATE TABLE `planning_period` (
@@ -513,7 +517,8 @@ ALTER TABLE `planning_goal`
 
 ALTER TABLE `planning_indicator`
   ADD PRIMARY KEY (`id`),
-  ADD KEY `planning_indicator_goal_id_3fa43af3_fk_planning_goal_id` (`goal_id`);
+  ADD KEY `planning_indicator_goal_id_3fa43af3_fk_planning_goal_id` (`goal_id`),
+  ADD KEY `planning_indicator_officer_id_idx` (`officer_id`);
 
 ALTER TABLE `planning_period`
   ADD PRIMARY KEY (`id`);
@@ -695,7 +700,8 @@ ALTER TABLE `planning_goal`
   ADD CONSTRAINT `planning_goal_position_id_69d1ed64_fk_organization_position_id` FOREIGN KEY (`position_id`) REFERENCES `organization_position` (`id`);
 
 ALTER TABLE `planning_indicator`
-  ADD CONSTRAINT `planning_indicator_goal_id_3fa43af3_fk_planning_goal_id` FOREIGN KEY (`goal_id`) REFERENCES `planning_goal` (`id`);
+  ADD CONSTRAINT `planning_indicator_goal_id_3fa43af3_fk_planning_goal_id` FOREIGN KEY (`goal_id`) REFERENCES `planning_goal` (`id`),
+  ADD CONSTRAINT `planning_indicator_officer_id_fk` FOREIGN KEY (`officer_id`) REFERENCES `organization_officer` (`id`);
 COMMIT;
 
 /*!40101 SET CHARACTER_SET_CLIENT=@OLD_CHARACTER_SET_CLIENT */;

@@ -2571,7 +2571,7 @@ textarea.form-control {
   grid-template-columns: repeat(auto-fit, minmax(10.5rem, 1fr));
   gap: 0.75rem 1.25rem;
   margin: 0;
-  padding: 0 1.25rem 0.5rem;
+  padding: 0.9rem 1.25rem 0.5rem;
 }
 
 .pace-grid dt {

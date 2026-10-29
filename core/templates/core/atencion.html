@@ -18,6 +18,7 @@
 <section class="panel mb-4" aria-label="Búsqueda de atenciones">
   <form method="get" class="atencion-search" role="search" data-validate data-loading data-live-search>
     <span class="visually-hidden" role="status" data-live-status></span>
+    <p class="live-note">{% include "core/partials/live_chip.html" %}</p>
     <label class="form-label" for="atencion-q">RUT / nombre / otro</label>
     <div class="atencion-row">
       <div class="input-group input-group-lg">
@@ -57,7 +58,7 @@
   </form>
 </section>
 
-<section class="panel" aria-label="Resultados de la búsqueda" data-live-target="resultados" data-live-count="{{ page.paginator.count }}">
+<section class="panel" aria-label="Resultados de la búsqueda" data-live-results data-live-target="resultados" data-live-count="{{ page.paginator.count }}">
   <div class="panel-head">
     <h2 class="panel-title">{% if q %}Resultados para «{{ q }}»{% else %}Últimas atenciones{% endif %}</h2>
     <div class="panel-head-side">

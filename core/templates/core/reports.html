@@ -40,6 +40,8 @@
   </form>
 </section>
 
+<div data-live-page data-live-region>
+<p class="live-note">{% include "core/partials/live_chip.html" %}</p>
 {% if not period %}
 <section class="panel"><div class="empty"><i class="bi bi-calendar-range" aria-hidden="true"></i><p>Todavía no hay períodos creados, así que no hay nada que informar.</p></div></section>
 {% else %}
@@ -101,4 +103,5 @@
   {% endif %}
 </section>
 {% endif %}
+</div>
 {% endblock %}

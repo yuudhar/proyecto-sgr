@@ -16,7 +16,7 @@
   {% endif %}
 </section>
 
-<section class="panel" aria-label="Listado de {{ crud.title_plural|lower }}"{% if not only_archived %} data-live-crud="{{ crud.slug }}"{% endif %}>
+<section class="panel" aria-label="Listado de {{ crud.title_plural|lower }}"data-live-crud="{{ crud.slug }}">
   <form method="get" class="filters" role="search" data-loading data-live-search>
     <span class="visually-hidden" role="status" data-live-status></span>
     {% if crud.search_fields %}

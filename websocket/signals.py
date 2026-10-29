@@ -16,7 +16,7 @@ from django.db.models.signals import post_delete, post_save, pre_save
 
 from core.access import delegation_id_of
 
-from .services import ALL, publish_live_changed
+from .services import ALL, publish_crud_changed, publish_live_changed
 
 # Modelo → camino hasta su delegación (None = dato general: avisa a todas las delegaciones).
 LIVE_MODELS = {
@@ -30,6 +30,17 @@ LIVE_MODELS = {
     "planning.Adjustment": "officer__delegation",
     "planning.Period": None,
     "organization.Officer": "delegation",
+    # Catálogos y datos generales: avisan a todas las delegaciones (fichas, Atención, informes y listados).
+    "operations.ManagementType": None,
+    "organization.Delegation": None,
+    "organization.Position": None,
+    "organization.PositionItem": None,
+    "organization.Item": None,
+    "organization.Service": None,
+    "organization.Territory": None,
+    "organization.Beneficiary": None,
+    "accounts.UserProfile": None,
+    "accounts.RoleProfile": None,
 }
 
 _lookups = {}
@@ -78,3 +89,21 @@ for label, lookup in LIVE_MODELS.items():
     pre_save.connect(remember_previous_delegation, sender=model, dispatch_uid=f"live-pre-{label}")
     post_save.connect(data_saved, sender=model, dispatch_uid=f"live-save-{label}")
     post_delete.connect(data_deleted, sender=model, dispatch_uid=f"live-del-{label}")
+
+
+def audit_saved(sender, instance, created=False, raw=False, **kwargs):
+    """La auditoría se escribe desde cualquier pantalla: solo avisa a quien tiene abierto su listado
+    (no a los dashboards, para no duplicar el aviso de cada cambio)."""
+    if raw or not created:
+        return
+    from core import registry as _mantenedores  # noqa: F401  (registra los mantenedores si aún no se cargaron)
+    from core.crud import registry
+
+    try:
+        crud = registry.get("auditoria")
+    except KeyError:  # nunca debe impedir que se guarde la auditoría
+        return
+    transaction.on_commit(lambda: publish_crud_changed(crud, ALL))
+
+
+post_save.connect(audit_saved, sender=apps.get_model("core.AuditLog"), dispatch_uid="live-audit")

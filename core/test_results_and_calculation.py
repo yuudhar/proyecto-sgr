@@ -3,7 +3,6 @@ from decimal import Decimal
 from io import StringIO
 from types import SimpleNamespace
 
-from django.contrib.messages import get_messages
 from django.core.management import call_command
 from django.core.management.base import CommandError
 from django.db import IntegrityError, transaction
