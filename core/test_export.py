@@ -123,7 +123,7 @@ class ListExportTests(ExcelTestCase):
         headers, rows = self.table(sheet)
         self.assertEqual(
             headers,
-            ["Identificador", "Fecha", "Contacto", "RUT", "Tipo de atención", "Sub atención", "Funcionario autor", "Delegación", "Estado"],
+            ["Identificador", "Fecha", "Contacto", "RUT", "Tipo de atención", "Sub atención", "Funcionario autor", "Puntaje", "Delegación", "Estado"],
         )
         self.assertEqual(len(rows), 5)
         self.assertEqual(sheet.auto_filter.ref, f"A5:{get_column_letter(len(headers))}10")

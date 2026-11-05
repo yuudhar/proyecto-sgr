@@ -25,7 +25,7 @@ from organization.models import (
     Service,
     Territory,
 )
-from planning.models import Adjustment, Goal, Indicator, Period
+from planning.models import Absence, Adjustment, Goal, Indicator, Period
 
 ADMIN_USERNAME = "admin"
 ADMIN_PASSWORD = "Hola123!"
@@ -567,6 +567,14 @@ class CargaDatosPrueba(BaseCommand):
                 "percentage_value": 8,
                 "responsible_user": admin_user,
             },
+        )
+
+        # Una ausencia de ejemplo del jefe de la Norte (que no tiene metas): no cambia ningún cálculo.
+        Absence.objects.get_or_create(
+            officer=officer_north_jefatura,
+            kind=Absence.Kind.ADMINISTRATIVE,
+            notes="Día administrativo de ejemplo",
+            defaults={"start_date": today - timedelta(days=30), "end_date": today - timedelta(days=30)},
         )
 
         mt_presencial = ManagementType.objects.get(name="Atención a usuario presencial")

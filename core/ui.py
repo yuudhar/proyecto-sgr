@@ -34,6 +34,8 @@ TONES = {
     "green": ("ok", "bi-check-circle-fill"),
     "amber": ("warn", "bi-exclamation-triangle-fill"),
     "red": ("bad", "bi-x-octagon-fill"),
+    "scores": ("ok", "bi-check-circle-fill"),
+    "no_score": ("warn", "bi-slash-circle"),
 }
 
 LIGHT_LABELS = {"green": "Verde", "amber": "Ámbar", "red": "Rojo"}

@@ -8,6 +8,7 @@ totales x 100. Tratamiento de las fechas extremas que usa el sistema:
 * Antes del inicio el esperado es 0 %; después del término, o con el período cerrado, es 100 %: nunca pasa de 100 %.
 * El total de días que se muestra es el que el período declara en «días computables» (así se descuentan feriados);
   el porcentaje se calcula sobre los días hábiles del calendario del período y se reparte sobre ese total.
+* Con ausencias (RF-047), los días hábiles de ausencia del funcionario se descuentan del total y de los transcurridos.
 """
 from dataclasses import dataclass
 from datetime import date
@@ -81,18 +82,26 @@ class Pace:
         return "red"
 
 
-def pace_of(period, today=None):
+def pace_of(period, today=None, absence=None):
+    """Ritmo del período. Con `absence` (`absences.AbsenceDays`) es el ritmo de un funcionario con ausencias (RF-047):
+    los días hábiles de ausencia no cuentan ni en el total ni entre los transcurridos."""
     today = today or timezone.localdate()
     calendar_days = weekdays_between(period.start_date, period.end_date)
     total_days = period.computable_days or calendar_days
+    absent_total = absence.total if absence else 0
 
     if today < period.start_date:
-        stage, elapsed_calendar = "not_started", 0
+        stage, elapsed_calendar, absent_elapsed = "not_started", 0, 0
     elif today > period.end_date or period.status == "closed":
-        stage, elapsed_calendar = "finished", calendar_days
+        stage, elapsed_calendar, absent_elapsed = "finished", calendar_days, absent_total
     else:
         stage = "running"
         elapsed_calendar = weekdays_between(period.start_date, min(today, period.end_date))
+        absent_elapsed = min(absence.elapsed, absent_total) if absence else 0
+
+    calendar_days = max(0, calendar_days - absent_total)
+    elapsed_calendar = max(0, elapsed_calendar - absent_elapsed)
+    total_days = max(0, total_days - absent_total)
 
     if calendar_days:
         ratio = Decimal(elapsed_calendar) / Decimal(calendar_days)
@@ -113,4 +122,3 @@ def pace_of(period, today=None):
         daily_percent=daily,
         stage=stage,
     )
-

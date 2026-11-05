@@ -118,7 +118,7 @@
         {% for line in result.lines %}
         <tr class="board-goal">
           <td>{{ line.item }}<span class="board-note">{{ line.scope }}</span></td>
-          <td class="num">{{ line.target }} {{ line.unit }}</td>
+          <td class="num">{{ line.target }} {{ line.unit }}{% if line.adjusted %}<span class="board-note">Meta original {{ line.original_target }} (ajustada por ausencias)</span>{% endif %}</td>
           <td class="num">{% if line.indicator %}{{ line.progress }}{% else %}—{% endif %}</td>
           <td class="num">{{ line.expected }}</td>
           <td>{% if line.indicator %}{% meter line.compliance line.light period.collective_threshold period.amber_threshold compact=True %}{% else %}<span class="muted">Aún sin cálculo</span>{% endif %}</td>
@@ -142,6 +142,7 @@
 
 {% if results %}
 {% include "core/partials/recent_activity.html" with rows=results summary=recent_summary summary_label=delegation.name %}
+{% if perms.planning.view_absence %}{% include "core/partials/absences_panel.html" %}{% endif %}
 {% endif %}
 {% endif %}
 </div>

@@ -40,8 +40,8 @@
       <tbody>
         {% for line in panel.sheet.lines %}
         <tr>
-          <td>{{ line.item }}<span class="board-note">{{ line.scope }}</span></td>
-          <td class="num">{{ line.target }} {{ line.unit }}</td>
+          <td>{{ line.item }}{% if line.capped %} <span class="chip chip-info" title="Ya llegó al tope: más gestiones en este ítem no suben el puntaje."><i class="bi bi-shield-check" aria-hidden="true"></i>Tope alcanzado</span>{% endif %}<span class="board-note">{{ line.scope }}</span></td>
+          <td class="num">{{ line.target }} {{ line.unit }}{% if line.adjusted %}<span class="board-note">Meta original {{ line.original_target }}, ajustada por {{ sheet.absence.total }} día{{ sheet.absence.total|pluralize }} de ausencia</span>{% endif %}</td>
           <td class="num">{% if line.indicator %}{{ line.progress }}{% else %}—{% endif %}</td>
           <td class="num">{{ line.expected }}</td>
           <td>{% if line.indicator %}{% meter line.compliance line.light panel.period.collective_threshold panel.period.amber_threshold compact=True %}{% else %}<span class="muted">Aún sin cálculo</span>{% endif %}</td>
@@ -53,6 +53,7 @@
       </tbody>
     </table>
   </div>
+  {% include "core/partials/lowest_items.html" with sheet=panel.sheet period=panel.period %}
   <p class="meter-legend">Cumplimiento = actividades con evidencia aprobada ÷ objetivo × 100 (tope {{ panel.period.weighted_cap|fnumber }} %); ponderado = ponderador × cumplimiento ÷ 100.{% if panel.sheet.weights_state and panel.sheet.weights_state != "ok" %} {{ panel.sheet.weights_text }}: deben sumar 100 %.{% endif %}</p>
   {% else %}
   <p class="panel-body muted mb-0">{{ obj.name }} no tiene metas en este período.</p>

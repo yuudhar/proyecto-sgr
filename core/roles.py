@@ -69,6 +69,7 @@ PERMISSION_MODULES = (
             ("Metas", "planning.goal"),
             ("Indicadores", "planning.indicator"),
             ("Ajustes", "planning.adjustment"),
+            ("Ausencias", "planning.absence"),
         ),
     ),
     (

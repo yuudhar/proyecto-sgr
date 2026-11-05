@@ -75,8 +75,8 @@
         {% for line in goal_lines %}
         <li class="goal-row">
           <div>
-            <p class="goal-name">{{ line.item }}</p>
-            <p class="goal-meta">{{ line.scope }}. Objetivo: {{ line.target }} {{ line.unit }}{% if line.indicator %}. Avance: {{ line.progress }}{% endif %}. Esperado hoy: {{ line.expected }}. Ponderador: {{ line.weight|fnumber }} %{% if line.weighted is not None %}. Aporte ponderado: {{ line.weighted|fnumber }} %{% endif %}.{% if activities_url %} <a href="{{ activities_url }}?item={{ line.goal.item_id }}&amp;author_officer={{ me_officer.pk }}">Ver las actividades</a>{% endif %}</p>
+            <p class="goal-name">{{ line.item }}{% if line.capped %} <span class="chip chip-info" title="Ya llegó al tope: más gestiones en este ítem no suben el puntaje."><i class="bi bi-shield-check" aria-hidden="true"></i>Tope alcanzado</span>{% endif %}</p>
+            <p class="goal-meta">{{ line.scope }}. Objetivo: {{ line.target }} {{ line.unit }}{% if line.adjusted %} (meta original {{ line.original_target }}, ajustada por {{ sheet.absence.total }} día{{ sheet.absence.total|pluralize }} de ausencia){% endif %}{% if line.indicator %}. Avance: {{ line.progress }}{% endif %}. Esperado hoy: {{ line.expected }}. Ponderador: {{ line.weight|fnumber }} %{% if line.weighted is not None %}. Aporte ponderado: {{ line.weighted|fnumber }} %{% endif %}.{% if activities_url %} <a href="{{ activities_url }}?item={{ line.goal.item_id }}&amp;author_officer={{ me_officer.pk }}">Ver las actividades</a>{% endif %}</p>
           </div>
           <div>
             {% if line.indicator %}
@@ -96,6 +96,7 @@
         <span class="chip chip-{% if sheet.weights_state == 'ok' %}ok{% else %}warn{% endif %}">Ponderadores: {{ sheet.weights_total|fnumber }} %</span>
         {% if sheet.weights_state != "ok" %}<span class="muted">{{ sheet.weights_text }}; coordinación debe ajustarlos.</span>{% endif %}
       </p>
+      {% include "core/partials/lowest_items.html" %}
       <p class="meter-legend">Las marcas de la barra son los umbrales del período: ámbar desde {{ period.amber_threshold|fnumber }} % y verde desde {{ period.collective_threshold|fnumber }} %. Cumplimiento = actividades con evidencia aprobada ÷ objetivo × 100 (tope {{ period.weighted_cap|fnumber }} %); aporte ponderado = ponderador × cumplimiento ÷ 100.</p>
       {% else %}
       <div class="empty">

@@ -1,4 +1,5 @@
 from django.conf import settings
+from django.core.exceptions import ValidationError
 from django.core.validators import MinValueValidator
 from django.db import models
 
@@ -26,7 +27,7 @@ class Period(BaseModel):
         max_digits=5, decimal_places=2, default=60, verbose_name="umbral ámbar"
     )
     weighted_cap = models.DecimalField(
-        max_digits=5, decimal_places=2, default=150, verbose_name="tope ponderado"
+        max_digits=5, decimal_places=2, default=120, verbose_name="tope ponderado"
     )
     parameters_version = models.CharField(
         max_length=20, default="1", verbose_name="versión de parámetros"
@@ -164,3 +165,68 @@ class Adjustment(BaseModel):
 
     def __str__(self):
         return f"Ajuste {self.get_kind_display()} · {self.officer}"
+
+
+class Absence(BaseModel):
+    """RF-047: días en que un funcionario no está disponible (licencia, vacaciones, emergencia…).
+
+    Los días hábiles (lunes a viernes) de la ausencia se descuentan de los días computables del período: la meta
+    del funcionario se ajusta con los días efectivos (ver `planning/absences.py`).
+    """
+
+    class Kind(models.TextChoices):
+        LICENSE = "license", "Licencia"
+        VACATION = "vacation", "Vacaciones"
+        ADMINISTRATIVE = "administrative", "Día administrativo"
+        EMERGENCY = "emergency", "Emergencia"
+        COMPENSATORY = "compensatory", "Compensatorio"
+
+    officer = models.ForeignKey(
+        Officer, on_delete=models.PROTECT, related_name="absences", verbose_name="funcionario"
+    )
+    kind = models.CharField(max_length=20, choices=Kind.choices, verbose_name="tipo de ausencia")
+    start_date = models.DateField(verbose_name="desde")
+    end_date = models.DateField(verbose_name="hasta")
+    notes = models.CharField(max_length=255, blank=True, default="", verbose_name="observación")
+    registered_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        editable=False,
+        related_name="registered_absences",
+        verbose_name="registrada por",
+    )
+
+    class Meta:
+        ordering = ("-start_date",)
+        verbose_name = "Ausencia"
+        verbose_name_plural = "Ausencias"
+
+    @property
+    def business_days(self):
+        from .pace import weekdays_between
+
+        return weekdays_between(self.start_date, self.end_date) if self.start_date and self.end_date else 0
+
+    def clean(self):
+        super().clean()
+        if not (self.start_date and self.end_date and self.officer_id):
+            return
+        if self.end_date < self.start_date:
+            raise ValidationError({"end_date": "La fecha «hasta» no puede ser anterior a la fecha «desde»."})
+        overlapping = Absence.objects.filter(
+            officer_id=self.officer_id,
+            deleted_at__isnull=True,
+            start_date__lte=self.end_date,
+            end_date__gte=self.start_date,
+        ).exclude(pk=self.pk)
+        if overlapping.exists():
+            other = overlapping.first()
+            raise ValidationError(
+                f"El funcionario ya tiene una ausencia entre el {other.start_date:%d/%m/%Y} y el {other.end_date:%d/%m/%Y}: "
+                "las ausencias no pueden traslaparse."
+            )
+
+    def __str__(self):
+        return f"{self.get_kind_display()} · {self.officer} · {self.start_date:%d/%m/%Y}"

@@ -140,6 +140,7 @@ MENU = [
                     crud_entry("periodos"),
                     crud_entry("metas"),
                     crud_entry("ajustes"),
+                    crud_entry("ausencias"),
                 ],
             ),
             (

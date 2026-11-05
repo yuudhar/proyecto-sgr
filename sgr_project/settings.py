@@ -159,6 +159,9 @@ DEFAULT_FROM_EMAIL = os.environ.get("DEFAULT_FROM_EMAIL") or "noreply@proyecto.l
 PORTAL_LANGUAGE = 'es'
 PORTAL_TIME_ZONE = 'America/Santiago'
 
+# Máximo de atenciones que un funcionario puede ingresar con la misma fecha (RF-041).
+DAILY_ENTRY_LIMIT = 7
+
 AUTHENTICATION_BACKENDS = ['accounts.backends.EmailOrUsernameBackend']
 LOGIN_URL = 'core:login'
 LOGIN_REDIRECT_URL = 'core:dashboard'

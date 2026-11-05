@@ -16,6 +16,7 @@ from core.crud import CODE_COLUMN, Cell, Col, Crud, Related, is_id, registry
 from core.forms import (
     ActivityEditForm,
     ActivityIntakeForm,
+    AbsenceForm,
     AdjustmentForm,
     CommitmentForm,
     DelegationForm,
@@ -59,7 +60,7 @@ from organization.models import (
     Territory,
 )
 from planning.calculation import IndicatorIndex
-from planning.models import Adjustment, Goal, Indicator, Period
+from planning.models import Absence, Adjustment, Goal, Indicator, Period
 from planning.pace import pace_of
 
 
@@ -112,6 +113,13 @@ def sub_attention_name(activity):
     return item.name if item.parent_item_id else ""
 
 
+SCORING = {"scores": "Puntúa", "no_score": "No puntúa"}
+
+
+def scoring_state(activity):
+    return "scores" if activity.counts_for_score else "no_score"
+
+
 @registry.register
 class ActivityCrud(Crud):
     model = Activity
@@ -136,8 +144,10 @@ class ActivityCrud(Crud):
         "delegation",
         "status",
         "requires_visit",
+        Col("scoring", "Puntaje", kind="badge", sort=False),
     )
-    computed = {"attention_type": attention_type_name, "sub_attention": sub_attention_name}
+    computed = {"attention_type": attention_type_name, "sub_attention": sub_attention_name, "scoring": scoring_state}
+    computed_choices = {"scoring": SCORING}
     search_fields = (
         "contact_name",
         "phone",
@@ -145,7 +155,7 @@ class ActivityCrud(Crud):
         "beneficiary__name",
         "beneficiary__rut",
     )
-    list_filters = ("delegation", "status", "requires_visit", "added_to_pipeline", "item", "author_officer")
+    list_filters = ("delegation", "status", "counts_for_score", "requires_visit", "added_to_pipeline", "item", "author_officer")
     select_related = ("delegation", "item", "item__parent_item", "author_officer", "beneficiary", "service")
     form_fields = (
         "date",
@@ -159,6 +169,7 @@ class ActivityCrud(Crud):
         "status",
         "requires_visit",
         "added_to_pipeline",
+        "requester_is_delegate",
         "delegation",
         "author_officer",
     )
@@ -173,6 +184,7 @@ class ActivityCrud(Crud):
         "action_taken",
         "requires_visit",
         "added_to_pipeline",
+        "requester_is_delegate",
         "delegation",
         "author_officer",
     )
@@ -621,6 +633,44 @@ class AdjustmentCrud(Crud):
 
 
 @registry.register
+class AbsenceCrud(Crud):
+    model = Absence
+    slug = "ausencias"
+    icon = "bi-calendar-x"
+    gender = "f"
+    description = (
+        "Días en que un funcionario no está disponible. Sus días hábiles se descuentan de los días computables "
+        "y la meta del funcionario se ajusta."
+    )
+    delegation_lookup = "officer__delegation"
+    list_display = (
+        Col("officer", "Funcionario", link=True),
+        "kind",
+        "start_date",
+        "end_date",
+        Col("business_days", "Días hábiles", kind="number", sort=False),
+        "notes",
+    )
+    computed = {"business_days": lambda absence: absence.business_days}
+    search_fields = ("officer__name", "notes")
+    list_filters = ("kind", "officer")
+    select_related = ("officer", "registered_by")
+    form_base = AbsenceForm
+    form_fields = ("officer", "kind", "start_date", "end_date", "notes")
+    rules = {"notes": "label"}
+    full_width = ("notes",)
+    help_texts = {
+        "end_date": "Último día de la ausencia. Cuentan los días de lunes a viernes entre «desde» y «hasta».",
+        "notes": "Opcional: licencia médica, feriado legal u otro dato que ayude a entender la ausencia.",
+    }
+
+    def prepare_object(self, request, obj, creating, form):
+        super().prepare_object(request, obj, creating, form)
+        if creating:
+            obj.registered_by = request.user
+
+
+@registry.register
 class DelegationCrud(Crud):
     model = Delegation
     slug = "delegaciones"
@@ -743,7 +793,7 @@ class OfficerCrud(Crud):
             "sheet": sheet,
             "period": period,
             "periods": periods,
-            "pace": pace,
+            "pace": sheet["pace"],
             "recent": recent_activity([obj.pk], period, pace)[obj.pk],
         }
 
@@ -912,7 +962,7 @@ class ItemColumns:
     select_related = ("parent_item",)
     unique_names = (("name", "parent_item"),)
     rules = {"name": "label", "description": "label"}
-    form_fields = ("name", "description", "parent_item", "calculation_type")
+    form_fields = ("name", "description", "parent_item", "calculation_type", "scores")
     full_width = ("description",)
     help_texts = {
         "name": "Se distingue de los demás aunque cambien las mayúsculas.",
@@ -951,9 +1001,10 @@ class ItemCrud(ItemRules, ItemColumns, Crud):
         Col("item_class", "Clase", sort=False),
         Col("parent_item", "Tipo asociado", sort="parent_item__name"),
         "calculation_type",
+        Col("scores", "Otorga punto", kind="bool"),
         Col("state", "Estado", kind="badge", sort=False),
     )
-    list_filters = ("parent_item", "calculation_type")
+    list_filters = ("parent_item", "calculation_type", "scores")
     form_base = ItemForm
     labels = {"parent_item": "Ítem padre (tipo de atención)"}
     help_texts = {
@@ -991,14 +1042,15 @@ class AttentionTypeCrud(ItemRules, ItemColumns, Crud):
         "description",
         "calculation_type",
         Col("sub_total", "Sub atenciones activas", kind="number", sort=False),
+        Col("scores", "Otorga punto", kind="bool"),
         Col("state", "Estado", kind="badge", sort=False),
     )
     computed = {**ItemColumns.computed, "sub_total": lambda item: item.sub_total}
     search_fields = ("name", "description")
-    list_filters = ("calculation_type",)
+    list_filters = ("calculation_type", "scores")
     select_related = ()
     form_base = ItemForm
-    form_fields = ("name", "description", "calculation_type")
+    form_fields = ("name", "description", "calculation_type", "scores")
     help_texts = {
         "name": "Se distingue de los demás tipos aunque cambien las mayúsculas.",
         "description": "Qué atiende este tipo de atención. Es opcional.",
@@ -1030,11 +1082,12 @@ class SubAttentionCrud(ItemRules, ItemColumns, Crud):
         Col("name", "Nombre", link=True),
         Col("parent_item", "Tipo de Atención asociado", sort="parent_item__name"),
         "calculation_type",
+        Col("scores", "Otorga punto", kind="bool"),
         Col("state", "Estado", kind="badge", sort=False),
     )
-    list_filters = ("parent_item", "calculation_type")
+    list_filters = ("parent_item", "calculation_type", "scores")
     form_base = SubAttentionForm
-    form_fields = ("name", "parent_item", "calculation_type")
+    form_fields = ("name", "parent_item", "calculation_type", "scores")
     detail_exclude = ("description",)
     search_fields = ("name", "parent_item__name")
     labels = {"parent_item": "Tipo de Atención asociado"}

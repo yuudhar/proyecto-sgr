@@ -103,6 +103,14 @@ class Item(BaseModel):
         default=CalculationType.QUANTITATIVE,
         verbose_name="tipo de cálculo",
     )
+    scores = models.BooleanField(
+        default=True,
+        verbose_name="otorga punto",
+        help_text=(
+            "Si está desmarcado, las gestiones de este ítem no suman al avance (por ejemplo las gestiones previas: "
+            "enviar correos, coordinar o invitar; el punto lo da realizar la acción)."
+        ),
+    )
 
     class Meta:
         ordering = ("name",)

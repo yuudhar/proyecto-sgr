@@ -37,8 +37,9 @@ from core.rules import rut_with_wrong_digit
 from evidence.models import Evidence, Validation
 from operations.models import Activity, Commitment
 from organization.models import Delegation, Officer
-from planning.models import Adjustment, Goal, Period
+from planning.absences import absence_map, kind_breakdown
 from planning.calculation import IndicatorIndex
+from planning.models import Absence, Adjustment, Goal, Period
 from planning.pace import pace_of
 
 
@@ -209,6 +210,7 @@ class AtencionView(CrudListView):
             Col("attention_type", "Tipo de atención"),
             Col("sub_attention", "Sub atención"),
             "author_officer",
+            Col("scoring", "Puntaje", kind="badge", sort=False),
             "status",
         ]
         if active_delegation(request) is None:
@@ -273,11 +275,14 @@ PACE_STANDING = {
 }
 
 
-def pace_summary(period, achieved):
-    """Cuadro de ritmo del período (RF-026): lo esperado hoy frente al avance logrado."""
+def pace_summary(period, achieved, pace=None):
+    """Cuadro de ritmo del período (RF-026): lo esperado hoy frente al avance logrado.
+
+    Con `pace` se usa el ritmo de un funcionario con ausencias (RF-047); sin él, el del período.
+    """
     if period is None:
         return None
-    pace = pace_of(period)
+    pace = pace or pace_of(period)
     standing = pace.standing(achieved, period.amber_threshold)
     difference = pace.difference(achieved)
     return {
@@ -369,7 +374,7 @@ def dashboard(request):
         context["personal"] = personal_board(officer, period, pace, today)
         if activities.has_perm(user, "view"):
             context["activities_url"] = activities.url("list")
-        context["pace_summary"] = pace_summary(period, sheet["exact_average"])
+        context["pace_summary"] = pace_summary(period, sheet["exact_average"], sheet["pace"])
 
     if period is not None and is_global_user(request) and user.has_perm("planning.view_indicator"):
         goals = Goal.objects.filter(deleted_at__isnull=True, period=period)
@@ -741,12 +746,31 @@ def validate_evidence(request, pk):
     )
 
 
+def absence_rows(results, period):
+    """Filas del bloque «Ausencias del equipo» (RF-047): días hábiles por tipo, total y días efectivos de cada funcionario."""
+    by_kind = kind_breakdown([row["officer"].pk for row in results], period)
+    rows = []
+    for row in results:
+        days = by_kind[row["officer"].pk]
+        rows.append(
+            {
+                "officer": row["officer"],
+                "kinds": [days[value] for value, _label in Absence.Kind.choices],
+                "total": row["absence"].total,
+                "effective": row["effective_days"],
+            }
+        )
+    return rows
+
+
 def officer_results(officers, goals, indicators, period):
     pace = pace_of(period)
-    recent = recent_activity([officer.pk for officer in officers], period, pace)
+    ids = [officer.pk for officer in officers]
+    recent = recent_activity(ids, period, pace)
+    away = absence_map(ids, period, pace.today)
     results = []
     for officer in officers:
-        summary = officer_summary(officer, period, goals, indicators, pace)
+        summary = officer_summary(officer, period, goals, indicators, pace, away[officer.pk])
         summary["recent"] = recent[officer.pk]
         results.append(summary)
     return results
@@ -833,6 +857,8 @@ def delegation_board(request):
             "average_light": light_of(delegation_mean, period),
             "pace_summary": pace_summary(period, delegation_mean),
             "recent_summary": delegation_recent({row["officer"].pk: row["recent"] for row in results}, pace_of(period)),
+            "absence_kinds": Absence.Kind.choices,
+            "absence_rows": absence_rows(results, period),
             "light_counts": [
                 {"light": key, "label": ui.LIGHT_LABELS[key], "total": lights[key]}
                 for key in ("green", "amber", "red")
@@ -991,9 +1017,10 @@ def position_overview(request):
     results = []
     pace = pace_of(period)
     recent = recent_activity([officer.pk for officer in officers], period, pace)
+    away = absence_map([officer.pk for officer in officers], period, pace.today)
     can_open_officer = officers_crud.has_perm(request.user, "view")
     for officer in officers:
-        summary = officer_summary(officer, period, goals, index, pace)
+        summary = officer_summary(officer, period, goals, index, pace, away[officer.pk])
         summary["recent"] = recent[officer.pk]
         summary["url"] = officers_crud.url("detail", officer.pk) if can_open_officer else ""
         results.append(summary)

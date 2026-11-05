@@ -17,6 +17,78 @@ Nombres que cambiaron en la v27 (los textos antiguos los mencionan con el nombre
 | `core/qa/esperado_vNN.py` | `core/qa/esperado_<tema>.py` (mismo tema que su archivo de pruebas) |
 | `sql/*.sql` (todos) | `sql/sgr_django.sql` (estructura vigente) |
 
+## Versión 30
+
+Segundo avance sobre los requisitos nuevos de la clienta: cierre semanal de ingresos y ausencias con meta ajustada. Siguen pendientes (necesitan definiciones) felicitaciones y reclamos, puntaje de equipo, importación de juntas de vecinos y la lista de ítems que no otorgan punto.
+
+### Cierre semanal (regla 4)
+
+- La semana va de lunes a domingo: una fecha pertenece a la semana que la contiene.
+- Las atenciones de una semana se ingresan hasta el **lunes siguiente**; desde el martes ya no se ingresan las de la semana pasada (hora de Santiago). Código en `core/entry_rules.py`.
+- Se revisa al crear una atención y al cambiarle la fecha; editar otros datos de una atención antigua no se bloquea. La validación está en `Activity.clean()` (`check_week_open`), igual que el límite diario.
+- Sin excepciones: el cierre y el límite diario valen para todos los roles, incluido el Super Usuario.
+- El formulario de ingreso muestra «Hoy llevas X de 7 atenciones.» y «La semana del … al … se puede ingresar hasta el lunes …».
+- Punto abierto: lo recibido de la clienta no dice nada de sábado y domingo; se tomó la semana de lunes a domingo. Tampoco se definió si las tres gestiones de la atención social y el tubo de trabajo siguen el mismo cierre (hoy el cierre vale para toda atención).
+
+### Ausencias y meta ajustada (regla 9)
+
+- Modelo nuevo `Absence` (`planning/models.py`): funcionario, tipo (licencia, vacaciones, día administrativo, emergencia, compensatorio), desde, hasta, observación y quién la registró. Las ausencias de una misma persona no se traslapan y «hasta» no puede ser anterior a «desde».
+- Mantenedor «Ausencias» (Administración › Planificación). Lo registran Jefatura (solo de su delegación) y Coordinación (eligiendo una delegación); el funcionario, el verificador y consulta no pueden. Los permisos están en `seed_roles` y en la matriz de roles.
+- Regla elegida: los días hábiles (lunes a viernes) de las ausencias dentro del período se descuentan de los días computables y la meta baja en esa proporción: **meta ajustada = meta × días efectivos ÷ días computables**. Todos los tipos descuentan igual. Código en `planning/absences.py`.
+- El cumplimiento (`calculation.compute`) usa la meta ajustada. Al registrar, cambiar o archivar una ausencia se recalculan solos los indicadores del funcionario en los períodos que toca (`planning/signals.py`).
+- El ritmo esperado (`pace_of(period, today, absence)`) y la actividad reciente (promedio diario y días sin ingreso) no cuentan los días de ausencia.
+- El tablero de la delegación tiene el bloque «Ausencias del equipo» (días por tipo, días de ausencia y días efectivos, con el botón «Registrar ausencia»). La ficha personal, el dashboard y el tablero muestran la meta original junto a la ajustada.
+- Los feriados no se descuentan de las ausencias: solo cuentan los días de lunes a viernes.
+
+### Base de datos
+
+Migración nueva `planning/0004_ausencias_v30.py` (tabla `planning_absence`). `sql/sgr_django.sql` quedó al día.
+
+### Pruebas
+
+`core/test_cierre_y_ausencias.py` (48 pruebas), registradas en el catálogo QA como V30-01 a V30-04. `core/testing.py` toma `portal_today` desde `core/entry_rules.py`.
+
+## Versión 29
+
+Primer avance sobre los requisitos nuevos de la clienta (plan por etapas: etapa 1, etapa 2 y límite diario). Lo que depende de definiciones que faltan (cierre semanal, ausencias, felicitaciones y reclamos, puntaje por equipo, qué ítems no otorgan punto) queda para una versión posterior.
+
+### Atenciones que no puntúan
+
+Una atención se guarda siempre, pero solo suma al avance si cumple las tres reglas. Al guardarla el sistema anota si puntúa (`counts_for_score`) y, si no, el motivo (`no_score_reason`):
+
+| Motivo | Regla |
+|---|---|
+| «El solicitante es el delegado (otra gestión)» | Casilla nueva «El solicitante es el delegado» en el formulario de ingreso |
+| «Falta el nombre o el teléfono del usuario» | Sin nombre de contacto o sin teléfono (se aceptan los de la persona vinculada) |
+| «El ítem no otorga punto (gestión previa)» | Casilla nueva «Otorga punto» en ítems, tipos de atención y sub atenciones |
+
+- Todos los ítems parten otorgando punto; nadie decidió una lista distinta. Una sub atención sigue lo que decida su tipo.
+- Si cambia la casilla de un ítem, sus atenciones se reclasifican y el avance se recalcula (`planning/signals.py`).
+- Las atenciones anteriores a la v29 no se tocan (sin recálculo hacia atrás): se reclasifican cuando se editan.
+- La lista de Atención tiene la columna «Puntaje» y el filtro «Puntúa»; el detalle dice el motivo.
+- `calculation.valid_activities` solo cuenta atenciones con `counts_for_score=True`.
+
+### Tope de 120 % y panel «Ítems con menor puntaje»
+
+- El tope del cumplimiento por ítem pasa de 150 % a 120 % (`Period.weighted_cap`). La migración `planning/0003` lo baja solo en los períodos que no están cerrados; los cerrados conservan su 150 %. Los períodos nuevos parten con 120 %.
+- La ficha del funcionario y el dashboard muestran «Tope alcanzado» en el ítem que llegó al tope y el panel «Ítems con menor puntaje» (hasta tres, del peor al mejor, sin los que ya están al tope). Código en `core/results.py` (`lowest_lines`) y `core/templates/core/partials/lowest_items.html`.
+
+### Límite diario
+
+Un funcionario no puede registrar más de 7 atenciones con la misma fecha (`settings.DAILY_ENTRY_LIMIT`). Se cuenta por la fecha de la atención, sin las archivadas, y la validación está en `Activity.clean()`, así vale para el ingreso y para la edición. El mensaje dice: «Ya hay 7 atenciones registradas con esta fecha: el máximo es 7 por día. Hay que ingresar todos los días y no dejar un día para llenar la matriz.». Editar una atención de un día completo no se bloquea. Lo que se crea desde código (semillas, pruebas) no pasa por este control.
+
+### Números de pocas opciones se eligen de una lista
+
+Todo campo numérico con un rango de 10 valores o menos (por ejemplo el número de gestión, de 1 a 3) se dibuja como lista desplegable en lugar de caja de texto: se aprieta y se elige, sin escribir. Si llega un valor fuera del rango, el mensaje dice «Debe ser un número entre 1 y 3». Los campos con rangos amplios siguen siendo numéricos. Código en `CrudForm.pick_small_ranges()` (`core/forms.py`).
+
+### Base de datos
+
+Migraciones nuevas: `organization/0004` (`item.scores`), `operations/0003` (`activity.requester_is_delegate`, `activity.counts_for_score`, `activity.no_score_reason`) y `planning/0003` (nuevo valor por defecto y baja del tope). `sql/sgr_django.sql` quedó al día.
+
+### Pruebas
+
+`core/test_reglas_puntaje.py` (reglas de puntaje, pantallas, tope, límite diario, listas de pocas opciones), registradas en el catálogo QA como V29-01 a V29-04. Las pruebas que crean atenciones a mano ahora les ponen teléfono, porque sin él no puntúan.
+
 ## Versión 28
 
 ### Pantallas en vivo aunque el WebSocket no conecte

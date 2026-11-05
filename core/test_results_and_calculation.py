@@ -51,6 +51,7 @@ class CalculationBase(PortalTestCase):
             date=when or self.period.start_date + timedelta(days=30),
             item=item or self.visit,
             contact_name=f"Contacto {self.counter}",
+            phone="+56912345678",
             delegation=officer.delegation,
             author_officer=officer,
         )
@@ -286,6 +287,7 @@ class AutomaticTriggersTests(CalculationBase):
             date=self.period.start_date + timedelta(days=10),
             item=self.visit,
             contact_name="Contacto pantalla",
+            phone="+56912345678",
             delegation=self.north,
             author_officer=self.cavieres,
         )

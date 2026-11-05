@@ -17,7 +17,7 @@ from django.utils.safestring import mark_safe
 
 from accounts.delegations import stored_delegation_ids
 from accounts.models import RoleProfile, UserProfile, group_is_global, role_details
-from core import ui, uploads
+from core import entry_rules, ui, uploads
 from core.access import default_delegation, request_delegation, request_officer
 from core.photos import photo_url_of
 from core.models import BaseModel
@@ -163,6 +163,7 @@ class CrudForm(BootstrapFormMixin, forms.ModelForm):
                     if name in self.fields:
                         self.fields[name].disabled = True
         self.customize_fields()
+        self.pick_small_ranges()
         self.set_text_limits()
         self.apply_rules()
         self.use_date_inputs()
@@ -184,6 +185,54 @@ class CrudForm(BootstrapFormMixin, forms.ModelForm):
 
     def customize_fields(self):
         pass
+
+    SMALL_RANGE_MAX = 10  # hasta cuántos valores posibles se ofrecen como lista en vez de una caja numérica
+
+    def pick_small_ranges(self):
+        """Un número entero que solo puede valer entre pocos valores (1 a 3, por ejemplo) se elige de una lista:
+        no hace falta escribirlo y no se puede poner uno fuera del rango (un 1000, un 0…)."""
+        from django.core.exceptions import FieldDoesNotExist
+        from django.core.validators import MaxValueValidator
+
+        for name in list(self.fields):
+            field = self.fields[name]
+            if not isinstance(field, forms.IntegerField) or isinstance(field, forms.DecimalField):
+                continue
+            try:
+                model_field = self._meta.model._meta.get_field(name)
+            except FieldDoesNotExist:
+                continue
+            lows = [v.limit_value for v in model_field.validators if isinstance(v, MinValueValidator)]
+            highs = [v.limit_value for v in model_field.validators if isinstance(v, MaxValueValidator)]
+            if field.min_value is not None:
+                lows.append(field.min_value)
+            if field.max_value is not None:
+                highs.append(field.max_value)
+            if not lows or not highs:
+                continue
+            low, high = int(max(lows)), int(min(highs))
+            if high < low or high - low + 1 > self.SMALL_RANGE_MAX:
+                continue
+            choices = [(str(number), str(number)) for number in range(low, high + 1)]
+            if not field.required:
+                choices.insert(0, ("", "Sin selección"))
+            elif not field.disabled:
+                choices.insert(0, ("", "Selecciona una opción"))
+            picker = forms.TypedChoiceField(
+                choices=choices,
+                coerce=int,
+                empty_value=None,
+                required=field.required,
+                disabled=field.disabled,
+                label=field.label,
+                help_text=field.help_text,
+                initial=field.initial,
+                error_messages={
+                    "required": field.error_messages.get("required", "Este campo es obligatorio."),
+                    "invalid_choice": f"Elige un valor de la lista, entre {low} y {high}.",
+                },
+            )
+            self.fields[name] = picker
 
     def effective_rules(self):
         rules = dict(self.crud.rules) if self.crud is not None else {}
@@ -638,6 +687,10 @@ class ActivityIntakeForm(CrudForm):
             filled.append(f"responsable {own.name}")
         listing = filled[0] if len(filled) == 1 else f"{', '.join(filled[:-1])} y {filled[-1]}"
         self.note = f"Se completan solos: {listing}. El identificador se asigna al guardar."
+        self.note += " " + entry_rules.week_notice(today)
+        if own is not None:
+            used, limit = entry_rules.daily_state(own.pk, today)
+            self.note += f" Hoy llevas {used} de {limit} atenciones."
         self.instance.date = today
 
     def clean(self):
@@ -1174,6 +1227,17 @@ class AdjustmentForm(CrudForm):
         if not 0 < value <= 100:
             raise forms.ValidationError("El valor debe ser mayor que 0 y como máximo 100.")
         return value
+
+
+class AbsenceForm(CrudForm):
+    """RF-047: la fecha «hasta» no puede ser anterior a «desde» y las ausencias de una persona no se traslapan (lo revisa el modelo)."""
+
+    def clean(self):
+        cleaned = super().clean()
+        start, end = cleaned.get("start_date"), cleaned.get("end_date")
+        if start and end and end < start and not self.has_error("end_date"):
+            self.add_error("end_date", "La fecha «hasta» no puede ser anterior a la fecha «desde».")
+        return cleaned
 
 
 class ActivityEditForm(CrudForm):

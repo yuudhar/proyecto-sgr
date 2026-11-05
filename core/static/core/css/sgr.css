@@ -2899,3 +2899,9 @@ textarea.form-control {
   font-size: 3.6px;
   fill: var(--ink-soft);
 }
+
+/* Ítems con menor puntaje (RF-045) */
+.lowest-items { margin: 0.9rem 0 0.4rem; padding: 0.7rem 0.9rem; border-left: 4px solid var(--sgr-red, #e30613); background: rgba(227, 6, 19, 0.06); border-radius: 0 0.4rem 0.4rem 0; }
+.lowest-title { margin: 0 0 0.3rem; font-weight: 600; }
+.lowest-list { margin: 0 0 0.3rem 1.1rem; padding: 0; }
+.lowest-note { margin: 0; font-size: 0.85rem; color: var(--bs-secondary-color, #6c757d); }

@@ -1,0 +1,34 @@
+{% load core_ui %}
+<section class="panel mt-4" aria-labelledby="titulo-ausencias">
+  <div class="panel-head">
+    <h2 class="panel-title" id="titulo-ausencias">Ausencias del equipo</h2>
+    <span class="panel-note">Días hábiles (lunes a viernes) dentro del período</span>
+    {% if perms.planning.add_absence %}
+    <a class="btn btn-outline-primary btn-sm" href="{% url 'core:ausencias_create' %}"><i class="bi bi-calendar-plus" aria-hidden="true"></i> Registrar ausencia</a>
+    {% endif %}
+  </div>
+  <div class="table-responsive">
+    <table class="table data-table align-middle mb-0">
+      <caption class="visually-hidden">Días de ausencia por tipo, días totales y días efectivos de cada funcionario</caption>
+      <thead>
+        <tr>
+          <th scope="col">Funcionario</th>
+          {% for value, label in absence_kinds %}<th scope="col" class="num">{{ label }}</th>{% endfor %}
+          <th scope="col" class="num">Días de ausencia</th>
+          <th scope="col" class="num">Días efectivos</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for row in absence_rows %}
+        <tr>
+          <td>{{ row.officer.name }}<span class="board-note">{{ row.officer.position }}</span></td>
+          {% for days in row.kinds %}<td class="num">{% if days %}{{ days }}{% else %}—{% endif %}</td>{% endfor %}
+          <td class="num">{% if row.total %}<span class="chip chip-warn">{{ row.total }}</span>{% else %}—{% endif %}</td>
+          <td class="num">{{ row.effective }}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  <p class="meter-legend">Días efectivos = días computables del período ({{ period.computable_days }}) menos los días hábiles de ausencia. La meta de cada funcionario se ajusta con esos días: meta × días efectivos ÷ días computables.</p>
+</section>

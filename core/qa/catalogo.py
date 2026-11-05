@@ -11,6 +11,8 @@ from core.qa.esperado_ritmo_y_compromisos import ESPERADO as _RITMO_Y_COMPROMISO
 from core.qa.esperado_resultados_y_calculo import ESPERADO as _RESULTADOS_Y_CALCULO
 from core.qa.esperado_validaciones import ESPERADO as _VALIDACIONES
 from core.qa.esperado_codes_search_and_charts import ESPERADO as _CODES_SEARCH_AND_CHARTS
+from core.qa.esperado_reglas_puntaje import ESPERADO as _REGLAS_PUNTAJE
+from core.qa.esperado_cierre_y_ausencias import ESPERADO as _CIERRE_Y_AUSENCIAS
 
 REQUISITOS = {
     "A1-01": ("A1", "Login: usuario o correo más contraseña, validación y acceso según perfil"),
@@ -64,6 +66,14 @@ REQUISITOS = {
     "V28-02": ("Versión 28", "Selector con buscador en listas largas (actividades, funcionarios…), con teclado y sin perder el formulario"),
     "V28-03": ("Versión 28", "Gráficos de anillo, barras y columnas en dashboard, tablero, resumen colectivo e informes, con los números escritos"),
     "V28-04": ("Versión 28", "Pantallas en vivo aunque el WebSocket no conecte: revisión periódica y prueba del WebSocket al desplegar"),
+    "V29-01": ("Versión 29", "Atenciones que no puntúan: solicitante delegado, sin nombre o teléfono del usuario, o ítem que no otorga punto"),
+    "V29-02": ("Versión 29", "Tope de 120 % por ítem y panel «Ítems con menor puntaje» con marca «Tope alcanzado»"),
+    "V29-03": ("Versión 29", "Máximo de 7 atenciones por día y funcionario, contado por la fecha de la atención"),
+    "V30-01": ("Versión 30", "Cierre semanal: las atenciones de una semana se ingresan hasta el lunes siguiente (semana de lunes a domingo)"),
+    "V30-02": ("Versión 30", "Contador «Hoy llevas X de 7» y aviso del cierre de la semana en el formulario de ingreso"),
+    "V30-03": ("Versión 30", "Ausencias: registro por Jefatura y Coordinación, días efectivos y meta ajustada con recálculo automático"),
+    "V30-04": ("Versión 30", "Ritmo esperado, actividad reciente y tablero de delegación con las ausencias descontadas"),
+    "V29-04": ("Versión 29", "Números de pocas opciones (por ejemplo 1 a 3) se eligen de una lista y no se pueden escribir mal"),
     "T11-04": ("Clase 11", "Dashboard, tablero y validar en vivo: el cambio de una persona se ve en la pantalla abierta de otra de la misma delegación, sin F5"),
     "RF-018": ("Informe SGR", "Gestionar estados de compromisos: Ingresado, Pendiente, En proceso y Realizado, con transiciones válidas e historial"),
     "RF-021": ("Informe SGR", "Resumen colectivo: compromisos por funcionario y estado, con porcentaje realizado y por realizar"),
@@ -229,12 +239,25 @@ CLASES = {
     "ChartScreenTests": (["V28-03"], "Gráficos en las pantallas", _SEMILLA + "; sesiones de Super Usuario y funcionario"),
     "LiveFallbackTests": (["V28-04"], "Respaldo del tiempo real y despliegue", _SEMILLA),
     "WebsocketProbeTests": (["V28-04"], "Prueba del WebSocket del servidor", _SIN_BD),
+    "ScoringRulesTests": (["V29-01"], "Reglas de puntaje (qué atenciones puntúan)", _SEMILLA + "; actividades creadas con y sin nombre, teléfono y delegado"),
+    "ScoringScreensTests": (["V29-01"], "Reglas de puntaje en las pantallas", _SEMILLA + "; sesiones de Super Usuario y funcionario"),
+    "CapTests": (["V29-02"], "Tope de 120 % y ítems con menor puntaje", _SEMILLA + "; actividades aprobadas hasta pasar la meta"),
+    "DailyLimitTests": (["V29-03"], "Límite diario de atenciones", _SEMILLA + "; sesión de Matías Cavieres (Norte)"),
+    "WeekRuleTests": (["V30-01"], "Regla de la semana de ingreso", _SIN_BD),
+    "WeeklyClosureTests": (["V30-01"], "Cierre semanal de las atenciones", _SEMILLA + "; fechas fijas simuladas para el día de hoy"),
+    "EntryNoteTests": (["V30-02"], "Contador diario y aviso de cierre en el formulario", _SEMILLA + "; sesiones de Matías Cavieres (Norte) y del Super Usuario"),
+    "AbsenceMathTests": (["V30-03", "V30-04"], "Cálculo de días efectivos, meta ajustada y ritmo", _SIN_BD),
+    "AbsenceModelTests": (["V30-03"], "Modelo de ausencias", _SEMILLA),
+    "AbsenceCalculationTests": (["V30-03"], "Meta ajustada y recálculo por ausencias", _SEMILLA + "; actividades aprobadas y ausencias creadas en la prueba"),
+    "AbsenceScreensTests": (["V30-03", "V30-04"], "Ausencias en las pantallas y permisos", _SEMILLA + "; sesiones de Jefatura, Coordinación, funcionario, consulta y Super Usuario"),
+    "AbsenceActivityStatsTests": (["V30-04"], "Actividad reciente con ausencias", _SEMILLA),
+    "SmallRangeTests": (["V29-04"], "Listas para números de pocas opciones", _SEMILLA + "; sesión del Super Usuario"),
     "DaphneDeployTests": (["T11-01", "A4-02"], "Despliegue con Daphne y WebSocket", _SIN_BD),
     "DeletedUsersTests": (["A1-07", "A2-02"], "Usuarios eliminados: borrar, ver y restaurar", _SEMILLA + "; sesión del Super Usuario"),
     "OnlySuperuserDeletesUsersTests": (["A1-07", "A2-02"], "Solo el Super Usuario elimina y restaura usuarios", _SEMILLA + "; usuario con permisos de usuarios sin ser Super Usuario"),
 }
 
 ESPERADO = {}
-for _grupo in (_ACCESO, _MANTENEDORES, _INGRESO, _LISTADOS, _DESPLIEGUE, _VALIDACIONES, _ARCHIVOS_Y_FOTO, _ELIMINAR_Y_LISTADOS, _USUARIOS_ELIMINADOS, _TIEMPO_REAL, _RITMO_Y_COMPROMISOS, _RESULTADOS_Y_CALCULO, _CODES_SEARCH_AND_CHARTS, ):
+for _grupo in (_ACCESO, _MANTENEDORES, _INGRESO, _LISTADOS, _DESPLIEGUE, _VALIDACIONES, _ARCHIVOS_Y_FOTO, _ELIMINAR_Y_LISTADOS, _USUARIOS_ELIMINADOS, _TIEMPO_REAL, _RITMO_Y_COMPROMISOS, _RESULTADOS_Y_CALCULO, _CODES_SEARCH_AND_CHARTS, _REGLAS_PUNTAJE, _CIERRE_Y_AUSENCIAS, ):
     for _clase, _metodos in _grupo.items():
         ESPERADO.setdefault(_clase, {}).update(_metodos)

@@ -284,6 +284,7 @@ class FixedProfileTests(IntakeCase):
                 "action_taken",
                 "requires_visit",
                 "added_to_pipeline",
+                "requester_is_delegate",
             ],
         )
 

@@ -24,7 +24,7 @@ def team_goals(summaries):
         for line in summary["lines"]:
             key = (line["item"].name, line["unit"])
             row = teams.setdefault(key, {"item": line["item"], "unit": line["unit"], "target": Decimal(0), "progress": Decimal(0)})
-            row["target"] += line["goal"].target_value
+            row["target"] += line["adjusted_target"]
             if line["indicator"] is not None:
                 row["progress"] += line["indicator"].progress
     rows = []
@@ -62,22 +62,31 @@ def goals_of(officer, goals):
     ]
 
 
-def goal_lines(goals, index, pace=None, officer=None):
+def goal_lines(goals, index, pace=None, officer=None, period=None, days=None):
+    """Una línea por meta. Con ausencias (`days`, RF-047) la meta que se muestra es la ajustada y se conserva la original."""
+    from planning import absences
+
     lines = []
     for goal in goals:
         indicator = index.of(goal, officer)
+        capped = bool(indicator is not None and period is not None and indicator.compliance >= period.weighted_cap)
+        target = absences.adjusted_target(goal.target_value, period, days) if period is not None and days else goal.target_value
         lines.append(
             {
                 "goal": goal,
                 "item": goal.item,
-                "target": ui.fmt_number(goal.target_value),
-                "expected": ui.fmt_number(pace.expected_for(goal.target_value)) if pace else "",
+                "target": ui.fmt_number(target),
+                "adjusted_target": target,
+                "original_target": ui.fmt_number(goal.target_value),
+                "adjusted": target != goal.target_value,
+                "expected": ui.fmt_number(pace.expected_for(target)) if pace else "",
                 "unit": goal.unit,
                 "scope": "Meta personal" if goal.officer_id else "Meta del cargo",
                 "weight": goal.weight,
                 "indicator": indicator,
                 "progress": ui.fmt_number(indicator.progress) if indicator else "",
                 "compliance": indicator.compliance if indicator else None,
+                "capped": capped,
                 "weighted": indicator.weighting if indicator else None,
                 "light": indicator.status_light if indicator else "",
             }
@@ -101,10 +110,32 @@ def weights_state(total):
     return "under" if total < HUNDRED else "over"
 
 
-def officer_summary(officer, period, goals, index, pace=None):
-    """Metas del funcionario con su avance, cumplimiento, ponderador y aporte ponderado (RF-008)."""
+LOWEST_SHOWN = 3
+
+
+def lowest_lines(lines):
+    """RF-045: los ítems con menor puntaje, donde conviene poner el esfuerzo (los que ya llegaron al tope no)."""
+    candidates = [
+        line for line in lines
+        if line["compliance"] is not None and not line["capped"] and line["compliance"] < HUNDRED and line["weight"] > 0
+    ]
+    return sorted(candidates, key=lambda line: (line["compliance"], line["item"].name))[:LOWEST_SHOWN]
+
+
+def officer_summary(officer, period, goals, index, pace=None, absence=None):
+    """Metas del funcionario con su avance, cumplimiento, ponderador y aporte ponderado (RF-008).
+
+    Con ausencias (RF-047) las metas y el ritmo esperado son los ajustados por los días efectivos. `absence` permite
+    pasar ya calculados esos días (`absences.AbsenceDays`) cuando se recorren muchos funcionarios.
+    """
+    from planning import absences
+    from planning.pace import pace_of
+
     own = goals_of(officer, goals)
-    lines = goal_lines(own, index, pace, officer)
+    if absence is None:
+        absence = absences.absence_days(officer.pk, period, pace.today if pace else None)
+    own_pace = pace_of(period, pace.today, absence) if pace and absence else pace
+    lines = goal_lines(own, index, own_pace, officer, period, absence)
     compliances = [line["compliance"] for line in lines if line["compliance"] is not None]
     exact = mean(compliances)
     weights = sum((line["weight"] for line in lines), Decimal(0)) if lines else None
@@ -112,7 +143,12 @@ def officer_summary(officer, period, goals, index, pace=None):
     state = weights_state(weights)
     return {
         "officer": officer,
+        "absence": absence,
+        "effective_days": absences.effective_days(period, absence),
+        "pace": own_pace,
         "lines": lines,
+        "lowest": lowest_lines(lines),
+        "capped_total": sum(1 for line in lines if line["capped"]),
         "goal_total": len(own),
         "exact_average": exact,
         "average": rounded(exact),

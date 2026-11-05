@@ -2,7 +2,7 @@ from django.contrib import admin
 
 from core.admin_mixins import SoftDeleteAdminMixin
 
-from .models import Adjustment, Goal, Indicator, Period
+from .models import Absence, Adjustment, Goal, Indicator, Period
 
 
 @admin.register(Period)
@@ -69,3 +69,13 @@ class AdjustmentAdmin(SoftDeleteAdminMixin, admin.ModelAdmin):
     list_select_related = ("officer", "period", "responsible_user")
     ordering = ("-date",)
     date_hierarchy = "date"
+
+
+@admin.register(Absence)
+class AbsenceAdmin(SoftDeleteAdminMixin, admin.ModelAdmin):
+    list_display = ("officer", "kind", "start_date", "end_date", "registered_by")
+    search_fields = ("officer__name", "notes")
+    list_filter = ("kind",)
+    list_select_related = ("officer", "registered_by")
+    ordering = ("-start_date",)
+    date_hierarchy = "start_date"

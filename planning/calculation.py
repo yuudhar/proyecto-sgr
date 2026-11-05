@@ -4,8 +4,9 @@ Reglas de la guía (RN-003 a RN-005 y RN-009) y de la línea base académica (gu
 
 * **Avance** (RF-022): cantidad de actividades **válidas** del funcionario, en el ítem de la meta (o en una de sus
   sub atenciones) y dentro de las fechas del período. Una actividad es válida (RF-014) solo si tiene una
-  evidencia **aprobada**: una evidencia pendiente, rechazada o eliminada no suma.
-* **Cumplimiento** (RF-023): avance ÷ meta × 100, con tope en el «tope ponderado» del período (150 % al inicio).
+  evidencia **aprobada**: una evidencia pendiente, rechazada o eliminada no suma. Tampoco suma la que no puntúa
+  (RF-039, RF-040, RF-043): pedida por el delegado, sin nombre o teléfono del usuario o de un ítem que no otorga punto.
+* **Cumplimiento** (RF-023): avance ÷ meta × 100 (la meta se ajusta por las ausencias del funcionario, RF-047), con tope en el «tope ponderado» del período (120 % desde la v29).
 * **Cumplimiento ponderado** (RF-024): ponderador de la meta × cumplimiento ÷ 100.
 * **Semáforo**: el de siempre: verde desde el umbral colectivo del período, ámbar desde el umbral ámbar, rojo bajo eso.
 
@@ -24,6 +25,7 @@ from core import ui
 from operations.models import Activity
 from organization.models import Officer
 
+from . import absences
 from .models import Goal, Indicator, Period
 
 HUNDRED = Decimal(100)
@@ -79,6 +81,7 @@ def valid_activities(goal, officer):
         Activity.objects.filter(
             deleted_at__isnull=True,
             author_officer=officer,
+            counts_for_score=True,
             date__range=(period.start_date, period.end_date),
         )
         .filter(Q(item_id=goal.item_id) | Q(item__parent_item_id=goal.item_id))
@@ -94,10 +97,17 @@ def money(value):
     return value.quantize(CENTS, rounding=ROUND_HALF_UP)
 
 
-def compute(goal, officer):
+def compute(goal, officer, days=None):
+    """Avance, cumplimiento y ponderado de una meta para un funcionario.
+
+    La meta se ajusta con los días de ausencia del funcionario en el período (RF-047); `days` permite pasar ya
+    calculados esos días (`absences.AbsenceDays`) cuando se recorren muchas metas.
+    """
     period = goal.period
     progress = Decimal(valid_activities(goal, officer).count())
-    target = Decimal(goal.target_value)
+    if days is None:
+        days = absences.absence_days(officer.pk, period)
+    target = absences.adjusted_target(goal.target_value, period, days)
     uncapped = money(progress * HUNDRED / target) if target > 0 else Decimal(0)
     compliance = min(uncapped, Decimal(period.weighted_cap))
     weighting = money(Decimal(goal.weight) * compliance / HUNDRED)
@@ -161,6 +171,19 @@ def recalculate_all(include_closed=False, period=None):
     if not include_closed:
         periods = periods.exclude(status=Period.Status.CLOSED)
     return sum(recalculate_period(each, force=include_closed) for each in periods)
+
+
+def recalculate_officer(officer_id, period):
+    """Recalcula todas las metas de un funcionario en un período (por ejemplo, al registrar una ausencia)."""
+    officer = Officer.objects.filter(pk=officer_id, deleted_at__isnull=True).first()
+    if officer is None or period is None:
+        return 0
+    goals = (
+        Goal.objects.filter(deleted_at__isnull=True, period=period)
+        .filter(Q(officer_id=officer.pk) | Q(officer__isnull=True, position_id=officer.position_id))
+        .select_related("period", "officer", "item")
+    )
+    return sum(recalculate_goal(goal, [officer]) for goal in goals)
 
 
 def recalculate_for(officer_id, item_ids, on_date):

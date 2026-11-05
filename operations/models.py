@@ -1,7 +1,9 @@
+from django.conf import settings
 from django.core.exceptions import ValidationError
 from django.core.validators import MaxValueValidator, MinValueValidator
 from django.db import models
 
+from core import entry_rules
 from core.models import BaseModel
 from organization.models import (
     Beneficiary,
@@ -64,6 +66,17 @@ class Activity(BaseModel):
             "en la agenda colectiva (tubo de trabajo)."
         ),
     )
+    requester_is_delegate = models.BooleanField(
+        default=False,
+        verbose_name="el solicitante es el delegado",
+        help_text="Una gestión pedida por el delegado es «otra gestión»: queda registrada, pero no suma puntaje.",
+    )
+    counts_for_score = models.BooleanField(
+        default=True, db_index=True, editable=False, verbose_name="puntúa"
+    )
+    no_score_reason = models.CharField(
+        max_length=120, blank=True, default="", editable=False, verbose_name="motivo por el que no puntúa"
+    )
     item = models.ForeignKey(
         Item, on_delete=models.PROTECT, related_name="activities", verbose_name="ítem"
     )
@@ -91,6 +104,38 @@ class Activity(BaseModel):
         verbose_name = "Actividad"
         verbose_name_plural = "Actividades"
 
+    REASON_DELEGATE = "El solicitante es el delegado (otra gestión)"
+    REASON_NO_CONTACT = "Falta el nombre o el teléfono del usuario"
+    REASON_ITEM = "El ítem no otorga punto (gestión previa)"
+
+    def score_reason(self):
+        """Motivo por el que la actividad no suma puntaje, o «» si puede sumar (RF-039, RF-040 y RF-043)."""
+        if self.requester_is_delegate:
+            return self.REASON_DELEGATE
+        beneficiary = self.beneficiary if self.beneficiary_id else None
+        name = (self.contact_name or "").strip() or (beneficiary.name.strip() if beneficiary else "")
+        phone = (self.phone or "").strip() or ((beneficiary.phone or "").strip() if beneficiary else "")
+        if not name or not phone:
+            return self.REASON_NO_CONTACT
+        if self.item_id:
+            item = self.item
+            parent = item.parent_item if item.parent_item_id else None
+            if not item.scores or (parent is not None and not parent.scores):
+                return self.REASON_ITEM
+        return ""
+
+    def refresh_scoring(self):
+        reason = self.score_reason()
+        self.counts_for_score = not reason
+        self.no_score_reason = reason
+
+    def save(self, *args, **kwargs):
+        self.refresh_scoring()
+        update_fields = kwargs.get("update_fields")
+        if update_fields is not None:
+            kwargs["update_fields"] = {*update_fields, "counts_for_score", "no_score_reason"}
+        super().save(*args, **kwargs)
+
     def clean(self):
         super().clean()
         if (
@@ -106,6 +151,33 @@ class Activity(BaseModel):
                     )
                 }
             )
+        self.check_week_open()
+        self.check_daily_limit()
+
+    def check_daily_limit(self):
+        """RF-041: un funcionario no puede ingresar más de DAILY_ENTRY_LIMIT atenciones con la misma fecha."""
+        if not self.author_officer_id or not self.date:
+            return
+        limit = settings.DAILY_ENTRY_LIMIT
+        if entry_rules.entries_on(self.author_officer_id, self.date, exclude_pk=self.pk) >= limit:
+            raise ValidationError(
+                f"Ya hay {limit} atenciones registradas con esta fecha: el máximo es {limit} por día. "
+                "Hay que ingresar todos los días y no dejar un día para llenar la matriz."
+            )
+
+    def check_week_open(self):
+        """RF-042: las atenciones de una semana se ingresan hasta el lunes siguiente.
+
+        Se revisa al crear una atención y al cambiarle la fecha; editar otros datos de una atención antigua no se bloquea.
+        """
+        if not self.date:
+            return
+        if self.pk is not None:
+            before = Activity.objects.filter(pk=self.pk).values_list("date", flat=True).first()
+            if before == self.date:
+                return
+        if entry_rules.is_week_closed(self.date):
+            raise ValidationError(entry_rules.closed_message(self.date))
 
     def __str__(self):
         return f"Actividad {self.date} · {self.contact_name or self.pk}"

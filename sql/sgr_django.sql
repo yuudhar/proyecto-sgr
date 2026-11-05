@@ -178,7 +178,10 @@ CREATE TABLE `operations_activity` (
   `beneficiary_id` bigint(20) DEFAULT NULL,
   `delegation_id` bigint(20) NOT NULL,
   `item_id` bigint(20) NOT NULL,
-  `service_id` bigint(20) DEFAULT NULL
+  `service_id` bigint(20) DEFAULT NULL,
+  `counts_for_score` tinyint(1) NOT NULL,
+  `no_score_reason` varchar(120) NOT NULL,
+  `requester_is_delegate` tinyint(1) NOT NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 CREATE TABLE `operations_commitment` (
@@ -257,7 +260,8 @@ CREATE TABLE `organization_item` (
   `name` varchar(150) NOT NULL,
   `calculation_type` varchar(20) NOT NULL,
   `parent_item_id` bigint(20) DEFAULT NULL,
-  `description` varchar(255) NOT NULL
+  `description` varchar(255) NOT NULL,
+  `scores` tinyint(1) NOT NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 CREATE TABLE `organization_officer` (
@@ -312,6 +316,19 @@ CREATE TABLE `organization_territory` (
   `deleted_at` datetime(6) DEFAULT NULL,
   `name` varchar(100) NOT NULL,
   `delegation_id` bigint(20) NOT NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE `planning_absence` (
+  `id` bigint(20) NOT NULL,
+  `created_at` datetime(6) NOT NULL,
+  `updated_at` datetime(6) NOT NULL,
+  `deleted_at` datetime(6) DEFAULT NULL,
+  `kind` varchar(20) NOT NULL,
+  `start_date` date NOT NULL,
+  `end_date` date NOT NULL,
+  `notes` varchar(255) NOT NULL,
+  `officer_id` bigint(20) NOT NULL,
+  `registered_by_id` int(11) DEFAULT NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 CREATE TABLE `planning_adjustment` (
@@ -451,7 +468,8 @@ ALTER TABLE `operations_activity`
   ADD KEY `operations_activity_beneficiary_id_c644adc2_fk_organizat` (`beneficiary_id`),
   ADD KEY `operations_activity_delegation_id_1d50e689_fk_organizat` (`delegation_id`),
   ADD KEY `operations_activity_item_id_bc7fb032_fk_organization_item_id` (`item_id`),
-  ADD KEY `operations_activity_service_id_5569328a_fk_organizat` (`service_id`);
+  ADD KEY `operations_activity_service_id_5569328a_fk_organizat` (`service_id`),
+  ADD KEY `operations_activity_counts_for_score_574a0dbc` (`counts_for_score`);
 
 ALTER TABLE `operations_commitment`
   ADD PRIMARY KEY (`id`),
@@ -501,6 +519,11 @@ ALTER TABLE `organization_territory`
   ADD PRIMARY KEY (`id`),
   ADD UNIQUE KEY `uq_territory_delegation` (`name`,`delegation_id`),
   ADD KEY `organization_territo_delegation_id_df5ccbc0_fk_organizat` (`delegation_id`);
+
+ALTER TABLE `planning_absence`
+  ADD PRIMARY KEY (`id`),
+  ADD KEY `planning_absence_officer_id_99c1c44d_fk_organization_officer_id` (`officer_id`),
+  ADD KEY `planning_absence_registered_by_id_b413fa09_fk_auth_user_id` (`registered_by_id`);
 
 ALTER TABLE `planning_adjustment`
   ADD PRIMARY KEY (`id`),
@@ -604,6 +627,9 @@ ALTER TABLE `organization_service`
 ALTER TABLE `organization_territory`
   MODIFY `id` bigint(20) NOT NULL AUTO_INCREMENT;
 
+ALTER TABLE `planning_absence`
+  MODIFY `id` bigint(20) NOT NULL AUTO_INCREMENT;
+
 ALTER TABLE `planning_adjustment`
   MODIFY `id` bigint(20) NOT NULL AUTO_INCREMENT;
 
@@ -687,6 +713,10 @@ ALTER TABLE `organization_positionitem`
 
 ALTER TABLE `organization_territory`
   ADD CONSTRAINT `organization_territo_delegation_id_df5ccbc0_fk_organizat` FOREIGN KEY (`delegation_id`) REFERENCES `organization_delegation` (`id`);
+
+ALTER TABLE `planning_absence`
+  ADD CONSTRAINT `planning_absence_officer_id_99c1c44d_fk_organization_officer_id` FOREIGN KEY (`officer_id`) REFERENCES `organization_officer` (`id`),
+  ADD CONSTRAINT `planning_absence_registered_by_id_b413fa09_fk_auth_user_id` FOREIGN KEY (`registered_by_id`) REFERENCES `auth_user` (`id`);
 
 ALTER TABLE `planning_adjustment`
   ADD CONSTRAINT `planning_adjustment_officer_id_2e052aab_fk_organizat` FOREIGN KEY (`officer_id`) REFERENCES `organization_officer` (`id`),

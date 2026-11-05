@@ -5,14 +5,16 @@ ponderador, ítem) o un período (fechas, umbrales y tope). Se ejecuta después 
 confirmados; si la transacción se deshace no se recalcula nada.
 """
 from django.db import transaction
+from django.db.models import Q
 from django.db.models.signals import post_delete, post_save, pre_save
 from django.dispatch import receiver
 
 from evidence.models import Evidence, Validation
 from operations.models import Activity
+from organization.models import Item
 
 from . import calculation
-from .models import Goal, Period
+from .models import Absence, Goal, Period
 
 
 def item_ids_of(item_id, parent_id):
@@ -114,3 +116,68 @@ def goal_saved(sender, instance, raw=False, **kwargs):
 def period_saved(sender, instance, raw=False, **kwargs):
     if not raw:
         run_later(recalculate_period_by_id, instance.pk)
+
+
+@receiver(pre_save, sender=Item, dispatch_uid="calc-item-pre")
+def remember_item_scores(sender, instance, raw=False, **kwargs):
+    instance._scores_before = None
+    if raw or instance.pk is None:
+        return
+    instance._scores_before = Item.objects.filter(pk=instance.pk).values_list("scores", flat=True).first()
+
+
+def refresh_item_activities(item_id):
+    """RF-043: si un ítem pasa a otorgar o no punto, sus actividades (y las de sus sub atenciones) se reclasifican."""
+    targets = set()
+    activities = (
+        Activity.objects.filter(Q(item_id=item_id) | Q(item__parent_item_id=item_id), deleted_at__isnull=True)
+        .select_related("item__parent_item", "beneficiary")
+    )
+    for activity in activities:
+        reason = activity.score_reason()
+        if activity.no_score_reason != reason or activity.counts_for_score != (not reason):
+            Activity.objects.filter(pk=activity.pk).update(counts_for_score=not reason, no_score_reason=reason)
+            targets.add(activity_target(activity))
+    if targets:
+        recalculate_targets(targets)
+
+
+@receiver(post_save, sender=Item, dispatch_uid="calc-item-save")
+def item_saved(sender, instance, raw=False, created=False, **kwargs):
+    if raw or created:
+        return
+    before = getattr(instance, "_scores_before", None)
+    if before is not None and before != instance.scores:
+        run_later(refresh_item_activities, instance.pk)
+
+
+def recalculate_absence_periods(officer_id, start_date, end_date):
+    """RF-047: una ausencia cambia la meta del funcionario en los períodos que toca."""
+    for period in Period.objects.filter(
+        deleted_at__isnull=True, start_date__lte=end_date, end_date__gte=start_date
+    ):
+        calculation.recalculate_officer(officer_id, period)
+
+
+@receiver(pre_save, sender=Absence, dispatch_uid="calc-absence-pre")
+def remember_previous_absence(sender, instance, raw=False, **kwargs):
+    instance._calc_previous = None
+    if raw or instance.pk is None:
+        return
+    before = Absence.objects.filter(pk=instance.pk).values_list("officer_id", "start_date", "end_date").first()
+    instance._calc_previous = before
+
+
+@receiver(post_save, sender=Absence, dispatch_uid="calc-absence-save")
+def absence_saved(sender, instance, raw=False, **kwargs):
+    if raw:
+        return
+    run_later(recalculate_absence_periods, instance.officer_id, instance.start_date, instance.end_date)
+    previous = getattr(instance, "_calc_previous", None)
+    if previous is not None and previous != (instance.officer_id, instance.start_date, instance.end_date):
+        run_later(recalculate_absence_periods, *previous)
+
+
+@receiver(post_delete, sender=Absence, dispatch_uid="calc-absence-delete")
+def absence_deleted(sender, instance, **kwargs):
+    run_later(recalculate_absence_periods, instance.officer_id, instance.start_date, instance.end_date)

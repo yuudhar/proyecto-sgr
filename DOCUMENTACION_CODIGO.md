@@ -32,7 +32,7 @@ sgr_project/              configuración (settings, rutas, WSGI/ASGI)
 core/                     motor de pantallas, acceso, formularios, utilidades, menú y estáticos
 accounts/                 usuarios, perfiles, roles, delegaciones adicionales y recuperación de contraseña
 organization/             delegaciones, cargos, ítems, servicios, beneficiarios, territorios, funcionarios
-planning/                 períodos, metas, indicadores y ajustes
+planning/                 períodos, metas, indicadores, ajustes y ausencias
 operations/               atenciones, gestiones de seguimiento y compromisos
 evidence/                 evidencias y validaciones
 websocket/                tiempo real (Clase 11): avisos de cambio para listados, dashboard, tablero y validar
@@ -142,6 +142,7 @@ Configuración del proyecto. Lee las variables de entorno (archivo `.env` en des
 | `DEFAULT_FROM_EMAIL` | Remitente de los correos del sistema. |
 | `PORTAL_LANGUAGE` | Idioma de las pantallas del portal (`es`). |
 | `PORTAL_TIME_ZONE` | Zona horaria de las pantallas del portal (`America/Santiago`). |
+| `DAILY_ENTRY_LIMIT` | Máximo de atenciones que un funcionario puede registrar con la misma fecha (7, v29). |
 | `AUTHENTICATION_BACKENDS` | Forma de autenticar: `EmailOrUsernameBackend` (usuario o correo). |
 | `LOGIN_URL` | Ruta del ingreso. |
 | `LOGIN_REDIRECT_URL` | A dónde se va después de ingresar (el dashboard). |
@@ -366,6 +367,7 @@ Formulario base de los mantenedores (ver core/crud.py).
 
 - **`__init__(*args, request, crud, **kwargs)`**: Recibe la petición y el CRUD. Oculta las opciones archivadas, limita las listas a la delegación activa, aplica los títulos, ayudas y campos de solo lectura del CRUD y, al final, ejecuta `customize_fields`, los límites de texto, las reglas de validación, las fechas y el estilo.
 - **`customize_fields()`**: Gancho: un formulario puede cambiar aquí sus campos antes de que se les dé estilo.
+- **`pick_small_ranges()`** (v29): un número entero con rango de 10 valores o menos (según los validadores del modelo o el mínimo y máximo del campo) se dibuja como lista desplegable y no como caja de texto. La lista parte vacía si el campo es obligatorio, devuelve el valor como número, y un valor fuera del rango se rechaza con «Debe ser un número entre 1 y 3». Se ejecuta después de `customize_fields`.
 - **`effective_rules()`**: Campo -> regla: las del mantenedor, más la regla «text» para los cuadros de varias líneas que no tengan una.
 - **`apply_rules()`**: Pasa a cada campo con regla de formato los atributos data-* que lee core/js/validation.js.
 - **`bounds()`**: Gancho: límites propios de este formulario (fechas que dependen de otra, por ejemplo): campo -> {atributo: valor}.
@@ -1285,6 +1287,16 @@ Muestran datos de la sesión iniciada: así, después de cerrar sesión, el bot�
 - **`__init__(get_response)`**: Guarda la función que sigue en la cadena de middleware.
 - **`__call__(request)`**: Fuera de `/admin/` y de los archivos estáticos, agrega a la respuesta las cabeceras para que el navegador no guarde las pantallas.
 
+#### `core/entry_rules.py` (límite diario y cierre semanal, v30, RF-041 y RF-042)
+
+La semana va de lunes a domingo. Las atenciones de una semana se ingresan hasta el lunes siguiente; desde el martes ya no se ingresan las de la semana pasada. La fecha de hoy es la de Santiago (`PORTAL_TIME_ZONE`).
+
+- **`portal_today()`**: la fecha de hoy en la zona del portal.
+- **`week_start(day)`**, **`week_end(day)`** y **`last_entry_day(day)`**: el lunes y el domingo de la semana de una fecha, y el lunes siguiente (último día para ingresarla).
+- **`is_week_closed(day, today)`**: verdadero si hoy es posterior al último día para ingresar esa semana.
+- **`closed_message(day)`**, **`week_text(day)`** y **`week_notice(day)`**: los textos del rechazo y del aviso del formulario.
+- **`entries_on(officer_id, day, exclude_pk)`** y **`daily_state(officer_id, day)`**: atenciones de un funcionario en una fecha (sin archivadas) y «llevadas, máximo» del día.
+
 #### `core/charts.py`
 
 Gráficos sin librerías (v28). `donut(items, title, center)` calcula los arcos de un anillo (el círculo mide 100 unidades, así el largo de cada arco es su porcentaje) y su leyenda; `bars(items, title, unit, maximum)` las barras horizontales con su valor escrito; `columns(items, title)` columnas verticales (atenciones por día). Cada gráfico trae un texto alternativo con todos sus valores. Se dibujan con las etiquetas `show_donut`, `show_bars` y `show_columns` (`core/templatetags/core_ui.py`).
@@ -1868,6 +1880,7 @@ Opciones del modelo (`Meta`): `ordering` = `('name',)`; `verbose_name` = `'Cargo
 | `name` | nombre | CharField | largo 150 |
 | `description` | descripción | CharField | largo 255; por defecto `''`; opcional |
 | `calculation_type` | tipo de cálculo | CharField | largo 20; con opciones; por defecto `CalculationType.QUANTITATIVE` |
+| `scores` | otorga punto | BooleanField | por defecto `True` (v29) — Si está desmarcado, las gestiones de este ítem no suman al avance (por ejemplo las gestiones previas). Al cambiarlo, `planning/signals.py` reclasifica las atenciones del ítem y de sus sub atenciones. |
 
 Opciones del modelo (`Meta`): `ordering` = `('name',)`; `verbose_name` = `'Ítem'`; `verbose_name_plural` = `'Ítems'`.
 
@@ -2024,7 +2037,7 @@ Período de medición: ventana de fechas con sus días computables, su estado (p
 | `status` | estado | CharField | largo 20; con opciones; por defecto `Status.PLANNED` |
 | `collective_threshold` | umbral colectivo | DecimalField | 5 dígitos, 2 decimales; por defecto `80` |
 | `amber_threshold` | umbral ámbar | DecimalField | 5 dígitos, 2 decimales; por defecto `60` |
-| `weighted_cap` | tope ponderado | DecimalField | 5 dígitos, 2 decimales; por defecto `150` |
+| `weighted_cap` | tope ponderado | DecimalField | 5 dígitos, 2 decimales; por defecto `120` (desde la v29; los períodos cerrados conservan 150) |
 | `parameters_version` | versión de parámetros | CharField | largo 20; por defecto `'1'` |
 
 Opciones del modelo (`Meta`): `ordering` = `('-start_date',)`; `verbose_name` = `'Período'`; `verbose_name_plural` = `'Períodos'`.
@@ -2094,9 +2107,30 @@ Opciones de `Kind`: `bonus` (Bonificación), `penalty` (Penalización).
 
 - **`__str__()`**: Texto con que se muestra el registro.
 
+##### `Absence` — hereda de `BaseModel`
+
+Ausencia de un funcionario (v30, RF-047): licencia, vacaciones, día administrativo, emergencia o compensatorio. Sus días hábiles (lunes a viernes) se descuentan de los días computables del período y ajustan la meta.
+
+| Campo | Nombre visible | Tipo | Detalle |
+|---|---|---|---|
+| `officer` | funcionario | ForeignKey | relación con `Officer`; nombre inverso `absences`; PROTECT |
+| `kind` | tipo de ausencia | CharField | largo 20; con opciones |
+| `start_date` | desde | DateField |  |
+| `end_date` | hasta | DateField |  |
+| `notes` | observación | CharField | largo 255; por defecto `''`; opcional |
+| `registered_by` | registrada por | ForeignKey | relación con `settings.AUTH_USER_MODEL`; nombre inverso `registered_absences`; SET_NULL; admite nulo; no se edita — Lo asigna el mantenedor al crear. |
+
+Opciones del modelo (`Meta`): `ordering` = `('-start_date',)`; `verbose_name` = `'Ausencia'`; `verbose_name_plural` = `'Ausencias'`.
+
+Opciones de `Kind`: `license` (Licencia), `vacation` (Vacaciones), `administrative` (Día administrativo), `emergency` (Emergencia), `compensatory` (Compensatorio).
+
+- **`business_days`** (propiedad): días de lunes a viernes entre «desde» y «hasta», ambos incluidos.
+- **`clean()`**: rechaza una fecha «hasta» anterior a «desde» y una ausencia que se traslape con otra del mismo funcionario (sin contar las archivadas ni ella misma).
+- **`__str__()`**: Texto con que se muestra el registro.
+
 #### `planning/admin.py`
 
-Django Admin de períodos, metas, indicadores y ajustes.
+Django Admin de períodos, metas, indicadores, ajustes y ausencias.
 
 ##### `PeriodAdmin` — hereda de `SoftDeleteAdminMixin`, `admin.ModelAdmin`
 
@@ -2114,14 +2148,28 @@ Configuración del Django Admin para `Indicator`. Columnas: 'goal', 'progress', 
 
 Configuración del Django Admin para `Adjustment`. Columnas: 'officer', 'kind', 'percentage_value', 'period', 'responsible_user', 'date'. Búsqueda por: 'officer__name', 'reason'. Filtros: 'kind', 'period'.
 
+##### `AbsenceAdmin` — hereda de `SoftDeleteAdminMixin`, `admin.ModelAdmin`
+
+Configuración del Django Admin para `Absence` (v30). Columnas: 'officer', 'kind', 'start_date', 'end_date', 'registered_by'. Búsqueda por: 'officer__name', 'notes'. Filtros: 'kind'.
+
 #### `planning/pace.py` (meta esperada al día, RF-026)
 
 Regla de la guía (RN-007): meta esperada al día = días computables transcurridos ÷ días computables totales × 100. Cuentan los días de lunes a viernes; hoy ya cuenta como transcurrido; antes del inicio se espera 0 % y después del término (o con el período cerrado) 100 %, nunca más.
 
 - **`weekdays_between(start, end)`**: cantidad de días de lunes a viernes entre dos fechas, ambas incluidas.
-- **`pace_of(period, today=None)`**: devuelve un `Pace` con la fecha de hoy, el inicio y el término, los días totales (los «días computables» del período), los días transcurridos, el porcentaje esperado, el porcentaje diario y la etapa («Aún no comienza», «En curso» o «Terminado»).
+- **`pace_of(period, today=None, absence=None)`**: con `absence` (`AbsenceDays`, v30) los días hábiles de ausencia se descuentan del total y de los transcurridos, y el esperado se calcula sobre los días efectivos. Devuelve un `Pace` con la fecha de hoy, el inicio y el término, los días totales (los «días computables» del período), los días transcurridos, el porcentaje esperado, el porcentaje diario y la etapa («Aún no comienza», «En curso» o «Terminado»).
 - **`Pace.expected_for(target)`**: valor esperado hoy para una meta (objetivo × porcentaje esperado).
 - **`Pace.difference(achieved)`** y **`Pace.standing(achieved, amber_threshold)`**: diferencia en puntos porcentuales y estado frente a lo esperado (verde si lo alcanza, ámbar desde el umbral ámbar de lo esperado, rojo bajo eso; RN-008).
+
+#### `planning/absences.py` (ausencias y meta ajustada, v30, RF-047)
+
+Regla elegida por el cliente: **días efectivos = días computables − días hábiles de ausencia** y **meta ajustada = meta × días efectivos ÷ días computables**. Todos los tipos de ausencia descuentan igual y los feriados no se descuentan (solo cuentan los días de lunes a viernes).
+
+- **`AbsenceDays(total, elapsed)`**: días hábiles de ausencia de un funcionario en un período y los ya transcurridos a una fecha. Es falso si no tiene ausencias (`NONE`).
+- **`clipped_days(start, end, window_start, window_end)`**: días de lunes a viernes de una ausencia que caen dentro de una ventana.
+- **`absence_map(officer_ids, period, today)`** y **`absence_days(officer_id, period, today)`**: los `AbsenceDays` de varios funcionarios (una consulta) o de uno.
+- **`kind_breakdown(officer_ids, period)`**: días hábiles por tipo de ausencia, para el bloque «Ausencias del equipo».
+- **`effective_days(period, days)`** y **`adjusted_target(target, period, days)`**: días efectivos (nunca menos de 0) y meta ajustada con dos decimales; sin ausencias devuelve la meta original.
 
 #### `planning/calculation.py` (cálculo automático, RF-022, RF-023, RF-024 y RF-014)
 
@@ -2129,7 +2177,9 @@ Reglas de la guía (RN-003 a RN-005 y RN-009): el **avance** es la cantidad de a
 
 - **`suspended()` / `is_suspended()`**: pausa el recálculo automático (por ejemplo, mientras se cargan los datos de prueba).
 - **`officers_of(goal)`**: el funcionario de una meta personal o todos los activos del cargo en una meta del cargo.
-- **`valid_activities(goal, officer)`**: las actividades que cuentan para el avance.
+- **`compute(goal, officer, days=None)`** (v30): usa la meta ajustada por las ausencias del funcionario en el período (`days` permite pasar los `AbsenceDays` ya calculados).
+- **`recalculate_officer(officer_id, period)`** (v30): recalcula todas las metas de un funcionario en un período.
+- **`valid_activities(goal, officer)`**: las actividades que cuentan para el avance: con evidencia aprobada y, desde la v29, con `counts_for_score=True`.
 - **`compute(goal, officer)`**: devuelve un `Result` con avance, cumplimiento, ponderado, semáforo y el cumplimiento sin tope.
 - **`calculable(goal, force=False)`**: un período cerrado ya no cambia (RN-013) salvo que se fuerce.
 - **`save_if_changed(goal, officer)`**: guarda un indicador nuevo solo si cambió algún valor respecto del último del mismo funcionario y meta; así la tabla guarda el historial sin repetir filas.
@@ -2138,7 +2188,7 @@ Reglas de la guía (RN-003 a RN-005 y RN-009): el **avance** es la cantidad de a
 
 #### `planning/signals.py`
 
-Recalcula con `transaction.on_commit` cuando se guarda o elimina una actividad (también al cambiar su autor, ítem o fecha: se recalcula la situación anterior y la nueva), una evidencia o una validación, o cuando se guarda una meta o un período. Respeta `suspended()`.
+Recalcula con `transaction.on_commit` cuando se guarda o elimina una actividad (también al cambiar su autor, ítem o fecha: se recalcula la situación anterior y la nueva), una evidencia o una validación, o cuando se guarda una meta o un período. Respeta `suspended()`. Desde la v29 también reacciona al guardar un ítem: si cambió `scores`, `refresh_item_activities(item_id)` reclasifica (`counts_for_score` y `no_score_reason`) las atenciones del ítem y de sus sub atenciones y recalcula lo afectado. Desde la v30 también reacciona a las ausencias: al guardar (o archivar) una `Absence` se recalculan las metas del funcionario en los períodos que toca la ausencia, y si cambiaron el funcionario o las fechas, también en los períodos de antes.
 
 #### `planning/management/commands/recalcular_indicadores.py`
 
@@ -2185,6 +2235,9 @@ Atención registrada por un funcionario: fecha, solicitud, acción realizada, da
 | `status` | estado | CharField | largo 30; con opciones; por defecto `Status.REGISTERED` |
 | `requires_visit` | requiere visita | BooleanField | por defecto `False` |
 | `added_to_pipeline` | ingresa al tubo de trabajo | BooleanField | por defecto `False` — Si queda marcado, la actividad se refleja como Commitment en la agenda colectiva (tubo de trabajo). |
+| `requester_is_delegate` | el solicitante es el delegado | BooleanField | por defecto `False` (v29) — Una gestión pedida por el delegado es «otra gestión»: queda registrada, pero no suma puntaje. |
+| `counts_for_score` | puntúa | BooleanField | por defecto `True`; con índice; no se edita (v29) — Lo calcula `save()`. |
+| `no_score_reason` | motivo por el que no puntúa | CharField | largo 120; por defecto `''`; no se edita (v29) — Lo calcula `save()`; vacío si puntúa. |
 | `item` | ítem | ForeignKey | relación con `Item`; nombre inverso `activities`; PROTECT |
 | `service` | servicio | ForeignKey | relación con `Service`; nombre inverso `activities`; PROTECT; admite nulo; opcional |
 | `delegation` | delegación | ForeignKey | relación con `Delegation`; nombre inverso `activities`; PROTECT |
@@ -2194,7 +2247,12 @@ Opciones del modelo (`Meta`): `ordering` = `('-date',)`; `verbose_name` = `'Acti
 
 Opciones de `Status`: `registered` (Registrada), `in_progress` (En proceso), `closed` (Cerrada).
 
-- **`clean()`**: Comprueba que la delegación de la actividad sea la del funcionario que la registra.
+- **`score_reason()`**: Motivo por el que la actividad no suma puntaje, o texto vacío si puede sumar. Reglas en este orden: el solicitante es el delegado (`REASON_DELEGATE`); falta el nombre o el teléfono del usuario, valiendo los de la persona vinculada (`REASON_NO_CONTACT`); el ítem, o el tipo de atención del que es sub atención, no otorga punto (`REASON_ITEM`).
+- **`refresh_scoring()`**: Calcula `counts_for_score` y `no_score_reason` con `score_reason()`.
+- **`save()`**: Antes de guardar vuelve a calcular si puntúa (también cuando se guarda con `update_fields`). No recalcula las atenciones anteriores a la v29: se reclasifican al editarlas.
+- **`clean()`**: Comprueba que la delegación de la actividad sea la del funcionario que la registra y llama a `check_week_open()` y `check_daily_limit()`.
+- **`check_daily_limit()`**: Rechaza la atención si el funcionario ya tiene `settings.DAILY_ENTRY_LIMIT` (7) atenciones con la misma fecha, sin contar las archivadas ni esta misma.
+- **`check_week_open()`** (v30): rechaza una atención nueva, o una a la que se le cambia la fecha, si esa fecha es de una semana ya cerrada (`core/entry_rules.py`). Editar otros datos de una atención antigua no se bloquea.
 - **`__str__()`**: Texto con que se muestra el registro.
 
 ##### `Followup` — hereda de `BaseModel`
@@ -2378,12 +2436,14 @@ Nombres de grupos y publicación de eventos. Los mensajes se publican después d
 #### `core/results.py` (resultados por funcionario, v26)
 
 - **`officer_summary(officer, period, goals, index, pace)`**: las metas del funcionario con avance, cumplimiento, ponderador y aporte ponderado, su promedio, semáforo, suma de ponderadores y total ponderado. Lo usan el inicio, el tablero, la vista por cargos y la ficha (RF-008).
+- **`goal_lines(..., days)` y `officer_summary(..., absence)`** (v30): con ausencias, cada línea trae la meta ajustada (`target`, `adjusted_target`), la original (`original_target`) y `adjusted`; el resumen trae `absence`, `effective_days` y `pace` (el ritmo del funcionario con sus días efectivos).
+- **`lowest_lines(lines)`** (v29): los hasta tres ítems con menor cumplimiento (menos de 100 %, con ponderador y sin los que llegaron al tope), del peor al mejor. `goal_lines(..., period)` marca con `capped` la línea cuyo cumplimiento llegó al tope del período, y `officer_summary` entrega `lowest` y `capped_total`.
 - **`weights_state`, `officer_weights`, `weight_problems`**: la regla de que los ponderadores de un funcionario en un período sumen 100 % (RF-006); al guardar una meta se avisa, no se bloquea.
 - **`team_goals(summaries)`**, **`goal_lines`**, **`goals_of`**, **`mean`**, **`rounded`**, **`light_of`**, **`current_period`**.
 
 #### `core/activity_stats.py` (actividad reciente, RF-030)
 
-- **`recent_activity(officer_ids, period, pace, today)`**: por funcionario, el último ingreso, los días sin ingreso, los registros del período y el promedio diario (registros ÷ días computables transcurridos).
+- **`recent_activity(officer_ids, period, pace, today)`**: por funcionario, el último ingreso, los días sin ingreso, los registros del período y el promedio diario (registros ÷ días computables transcurridos). Desde la v30 los días de ausencia no cuentan: ni en los días sin ingreso (`absence_ranges`, `absent_calendar_days`) ni en el promedio (usa el ritmo del funcionario con sus ausencias).
 - **`delegation_recent(recent, pace, today)`**: el resumen de varios funcionarios. `Recent.alert` marca más de 7 días sin ingreso.
 
 #### `core/crud.py`: edición concurrente (RF-034, RNF-003)
@@ -2434,16 +2494,21 @@ Las migraciones crean y modifican las tablas de cada app.
 
 - `0001_initial.py`: crea la tabla de `ManagementType`; crea la tabla de `Activity`; crea la tabla de `Commitment`; crea la tabla de `Followup`.
 - `0002_commitment_status_pending.py`: agrega el estado «Pendiente» y cambia «Cumplido» por «Realizado» en las opciones de `commitment.status`; no modifica la estructura de la tabla.
+- `0003_reglas_de_puntaje_v29.py`: agrega el campo `activity.requester_is_delegate`; agrega el campo `activity.counts_for_score` (con índice); agrega el campo `activity.no_score_reason`.
 
 ### `organization`
 
 - `0001_initial.py`: crea la tabla de `Beneficiary`; crea la tabla de `Delegation`; crea la tabla de `Position`; crea la tabla de `Service`; crea la tabla de `Item`; crea la tabla de `Officer`; crea la tabla de `PositionItem`; crea la tabla de `Territory`.
 - `0002_delegation_color.py`: agrega el campo `delegation.color`.
 - `0003_delegation_address_commune_item_description.py`: agrega el campo `delegation.address`; agrega el campo `delegation.commune`; agrega el campo `item.description`.
+- `0004_reglas_de_puntaje_v29.py`: agrega el campo `item.scores` («Otorga punto»).
 
 ### `planning`
 
 - `0001_initial.py`: crea la tabla de `Period`; crea la tabla de `Goal`; crea la tabla de `Indicator`; crea la tabla de `Adjustment`.
+- `0002_indicator_officer.py`: agrega el campo `indicator.officer`.
+- `0003_reglas_de_puntaje_v29.py`: cambia a 120 el valor por defecto de `period.weighted_cap` y baja a 120 el tope de los períodos que no están cerrados (los cerrados conservan el suyo).
+- `0004_ausencias_v30.py`: crea la tabla de `Absence`.
 
 ## 11. Plantillas
 
