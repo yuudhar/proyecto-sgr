@@ -13,6 +13,7 @@ from core.qa.esperado_validaciones import ESPERADO as _VALIDACIONES
 from core.qa.esperado_codes_search_and_charts import ESPERADO as _CODES_SEARCH_AND_CHARTS
 from core.qa.esperado_reglas_puntaje import ESPERADO as _REGLAS_PUNTAJE
 from core.qa.esperado_cierre_y_ausencias import ESPERADO as _CIERRE_Y_AUSENCIAS
+from core.qa.esperado_felicitaciones_equipo_y_jjvv import ESPERADO as _FELICITACIONES_EQUIPO_Y_JJVV
 
 REQUISITOS = {
     "A1-01": ("A1", "Login: usuario o correo más contraseña, validación y acceso según perfil"),
@@ -73,6 +74,10 @@ REQUISITOS = {
     "V30-02": ("Versión 30", "Contador «Hoy llevas X de 7» y aviso del cierre de la semana en el formulario de ingreso"),
     "V30-03": ("Versión 30", "Ausencias: registro por Jefatura y Coordinación, días efectivos y meta ajustada con recálculo automático"),
     "V30-04": ("Versión 30", "Ritmo esperado, actividad reciente y tablero de delegación con las ausencias descontadas"),
+    "V31-01": ("Versión 31", "Felicitaciones y reclamos: los registra el delegado con su respaldo, y el ajuste (+10 % la felicitación, hasta 3 por persona; −30 % el reclamo) se genera solo"),
+    "V31-02": ("Versión 31", "Los ajustes se suman al total en la ficha, el tablero y el dashboard; el reclamo en más de dos períodos seguidos avisa a Recursos Humanos"),
+    "V31-03": ("Versión 31", "Puntaje de equipo: se suman metas y avances de la delegación, con el tope del período, y cada persona aporta su parte"),
+    "V31-04": ("Versión 31", "Juntas de vecinos: importación sin duplicar por N.º de registro (con simulación), catálogo de organizaciones y organización opcional en la atención"),
     "V29-04": ("Versión 29", "Números de pocas opciones (por ejemplo 1 a 3) se eligen de una lista y no se pueden escribir mal"),
     "T11-04": ("Clase 11", "Dashboard, tablero y validar en vivo: el cambio de una persona se ve en la pantalla abierta de otra de la misma delegación, sin F5"),
     "RF-018": ("Informe SGR", "Gestionar estados de compromisos: Ingresado, Pendiente, En proceso y Realizado, con transiciones válidas e historial"),
@@ -251,6 +256,15 @@ CLASES = {
     "AbsenceCalculationTests": (["V30-03"], "Meta ajustada y recálculo por ausencias", _SEMILLA + "; actividades aprobadas y ausencias creadas en la prueba"),
     "AbsenceScreensTests": (["V30-03", "V30-04"], "Ausencias en las pantallas y permisos", _SEMILLA + "; sesiones de Jefatura, Coordinación, funcionario, consulta y Super Usuario"),
     "AbsenceActivityStatsTests": (["V30-04"], "Actividad reciente con ausencias", _SEMILLA),
+    "FeedbackEffectTests": (["V31-01"], "Efecto de las felicitaciones y los reclamos (ajuste automático)", _SEMILLA + "; registros creados en la prueba"),
+    "FeedbackModelTests": (["V31-01"], "Modelo de felicitaciones y reclamos", _SEMILLA),
+    "ComplaintAlertTests": (["V31-02"], "Aviso a Recursos Humanos por reclamos seguidos", _SEMILLA + "; períodos y reclamos creados en la prueba"),
+    "FeedbackInResultsTests": (["V31-02"], "Ajustes en la ficha, el tablero y el dashboard", _SEMILLA + "; sesiones de Jefatura y de Matías Cavieres (Norte)"),
+    "FeedbackScreensTests": (["V31-01", "V31-02"], "Felicitaciones y reclamos en las pantallas y permisos", _SEMILLA + "; sesiones de Jefatura, Coordinación, funcionario y consulta; archivos PDF de prueba"),
+    "TeamScoreTests": (["V31-03"], "Cálculo del puntaje de equipo", _SIN_BD),
+    "TeamScreensTests": (["V31-03"], "Puntaje de equipo en las pantallas", _SEMILLA + "; sesiones de funcionario, Jefatura y Coordinación"),
+    "ImportCommandTests": (["V31-04"], "Importación de juntas de vecinos", "Base de datos vacía con dos delegaciones de prueba y planillas Excel creadas en la prueba"),
+    "OrganizationScreensTests": (["V31-04"], "Catálogo de organizaciones y su uso en la atención", _SEMILLA + "; sesiones del Super Usuario y de Matías Cavieres (Norte)"),
     "SmallRangeTests": (["V29-04"], "Listas para números de pocas opciones", _SEMILLA + "; sesión del Super Usuario"),
     "DaphneDeployTests": (["T11-01", "A4-02"], "Despliegue con Daphne y WebSocket", _SIN_BD),
     "DeletedUsersTests": (["A1-07", "A2-02"], "Usuarios eliminados: borrar, ver y restaurar", _SEMILLA + "; sesión del Super Usuario"),
@@ -258,6 +272,6 @@ CLASES = {
 }
 
 ESPERADO = {}
-for _grupo in (_ACCESO, _MANTENEDORES, _INGRESO, _LISTADOS, _DESPLIEGUE, _VALIDACIONES, _ARCHIVOS_Y_FOTO, _ELIMINAR_Y_LISTADOS, _USUARIOS_ELIMINADOS, _TIEMPO_REAL, _RITMO_Y_COMPROMISOS, _RESULTADOS_Y_CALCULO, _CODES_SEARCH_AND_CHARTS, _REGLAS_PUNTAJE, _CIERRE_Y_AUSENCIAS, ):
+for _grupo in (_ACCESO, _MANTENEDORES, _INGRESO, _LISTADOS, _DESPLIEGUE, _VALIDACIONES, _ARCHIVOS_Y_FOTO, _ELIMINAR_Y_LISTADOS, _USUARIOS_ELIMINADOS, _TIEMPO_REAL, _RITMO_Y_COMPROMISOS, _RESULTADOS_Y_CALCULO, _CODES_SEARCH_AND_CHARTS, _REGLAS_PUNTAJE, _CIERRE_Y_AUSENCIAS, _FELICITACIONES_EQUIPO_Y_JJVV, ):
     for _clase, _metodos in _grupo.items():
         ESPERADO.setdefault(_clase, {}).update(_metodos)

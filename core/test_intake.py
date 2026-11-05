@@ -280,6 +280,7 @@ class FixedProfileTests(IntakeCase):
                 "attention_type",
                 "item",
                 "service",
+                "organization",
                 "request_description",
                 "action_taken",
                 "requires_visit",

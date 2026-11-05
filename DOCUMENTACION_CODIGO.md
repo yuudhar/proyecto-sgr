@@ -86,7 +86,7 @@ Cada rol tiene una ficha (`RoleProfile`) con descripción, alcance (su delegaci�
 
 ## 7. Mantenedores registrados
 
-`core/registry.py` declara un `Crud` por cada una de estas pantallas (`slug` = parte de la dirección): `actividades`, `gestiones`, `agenda`, `evidencias`, `validaciones`, `periodos`, `metas`, `indicadores`, `ajustes`, `delegaciones`, `territorios`, `funcionarios`, `cargos`, `items-de-cargo`, `servicios`, `items`, `tipos-de-atencion`, `sub-atenciones`, `tipos-de-gestion`, `beneficiarios`, `usuarios`, `roles` y `auditoria`.
+`core/registry.py` declara un `Crud` por cada una de estas pantallas (`slug` = parte de la dirección): `actividades`, `gestiones`, `agenda`, `evidencias`, `validaciones`, `periodos`, `metas`, `indicadores`, `ajustes`, `delegaciones`, `territorios`, `funcionarios`, `cargos`, `items-de-cargo`, `servicios`, `items`, `tipos-de-atencion`, `sub-atenciones`, `tipos-de-gestion`, `beneficiarios`, `felicitaciones-y-reclamos`, `organizaciones`, `usuarios`, `roles` y `auditoria`.
 
 ## 8. Cómo leer el resto del documento
 
@@ -1918,6 +1918,10 @@ Opciones del modelo (`Meta`): `ordering` = `('name',)`; `verbose_name` = `'Benef
 
 - **`__str__()`**: Texto con que se muestra el registro.
 
+##### `CommunityOrganization` — hereda de `BaseModel`
+
+Organización comunitaria (junta de vecinos) de la base importada (v31, RF-049): nombre, domicilio legal, territorio (enlazado y, aparte, el texto original), socios activos, fecha de constitución, N.º de registro (único), fecha de inscripción, N.º de directorio y la marca `verified` (por defecto falso). Las atenciones pueden asociarse a una organización (`Activity.organization`, opcional).
+
 ##### `Territory` — hereda de `BaseModel`
 
 Territorio que pertenece a una delegación.
@@ -2128,6 +2132,16 @@ Opciones de `Kind`: `license` (Licencia), `vacation` (Vacaciones), `administrati
 - **`clean()`**: rechaza una fecha «hasta» anterior a «desde» y una ausencia que se traslape con otra del mismo funcionario (sin contar las archivadas ni ella misma).
 - **`__str__()`**: Texto con que se muestra el registro.
 
+##### `Feedback` — hereda de `BaseModel`
+
+Felicitación o reclamo sobre un funcionario (v31, RF-046). Guarda el tipo, la fecha, quién reclama o felicita (nombre y contacto), el medio por el que llegó (correo al delegado, WhatsApp al delegado o libro de observaciones), el profesional involucrado, la descripción y el **respaldo obligatorio** (captura o foto). El período, si tiene efecto (`effective`), el ajuste que generó (`adjustment`) y quién lo registró no se editan: los asigna el sistema.
+Opciones de `Kind`: `compliment` (Felicitación), `complaint` (Reclamo). Opciones de `Channel`: `email`, `whatsapp`, `logbook`.
+
+- **`clean()`**: busca el período de la fecha y rechaza el registro si no hay período, si el período está cerrado o si el funcionario está inactivo.
+- **`save()`**: deja asignado el período de la fecha.
+
+Campos nuevos de `Period` (v31): `compliment_value` (10 %), `complaint_value` (30 %) y `compliment_limit` (3 felicitaciones con efecto por persona), configurables en cada período.
+
 #### `planning/admin.py`
 
 Django Admin de períodos, metas, indicadores, ajustes y ausencias.
@@ -2170,6 +2184,25 @@ Regla elegida por el cliente: **días efectivos = días computables − días h�
 - **`absence_map(officer_ids, period, today)`** y **`absence_days(officer_id, period, today)`**: los `AbsenceDays` de varios funcionarios (una consulta) o de uno.
 - **`kind_breakdown(officer_ids, period)`**: días hábiles por tipo de ausencia, para el bloque «Ausencias del equipo».
 - **`effective_days(period, days)`** y **`adjusted_target(target, period, days)`**: días efectivos (nunca menos de 0) y meta ajustada con dos decimales; sin ausencias devuelve la meta original.
+
+#### `planning/feedback.py` (felicitaciones y reclamos, v31, RF-046)
+
+Regla de la matriz: cada felicitación suma el valor del período (10 %) hasta un máximo por persona (3; las que pasan del máximo quedan **sin efecto**); cada reclamo resta el valor del período (30 %, el de las hojas de cada cargo); reclamos en más de dos períodos seguidos se informan a Recursos Humanos (aquí, un aviso en el listado). El efecto es **solo de la persona aludida**: no entra al puntaje del equipo.
+
+- **`period_for(day)`**: el período no archivado que incluye la fecha.
+- **`sync(officer_id, period_id)`**: deja al día los ajustes (`Adjustment`) del funcionario en el período: crea, actualiza o archiva el de cada registro. Las felicitaciones se ordenan por fecha y las primeras, hasta el máximo, tienen efecto.
+- **`discard(adjustment_id)`**: archiva el ajuste de un registro eliminado.
+- **`net_by_officer(period, officer_ids)`**: suma de bonificaciones menos penalizaciones por funcionario; se muestra como «Ajustes» y «total con ajustes» en la ficha, el dashboard y el tablero (el cumplimiento ponderado no cambia).
+- **`complaint_streak(officer_id, period)`** y **`hr_alert(feedback)`**: períodos seguidos con reclamos y el aviso para Recursos Humanos (desde 3 períodos).
+- **`effect_text(feedback)`**: texto del listado («Suma 10 %», «Resta 30 %», «Sin efecto: …»).
+
+El ajuste se genera solo: `planning/signals.py` llama a `sync` al guardar, archivar o eliminar un registro, y también al cambiar la persona o la fecha (se actualiza la situación anterior y la nueva).
+
+#### `planning/team.py` (puntaje de equipo, v31, RF-048)
+
+Regla 10 de la matriz (equilibrado: juntos suman más que de forma individual). El método lo eligió el equipo de desarrollo, porque el cliente lo dejó abierto. Un equipo es una delegación (o el grupo de un cargo). Por cada ítem: se suman las metas ajustadas por ausencias y el avance válido de todos los integrantes; el cumplimiento del equipo es avance ÷ meta × 100 con el mismo tope del período (120 %); el aporte ponderado es el ponderador promedio × cumplimiento ÷ 100. El puntaje es la suma de los aportes llevada a base 100.
+
+- **`team_score(summaries, period)`**: recibe los resúmenes de `core.results.officer_summary` y devuelve las líneas por ítem, el `score`, el promedio individual, la diferencia entre ambos, el semáforo y el aporte de cada persona (su parte del avance; los aportes suman el puntaje).
 
 #### `planning/calculation.py` (cálculo automático, RF-022, RF-023, RF-024 y RF-014)
 
@@ -2240,6 +2273,7 @@ Atención registrada por un funcionario: fecha, solicitud, acción realizada, da
 | `no_score_reason` | motivo por el que no puntúa | CharField | largo 120; por defecto `''`; no se edita (v29) — Lo calcula `save()`; vacío si puntúa. |
 | `item` | ítem | ForeignKey | relación con `Item`; nombre inverso `activities`; PROTECT |
 | `service` | servicio | ForeignKey | relación con `Service`; nombre inverso `activities`; PROTECT; admite nulo; opcional |
+| `organization` | organización | ForeignKey | relación con `CommunityOrganization`; nombre inverso `activities`; PROTECT; admite nulo; opcional (v31) |
 | `delegation` | delegación | ForeignKey | relación con `Delegation`; nombre inverso `activities`; PROTECT |
 | `author_officer` | funcionario autor | ForeignKey | relación con `Officer`; nombre inverso `authored_activities`; PROTECT |
 
@@ -2324,6 +2358,17 @@ Configuración del Django Admin para `Followup`. Columnas: 'activity', 'sequence
 ##### `CommitmentAdmin` — hereda de `DelegationScopedAdminMixin`, `admin.ModelAdmin`
 
 Configuración del Django Admin para `Commitment`. Columnas: 'requester', 'territory', 'delegation', 'requester_type', 'responsible_officer', 'due_date', 'status'. Búsqueda por: 'requester', 'territory__name', 'description'. Filtros: 'delegation', 'status', 'requester_type'.
+
+#### `core/management/commands/importar_jjvv.py` (importación de juntas de vecinos, v31, RF-049)
+
+Comando `python manage.py importar_jjvv <archivo.xlsx> [--simular] [--delegacion "Nombre"]`. Lee la planilla «base de datos JJVV sin verificar» y crea o actualiza `CommunityOrganization`.
+
+- Idempotente por **N.º de registro**: repetir la importación no duplica, y una fila ya cargada solo se actualiza si cambió.
+- `--simular` hace todo y lo deshace al final: no escribe nada, pero entrega el mismo informe.
+- Las organizaciones nuevas quedan **sin verificar**; una importación posterior no cambia la marca de las existentes.
+- Los territorios que faltan se crean en la delegación cuyo nombre contiene el del territorio; si ninguna calza (o calzan varias), se usa `--delegacion`. Sin ninguna de las dos, la organización se guarda sin territorio enlazado (el texto queda en `territory_text`) y el informe lo avisa.
+- Las filas sin nombre, sin N.º de registro o con N.º repetido en la planilla se descartan y se listan en el informe.
+- Funciones auxiliares: `plain` (compara sin tildes ni mayúsculas), `clean`, `as_int`, `as_date`, `read_rows` y la clase `Territories` (busca o crea los territorios).
 
 #### `operations/management/commands/seed_management_types.py`
 

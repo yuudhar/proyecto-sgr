@@ -37,6 +37,8 @@ from core.rules import rut_with_wrong_digit
 from evidence.models import Evidence, Validation
 from operations.models import Activity, Commitment
 from organization.models import Delegation, Officer
+from planning import feedback as feedback_rules
+from planning.team import team_score
 from planning.absences import absence_map, kind_breakdown
 from planning.calculation import IndicatorIndex
 from planning.models import Absence, Adjustment, Goal, Period
@@ -372,6 +374,8 @@ def dashboard(request):
         context["goal_lines"] = sheet["lines"]
         context["sheet"] = sheet
         context["personal"] = personal_board(officer, period, pace, today)
+        context["team"] = team_of_delegation(officer.delegation, period)
+        context["team_label"] = officer.delegation.name
         if activities.has_perm(user, "view"):
             context["activities_url"] = activities.url("list")
         context["pace_summary"] = pace_summary(period, sheet["exact_average"], sheet["pace"])
@@ -607,6 +611,28 @@ def evidence_file(request, pk):
 
 
 @login_required
+def feedback_file(request, pk):
+    """Respaldo de una felicitación o un reclamo: solo lo abre quien ve ese registro (y su delegación)."""
+    crud = registry.get("felicitaciones-y-reclamos")
+    if not crud.has_perm(request.user, "view"):
+        raise PermissionDenied
+    feedback = get_object_or_404(crud.get_queryset(request, include_archived=True), pk=pk)
+    name = feedback.support.name if feedback.support else ""
+    if not name or not feedback.support.storage.exists(name):
+        raise Http404("Este registro no tiene un archivo en el sistema.")
+    content_type = uploads.content_type_of(name)
+    response = FileResponse(
+        feedback.support.open("rb"),
+        content_type=content_type,
+        as_attachment=content_type not in uploads.INLINE_TYPES,
+        filename=f"respaldo-{feedback.pk}.{uploads.extension_of(name)}",
+    )
+    response["X-Content-Type-Options"] = "nosniff"
+    response["Cache-Control"] = "private, no-store"
+    return response
+
+
+@login_required
 @permission_required("evidence.add_validation", raise_exception=True)
 def validate_list(request):
     crud, evidences = reviewable_evidence(request)
@@ -763,14 +789,34 @@ def absence_rows(results, period):
     return rows
 
 
+def team_of_delegation(delegation, period):
+    """RF-048: puntaje del equipo de una delegación (todos sus funcionarios activos) en un período."""
+    officers = list(
+        Officer.objects.filter(delegation=delegation, status=Officer.Status.ACTIVE, deleted_at__isnull=True)
+        .select_related("position")
+        .order_by("name")
+    )
+    goals = list(Goal.objects.filter(deleted_at__isnull=True, period=period).select_related("item"))
+    indicators = latest_indicators([goal.pk for goal in goals])
+    pace = pace_of(period)
+    away = absence_map([officer.pk for officer in officers], period, pace.today)
+    summaries = [
+        officer_summary(officer, period, goals, indicators, pace, away[officer.pk], Decimal(0)) for officer in officers
+    ]
+    return team_score(summaries, period)
+
+
 def officer_results(officers, goals, indicators, period):
     pace = pace_of(period)
     ids = [officer.pk for officer in officers]
     recent = recent_activity(ids, period, pace)
     away = absence_map(ids, period, pace.today)
+    nets = feedback_rules.net_by_officer(period, ids)
     results = []
     for officer in officers:
-        summary = officer_summary(officer, period, goals, indicators, pace, away[officer.pk])
+        summary = officer_summary(
+            officer, period, goals, indicators, pace, away[officer.pk], nets.get(officer.pk, Decimal(0))
+        )
         summary["recent"] = recent[officer.pk]
         results.append(summary)
     return results
@@ -859,6 +905,7 @@ def delegation_board(request):
             "recent_summary": delegation_recent({row["officer"].pk: row["recent"] for row in results}, pace_of(period)),
             "absence_kinds": Absence.Kind.choices,
             "absence_rows": absence_rows(results, period),
+            "team": team_score(results, period),
             "light_counts": [
                 {"light": key, "label": ui.LIGHT_LABELS[key], "total": lights[key]}
                 for key in ("green", "amber", "red")
@@ -1018,9 +1065,10 @@ def position_overview(request):
     pace = pace_of(period)
     recent = recent_activity([officer.pk for officer in officers], period, pace)
     away = absence_map([officer.pk for officer in officers], period, pace.today)
+    nets = feedback_rules.net_by_officer(period, [officer.pk for officer in officers])
     can_open_officer = officers_crud.has_perm(request.user, "view")
     for officer in officers:
-        summary = officer_summary(officer, period, goals, index, pace, away[officer.pk])
+        summary = officer_summary(officer, period, goals, index, pace, away[officer.pk], nets.get(officer.pk, Decimal(0)))
         summary["recent"] = recent[officer.pk]
         summary["url"] = officers_crud.url("detail", officer.pk) if can_open_officer else ""
         results.append(summary)
@@ -1039,6 +1087,7 @@ def position_overview(request):
                 "url": positions_crud.url("detail", position.pk) if can_open_position else "",
                 "officers": rows,
                 "team_goals": team_goals(rows),
+                "team": team_score(rows, period),
                 "average": rounded(average),
                 "light": light_of(average, period),
                 "weighted": rounded(weighted),

@@ -1023,8 +1023,9 @@ class PositionOverviewTests(CalculationBase):
             self.assertEqual(group["team_goals"], [])
 
     def test_it_works_without_periods(self):
-        from planning.models import Adjustment
+        from planning.models import Adjustment, Feedback
 
+        Feedback.objects.all().delete()
         Adjustment.objects.all().delete()
         Indicator.objects.all().delete()
         Goal.objects.all().delete()

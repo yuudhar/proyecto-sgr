@@ -60,6 +60,7 @@ PERMISSION_MODULES = (
             ("Agenda colectiva", "operations.commitment"),
             ("Evidencias", "evidence.evidence"),
             ("Validaciones", "evidence.validation"),
+            ("Felicitaciones y reclamos", "planning.feedback"),
         ),
     ),
     (
@@ -89,6 +90,7 @@ PERMISSION_MODULES = (
             ("Servicios", "organization.service"),
             ("Tipos de gestión", "operations.managementtype"),
             ("Beneficiarios", "organization.beneficiary"),
+            ("Organizaciones", "organization.communityorganization"),
         ),
     ),
     (

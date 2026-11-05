@@ -93,6 +93,7 @@
       </ul>
       <p class="goal-total">
         <strong>Total ponderado: {% if sheet.weighted_total is not None %}{{ sheet.weighted_total|fnumber }} %{% else %}sin cálculo{% endif %}</strong>
+        {% if sheet.adjustment_net %}<span class="chip chip-{% if sheet.adjustment_net > 0 %}ok{% else %}warn{% endif %}" title="Felicitaciones, reclamos y ajustes del período">Ajustes: {% if sheet.adjustment_net > 0 %}+{% endif %}{{ sheet.adjustment_net|fnumber }} %</span> <strong>Total con ajustes: {{ sheet.total_with_adjustment|fnumber }} %</strong>{% endif %}
         <span class="chip chip-{% if sheet.weights_state == 'ok' %}ok{% else %}warn{% endif %}">Ponderadores: {{ sheet.weights_total|fnumber }} %</span>
         {% if sheet.weights_state != "ok" %}<span class="muted">{{ sheet.weights_text }}; coordinación debe ajustarlos.</span>{% endif %}
       </p>
@@ -105,6 +106,8 @@
       </div>
       {% endif %}
     </section>
+
+    {% if team %}<div class="mt-4">{% include "core/partials/team_score.html" with mine=sheet.weighted_total %}</div>{% endif %}
 
     {% if personal %}
     <section class="panel mt-4" aria-labelledby="titulo-personal">

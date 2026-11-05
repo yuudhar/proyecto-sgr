@@ -51,6 +51,15 @@ class Activity(BaseModel):
         related_name="activities",
         verbose_name="beneficiario",
     )
+    organization = models.ForeignKey(
+        "organization.CommunityOrganization",
+        on_delete=models.PROTECT,
+        null=True,
+        blank=True,
+        related_name="activities",
+        verbose_name="organización",
+        help_text="Opcional: la junta de vecinos u organización con la que se relaciona la atención.",
+    )
     status = models.CharField(
         max_length=30, choices=Status.choices, default=Status.REGISTERED,
         verbose_name="estado",

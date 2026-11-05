@@ -17,6 +17,7 @@ from core.forms import (
     ActivityEditForm,
     ActivityIntakeForm,
     AbsenceForm,
+    FeedbackForm,
     AdjustmentForm,
     CommitmentForm,
     DelegationForm,
@@ -51,6 +52,7 @@ from evidence.models import Evidence, Validation
 from operations.models import Activity, Commitment, Followup, ManagementType
 from organization.models import (
     Beneficiary,
+    CommunityOrganization,
     Delegation,
     Item,
     Officer,
@@ -59,8 +61,9 @@ from organization.models import (
     Service,
     Territory,
 )
+from planning import feedback as feedback_rules
 from planning.calculation import IndicatorIndex
-from planning.models import Absence, Adjustment, Goal, Indicator, Period
+from planning.models import Absence, Adjustment, Feedback, Goal, Indicator, Period
 from planning.pace import pace_of
 
 
@@ -154,6 +157,7 @@ class ActivityCrud(Crud):
         "request_description",
         "beneficiary__name",
         "beneficiary__rut",
+        "organization__name",
     )
     list_filters = ("delegation", "status", "counts_for_score", "requires_visit", "added_to_pipeline", "item", "author_officer")
     select_related = ("delegation", "item", "item__parent_item", "author_officer", "beneficiary", "service")
@@ -162,6 +166,7 @@ class ActivityCrud(Crud):
         "item",
         "service",
         "beneficiary",
+        "organization",
         "contact_name",
         "phone",
         "request_description",
@@ -180,6 +185,7 @@ class ActivityCrud(Crud):
         "attention_type",
         "item",
         "service",
+        "organization",
         "request_description",
         "action_taken",
         "requires_visit",
@@ -459,6 +465,9 @@ class PeriodCrud(Crud):
         "collective_threshold": {"min": "0.01", "max": "100"},
         "amber_threshold": {"min": "0", "max": "100"},
         "weighted_cap": {"min": "0.01"},
+        "compliment_value": {"min": "0.01", "max": "100"},
+        "complaint_value": {"min": "0.01", "max": "100"},
+        "compliment_limit": {"min": "1"},
     }
     form_base = PeriodForm
     form_fields = (
@@ -469,6 +478,9 @@ class PeriodCrud(Crud):
         "collective_threshold",
         "amber_threshold",
         "weighted_cap",
+        "compliment_value",
+        "complaint_value",
+        "compliment_limit",
         "parameters_version",
     )
     related = (Related("metas", "period", "Metas del período"),)
@@ -630,6 +642,70 @@ class AdjustmentCrud(Crud):
         super().prepare_object(request, obj, creating, form)
         if creating:
             obj.responsible_user = request.user
+
+
+def feedback_effect(feedback):
+    return feedback_rules.effect_text(feedback)
+
+
+def feedback_alert(feedback):
+    return feedback_rules.hr_alert(feedback)
+
+
+@registry.register
+class FeedbackCrud(Crud):
+    model = Feedback
+    slug = "felicitaciones-y-reclamos"
+    icon = "bi-chat-heart"
+    gender = "f"
+    description = (
+        "Felicitaciones (suman) y reclamos (restan) formales contra un funcionario, con su respaldo. "
+        "Solo el delegado los registra y el ajuste se genera solo."
+    )
+    delegation_lookup = "officer__delegation"
+    list_display = (
+        Col("date", "Fecha", link=True),
+        "kind",
+        Col("officer", "Profesional involucrado"),
+        "channel",
+        "contact_name",
+        Col("support", "Respaldo", sort=False),
+        Col("effect", "Efecto", sort=False),
+        Col("hr_alert", "Aviso", sort=False),
+    )
+    computed = {"effect": feedback_effect, "hr_alert": feedback_alert}
+    search_fields = ("officer__name", "contact_name", "description")
+    list_filters = ("kind", "channel", "officer")
+    select_related = ("officer", "period", "registered_by")
+    form_base = FeedbackForm
+    form_fields = ("kind", "date", "officer", "channel", "contact_name", "contact", "description", "support")
+    full_width = ("description", "support")
+    rules = {"contact_name": "person_name", "contact": "label", "description": "text"}
+    help_texts = {
+        "kind": "Una felicitación suma al funcionario; un reclamo resta. El ajuste se genera solo al guardar.",
+        "officer": "El profesional involucrado, de tu delegación.",
+        "description": "La situación que se felicita o se reclama (un reclamo debe ser por mala atención del funcionario).",
+    }
+
+    def prepare_object(self, request, obj, creating, form):
+        super().prepare_object(request, obj, creating, form)
+        if creating:
+            obj.registered_by = request.user
+
+    def make_cell(self, obj, column):
+        if column.path == "support":
+            name = obj.support.name if obj.support else ""
+            if not name:
+                return Cell(text="")
+            if not obj.support.storage.exists(name):
+                return Cell(text=f"{Path(name).name} (el archivo no está en el sistema)")
+            return Cell(
+                kind="file",
+                text=Path(name).name,
+                url=reverse("core:feedback_file", args=[obj.pk]),
+                preview=uploads.is_image(name),
+            )
+        return super().make_cell(obj, column)
 
 
 @registry.register
@@ -1119,6 +1195,41 @@ class ManagementTypeCrud(Crud):
     form_fields = ("name",)
     rules = {"name": "label"}
     unique_names = ("name",)
+
+
+@registry.register
+class CommunityOrganizationCrud(Crud):
+    model = CommunityOrganization
+    slug = "organizaciones"
+    icon = "bi-houses"
+    gender = "f"
+    deletable = True
+    state_filter = True
+    description = "Juntas de vecinos y otras organizaciones comunitarias. Es un catálogo compartido entre delegaciones."
+    list_display = (
+        Col("name", "Nombre", link=True),
+        "territory",
+        "active_members",
+        "registry_number",
+        "verified",
+    )
+    search_fields = ("name", "legal_address", "territory_text")
+    list_filters = ("territory", "verified")
+    select_related = ("territory",)
+    form_fields = (
+        "name",
+        "legal_address",
+        "territory",
+        "active_members",
+        "constitution_date",
+        "registry_number",
+        "registration_date",
+        "directory_number",
+        "verified",
+    )
+    full_width = ("name", "legal_address")
+    rules = {"name": "label", "legal_address": "label"}
+    bounds = {"active_members": {"min": "0"}, "registry_number": {"min": "1"}, "directory_number": {"min": "0"}}
 
 
 @registry.register

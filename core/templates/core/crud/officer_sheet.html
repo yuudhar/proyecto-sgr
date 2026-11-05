@@ -17,6 +17,7 @@
     <div><dt>Delegación</dt><dd>{{ obj.delegation }}</dd></div>
     <div><dt>Meta esperada al día</dt><dd>{{ panel.pace.expected_percent|fnumber }} %</dd></div>
     <div><dt>Total ponderado</dt><dd class="pace-strong">{% if panel.sheet.weighted_total is not None %}{{ panel.sheet.weighted_total|fnumber }} %{% else %}Sin cálculo{% endif %}</dd></div>
+    <div><dt>Ajustes del período</dt><dd>{% if panel.sheet.adjustment_net %}{% if panel.sheet.adjustment_net > 0 %}+{% endif %}{{ panel.sheet.adjustment_net|fnumber }} %{% if panel.sheet.total_with_adjustment is not None %} (total con ajustes: {{ panel.sheet.total_with_adjustment|fnumber }} %){% endif %}{% else %}Sin ajustes{% endif %}</dd></div>
     <div><dt>Suma de ponderadores</dt><dd><span class="chip chip-{% if panel.sheet.weights_state == 'ok' %}ok{% else %}warn{% endif %}">{% if panel.sheet.weights_total is not None %}{{ panel.sheet.weights_total|fnumber }} %{% else %}Sin metas{% endif %}</span></dd></div>
     <div><dt>Último ingreso</dt><dd>{% if panel.recent.last_date %}{{ panel.recent.last_date|fdate }} ({{ panel.recent.days_without }} día{{ panel.recent.days_without|pluralize }}){% else %}Sin ingresos{% endif %}</dd></div>
     <div><dt>Registros del período</dt><dd>{{ panel.recent.total }}{% if panel.recent.daily_average is not None %} · {{ panel.recent.daily_average|fnumber }} por día{% endif %}</dd></div>

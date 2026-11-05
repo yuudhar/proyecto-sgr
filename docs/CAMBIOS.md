@@ -17,6 +17,45 @@ Nombres que cambiaron en la v27 (los textos antiguos los mencionan con el nombre
 | `core/qa/esperado_vNN.py` | `core/qa/esperado_<tema>.py` (mismo tema que su archivo de pruebas) |
 | `sql/*.sql` (todos) | `sql/sgr_django.sql` (estructura vigente) |
 
+## Versión 31
+
+Tercer avance sobre los requisitos nuevos de la clienta: felicitaciones y reclamos, puntaje de equipo e importación de juntas de vecinos. Siguen pendientes el tubo de trabajo y la lista de ítems que no otorgan punto.
+
+### Felicitaciones y reclamos (RF-046)
+
+- Mantenedor «Felicitaciones y reclamos» (Operación). Cada registro lleva: tipo, fecha, quién reclama o felicita (nombre y contacto), medio (correo al delegado, WhatsApp al delegado o libro de observaciones), profesional involucrado, descripción y **respaldo obligatorio** (captura o foto, con las mismas validaciones de archivo que las evidencias).
+- Lo registran Jefatura (de su delegación) y los usuarios globales (eligiendo una delegación); Coordinación solo lo ve. El registro debe caer en un período abierto y el funcionario debe estar activo.
+- Valores según la matriz, **configurables en cada período**: felicitación **+10 %** con un máximo de **3 por persona** (las siguientes quedan registradas «sin efecto») y reclamo **−30 %** (el valor de las hojas de cada cargo; el −20 % que aparece en las consideraciones de la hoja RECLAMOS es solo texto).
+- El efecto es **solo de la persona aludida**. El sistema genera solo el ajuste (bonificación o penalización) y lo mantiene al día si el registro se cambia, se archiva o se elimina. La ficha, el dashboard y el tablero muestran «Ajustes» y «total con ajustes»; el cumplimiento ponderado no cambia.
+- Reclamos en **más de dos períodos seguidos** (3 o más): el listado muestra el aviso «informar a Recursos Humanos».
+- Código: `planning/feedback.py`, modelo `Feedback`, señales en `planning/signals.py`.
+
+### Puntaje de equipo (RF-048)
+
+- Se muestra en el tablero de la delegación, en el dashboard y en la vista por cargo, junto al promedio individual y la diferencia entre ambos.
+- **Decisión de desarrollo** (el cliente dejó el método abierto): por cada ítem se suman las metas ajustadas por ausencias y el avance válido de todos los integrantes; el cumplimiento del equipo es avance ÷ meta × 100 con el mismo tope del período (120 %); el aporte ponderado es el ponderador promedio × cumplimiento ÷ 100; el puntaje es la suma de los aportes en base 100. Lo que una persona logra de más compensa lo que a otra le falta, sin pasar del tope. Cada persona aporta su parte del avance y los aportes suman el puntaje.
+- Los ajustes de felicitaciones y reclamos no entran al equipo. Código: `planning/team.py`.
+
+### Importación de juntas de vecinos (RF-049)
+
+- Modelo `CommunityOrganization` (mantenedor «Organizaciones», solo Super Usuario como beneficiarios) y campo opcional `organización` en la atención.
+- Comando: `python manage.py importar_jjvv <archivo.xlsx> [--simular] [--delegacion "Nombre"]`.
+- Es idempotente por N.º de registro. `--simular` entrega el informe sin escribir. Las organizaciones nuevas quedan **sin verificar** y una importación posterior no cambia la marca de las existentes.
+- **Crea los territorios que falten**, en la delegación cuyo nombre contiene el del territorio; si ninguna calza (o calzan varias) usa `--delegacion`; sin ninguna, deja la organización sin territorio enlazado (guarda el texto) y el informe lo avisa.
+
+### Puntos abiertos
+
+- Lo de la v30 sigue pendiente de confirmar: semana de lunes a domingo, si las gestiones de la atención social y el tubo de trabajo siguen el cierre, y que los feriados no se descuentan de las ausencias.
+- Puntaje de equipo: confirmar con la clienta que el método elegido es el que esperan.
+
+### Base de datos
+
+Migraciones nuevas: `planning/0005_felicitaciones_y_reclamos_v31.py` (tabla `planning_feedback` y tres campos del período), `organization/0005_organizaciones_jjvv_v31.py` (tabla `organization_communityorganization`) y `operations/0004_organizaciones_jjvv_v31.py` (campo `organization` de la atención). `sql/sgr_django.sql` quedó al día.
+
+### Pruebas
+
+`core/test_felicitaciones_equipo_y_jjvv.py` (85 pruebas), registradas en el catálogo QA como V31-01 a V31-04.
+
 ## Versión 30
 
 Segundo avance sobre los requisitos nuevos de la clienta: cierre semanal de ingresos y ausencias con meta ajustada. Siguen pendientes (necesitan definiciones) felicitaciones y reclamos, puntaje de equipo, importación de juntas de vecinos y la lista de ítems que no otorgan punto.

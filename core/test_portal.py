@@ -553,6 +553,9 @@ class CrudFlowTests(PortalTestCase):
                 "collective_threshold": "80",
                 "amber_threshold": "60",
                 "weighted_cap": "150",
+                "compliment_value": "10",
+                "complaint_value": "30",
+                "compliment_limit": "3",
                 "parameters_version": "1",
             },
         )

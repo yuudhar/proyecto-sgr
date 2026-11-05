@@ -58,6 +58,9 @@
     </div>
   </div>
 
+  {% if group.team.score is not None %}
+  <p class="board-note mb-3"><strong>Puntaje del equipo: {{ group.team.score|fnumber }} %</strong> (promedio individual {% if group.team.individual_average is not None %}{{ group.team.individual_average|fnumber }} %{% else %}sin cálculo{% endif %}). Se suman metas y avances de todo el equipo, con el tope del período.</p>
+  {% endif %}
   {% if group.team_goals %}
   <div class="table-responsive">
     <table class="table data-table align-middle">

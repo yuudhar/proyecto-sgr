@@ -107,3 +107,9 @@ def evidence_path(instance, filename):
 def photo_path(instance, filename):
     return f"fotos/usuario-{instance.user_id or 'nuevo'}-{uuid.uuid4().hex[:8]}.{extension_of(filename)}"
 
+
+
+def feedback_path(instance, filename):
+    from django.utils import timezone
+
+    return f"respaldos/{timezone.localdate().year}/respaldo-{uuid.uuid4().hex[:12]}.{extension_of(filename)}"

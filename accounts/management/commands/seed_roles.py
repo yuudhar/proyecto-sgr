@@ -5,7 +5,7 @@ from django.core.management.base import BaseCommand
 from evidence.models import Evidence, Validation
 from operations.models import Activity, Commitment, Followup
 from organization.models import Item, Officer, Position, PositionItem, Service, Territory
-from planning.models import Absence, Adjustment, Goal, Indicator, Period
+from planning.models import Absence, Adjustment, Feedback, Goal, Indicator, Period
 
 
 def permissions_for(model, codenames):
@@ -22,6 +22,7 @@ ROLES = {
         (Indicator, ["view_indicator"]),
         (Adjustment, ["add_adjustment", "change_adjustment", "view_adjustment"]),
         (Absence, ["add_absence", "change_absence", "view_absence"]),
+        (Feedback, ["view_feedback"]),
         (Position, ["view_position"]),
         (Item, ["view_item"]),
         (Service, ["view_service"]),
@@ -31,6 +32,7 @@ ROLES = {
     ],
     "Jefatura": [
         (Absence, ["add_absence", "change_absence", "view_absence"]),
+        (Feedback, ["add_feedback", "change_feedback", "view_feedback"]),
         (Activity, ["view_activity"]),
         (Commitment, ["view_commitment", "change_commitment"]),
         (Followup, ["view_followup"]),

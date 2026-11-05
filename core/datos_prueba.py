@@ -17,6 +17,7 @@ from operations.models import Activity, Commitment, Followup, ManagementType
 from planning.calculation import suspended
 from organization.models import (
     Beneficiary,
+    CommunityOrganization,
     Delegation,
     Item,
     Officer,
@@ -25,7 +26,8 @@ from organization.models import (
     Service,
     Territory,
 )
-from planning.models import Absence, Adjustment, Goal, Indicator, Period
+from planning import feedback as feedback_rules
+from planning.models import Absence, Adjustment, Feedback, Goal, Indicator, Period
 
 ADMIN_USERNAME = "admin"
 ADMIN_PASSWORD = "Hola123!"
@@ -112,6 +114,9 @@ class CargaDatosPrueba(BaseCommand):
 
     @transaction.atomic
     def write_demo_files(self):
+        for each in Feedback.objects.all():
+            if each.support.name and not each.support.storage.exists(each.support.name):
+                each.support.storage.save(each.support.name, ContentFile(demo_pdf("Respaldo de demostración")))
         for evidence in Evidence.objects.all():
             name = evidence.file_link.name
             if not name:
@@ -268,6 +273,17 @@ class CargaDatosPrueba(BaseCommand):
                 beneficiary.address = address
                 beneficiary.save()
             beneficiaries[rut] = beneficiary
+
+        CommunityOrganization.objects.get_or_create(
+            registry_number=1001,
+            defaults={
+                "name": "JUNTA DE VECINOS DEMOSTRACIÓN",
+                "legal_address": "Los Aromos 1234",
+                "territory": territory_north,
+                "territory_text": "TERRITORIO 1",
+                "active_members": 120,
+            },
+        )
 
         officer_north_1, _ = Officer.objects.get_or_create(
             institutional_id="F-1001",
@@ -568,6 +584,23 @@ class CargaDatosPrueba(BaseCommand):
                 "responsible_user": admin_user,
             },
         )
+
+        # Una felicitación de ejemplo al jefe de la Norte, con su respaldo; el ajuste se genera como al registrarla.
+        compliment, _ = Feedback.objects.get_or_create(
+            officer=officer_north_jefatura,
+            kind=Feedback.Kind.COMPLIMENT,
+            contact_name="Rosa Núñez",
+            defaults={
+                "date": today,
+                "channel": Feedback.Channel.EMAIL,
+                "contact": "rosa.nunez@correo.example",
+                "description": "Felicita la orientación recibida en la oficina de la delegación.",
+                "support": "respaldos/demostracion/felicitacion-jefatura-norte.pdf",
+                "period": period,
+                "registered_by": leadership_user,
+            },
+        )
+        feedback_rules.sync(compliment.officer_id, compliment.period_id)
 
         # Una ausencia de ejemplo del jefe de la Norte (que no tiene metas): no cambia ningún cálculo.
         Absence.objects.get_or_create(

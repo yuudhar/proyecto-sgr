@@ -4,6 +4,7 @@ from django.core.validators import MinValueValidator
 from django.db import models
 
 from core.models import BaseModel
+from core.uploads import feedback_path
 from organization.models import Item, Position, Officer
 
 
@@ -31,6 +32,18 @@ class Period(BaseModel):
     )
     parameters_version = models.CharField(
         max_length=20, default="1", verbose_name="versión de parámetros"
+    )
+    compliment_value = models.DecimalField(
+        max_digits=5, decimal_places=2, default=10, verbose_name="valor de una felicitación",
+        help_text="Puntos porcentuales que suma cada felicitación (en la matriz, 10 %).",
+    )
+    complaint_value = models.DecimalField(
+        max_digits=5, decimal_places=2, default=30, verbose_name="valor de un reclamo",
+        help_text="Puntos porcentuales que resta cada reclamo (en las hojas de cada cargo de la matriz, 30 %).",
+    )
+    compliment_limit = models.PositiveIntegerField(
+        default=3, verbose_name="máximo de felicitaciones por persona",
+        help_text="Las felicitaciones que pasan de este máximo quedan registradas, pero sin efecto.",
     )
 
     class Meta:
@@ -230,3 +243,86 @@ class Absence(BaseModel):
 
     def __str__(self):
         return f"{self.get_kind_display()} · {self.officer} · {self.start_date:%d/%m/%Y}"
+
+
+class Feedback(BaseModel):
+    """RF-046: felicitación o reclamo formal contra un funcionario, con su respaldo.
+
+    Solo el delegado los registra. Al guardarse genera solo el ajuste (bonificación o penalización) del
+    funcionario en el período de la fecha (ver `planning/feedback.py`): no se ingresa a mano.
+    """
+
+    class Kind(models.TextChoices):
+        COMPLIMENT = "compliment", "Felicitación"
+        COMPLAINT = "complaint", "Reclamo"
+
+    class Channel(models.TextChoices):
+        EMAIL = "email", "Correo al delegado"
+        WHATSAPP = "whatsapp", "WhatsApp al delegado"
+        LOGBOOK = "logbook", "Libro de observaciones de la oficina"
+
+    kind = models.CharField(max_length=20, choices=Kind.choices, verbose_name="tipo")
+    date = models.DateField(verbose_name="fecha")
+    contact_name = models.CharField(max_length=150, verbose_name="nombre de quien escribe")
+    contact = models.CharField(
+        max_length=100, blank=True, default="", verbose_name="contacto",
+        help_text="Teléfono o correo de quien escribe.",
+    )
+    channel = models.CharField(max_length=20, choices=Channel.choices, verbose_name="medio escrito")
+    officer = models.ForeignKey(
+        Officer, on_delete=models.PROTECT, related_name="feedbacks", verbose_name="profesional involucrado"
+    )
+    description = models.TextField(verbose_name="situación")
+    support = models.FileField(
+        upload_to=feedback_path,
+        max_length=255,
+        verbose_name="respaldo",
+        help_text="Captura del correo o del WhatsApp, o foto del libro de observaciones.",
+    )
+    period = models.ForeignKey(
+        Period, on_delete=models.PROTECT, related_name="feedbacks", editable=False, verbose_name="período"
+    )
+    effective = models.BooleanField(
+        default=True, editable=False, verbose_name="con efecto",
+        help_text="Falso cuando la felicitación pasa del máximo del período: queda registrada, pero sin efecto.",
+    )
+    adjustment = models.OneToOneField(
+        Adjustment, on_delete=models.SET_NULL, null=True, blank=True, editable=False,
+        related_name="feedback", verbose_name="ajuste generado",
+    )
+    registered_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL, on_delete=models.PROTECT, editable=False,
+        related_name="registered_feedbacks", verbose_name="registrada por",
+    )
+
+    class Meta:
+        ordering = ("-date", "-pk")
+        verbose_name = "Felicitación o reclamo"
+        verbose_name_plural = "Felicitaciones y reclamos"
+
+    def clean(self):
+        super().clean()
+        from . import feedback
+
+        if not self.date:
+            return
+        period = feedback.period_for(self.date)
+        if period is None:
+            raise ValidationError({"date": "Esa fecha no está dentro de ningún período."})
+        if period.status == Period.Status.CLOSED:
+            raise ValidationError({"date": "El período de esa fecha está cerrado: ya no admite cambios."})
+        self.period = period
+        if self.officer_id and self.officer.status != Officer.Status.ACTIVE:
+            raise ValidationError({"officer": "El funcionario no está activo."})
+
+    def save(self, *args, **kwargs):
+        from . import feedback
+
+        if self.date and not self.period_id:
+            period = feedback.period_for(self.date)
+            if period is not None:
+                self.period = period
+        super().save(*args, **kwargs)
+
+    def __str__(self):
+        return f"{self.get_kind_display()} · {self.officer} · {self.date:%d/%m/%Y}"

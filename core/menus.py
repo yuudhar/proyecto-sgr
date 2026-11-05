@@ -94,6 +94,7 @@ MENU = [
                 [
                     crud_entry("gestiones"),
                     crud_entry("agenda", "Agenda colectiva"),
+                    crud_entry("felicitaciones-y-reclamos"),
                     page_entry("commitment_summary", "Resumen colectivo", "bi-pie-chart", "operations.view_commitment"),
                     crud_entry("evidencias"),
                     page_entry("validate_list", "Validar evidencias", "bi-patch-check", "evidence.add_validation"),
@@ -152,6 +153,7 @@ MENU = [
                     crud_entry("sub-atenciones"),
                     crud_entry("tipos-de-gestion"),
                     crud_entry("beneficiarios"),
+                    crud_entry("organizaciones"),
                 ],
             ),
             (

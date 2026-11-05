@@ -122,13 +122,16 @@ def lowest_lines(lines):
     return sorted(candidates, key=lambda line: (line["compliance"], line["item"].name))[:LOWEST_SHOWN]
 
 
-def officer_summary(officer, period, goals, index, pace=None, absence=None):
+def officer_summary(officer, period, goals, index, pace=None, absence=None, net=None):
     """Metas del funcionario con su avance, cumplimiento, ponderador y aporte ponderado (RF-008).
 
     Con ausencias (RF-047) las metas y el ritmo esperado son los ajustados por los días efectivos. `absence` permite
     pasar ya calculados esos días (`absences.AbsenceDays`) cuando se recorren muchos funcionarios.
+
+    Los ajustes del período (felicitaciones y reclamos, RF-046, y los que registra Coordinación) se suman al total
+    ponderado: `net` es su suma en puntos porcentuales (si no se pasa, se consulta).
     """
-    from planning import absences
+    from planning import absences, feedback
     from planning.pace import pace_of
 
     own = goals_of(officer, goals)
@@ -141,6 +144,9 @@ def officer_summary(officer, period, goals, index, pace=None, absence=None):
     weights = sum((line["weight"] for line in lines), Decimal(0)) if lines else None
     weighted = [line["weighted"] for line in lines if line["weighted"] is not None]
     state = weights_state(weights)
+    if net is None:
+        net = feedback.net_by_officer(period, [officer.pk]).get(officer.pk, Decimal(0))
+    weighted_total = sum(weighted, Decimal(0)) if weighted else None
     return {
         "officer": officer,
         "absence": absence,
@@ -156,7 +162,9 @@ def officer_summary(officer, period, goals, index, pace=None, absence=None):
         "weights_total": weights,
         "weights_state": state,
         "weights_text": WEIGHT_STATES.get(state, ""),
-        "weighted_total": sum(weighted, Decimal(0)) if weighted else None,
+        "weighted_total": weighted_total,
+        "adjustment_net": net,
+        "total_with_adjustment": weighted_total + net if weighted_total is not None else None,
     }
 
 

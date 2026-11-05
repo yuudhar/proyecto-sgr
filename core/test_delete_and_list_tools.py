@@ -10,7 +10,7 @@ from core.testing import PortalTestCase
 from operations.models import Activity, Commitment, ManagementType
 from organization.models import Beneficiary, Delegation, Item, Position, Service, Territory
 
-DELETABLE = ("beneficiarios", "territorios", "servicios", "cargos", "tipos-de-gestion", "agenda")
+DELETABLE = ("beneficiarios", "organizaciones", "territorios", "servicios", "cargos", "tipos-de-gestion", "agenda")
 
 
 def messages_of(response):

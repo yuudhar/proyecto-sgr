@@ -135,8 +135,9 @@ class PaceScreensTests(PortalTestCase):
         self.assertContains(response, "Meta esperada al día")
 
     def test_there_is_no_pace_panel_without_periods(self):
-        from planning.models import Adjustment, Goal, Indicator
+        from planning.models import Adjustment, Feedback, Goal, Indicator
 
+        Feedback.objects.all().delete()
         Adjustment.objects.all().delete()
         Indicator.objects.all().delete()
         Goal.objects.all().delete()

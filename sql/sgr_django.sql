@@ -181,7 +181,8 @@ CREATE TABLE `operations_activity` (
   `service_id` bigint(20) DEFAULT NULL,
   `counts_for_score` tinyint(1) NOT NULL,
   `no_score_reason` varchar(120) NOT NULL,
-  `requester_is_delegate` tinyint(1) NOT NULL
+  `requester_is_delegate` tinyint(1) NOT NULL,
+  `organization_id` bigint(20) DEFAULT NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 CREATE TABLE `operations_commitment` (
@@ -236,6 +237,23 @@ CREATE TABLE `organization_beneficiary` (
   `name` varchar(150) NOT NULL,
   `phone` varchar(20) DEFAULT NULL,
   `address` varchar(200) NOT NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE `organization_communityorganization` (
+  `id` bigint(20) NOT NULL,
+  `created_at` datetime(6) NOT NULL,
+  `updated_at` datetime(6) NOT NULL,
+  `deleted_at` datetime(6) DEFAULT NULL,
+  `name` varchar(255) NOT NULL,
+  `legal_address` varchar(255) NOT NULL,
+  `territory_text` varchar(100) NOT NULL,
+  `active_members` int(10) UNSIGNED DEFAULT NULL CHECK (`active_members` >= 0),
+  `constitution_date` date DEFAULT NULL,
+  `registry_number` int(10) UNSIGNED NOT NULL CHECK (`registry_number` >= 0),
+  `registration_date` date DEFAULT NULL,
+  `directory_number` int(10) UNSIGNED DEFAULT NULL CHECK (`directory_number` >= 0),
+  `verified` tinyint(1) NOT NULL,
+  `territory_id` bigint(20) DEFAULT NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 CREATE TABLE `organization_delegation` (
@@ -345,6 +363,25 @@ CREATE TABLE `planning_adjustment` (
   `period_id` bigint(20) NOT NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
+CREATE TABLE `planning_feedback` (
+  `id` bigint(20) NOT NULL,
+  `created_at` datetime(6) NOT NULL,
+  `updated_at` datetime(6) NOT NULL,
+  `deleted_at` datetime(6) DEFAULT NULL,
+  `kind` varchar(20) NOT NULL,
+  `date` date NOT NULL,
+  `contact_name` varchar(150) NOT NULL,
+  `contact` varchar(100) NOT NULL,
+  `channel` varchar(20) NOT NULL,
+  `description` longtext NOT NULL,
+  `support` varchar(255) NOT NULL,
+  `effective` tinyint(1) NOT NULL,
+  `adjustment_id` bigint(20) DEFAULT NULL,
+  `officer_id` bigint(20) NOT NULL,
+  `period_id` bigint(20) NOT NULL,
+  `registered_by_id` int(11) NOT NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
 CREATE TABLE `planning_goal` (
   `id` bigint(20) NOT NULL,
   `created_at` datetime(6) NOT NULL,
@@ -386,7 +423,10 @@ CREATE TABLE `planning_period` (
   `collective_threshold` decimal(5,2) NOT NULL,
   `amber_threshold` decimal(5,2) NOT NULL,
   `weighted_cap` decimal(5,2) NOT NULL,
-  `parameters_version` varchar(20) NOT NULL
+  `parameters_version` varchar(20) NOT NULL,
+  `compliment_value` decimal(5,2) NOT NULL,
+  `complaint_value` decimal(5,2) NOT NULL,
+  `compliment_limit` int(10) UNSIGNED NOT NULL CHECK (`compliment_limit` >= 0)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 ALTER TABLE `accounts_roleprofile`
@@ -469,6 +509,7 @@ ALTER TABLE `operations_activity`
   ADD KEY `operations_activity_delegation_id_1d50e689_fk_organizat` (`delegation_id`),
   ADD KEY `operations_activity_item_id_bc7fb032_fk_organization_item_id` (`item_id`),
   ADD KEY `operations_activity_service_id_5569328a_fk_organizat` (`service_id`),
+  ADD KEY `operations_activity_organization_id_3910018f_fk_organizat` (`organization_id`),
   ADD KEY `operations_activity_counts_for_score_574a0dbc` (`counts_for_score`);
 
 ALTER TABLE `operations_commitment`
@@ -489,6 +530,11 @@ ALTER TABLE `operations_managementtype`
 ALTER TABLE `organization_beneficiary`
   ADD PRIMARY KEY (`id`),
   ADD UNIQUE KEY `rut` (`rut`);
+
+ALTER TABLE `organization_communityorganization`
+  ADD PRIMARY KEY (`id`),
+  ADD UNIQUE KEY `registry_number` (`registry_number`),
+  ADD KEY `organization_communi_territory_id_524b5f27_fk_organizat` (`territory_id`);
 
 ALTER TABLE `organization_delegation`
   ADD PRIMARY KEY (`id`),
@@ -530,6 +576,13 @@ ALTER TABLE `planning_adjustment`
   ADD KEY `planning_adjustment_officer_id_2e052aab_fk_organizat` (`officer_id`),
   ADD KEY `planning_adjustment_responsible_user_id_ba3f37d4_fk_auth_user_id` (`responsible_user_id`),
   ADD KEY `planning_adjustment_period_id_8c03143a_fk_planning_period_id` (`period_id`);
+
+ALTER TABLE `planning_feedback`
+  ADD PRIMARY KEY (`id`),
+  ADD UNIQUE KEY `adjustment_id` (`adjustment_id`),
+  ADD KEY `planning_feedback_officer_id_7a09d9eb_fk_organization_officer_id` (`officer_id`),
+  ADD KEY `planning_feedback_period_id_92650f20_fk_planning_period_id` (`period_id`),
+  ADD KEY `planning_feedback_registered_by_id_864838d8_fk_auth_user_id` (`registered_by_id`);
 
 ALTER TABLE `planning_goal`
   ADD PRIMARY KEY (`id`),
@@ -606,6 +659,9 @@ ALTER TABLE `operations_managementtype`
 ALTER TABLE `organization_beneficiary`
   MODIFY `id` bigint(20) NOT NULL AUTO_INCREMENT;
 
+ALTER TABLE `organization_communityorganization`
+  MODIFY `id` bigint(20) NOT NULL AUTO_INCREMENT;
+
 ALTER TABLE `organization_delegation`
   MODIFY `id` bigint(20) NOT NULL AUTO_INCREMENT;
 
@@ -631,6 +687,9 @@ ALTER TABLE `planning_absence`
   MODIFY `id` bigint(20) NOT NULL AUTO_INCREMENT;
 
 ALTER TABLE `planning_adjustment`
+  MODIFY `id` bigint(20) NOT NULL AUTO_INCREMENT;
+
+ALTER TABLE `planning_feedback`
   MODIFY `id` bigint(20) NOT NULL AUTO_INCREMENT;
 
 ALTER TABLE `planning_goal`
@@ -689,7 +748,8 @@ ALTER TABLE `operations_activity`
   ADD CONSTRAINT `operations_activity_beneficiary_id_c644adc2_fk_organizat` FOREIGN KEY (`beneficiary_id`) REFERENCES `organization_beneficiary` (`id`),
   ADD CONSTRAINT `operations_activity_delegation_id_1d50e689_fk_organizat` FOREIGN KEY (`delegation_id`) REFERENCES `organization_delegation` (`id`),
   ADD CONSTRAINT `operations_activity_item_id_bc7fb032_fk_organization_item_id` FOREIGN KEY (`item_id`) REFERENCES `organization_item` (`id`),
-  ADD CONSTRAINT `operations_activity_service_id_5569328a_fk_organizat` FOREIGN KEY (`service_id`) REFERENCES `organization_service` (`id`);
+  ADD CONSTRAINT `operations_activity_service_id_5569328a_fk_organizat` FOREIGN KEY (`service_id`) REFERENCES `organization_service` (`id`),
+  ADD CONSTRAINT `operations_activity_organization_id_3910018f_fk_organizat` FOREIGN KEY (`organization_id`) REFERENCES `organization_communityorganization` (`id`);
 
 ALTER TABLE `operations_commitment`
   ADD CONSTRAINT `operations_commitmen_delegation_id_40bdfd9e_fk_organizat` FOREIGN KEY (`delegation_id`) REFERENCES `organization_delegation` (`id`),
@@ -699,6 +759,9 @@ ALTER TABLE `operations_commitment`
 ALTER TABLE `operations_followup`
   ADD CONSTRAINT `operations_followup_activity_id_0498eb10_fk_operation` FOREIGN KEY (`activity_id`) REFERENCES `operations_activity` (`id`),
   ADD CONSTRAINT `operations_followup_management_type_id_99f8051b_fk_operation` FOREIGN KEY (`management_type_id`) REFERENCES `operations_managementtype` (`id`);
+
+ALTER TABLE `organization_communityorganization`
+  ADD CONSTRAINT `organization_communi_territory_id_524b5f27_fk_organizat` FOREIGN KEY (`territory_id`) REFERENCES `organization_territory` (`id`);
 
 ALTER TABLE `organization_item`
   ADD CONSTRAINT `organization_item_parent_item_id_5d2e054a_fk_organizat` FOREIGN KEY (`parent_item_id`) REFERENCES `organization_item` (`id`);
@@ -722,6 +785,12 @@ ALTER TABLE `planning_adjustment`
   ADD CONSTRAINT `planning_adjustment_officer_id_2e052aab_fk_organizat` FOREIGN KEY (`officer_id`) REFERENCES `organization_officer` (`id`),
   ADD CONSTRAINT `planning_adjustment_period_id_8c03143a_fk_planning_period_id` FOREIGN KEY (`period_id`) REFERENCES `planning_period` (`id`),
   ADD CONSTRAINT `planning_adjustment_responsible_user_id_ba3f37d4_fk_auth_user_id` FOREIGN KEY (`responsible_user_id`) REFERENCES `auth_user` (`id`);
+
+ALTER TABLE `planning_feedback`
+  ADD CONSTRAINT `planning_feedback_adjustment_id_e10dfd6d_fk_planning_` FOREIGN KEY (`adjustment_id`) REFERENCES `planning_adjustment` (`id`),
+  ADD CONSTRAINT `planning_feedback_officer_id_7a09d9eb_fk_organization_officer_id` FOREIGN KEY (`officer_id`) REFERENCES `organization_officer` (`id`),
+  ADD CONSTRAINT `planning_feedback_period_id_92650f20_fk_planning_period_id` FOREIGN KEY (`period_id`) REFERENCES `planning_period` (`id`),
+  ADD CONSTRAINT `planning_feedback_registered_by_id_864838d8_fk_auth_user_id` FOREIGN KEY (`registered_by_id`) REFERENCES `auth_user` (`id`);
 
 ALTER TABLE `planning_goal`
   ADD CONSTRAINT `planning_goal_item_id_e0b0c5b3_fk_organization_item_id` FOREIGN KEY (`item_id`) REFERENCES `organization_item` (`id`),

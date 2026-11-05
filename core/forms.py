@@ -28,7 +28,7 @@ from core.widgets import ColorWidget, DelegationsWidget, DependentSelect, Lookup
 from evidence.models import Validation
 from operations.models import Commitment, Followup
 from organization.models import Beneficiary, Delegation, Item, Officer
-from planning.models import Goal, Period
+from planning.models import Feedback, Goal, Period
 
 
 LONG_TEXT_MAX = 2000
@@ -1152,6 +1152,13 @@ class PeriodForm(CrudForm):
         cap = cleaned.get("weighted_cap")
         if cap is not None and cap <= 0:
             self.add_error("weighted_cap", "El tope ponderado debe ser mayor que 0.")
+        for name, label in (("compliment_value", "felicitación"), ("complaint_value", "reclamo")):
+            value = cleaned.get(name)
+            if value is not None and not 0 < value <= 100:
+                self.add_error(name, f"El valor de una {label} debe ser mayor que 0 y como máximo 100.")
+        limit = cleaned.get("compliment_limit")
+        if limit is not None and limit < 1:
+            self.add_error("compliment_limit", "El máximo de felicitaciones debe ser al menos 1.")
         if cleaned.get("status") == Period.Status.ACTIVE:
             others = Period.objects.filter(deleted_at__isnull=True, status=Period.Status.ACTIVE)
             if self.instance.pk:
@@ -1237,6 +1244,44 @@ class AbsenceForm(CrudForm):
         start, end = cleaned.get("start_date"), cleaned.get("end_date")
         if start and end and end < start and not self.has_error("end_date"):
             self.add_error("end_date", "La fecha «hasta» no puede ser anterior a la fecha «desde».")
+        return cleaned
+
+
+class FeedbackForm(CrudForm):
+    """RF-046: el respaldo es obligatorio, la fecha no puede ser futura y debe caer en un período abierto (lo revisa el modelo)."""
+
+    DATE_MESSAGE = "La fecha no puede ser futura."
+
+    def bounds(self):
+        return {"date": self.until_today(self.DATE_MESSAGE)}
+
+    def customize_fields(self):
+        field = self.fields["support"]
+        field.label = "Respaldo"
+        field.widget = forms.FileInput(
+            attrs={
+                "accept": ",".join(f".{ext}" for ext in uploads.EVIDENCE_TYPES),
+                "data-max-mb": settings.EVIDENCE_MAX_MB,
+                "data-accept-label": uploads.accepted_text(uploads.EVIDENCE_TYPES),
+            }
+        )
+        base = f"{uploads.accepted_text(uploads.EVIDENCE_TYPES)}, de hasta {settings.EVIDENCE_MAX_MB} MB."
+        current = self.instance.support.name if self.instance.pk and self.instance.support else ""
+        if current:
+            field.help_text = f"Archivo actual: {Path(current).name}. Sube otro solo si quieres reemplazarlo. {base}"
+        else:
+            field.help_text = f"Captura del correo o del WhatsApp, o foto del libro de observaciones. {base}"
+        field.error_messages["required"] = "El respaldo es obligatorio: sube la captura o la foto del registro."
+
+    def clean_support(self):
+        uploaded = self.cleaned_data.get("support")
+        if isinstance(uploaded, UploadedFile):
+            uploads.check_upload(uploaded, uploads.EVIDENCE_TYPES, settings.EVIDENCE_MAX_MB)
+        return uploaded
+
+    def clean(self):
+        cleaned = super().clean()
+        self.check_not_future(cleaned, "date", self.DATE_MESSAGE)
         return cleaned
 
 

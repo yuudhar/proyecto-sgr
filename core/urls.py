@@ -21,6 +21,7 @@ urlpatterns = [
     path("filas/", views.set_page_size, name="page_size"),
     path("contexto/", views.set_context, name="set_context"),
     path("evidencias/<int:pk>/archivo/", views.evidence_file, name="evidence_file"),
+    path("felicitaciones-y-reclamos/<int:pk>/respaldo/", views.feedback_file, name="feedback_file"),
     path("evidencias/validar/", views.validate_list, name="validate_list"),
     path("evidencias/<int:pk>/validar/", views.validate_evidence, name="validate_evidence"),
     path("tablero/delegacion/", views.delegation_board, name="delegation_board"),

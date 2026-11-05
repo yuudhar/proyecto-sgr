@@ -6,15 +6,15 @@ confirmados; si la transacción se deshace no se recalcula nada.
 """
 from django.db import transaction
 from django.db.models import Q
-from django.db.models.signals import post_delete, post_save, pre_save
+from django.db.models.signals import post_delete, post_save, pre_delete, pre_save
 from django.dispatch import receiver
 
 from evidence.models import Evidence, Validation
 from operations.models import Activity
 from organization.models import Item
 
-from . import calculation
-from .models import Absence, Goal, Period
+from . import calculation, feedback
+from .models import Absence, Feedback, Goal, Period
 
 
 def item_ids_of(item_id, parent_id):
@@ -181,3 +181,46 @@ def absence_saved(sender, instance, raw=False, **kwargs):
 @receiver(post_delete, sender=Absence, dispatch_uid="calc-absence-delete")
 def absence_deleted(sender, instance, **kwargs):
     run_later(recalculate_absence_periods, instance.officer_id, instance.start_date, instance.end_date)
+
+
+def sync_feedback_pairs(pairs):
+    for officer_id, period_id in pairs:
+        feedback.sync(officer_id, period_id)
+
+
+@receiver(pre_save, sender=Feedback, dispatch_uid="feedback-pre")
+def remember_previous_feedback(sender, instance, raw=False, **kwargs):
+    instance._feedback_previous = None
+    if raw or instance.pk is None:
+        return
+    instance._feedback_previous = (
+        Feedback.objects.filter(pk=instance.pk).values_list("officer_id", "period_id").first()
+    )
+
+
+@receiver(post_save, sender=Feedback, dispatch_uid="feedback-save")
+def feedback_saved(sender, instance, raw=False, **kwargs):
+    """RF-046: al guardar una felicitación o un reclamo se actualiza su ajuste (y el del funcionario o período anterior)."""
+    if raw:
+        return
+    pairs = {(instance.officer_id, instance.period_id)}
+    previous = getattr(instance, "_feedback_previous", None)
+    if previous is not None:
+        pairs.add(previous)
+    run_later(sync_feedback_pairs, pairs)
+
+
+@receiver(pre_delete, sender=Feedback, dispatch_uid="feedback-delete-pre")
+def remember_feedback_adjustment(sender, instance, **kwargs):
+    instance._feedback_adjustment = (
+        Feedback.objects.filter(pk=instance.pk).values_list("adjustment_id", flat=True).first()
+    )
+
+
+@receiver(post_delete, sender=Feedback, dispatch_uid="feedback-delete")
+def feedback_deleted(sender, instance, **kwargs):
+    """Al eliminar el registro también se retira su ajuste y se cuentan de nuevo las felicitaciones del período."""
+    adjustment_id = getattr(instance, "_feedback_adjustment", None) or instance.adjustment_id
+    if adjustment_id:
+        run_later(feedback.discard, adjustment_id)
+    run_later(sync_feedback_pairs, {(instance.officer_id, instance.period_id)})
