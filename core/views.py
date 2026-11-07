@@ -29,9 +29,10 @@ from core.access import (
 )
 from core.activity_stats import delegation_recent, recent_activity
 from core.audit import log_event, log_export
+from core.clients import client_beneficiary, is_client
 from core.commitments import DUE_SOON_DAYS, STATUS_ORDER, collective_summary, deadline_counts, status_label
 from core.crud import CODE_COLUMN, PAGE_SIZES, SESSION_PAGE_SIZE, Col, Column, CrudListView, conflict_message, query_string, registry, version_of
-from core.forms import PortalAuthenticationForm, PortalPasswordChangeForm, ProfilePhotoForm, ValidationForm
+from core.forms import ClientDataForm, PortalAuthenticationForm, PortalPasswordChangeForm, ProfilePhotoForm, ValidationForm
 from core.results import current_period, goals_of, light_of, mean, officer_summary, rounded, team_goals
 from core.rules import rut_with_wrong_digit
 from evidence.models import Evidence, Validation
@@ -50,6 +51,11 @@ class PortalLoginView(auth_views.LoginView):
     authentication_form = PortalAuthenticationForm
     redirect_authenticated_user = True
 
+    def get_default_redirect_url(self):
+        if is_client(self.request.user):
+            return reverse("core:portal_home")
+        return super().get_default_redirect_url()
+
 
 class PortalLogoutView(auth_views.LogoutView):
 
@@ -59,12 +65,54 @@ class PortalLogoutView(auth_views.LogoutView):
         return response
 
 
+def save_client_data(user, beneficiary, data):
+    """Guarda lo que el Cliente cambió de sí mismo: su correo y el teléfono y dirección de su ficha.
+
+    La cuenta y la ficha salen del usuario autenticado, nunca de un dato del formulario; así nadie cambia datos ajenos.
+    """
+    with transaction.atomic():
+        before = f"correo: {user.email or '(vacío)'}"
+        if user.email != data["email"]:
+            user.email = data["email"]
+            user.save(update_fields=["email"])
+        if beneficiary is not None:
+            before += f"; teléfono: {beneficiary.phone or '(vacío)'}; dirección: {beneficiary.address or '(vacía)'}"
+            beneficiary.phone = data["phone"] or None
+            beneficiary.address = data["address"]
+            beneficiary.save(update_fields=["phone", "address", "updated_at"])
+        log_event(
+            user,
+            "Datos de cliente actualizados",
+            beneficiary if beneficiary is not None else user,
+            previous=before,
+            new=f"correo: {data['email'] or '(vacío)'}; teléfono: {data['phone'] or '(vacío)'}; dirección: {data['address'] or '(vacía)'}",
+        )
+
+
 @login_required
 def profile(request):
     action = request.POST.get("accion", "") if request.method == "POST" else ""
     form = PortalPasswordChangeForm(request.user, request.POST if action == "" and request.method == "POST" else None)
     photo_form = ProfilePhotoForm(request.POST if action == "foto" else None, request.FILES if action == "foto" else None)
+    beneficiary = client_beneficiary(request.user)
+    client_form = None
+    if is_client(request.user):
+        client_form = ClientDataForm(
+            request.POST if action == "datos" else None,
+            initial={
+                "email": request.user.email,
+                "phone": beneficiary.phone if beneficiary else "",
+                "address": beneficiary.address if beneficiary else "",
+            },
+        )
     if request.method == "POST":
+        if action == "datos":
+            if client_form is None:
+                raise PermissionDenied("Solo las cuentas del perfil Cliente cambian sus datos de contacto aquí.")
+            if client_form.is_valid():
+                save_client_data(request.user, beneficiary, client_form.cleaned_data)
+                messages.success(request, "Listo: actualizaste tus datos.")
+                return redirect("core:profile")
         if action == "foto" and photo_form.is_valid():
             account = UserProfile.objects.get_or_create(user=request.user)[0]
             old = account.photo.name if account.photo else ""
@@ -97,13 +145,17 @@ def profile(request):
         {
             "form": form,
             "photo_form": photo_form,
-            "breadcrumbs": [("Inicio", reverse("core:dashboard")), ("Mi perfil", None)],
+            "client_form": client_form,
+            "beneficiary": beneficiary,
+            "breadcrumbs": [("Inicio", reverse("core:portal_home" if client_form else "core:dashboard")), ("Mi perfil", None)],
         },
     )
 
 
 @login_required
 def profile_photo(request, user_id):
+    if is_client(request.user) and user_id != request.user.pk:
+        raise Http404
     account = get_object_or_404(UserProfile, user_id=user_id)
     name = account.photo.name if account.photo else ""
     if not name or not account.photo.storage.exists(name):

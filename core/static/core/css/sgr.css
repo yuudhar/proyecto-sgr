@@ -2905,3 +2905,42 @@ textarea.form-control {
 .lowest-title { margin: 0 0 0.3rem; font-weight: 600; }
 .lowest-list { margin: 0 0 0.3rem 1.1rem; padding: 0; }
 .lowest-note { margin: 0; font-size: 0.85rem; color: var(--bs-secondary-color, #6c757d); }
+
+
+/* Recorte de la foto de perfil (Croppr) */
+.crop-panel {
+  display: grid;
+  gap: 1rem;
+  margin-top: 0.75rem;
+  padding: 1rem;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: #fff;
+}
+
+.crop-stage {
+  max-width: 28rem;
+  max-height: 24rem;
+  overflow: hidden;
+}
+
+.crop-stage img {
+  display: block;
+  max-width: 100%;
+  max-height: 24rem;
+}
+
+.crop-side {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.75rem 1.25rem;
+}
+
+.crop-preview {
+  width: 6rem;
+  height: 6rem;
+  border-radius: 50%;
+  border: 1px solid var(--line);
+  background: var(--line-soft);
+}

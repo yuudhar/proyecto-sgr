@@ -14,6 +14,8 @@ from core.qa.esperado_codes_search_and_charts import ESPERADO as _CODES_SEARCH_A
 from core.qa.esperado_reglas_puntaje import ESPERADO as _REGLAS_PUNTAJE
 from core.qa.esperado_cierre_y_ausencias import ESPERADO as _CIERRE_Y_AUSENCIAS
 from core.qa.esperado_felicitaciones_equipo_y_jjvv import ESPERADO as _FELICITACIONES_EQUIPO_Y_JJVV
+from core.qa.esperado_tubo_de_trabajo import ESPERADO as _TUBO_DE_TRABAJO
+from core.qa.esperado_cliente_y_recorte import ESPERADO as _CLIENTE_Y_RECORTE
 
 REQUISITOS = {
     "A1-01": ("A1", "Login: usuario o correo más contraseña, validación y acceso según perfil"),
@@ -78,6 +80,11 @@ REQUISITOS = {
     "V31-02": ("Versión 31", "Los ajustes se suman al total en la ficha, el tablero y el dashboard; el reclamo en más de dos períodos seguidos avisa a Recursos Humanos"),
     "V31-03": ("Versión 31", "Puntaje de equipo: se suman metas y avances de la delegación, con el tope del período, y cada persona aporta su parte"),
     "V31-04": ("Versión 31", "Juntas de vecinos: importación sin duplicar por N.º de registro (con simulación), catálogo de organizaciones y organización opcional en la atención"),
+    "V32-01": ("Versión 32", "Tubo de trabajo: al marcar «ingresa al tubo» la atención pide la fecha comprometida y el territorio y crea su compromiso en la Agenda colectiva"),
+    "V32-02": ("Versión 32", "El compromiso creado desde la atención queda enlazado, no se duplica al editar y una atención marcada antes sin compromiso se puede seguir editando"),
+    "V33-01": ("Versión 33", "Portal del Cliente: el beneficiario con cuenta ve solo su perfil y sus propias atenciones (listado y detalle), filtrado en el servidor"),
+    "V33-02": ("Versión 33", "El Cliente queda encerrado en su portal: sin listados, fichas, exportaciones ni avisos en vivo de otros, y edita solo sus propios datos y foto"),
+    "V33-03": ("Versión 33", "Foto de perfil con recorte (Croppr): vista previa, recorte real, cancelar sin cambios y validación del resultado en el servidor"),
     "V29-04": ("Versión 29", "Números de pocas opciones (por ejemplo 1 a 3) se eligen de una lista y no se pueden escribir mal"),
     "T11-04": ("Clase 11", "Dashboard, tablero y validar en vivo: el cambio de una persona se ve en la pantalla abierta de otra de la misma delegación, sin F5"),
     "RF-018": ("Informe SGR", "Gestionar estados de compromisos: Ingresado, Pendiente, En proceso y Realizado, con transiciones válidas e historial"),
@@ -264,6 +271,23 @@ CLASES = {
     "TeamScoreTests": (["V31-03"], "Cálculo del puntaje de equipo", _SIN_BD),
     "TeamScreensTests": (["V31-03"], "Puntaje de equipo en las pantallas", _SEMILLA + "; sesiones de funcionario, Jefatura y Coordinación"),
     "ImportCommandTests": (["V31-04"], "Importación de juntas de vecinos", "Base de datos vacía con dos delegaciones de prueba y planillas Excel creadas en la prueba"),
+    "PipelineCreationTests": (["V32-01"], "Compromiso que nace de la atención marcada «ingresa al tubo»", _SEMILLA + "; sesión de Matías Cavieres (Norte)"),
+    "PipelineValidationTests": (["V32-01"], "Reglas de la fecha comprometida y el territorio", _SEMILLA + "; sesión de Matías Cavieres (Norte)"),
+    "PipelineFormTests": (["V32-01"], "Campos de la casilla «ingresa al tubo» en el formulario", _SEMILLA + "; sesión de Matías Cavieres (Norte)"),
+    "PipelineEditTests": (["V32-02"], "Edición de atenciones con y sin compromiso", _SEMILLA + "; sesión de Matías Cavieres (Norte)"),
+    "PipelineModelTests": (["V32-02"], "Enlace entre la atención y su compromiso", _SEMILLA),
+    "ClientAccountTests": (["V33-01"], "Cuenta Cliente y sus atenciones", _SEMILLA),
+    "ClientLoginTests": (["V33-01"], "Ingreso del Cliente", _SEMILLA),
+    "ClientPortalScreensTests": (["V33-01"], "Pantallas del portal del Cliente", _SEMILLA + "; sesiones de Cliente 1 y Cliente 2"),
+    "ClientIsKeptInsideTheirPortalTests": (["V33-02"], "El Cliente no sale de su portal", _SEMILLA + "; sesión de Cliente 1"),
+    "ClientInterfaceTests": (["V33-01"], "Menú y franja del Cliente", _SEMILLA + "; sesión de Cliente 1"),
+    "ClientProfileTests": (["V33-02"], "Perfil del Cliente: sus datos, contraseña y foto", _SEMILLA + "; sesión de Cliente 1"),
+    "ClientSocketTests": (["V33-02"], "Avisos en vivo cerrados al Cliente", _SEMILLA),
+    "ClientAccountCreationTests": (["V33-01"], "Alta de cuentas Cliente por el Super Usuario", _SEMILLA + "; sesión del Super Usuario"),
+    "ClientRoleCatalogTests": (["V33-01"], "Perfil Cliente en el catálogo de perfiles", _SEMILLA),
+    "PhotoSquareTests": (["V33-03"], "Foto de perfil cuadrada y validada en el servidor", _SEMILLA + "; sesión de Matías Cavieres (Norte)"),
+    "PhotoCropScreenTests": (["V33-03"], "Panel de recorte en Mi perfil", _SEMILLA + "; sesión de Matías Cavieres (Norte)"),
+    "PhotoCropScriptTests": (["V33-03"], "Script de recorte con Croppr", _SIN_BD),
     "OrganizationScreensTests": (["V31-04"], "Catálogo de organizaciones y su uso en la atención", _SEMILLA + "; sesiones del Super Usuario y de Matías Cavieres (Norte)"),
     "SmallRangeTests": (["V29-04"], "Listas para números de pocas opciones", _SEMILLA + "; sesión del Super Usuario"),
     "DaphneDeployTests": (["T11-01", "A4-02"], "Despliegue con Daphne y WebSocket", _SIN_BD),
@@ -272,6 +296,6 @@ CLASES = {
 }
 
 ESPERADO = {}
-for _grupo in (_ACCESO, _MANTENEDORES, _INGRESO, _LISTADOS, _DESPLIEGUE, _VALIDACIONES, _ARCHIVOS_Y_FOTO, _ELIMINAR_Y_LISTADOS, _USUARIOS_ELIMINADOS, _TIEMPO_REAL, _RITMO_Y_COMPROMISOS, _RESULTADOS_Y_CALCULO, _CODES_SEARCH_AND_CHARTS, _REGLAS_PUNTAJE, _CIERRE_Y_AUSENCIAS, _FELICITACIONES_EQUIPO_Y_JJVV, ):
+for _grupo in (_ACCESO, _MANTENEDORES, _INGRESO, _LISTADOS, _DESPLIEGUE, _VALIDACIONES, _ARCHIVOS_Y_FOTO, _ELIMINAR_Y_LISTADOS, _USUARIOS_ELIMINADOS, _TIEMPO_REAL, _RITMO_Y_COMPROMISOS, _RESULTADOS_Y_CALCULO, _CODES_SEARCH_AND_CHARTS, _REGLAS_PUNTAJE, _CIERRE_Y_AUSENCIAS, _FELICITACIONES_EQUIPO_Y_JJVV, _TUBO_DE_TRABAJO, _CLIENTE_Y_RECORTE, ):
     for _clase, _metodos in _grupo.items():
         ESPERADO.setdefault(_clase, {}).update(_metodos)

@@ -19,6 +19,12 @@ def escudo_url():
     return ""
 
 
+@register.simple_tag
+def vendor_url(name):
+    """Dirección de un archivo de core/static si existe, o texto vacío (sirve para librerías que se agregan aparte)."""
+    return static(name) if finders.find(name) else ""
+
+
 @register.filter
 def fdate(value):
     return ui.fmt_date(value)

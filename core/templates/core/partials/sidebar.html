@@ -7,7 +7,7 @@
   </div>
   <div class="offcanvas-body sidebar-body">
     <div class="sidebar-sticky">
-      <a class="brand sidebar-brand" href="{% url 'core:dashboard' %}">
+      <a class="brand sidebar-brand" href="{{ home_url }}">
         <img class="brand-mark" src="{% static 'core/img/sgr-mark.svg' %}" alt="" width="40" height="40">
         <span class="brand-text">
           <span class="brand-name">{{ brand_name }}</span>
@@ -15,6 +15,7 @@
         </span>
       </a>
 
+      {% if not is_client %}
       <section class="scope-card" style="--scope-bg: {{ me_scope.bg }}; --scope-fg: {{ me_scope.fg }}; --scope-shade: {{ me_scope.shade }}" aria-label="Tu delegación y tus perfiles">
         <p class="scope-label">Delegación</p>
         <p class="scope-name">{{ me_scope.name }}</p>
@@ -28,6 +29,7 @@
           {% endfor %}
         </ul>
       </section>
+      {% endif %}
 
       <nav class="side-nav" aria-label="Menú principal">
         <ul class="side-list">

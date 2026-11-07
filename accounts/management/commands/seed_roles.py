@@ -63,6 +63,8 @@ ROLES = {
         (Validation, ["view_validation"]),
         (Followup, ["view_followup"]),
     ],
+    # El cliente (beneficiario con cuenta) no recibe permisos de módulos: su acceso es el portal, filtrado por usuario.
+    "Cliente": [],
 }
 
 

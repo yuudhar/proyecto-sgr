@@ -4,6 +4,8 @@ SUPERUSER_ROLE = "Super Usuario"
 
 GLOBAL_ROLE = "Coordinación"
 
+CLIENT_ROLE = "Cliente"
+
 ROLES = {
     SUPERUSER_ROLE: (
         "bi-shield-lock",
@@ -28,6 +30,10 @@ ROLES = {
     "Consulta": (
         "bi-eye",
         "Solo consulta la información de su delegación.",
+    ),
+    CLIENT_ROLE: (
+        "bi-person-lines-fill",
+        "Usuario final (beneficiario): ve solo su perfil y sus propias atenciones.",
     ),
 }
 

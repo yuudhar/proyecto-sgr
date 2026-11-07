@@ -121,6 +121,8 @@ Los roles de la tabla siguiente son los que usan las pruebas automáticas y la g
 | `matias.cavieres` | Funcionario y Verificador, Delegación Norte |
 | `matias.quiroz` | Funcionario y Verificador, Delegación Sur |
 | `consulta1` | Solo lectura |
+| `cliente1` | Cliente (María Pérez): portal con solo sus datos y sus atenciones |
+| `cliente2` | Cliente (Carla Muñoz): portal con solo sus datos y sus atenciones |
 
 ### Recuperar la contraseña
 

@@ -25,7 +25,7 @@
       <p class="form-section-text">{{ form.section_text }}</p>
     </div>
     {% endif %}
-    {% if field.widget_type != "checkbox" %}{% include "core/partials/field.html" %}{% endif %}
+    {% if field.widget_type != "checkbox" and field.name not in form.after_checks %}{% include "core/partials/field.html" %}{% endif %}
   {% endfor %}
   {% if form.note %}
   <div class="col-12"><p class="form-note">{{ form.note }}</p></div>
@@ -39,4 +39,5 @@
     </div>
   </div>
   {% endif %}
+  {% for field in form %}{% if field.name in form.after_checks %}{% include "core/partials/field.html" %}{% endif %}{% endfor %}
 </div>

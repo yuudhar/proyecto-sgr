@@ -50,6 +50,12 @@ SUPERVISION_PASSWORD = "Hola123!"
 CONSULTA_USERNAME = "consulta1"
 CONSULTA_PASSWORD = "Hola123!"
 
+CLIENTE1_USERNAME = "cliente1"
+CLIENTE1_PASSWORD = "Hola123!"
+
+CLIENTE2_USERNAME = "cliente2"
+CLIENTE2_PASSWORD = "Hola123!"
+
 DEMO_EMAIL_DOMAIN = "sgr.example"
 
 
@@ -705,6 +711,26 @@ class CargaDatosPrueba(BaseCommand):
             },
         )
 
+        # Dos clientes (beneficiarios con cuenta) de la misma delegación: cada uno ve solo lo suyo en el portal.
+        group_client, _ = Group.objects.get_or_create(name="Cliente")
+        for username, password, first, last, rut in (
+            (CLIENTE1_USERNAME, CLIENTE1_PASSWORD, "María", "Pérez", "11111111-1"),
+            (CLIENTE2_USERNAME, CLIENTE2_PASSWORD, "Carla", "Muñoz", "55555555-5"),
+        ):
+            client_user, client_created = User.objects.get_or_create(
+                username=username,
+                defaults={"first_name": first, "last_name": last, "is_staff": False, "is_superuser": False},
+            )
+            if client_created:
+                client_user.set_password(password)
+                client_user.email = f"{username}@{DEMO_EMAIL_DOMAIN}"
+                client_user.save()
+            client_user.groups.add(group_client)
+            UserProfile.objects.get_or_create(
+                user=client_user,
+                defaults={"beneficiary": beneficiaries[rut], "status": UserProfile.Status.ACTIVE},
+            )
+
         activity_north_1.action_taken = (
             "Se coordinó visita domiciliaria y se derivó a Servicio de Ayuda Social."
         )
@@ -1020,6 +1046,14 @@ class CargaDatosPrueba(BaseCommand):
         self.stdout.write(
             f"  Consulta (solo lectura) Norte   -> "
             f"{CONSULTA_USERNAME} / {CONSULTA_PASSWORD}"
+        )
+        self.stdout.write(
+            f"  Cliente 1 (María Pérez, portal) -> "
+            f"{CLIENTE1_USERNAME} / {CLIENTE1_PASSWORD}"
+        )
+        self.stdout.write(
+            f"  Cliente 2 (Carla Muñoz, portal) -> "
+            f"{CLIENTE2_USERNAME} / {CLIENTE2_PASSWORD}"
         )
         self.stdout.write(
             f"\nCada cuenta tiene el correo <usuario>@{DEMO_EMAIL_DOMAIN} (por ejemplo "

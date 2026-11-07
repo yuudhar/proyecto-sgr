@@ -32,7 +32,8 @@ CREATE TABLE `accounts_userprofile` (
   `status` varchar(20) NOT NULL,
   `officer_id` bigint(20) DEFAULT NULL,
   `user_id` int(11) NOT NULL,
-  `photo` varchar(255) DEFAULT NULL
+  `photo` varchar(255) DEFAULT NULL,
+  `beneficiary_id` bigint(20) DEFAULT NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 CREATE TABLE `accounts_userroledelegation` (
@@ -182,7 +183,8 @@ CREATE TABLE `operations_activity` (
   `counts_for_score` tinyint(1) NOT NULL,
   `no_score_reason` varchar(120) NOT NULL,
   `requester_is_delegate` tinyint(1) NOT NULL,
-  `organization_id` bigint(20) DEFAULT NULL
+  `organization_id` bigint(20) DEFAULT NULL,
+  `commitment_id` bigint(20) DEFAULT NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 CREATE TABLE `operations_commitment` (
@@ -436,7 +438,8 @@ ALTER TABLE `accounts_roleprofile`
 ALTER TABLE `accounts_userprofile`
   ADD PRIMARY KEY (`id`),
   ADD UNIQUE KEY `user_id` (`user_id`),
-  ADD UNIQUE KEY `officer_id` (`officer_id`);
+  ADD UNIQUE KEY `officer_id` (`officer_id`),
+  ADD UNIQUE KEY `beneficiary_id` (`beneficiary_id`);
 
 ALTER TABLE `accounts_userroledelegation`
   ADD PRIMARY KEY (`id`),
@@ -510,6 +513,7 @@ ALTER TABLE `operations_activity`
   ADD KEY `operations_activity_item_id_bc7fb032_fk_organization_item_id` (`item_id`),
   ADD KEY `operations_activity_service_id_5569328a_fk_organizat` (`service_id`),
   ADD KEY `operations_activity_organization_id_3910018f_fk_organizat` (`organization_id`),
+  ADD UNIQUE KEY `commitment_id` (`commitment_id`),
   ADD KEY `operations_activity_counts_for_score_574a0dbc` (`counts_for_score`);
 
 ALTER TABLE `operations_commitment`
@@ -705,6 +709,7 @@ ALTER TABLE `accounts_roleprofile`
   ADD CONSTRAINT `accounts_roleprofile_group_id_2f65c810_fk_auth_group_id` FOREIGN KEY (`group_id`) REFERENCES `auth_group` (`id`);
 
 ALTER TABLE `accounts_userprofile`
+  ADD CONSTRAINT `accounts_userprofile_beneficiary_id_13bfad0f_fk_organizat` FOREIGN KEY (`beneficiary_id`) REFERENCES `organization_beneficiary` (`id`),
   ADD CONSTRAINT `accounts_userprofile_officer_id_d8f05183_fk_organizat` FOREIGN KEY (`officer_id`) REFERENCES `organization_officer` (`id`),
   ADD CONSTRAINT `accounts_userprofile_user_id_92240672_fk_auth_user_id` FOREIGN KEY (`user_id`) REFERENCES `auth_user` (`id`);
 
@@ -749,7 +754,8 @@ ALTER TABLE `operations_activity`
   ADD CONSTRAINT `operations_activity_delegation_id_1d50e689_fk_organizat` FOREIGN KEY (`delegation_id`) REFERENCES `organization_delegation` (`id`),
   ADD CONSTRAINT `operations_activity_item_id_bc7fb032_fk_organization_item_id` FOREIGN KEY (`item_id`) REFERENCES `organization_item` (`id`),
   ADD CONSTRAINT `operations_activity_service_id_5569328a_fk_organizat` FOREIGN KEY (`service_id`) REFERENCES `organization_service` (`id`),
-  ADD CONSTRAINT `operations_activity_organization_id_3910018f_fk_organizat` FOREIGN KEY (`organization_id`) REFERENCES `organization_communityorganization` (`id`);
+  ADD CONSTRAINT `operations_activity_organization_id_3910018f_fk_organizat` FOREIGN KEY (`organization_id`) REFERENCES `organization_communityorganization` (`id`),
+  ADD CONSTRAINT `operations_activity_commitment_id_4d8063dc_fk_operation` FOREIGN KEY (`commitment_id`) REFERENCES `operations_commitment` (`id`);
 
 ALTER TABLE `operations_commitment`
   ADD CONSTRAINT `operations_commitmen_delegation_id_40bdfd9e_fk_organizat` FOREIGN KEY (`delegation_id`) REFERENCES `organization_delegation` (`id`),

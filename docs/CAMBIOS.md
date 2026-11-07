@@ -17,6 +17,64 @@ Nombres que cambiaron en la v27 (los textos antiguos los mencionan con el nombre
 | `core/qa/esperado_vNN.py` | `core/qa/esperado_<tema>.py` (mismo tema que su archivo de pruebas) |
 | `sql/*.sql` (todos) | `sql/sgr_django.sql` (estructura vigente) |
 
+## Versión 33
+
+Foto de perfil con recorte (Croppr) y portal del Cliente, de la Evaluación Sumativa III. Siguen pendientes las demás exigencias de esa evaluación (página 400, 2.000 registros de prueba y tabla de cuentas en el README, recuperación de contraseña por enlace, estado de los listados) y los puntos abiertos de las versiones 30 a 32.
+
+### Foto de perfil con recorte
+
+- En **Mi perfil**, al elegir una imagen se abre un panel con **Croppr**: cuadro de recorte cuadrado, **vista previa** de cómo quedará y los botones **Guardar foto** y **Cancelar**.
+- El recorte es real, no con CSS: el navegador corta los píxeles elegidos en un canvas (hasta 512 px por lado), deja ese archivo en el campo y envía el formulario. **Cancelar** descarta todo y la foto anterior queda igual.
+- El servidor valida lo que llega (PNG o JPG, 2 MB, que sea una imagen real), lo deja cuadrado y de a lo más 512 px, y lo asocia a **quien tiene la sesión**: el formulario no recibe ningún identificador de usuario, así que nadie reemplaza la foto de otra persona. Al recargar, la foto sigue ahí.
+- Sin JavaScript o sin la librería, el formulario funciona como una subida normal y el servidor centra y recorta a cuadrado.
+- **Croppr no viene incluido**: hay que copiar `croppr.min.js` y `croppr.min.css` a `core/static/core/vendor/croppr/` (comandos en la entrega). Mientras no estén, las pantallas no los enlazan y la subida funciona sin recorte.
+- Código: `core/static/core/js/photo-crop.js`, `uploads.square_photo`, `ProfilePhotoForm.clean_photo`, etiqueta `vendor_url`.
+
+### Portal del Cliente
+
+- Perfil nuevo **Cliente**: un beneficiario con cuenta. La cuenta se vincula a su beneficiario (`UserProfile.beneficiary`, uno a uno; un beneficiario tiene a lo más una cuenta). Se crea en Control de usuarios: el perfil Cliente va solo, con su beneficiario, y sin funcionario, delegaciones, Super Usuario ni acceso al panel.
+- Al ingresar, el Cliente llega a **Mi portal**: sus datos, un resumen de sus atenciones por estado y las últimas. **Mis atenciones** es el listado (con búsqueda y filtro por estado) y cada atención tiene su **detalle** con sus gestiones.
+- **Solo ve lo suyo, filtrado en el servidor** con el usuario autenticado, aunque otro cliente sea de la misma delegación. El detalle de una atención ajena responde 404, igual que una que no existe. No se muestran datos internos (puntaje, evidencias, compromiso del tubo).
+- **No sale de su portal**: un middleware deja pasar solo el portal, el perfil, su foto y la salida. Listados, fichas, edición, exportaciones a Excel, tablero y `/admin/` responden 403 sin mostrar contenido y quedan en la auditoría («Acceso de cliente rechazado»). El dashboard lo lleva a su portal. Los avisos en vivo (WebSocket) se cierran para el Cliente. Su menú tiene solo Mi portal, Mis atenciones y Mi perfil, y no ve la franja de delegación.
+- En **Mi perfil** edita su correo, teléfono y dirección, su foto y su contraseña. No puede cambiar su nombre, RUT, perfil, permisos ni el dueño de la cuenta, y solo puede abrir su propia foto.
+- Cuentas de prueba: `cliente1` (María Pérez) y `cliente2` (Carla Muñoz), clave `Hola123!`, las dos de la Delegación Norte y con atenciones distintas (María Pérez y Carla Muñoz ya existían como beneficiarias de ejemplo).
+- Código: `core/clients.py`, `core/portal_cliente.py`, `core/templates/core/portal/`, `client_menu` (`core/menus.py`), `ClientDataForm` y `UserForm.check_client`.
+
+### Base de datos
+
+Migración nueva `accounts/0007_cliente_beneficiario_v33.py` (columna `beneficiary_id` del perfil de usuario, única, con su llave foránea). `sql/sgr_django.sql` quedó al día. El perfil Cliente lo crea `seed_roles` (sin permisos de módulos).
+
+### Pruebas
+
+`core/test_cliente_y_recorte.py` (91 pruebas), registradas en el catálogo QA como V33-01, V33-02 y V33-03. El comportamiento de Croppr en el navegador no se puede probar sin la librería: las pruebas revisan el script y las pantallas, y la prueba real es abrir Mi perfil y recortar una imagen.
+
+## Versión 32
+
+Cuarto avance sobre los requisitos nuevos de la clienta: el tubo de trabajo. Sigue pendiente la lista de ítems que no otorgan punto (no hay una lista en lo recibido).
+
+### Tubo de trabajo: la atención crea su compromiso
+
+- Antes, marcar «Ingresa al tubo de trabajo» solo dejaba una marca en la atención. Ahora, al marcarla, el formulario muestra y pide **«Fecha comprometida»** y **«Territorio del compromiso»**, y al guardar se crea el compromiso en la Agenda colectiva.
+- El compromiso toma de la atención el solicitante, la descripción, la fecha (como fecha de solicitud), la delegación y el funcionario responsable; el origen dice «Atención ATN00012». Nace en estado «Ingresado», con su historial y su registro de auditoría. Después se sigue en la Agenda como cualquier compromiso (Ingresado, Pendiente, En proceso, Realizado).
+- Reglas: la fecha comprometida no puede ser anterior a la fecha de la atención (el mismo día sirve) y el territorio debe ser de la delegación de la atención. Si la atención se rechaza, no se crea nada.
+- Los dos campos solo existen con la casilla marcada: `widgets.js` los muestra o los oculta, y el servidor ignora lo que traigan si la casilla no está marcada.
+- Al **editar** una atención pasa lo mismo si se marca la casilla y no tiene compromiso. Una atención que ya tiene su compromiso no vuelve a pedir los datos ni crea otro. Desmarcar la casilla después **no borra** el compromiso de la Agenda.
+- Atenciones que quedaron marcadas antes de la v32 sin compromiso: se pueden seguir editando sin pedirles los datos; si se completan los dos, se crea el compromiso (si se da solo uno, se pide el otro). No se crean compromisos de golpe para esas atenciones, porque faltaría la fecha y el territorio.
+- Código: `operations/pipeline.py`, formulario base `PipelineForm` (`core/forms.py`) y `ActivityCrud.after_save` (`core/registry.py`).
+
+### Puntos abiertos
+
+- No se modelaron el código de verificación con foto de las hojas TUBO ni el tubo de cartas (`TUBO CARTAS`, con otras columnas).
+- «Interno o externo» del compromiso queda en «Externo» (el valor por defecto): se cambia en la Agenda.
+
+### Base de datos
+
+Migración nueva `operations/0005_tubo_de_trabajo_v32.py` (columna `commitment_id` de la atención, única). `sql/sgr_django.sql` quedó al día.
+
+### Pruebas
+
+`core/test_tubo_de_trabajo.py` (30 pruebas), registradas en el catálogo QA como V32-01 y V32-02.
+
 ## Versión 31
 
 Tercer avance sobre los requisitos nuevos de la clienta: felicitaciones y reclamos, puntaje de equipo e importación de juntas de vecinos. Siguen pendientes el tubo de trabajo y la lista de ítems que no otorgan punto.

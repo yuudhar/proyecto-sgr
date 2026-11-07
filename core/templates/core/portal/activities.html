@@ -1,0 +1,44 @@
+{% extends "base.html" %}
+{% load core_ui %}
+{% block title %}Mis atenciones{% endblock %}
+
+{% block content %}
+<section class="page-head">
+  <div>
+    <h1 class="page-title"><i class="bi bi-clipboard2-pulse" aria-hidden="true"></i>Mis atenciones</h1>
+    <p class="page-sub">Solo aparecen las atenciones registradas a tu nombre. Abre una para ver sus gestiones.</p>
+  </div>
+</section>
+
+<section class="panel mb-4" aria-label="Buscar en mis atenciones">
+  <form method="get" class="atencion-search" role="search" data-validate>
+    <div class="atencion-row">
+      <div class="input-group">
+        <span class="input-group-text" aria-hidden="true"><i class="bi bi-search"></i></span>
+        <input type="search" class="form-control" id="portal-q" name="q" value="{{ q }}" placeholder="Busca por tema o por lo que pediste" autocomplete="off" maxlength="100" aria-label="Buscar en mis atenciones">
+      </div>
+      <select class="form-select" name="estado" aria-label="Estado">
+        <option value="">Todos los estados</option>
+        {% for value, label in statuses %}<option value="{{ value }}"{% if value == status %} selected{% endif %}>{{ label }}</option>{% endfor %}
+      </select>
+      <button type="submit" class="btn btn-primary"><i class="bi bi-search" aria-hidden="true"></i> Buscar</button>
+      {% if has_filters %}<a class="btn btn-outline-secondary" href="{% url 'core:portal_activities' %}">Limpiar</a>{% endif %}
+    </div>
+  </form>
+</section>
+
+<section class="panel" aria-label="Listado de mis atenciones">
+  <div class="panel-head">
+    <h2 class="panel-title">{{ page.paginator.count }} {% if page.paginator.count == 1 %}atención{% else %}atenciones{% endif %}</h2>
+  </div>
+  {% if rows %}
+  {% include "core/portal/_rows.html" %}
+  {% include "core/partials/pagination.html" %}
+  {% else %}
+  <div class="empty">
+    <i class="bi bi-inbox" aria-hidden="true"></i>
+    {% if has_filters %}<p>No encontramos atenciones con esa búsqueda. Quita los filtros para ver todas.</p>{% else %}<p>Aún no hay atenciones registradas a tu nombre.</p>{% endif %}
+  </div>
+  {% endif %}
+</section>
+{% endblock %}

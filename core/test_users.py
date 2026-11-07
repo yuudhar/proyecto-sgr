@@ -104,7 +104,7 @@ class UserListTests(UserTestCase):
         cells = self.cells(self.client.get(reverse("core:usuarios_list")))
         self.assertEqual(
             set(cells),
-            {"admin", "consulta1", "coordinacion1", "jefatura1", "matias.cavieres", "matias.quiroz", "supervision1"},
+            {"admin", "cliente1", "cliente2", "consulta1", "coordinacion1", "jefatura1", "matias.cavieres", "matias.quiroz", "supervision1"},
         )
         self.assertEqual(cells["admin"][1:5], ["", "admin@sgr.example", "Super Usuario", "Todas las delegaciones"])
         self.assertEqual(
@@ -136,9 +136,11 @@ class UserListTests(UserTestCase):
         response = self.client.get(url, {"groups": self.group("Jefatura")})
         self.assertEqual(set(self.cells(response)), {"jefatura1", "supervision1"})
         self.assertEqual(self.cells(self.client.get(url, {"is_active": "0"})), {})
-        self.assertEqual(len(self.cells(self.client.get(url, {"is_active": "1"}))), 7)
+        self.assertEqual(len(self.cells(self.client.get(url, {"is_active": "1"}))), 9)
         response = self.client.get(url, {"groups": self.group("Consulta")})
         self.assertEqual(set(self.cells(response)), {"consulta1"})
+        response = self.client.get(url, {"groups": self.group("Cliente")})
+        self.assertEqual(set(self.cells(response)), {"cliente1", "cliente2"})
 
     def test_every_sortable_column_works(self):
         self.login_as("admin")
@@ -150,7 +152,7 @@ class UserListTests(UserTestCase):
                 with self.subTest(key=key, direction=direction):
                     response = self.client.get(reverse("core:usuarios_list"), {"orden": key, "dir": direction})
                     self.assertEqual(response.status_code, 200)
-                    self.assertEqual(len(response.context["rows"]), 7)
+                    self.assertEqual(len(response.context["rows"]), 9)
         response = self.client.get(reverse("core:usuarios_list"), {"orden": "username", "dir": "desc"})
         self.assertEqual(response.context["rows"][0].obj.username, "supervision1")
 
@@ -181,8 +183,8 @@ class UserCreateTests(UserTestCase):
     def test_the_form_offers_the_profiles_and_only_free_active_officers(self):
         self.login_as("admin")
         response = self.client.get(reverse("core:usuarios_create"))
-        self.assertContains(response, 'class="role-name"', count=5)
-        for name in ("Coordinación", "Jefatura", "Funcionario", "Verificador", "Consulta"):
+        self.assertContains(response, 'class="role-name"', count=6)
+        for name in ("Coordinación", "Jefatura", "Funcionario", "Verificador", "Consulta", "Cliente"):
             self.assertContains(response, name)
         offered = {officer.institutional_id for officer in response.context["form"].fields["officer"].queryset}
         self.assertEqual(offered, {"F-1002", "F-1004", "F-2002", "F-2004", "F-2005"})

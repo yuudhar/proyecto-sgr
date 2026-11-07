@@ -8,7 +8,8 @@
     <span class="topbar-inst">{{ institution }}</span>
   </div>
   <div class="topbar-user">
-    {% if me_scope.choose %}
+    {% if is_client %}
+    {% elif me_scope.choose %}
 
     <form method="post" action="{% url 'core:set_context' %}" class="topbar-scope topbar-context" data-context-form>
       {% csrf_token %}

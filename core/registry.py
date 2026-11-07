@@ -49,6 +49,7 @@ from core.roles import (
     sort_key,
 )
 from evidence.models import Evidence, Validation
+from operations import pipeline
 from operations.models import Activity, Commitment, Followup, ManagementType
 from organization.models import (
     Beneficiary,
@@ -174,6 +175,8 @@ class ActivityCrud(Crud):
         "status",
         "requires_visit",
         "added_to_pipeline",
+        "due_date",
+        "territory",
         "requester_is_delegate",
         "delegation",
         "author_officer",
@@ -190,6 +193,8 @@ class ActivityCrud(Crud):
         "action_taken",
         "requires_visit",
         "added_to_pipeline",
+        "due_date",
+        "territory",
         "requester_is_delegate",
         "delegation",
         "author_officer",
@@ -198,7 +203,7 @@ class ActivityCrud(Crud):
     create_save_label = "Registrar atención"
     full_width = ("requester", "request_description", "action_taken")
     help_texts = {
-        "added_to_pipeline": "Marca la actividad para seguirla en el tubo de trabajo.",
+        "added_to_pipeline": "Marca la atención para seguirla en el tubo de trabajo: se pide la fecha comprometida y el territorio.",
     }
     rules = {"phone": "phone", "requester": "label", "contact_name": "label"}
     form_base = ActivityEditForm
@@ -223,6 +228,19 @@ class ActivityCrud(Crud):
             who = f" para {obj.contact_name}" if obj.contact_name else ""
             return f"Atención registrada{who}. Identificador: {self.code_of(obj)}."
         return super().say(kind, obj)
+
+    def after_save(self, request, obj, form, creating):
+        # Tubo de trabajo: la atención marcada «ingresa al tubo» crea su compromiso en la agenda colectiva.
+        if not form.wants_pipeline():
+            return
+        commitment = pipeline.create_commitment(obj, form.cleaned_data["due_date"], form.cleaned_data["territory"])
+        record_status(request.user, commitment, None, commitment.status)
+        log_event(request.user, "Registro creado", commitment, new=str(commitment))
+        messages.info(
+            request,
+            f"Se creó el compromiso en la Agenda colectiva para el {ui.fmt_date(commitment.due_date)} "
+            f"({commitment.territory}).",
+        )
 
 
 @registry.register
@@ -1255,6 +1273,10 @@ def roles_text(user):
     return ", ".join(names)
 
 
+def profile_of(user):
+    return getattr(user, "profile", None)
+
+
 def officer_of(user):
     profile = getattr(user, "profile", None)
     return profile.officer if profile is not None else None
@@ -1323,7 +1345,7 @@ class UserCrud(Crud):
         "last_login",
     )
     computed = {"roles": roles_text, "full_name": full_name_text, "delegation_name": delegation_text}
-    select_related = ("profile", "profile__officer", "profile__officer__delegation")
+    select_related = ("profile", "profile__officer", "profile__officer__delegation", "profile__beneficiary")
     prefetch_related = ("groups__role_profile", "role_delegations__delegation")
     search_fields = (
         "username",
@@ -1425,6 +1447,7 @@ class UserCrud(Crud):
             ("Foto de perfil", Cell(kind="avatar", text="Foto de perfil", url=photo) if photo else Cell()),
             ("Perfiles", Cell(text=roles_text(obj))),
             ("Funcionario", Cell(text=str(officer) if officer else "")),
+            ("Beneficiario", Cell(text=str(profile_of(obj).beneficiary) if profile_of(obj) and profile_of(obj).beneficiary_id else "")),
             ("Delegación", Cell(text=str(officer.delegation) if officer else "")),
             ("Delegaciones autorizadas", Cell(text=authorized_text(obj))),
             ("Cargo", Cell(text=str(officer.position) if officer else "")),
@@ -1442,6 +1465,7 @@ class UserCrud(Crud):
             profile = getattr(obj, "profile", None)
             form.before_roles = roles_text(obj)
             form.before_officer = str(profile.officer) if profile and profile.officer else ""
+            form.before_beneficiary = str(profile.beneficiary) if profile and profile.beneficiary else ""
             form.before_delegations = stored_delegation_ids(obj)
         password = form.cleaned_data.get("password1")
         if password:
@@ -1449,10 +1473,12 @@ class UserCrud(Crud):
 
     def after_save(self, request, obj, form, creating):
         officer = form.cleaned_data.get("officer")
+        beneficiary = form.cleaned_data.get("beneficiary")
         UserProfile.objects.update_or_create(
             user=obj,
             defaults={
                 "officer": officer,
+                "beneficiary": beneficiary,
                 "status": UserProfile.Status.ACTIVE if obj.is_active else UserProfile.Status.INACTIVE,
             },
         )
@@ -1461,13 +1487,20 @@ class UserCrud(Crud):
         self.save_extra_delegations(request, obj, form, creating)
         if not creating:
             roles, officer_name = roles_text(obj), str(officer) if officer else ""
-            if (roles, officer_name) != (form.before_roles, form.before_officer):
+            beneficiary_name = str(beneficiary) if beneficiary else ""
+            if (roles, officer_name, beneficiary_name) != (form.before_roles, form.before_officer, form.before_beneficiary):
                 log_event(
                     request.user,
                     "Perfil o funcionario modificado",
                     obj,
-                    previous=f"Perfiles: {form.before_roles or '(ninguno)'}; Funcionario: {form.before_officer or '(ninguno)'}",
-                    new=f"Perfiles: {roles or '(ninguno)'}; Funcionario: {officer_name or '(ninguno)'}",
+                    previous=(
+                        f"Perfiles: {form.before_roles or '(ninguno)'}; Funcionario: {form.before_officer or '(ninguno)'}"
+                        + (f"; Beneficiario: {form.before_beneficiary}" if form.before_beneficiary else "")
+                    ),
+                    new=(
+                        f"Perfiles: {roles or '(ninguno)'}; Funcionario: {officer_name or '(ninguno)'}"
+                        + (f"; Beneficiario: {beneficiary_name}" if beneficiary_name else "")
+                    ),
                 )
             if form.cleaned_data.get("password1"):
                 log_event(request.user, "Contraseña restablecida", obj)

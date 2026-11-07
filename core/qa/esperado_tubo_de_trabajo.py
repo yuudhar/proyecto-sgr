@@ -1,0 +1,42 @@
+ESPERADO = {
+    "PipelineCreationTests": {
+        "an_attention_without_the_box_creates_no_commitment": "Una atención sin la casilla «ingresa al tubo» no crea ningún compromiso.",
+        "marking_the_box_creates_the_commitment_in_the_agenda": "Al marcar la casilla y registrar la atención se crea un compromiso en la Agenda colectiva, enlazado a la atención.",
+        "the_commitment_takes_its_data_from_the_attention": "El compromiso toma de la atención el solicitante, la descripción, la fecha, la delegación y el funcionario responsable; la fecha y el territorio vienen del formulario y nace «Ingresado».",
+        "the_first_state_goes_to_the_history_and_the_creation_to_the_audit": "El estado inicial queda en el historial del compromiso y su creación en la auditoría.",
+        "the_user_is_told_that_the_commitment_was_created": "Tras registrar, el aviso dice que se creó el compromiso en la Agenda colectiva.",
+        "the_commitment_shows_up_in_the_agenda_of_the_delegation": "El compromiso aparece en el listado de la Agenda de la delegación.",
+        "a_rejected_attention_creates_neither_the_attention_nor_the_commitment": "Si la atención se rechaza, no se crea ni la atención ni el compromiso.",
+        "the_two_fields_are_ignored_when_the_box_is_not_marked": "Sin la casilla marcada, la fecha y el territorio no se usan ni impiden guardar.",
+    },
+    "PipelineValidationTests": {
+        "the_due_date_is_required_when_the_box_is_marked": "Con la casilla marcada, la fecha comprometida es obligatoria.",
+        "the_territory_is_required_when_the_box_is_marked": "Con la casilla marcada, el territorio es obligatorio.",
+        "the_due_date_cannot_be_before_the_attention_date": "La fecha comprometida no puede ser anterior a la fecha de la atención.",
+        "the_due_date_can_be_the_same_day_as_the_attention": "La fecha comprometida puede ser el mismo día de la atención.",
+        "the_territory_must_belong_to_the_delegation_of_the_attention": "El territorio debe pertenecer a la delegación de la atención.",
+        "the_territory_list_only_offers_the_territories_of_the_delegation": "La lista de territorios ofrece solo los de la delegación.",
+        "an_archived_territory_is_not_offered": "Un territorio archivado no se ofrece.",
+    },
+    "PipelineFormTests": {
+        "the_form_has_the_two_fields_right_after_the_box": "El formulario trae «Fecha comprometida» y «Territorio del compromiso» a continuación de la casilla.",
+        "the_fields_are_tied_to_the_box_and_asked_when_it_is_marked": "Los dos campos quedan atados a la casilla y se piden como obligatorios cuando está marcada.",
+        "the_page_shows_the_labels_of_the_two_fields": "La pantalla muestra los títulos de los dos campos.",
+        "the_box_help_says_what_will_be_asked": "La ayuda de la casilla dice que se pide la fecha comprometida y el territorio.",
+        "the_script_hides_and_shows_the_fields_with_the_box": "El script de la pantalla oculta y muestra los dos campos según la casilla.",
+    },
+    "PipelineEditTests": {
+        "marking_the_box_when_editing_creates_the_commitment": "Marcar la casilla al editar una atención crea el compromiso.",
+        "marking_the_box_when_editing_asks_for_the_two_fields": "Marcar la casilla al editar también pide la fecha y el territorio, y no guarda nada si faltan.",
+        "an_attention_that_already_has_its_commitment_does_not_ask_again": "Una atención que ya tiene su compromiso no vuelve a pedir la fecha ni el territorio.",
+        "editing_an_attention_with_its_commitment_does_not_create_another": "Editar una atención que ya tiene compromiso no crea otro.",
+        "unmarking_the_box_keeps_the_commitment_in_the_agenda": "Desmarcar la casilla no borra el compromiso de la Agenda.",
+        "an_attention_marked_before_without_commitment_can_be_edited_without_the_dates": "Una atención que quedó marcada antes, sin compromiso, se puede seguir editando sin pedirle los datos.",
+        "an_attention_marked_before_can_create_its_commitment_if_both_data_are_given": "Una atención marcada antes puede crear su compromiso si se entregan la fecha y el territorio.",
+        "an_attention_marked_before_needs_both_data_if_only_one_is_given": "Si a una atención marcada antes solo se le da uno de los dos datos, se pide el otro.",
+    },
+    "PipelineModelTests": {
+        "the_link_is_not_editable_and_is_kept_if_the_commitment_is_removed": "El enlace de la atención con su compromiso no se edita a mano y queda vacío si el compromiso se elimina.",
+        "create_commitment_does_not_create_a_second_one_for_the_same_attention": "Crear el compromiso dos veces para la misma atención no genera un segundo compromiso.",
+    },
+}

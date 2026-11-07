@@ -1,6 +1,7 @@
 from django.urls import path
 from django.views.generic import RedirectView
 
+from core import portal_cliente
 from core import registry as _mantenedores
 from core import views
 from core.crud import registry
@@ -17,6 +18,9 @@ urlpatterns = [
         views.AtencionView.as_view(crud=registry.get("actividades")),
         name="atencion",
     ),
+    path("portal/", portal_cliente.home, name="portal_home"),
+    path("portal/atenciones/", portal_cliente.activities, name="portal_activities"),
+    path("portal/atenciones/<int:pk>/", portal_cliente.activity, name="portal_activity"),
     path("dashboard/", views.dashboard, name="dashboard"),
     path("filas/", views.set_page_size, name="page_size"),
     path("contexto/", views.set_context, name="set_context"),

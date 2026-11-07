@@ -204,3 +204,20 @@ def build_menu(request):
         if current[1] is not None:
             current[1].active = True
     return top, groups
+
+
+def client_menu(request):
+    """El menú del Cliente: su portal, sus atenciones y su perfil. Nada de lo que ven los funcionarios."""
+    items = [
+        MenuItem("Mi portal", reverse("core:portal_home"), "bi-house-heart"),
+        MenuItem("Mis atenciones", reverse("core:portal_activities"), "bi-clipboard2-pulse"),
+        MenuItem("Mi perfil", reverse("core:profile"), "bi-person-circle"),
+    ]
+    path = request.path
+    current = None
+    for item in items:
+        if path.startswith(item.url) and (current is None or len(item.url) > len(current.url)):
+            current = item
+    if current is not None:
+        current.active = True
+    return items, []

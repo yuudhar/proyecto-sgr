@@ -81,6 +81,7 @@ Los roles son grupos de Django que crea el comando `seed_roles` (`accounts/manag
 | Funcionario | Registra atenciones, gestiones, evidencias y compromisos de su delegación. |
 | Verificador | Revisa las evidencias de su delegación y registra la validación. |
 | Consulta | Solo consulta la información de su delegación. |
+| Cliente | Usuario final (beneficiario con cuenta, v33): ve solo su perfil y sus propias atenciones en el portal; no tiene permisos de ningún módulo. |
 
 Cada rol tiene una ficha (`RoleProfile`) con descripción, alcance (su delegación o todas) y estado, que se edita en el mantenedor de roles.
 
@@ -250,6 +251,28 @@ Registro de auditoría: guarda qué evento ocurrió, sobre qué entidad y regist
 Opciones del modelo (`Meta`): `verbose_name` = `'Auditoría'`; `verbose_name_plural` = `'Auditorías'`; `ordering` = `('-date',)`.
 
 - **`__str__()`**: Texto del registro: el evento y la entidad con su identificador.
+
+#### `core/clients.py` (perfil Cliente, v33)
+
+El Cliente es un beneficiario con cuenta. Ve solo su perfil y sus propias atenciones; el filtro se hace siempre en el servidor con el usuario autenticado, nunca con un identificador que mande el navegador.
+
+- **`is_client(user)`**: True si la cuenta está en el perfil Cliente. Un superusuario nunca lo es. El resultado se guarda en el objeto `user` para no repetir la consulta.
+- **`client_beneficiary(user)`**: El beneficiario vinculado (`UserProfile.beneficiary`), o `None` si no tiene o está archivado.
+- **`own_activities(user)`**: Las atenciones del beneficiario del usuario autenticado (sin las archivadas); vacío si no hay beneficiario. Todas las pantallas del portal parten de aquí.
+- **`ClientPortalMiddleware`**: Va después de la autenticación y encierra al Cliente en su portal. Solo deja pasar `ALLOWED_URL_NAMES` (portal, perfil, foto, salida, ingreso), la recuperación de contraseña, los estáticos y `/salud/`. Un `GET` al dashboard lo lleva a su portal; todo lo demás (listados, fichas, exportaciones, formularios, tablero, administración, `/admin/`) responde 403 sin mostrar contenido y deja «Acceso de cliente rechazado» en la auditoría.
+
+#### `core/portal_cliente.py` (portal del Cliente, v33)
+
+- **`home`** (`portal/`): perfil del beneficiario, conteo de atenciones por estado y las últimas cinco.
+- **`activities`** (`portal/atenciones/`): listado paginado de las atenciones propias, con búsqueda por tema o solicitud y filtro por estado.
+- **`activity`** (`portal/atenciones/<pk>/`): detalle con sus gestiones. Una atención ajena, archivada o inexistente responde 404 igual. No muestra datos internos (puntaje, evidencias, compromiso del tubo).
+- Las tres usan el decorador `client_only`: cualquier cuenta que no sea Cliente recibe 403.
+- Menú del Cliente (`core/menus.py: client_menu`): Mi portal, Mis atenciones y Mi perfil. El contexto de las plantillas trae `is_client` y `home_url`; la franja y la tarjeta de delegación no se muestran.
+- Mi perfil del Cliente (`core/views.py: profile`) agrega el formulario `ClientDataForm` («Mis datos»: correo, teléfono y dirección). La cuenta y la ficha salen del usuario autenticado (`save_client_data`), así que nadie cambia datos ajenos; el nombre, el RUT, el perfil y los permisos no se pueden cambiar. Queda en la auditoría.
+- `profile_photo`: el Cliente solo puede pedir su propia foto.
+- WebSocket: `CrudChangesConsumer` y `LiveConsumer` cierran la conexión de una cuenta Cliente.
+- Alta de cuentas (`UserForm`/`UserCrud`): el campo «Beneficiario» es obligatorio para el perfil Cliente, que va solo (sin otro perfil, funcionario, delegaciones, Super Usuario ni acceso al panel). Un beneficiario tiene a lo más una cuenta y los que ya la tienen no se ofrecen.
+- Cuentas de prueba: `cliente1` (María Pérez) y `cliente2` (Carla Muñoz), de la misma delegación (Norte) y con atenciones distintas.
 
 #### `core/access.py`
 
@@ -438,7 +461,16 @@ Los metadatos (nombre original, tipo, tamaño y huella SHA-256) los arma el sist
 - **`customize_fields()`**: Cambia el campo de archivo: acepta solo los tipos permitidos, indica el tamaño máximo y, al editar, muestra el nombre del archivo actual.
 - **`clean_file_link()`**: Si se subió un archivo, revisa su tipo, su tamaño y que el contenido corresponda a la extensión.
 
-##### `ActivityIntakeForm` — hereda de `CrudForm`
+##### `PipelineForm` — hereda de `CrudForm`
+
+Base de los formularios de atención con la casilla «ingresa al tubo de trabajo» (v32). Declara dos campos, `due_date` («Fecha comprometida») y `territory` («Territorio del compromiso»), que el formulario muestra debajo de las casillas (`after_checks`) solo cuando la casilla está marcada: `widgets.js` los muestra, los pide y los envía en ese caso (atributos `data-show-when` y `data-required-when-shown`). El servidor revisa lo mismo.
+
+- **`set_up_pipeline()`**: deja los dos campos como opcionales a nivel de Django y los quita si la atención ya tiene su compromiso. Si una atención quedó marcada de antes, sin compromiso, los datos son opcionales (`pipeline_stale`): se completan solo si se quiere crearlo ahora.
+- **`bounds()`**: pone los atributos del navegador en los dos campos (van aquí porque `apply_bounds` corre después de que el formulario cambia los widgets de fecha).
+- **`check_pipeline(cleaned, day)`**: con la casilla marcada exige la fecha y el territorio, rechaza una fecha anterior a la de la atención y un territorio de otra delegación; si la casilla no está marcada ignora lo que traigan los dos campos.
+- **`wants_pipeline()`**: al guardar, dice si hay que crear el compromiso (casilla marcada y los dos datos entregados).
+
+##### `ActivityIntakeForm` — hereda de `PipelineForm`
 
 Ingreso de atención : lo que se pide al registrar una atención nueva.
 
@@ -485,7 +517,7 @@ Una persona nueva se da de alta una sola vez: sus datos de funcionario y, si va 
 Foto de perfil de quien tiene la sesión iniciada (pantalla Mi perfil).
 
 - **`__init__(*args, **kwargs)`**: Pone la ayuda con el tamaño máximo de la foto y aplica el estilo.
-- **`clean_photo()`**: Revisa la foto: PNG o JPG, tamaño máximo y que el contenido corresponda a la extensión.
+- **`clean_photo()`**: Revisa la foto: PNG o JPG, tamaño máximo y que el contenido corresponda a la extensión; después la deja cuadrada (recorte centrado si no lo era) y de a lo más `PHOTO_SIDE_PX` (512) por lado con `uploads.square_photo` (v33), corrigiendo la orientación y conservando el formato. El recorte que hace Croppr en el navegador ya llega cuadrado; esto lo vuelve a garantizar en el servidor y cubre al navegador sin JavaScript.
 
   El campo `photo` es un `forms.ImageField`: antes de `clean_photo()`, Pillow comprueba que el archivo sea una imagen real (un archivo que solo imita la firma de un PNG se rechaza con «El archivo no es una imagen válida»).
 
@@ -523,7 +555,7 @@ Ajuste: el valor es un porcentaje mayor que 0 y de hasta 100.
 
 - **`clean_percentage_value()`**: El valor del ajuste debe ser mayor que 0 y como máximo 100.
 
-##### `ActivityEditForm` — hereda de `CrudForm`
+##### `ActivityEditForm` — hereda de `PipelineForm`
 
 Actividad (edición): la fecha de una atención ya ocurrida no puede ser futura.
 
@@ -902,6 +934,7 @@ Atributos principales: `model` = `Activity`; `slug` = `'actividades'`; `icon` = 
 - **`new_label()`** *(propiedad)*: Texto del botón de nuevo: «Registrar atención».
 - **`initial_values(request)`**: Con ?beneficiary=<id> (el botón «Nueva» de una fila de Atención) el formulario parte con esa persona.
 - **`say(kind, obj)`**: Al crear una atención, el aviso incluye el nombre del contacto y el identificador de la atención.
+- **`after_save(request, obj, form, creating)`** (v32): si `form.wants_pipeline()`, crea el compromiso con `operations.pipeline.create_commitment`, deja su estado inicial en el historial y su creación en la auditoría, y avisa «Se creó el compromiso en la Agenda colectiva…». Desmarcar la casilla después no borra el compromiso.
 
 ##### `FollowupCrud` — hereda de `Crud`
 
@@ -1508,6 +1541,7 @@ Perfil de un usuario de Django. Lo une con su funcionario (uno a uno, vacío sol
 |---|---|---|---|
 | `user` | usuario | OneToOneField | relación con `settings.AUTH_USER_MODEL`; nombre inverso `profile`; CASCADE |
 | `officer` | funcionario | OneToOneField | relación con `Officer`; nombre inverso `user_profile`; PROTECT; admite nulo; opcional — Vacío solo para cuentas técnicas (superusuario) sin un funcionario asociado en terreno. |
+| `beneficiary` | beneficiario | OneToOneField | relación con `Beneficiary`; nombre inverso `user_profile`; PROTECT; admite nulo; opcional (v33) — Solo para cuentas del perfil Cliente: el beneficiario cuyas atenciones ve el usuario en su portal. |
 | `status` | estado | CharField | largo 20; con opciones; por defecto `Status.ACTIVE` |
 | `photo` | foto de perfil | ImageField | largo 255; admite nulo; opcional; sube archivo; requiere Pillow |
 
@@ -1515,7 +1549,7 @@ Opciones del modelo (`Meta`): `verbose_name` = `'Perfil de usuario'`; `verbose_n
 
 Opciones de `Status`: `active` (Activo), `inactive` (Inactivo).
 
-- **`clean()`**: No permite vincular un usuario a un funcionario que no esté activo.
+- **`clean()`**: No permite vincular un usuario a un funcionario que no esté activo, ni que una cuenta tenga a la vez un funcionario y un beneficiario (v33).
 - **`__str__()`**: Nombre de usuario y funcionario vinculado.
 
 ##### `RoleProfile` — hereda de `BaseModel`
@@ -2274,6 +2308,7 @@ Atención registrada por un funcionario: fecha, solicitud, acción realizada, da
 | `item` | ítem | ForeignKey | relación con `Item`; nombre inverso `activities`; PROTECT |
 | `service` | servicio | ForeignKey | relación con `Service`; nombre inverso `activities`; PROTECT; admite nulo; opcional |
 | `organization` | organización | ForeignKey | relación con `CommunityOrganization`; nombre inverso `activities`; PROTECT; admite nulo; opcional (v31) |
+| `commitment` | compromiso en la agenda | OneToOneField | relación con `Commitment`; nombre inverso `origin_activity`; SET_NULL; admite nulo; no se edita — Lo asigna el sistema al crear el compromiso del tubo de trabajo (v32). |
 | `delegation` | delegación | ForeignKey | relación con `Delegation`; nombre inverso `activities`; PROTECT |
 | `author_officer` | funcionario autor | ForeignKey | relación con `Officer`; nombre inverso `authored_activities`; PROTECT |
 
@@ -2336,6 +2371,13 @@ Opciones de `Status`: `submitted` (Ingresado), `pending` (Pendiente), `in_progre
 
 - **`clean()`**: Comprueba que el territorio pertenezca a la delegación elegida.
 - **`__str__()`**: Texto con que se muestra el registro.
+
+#### `operations/pipeline.py` (tubo de trabajo, v32)
+
+Una atención marcada «ingresa al tubo» crea su compromiso en la agenda colectiva con lo que ya dice la atención (solicitante, descripción, fecha, delegación y funcionario responsable) más la fecha comprometida y el territorio que se piden en el formulario. El compromiso nace «Ingresado» y su origen dice «Atención ATN00012».
+
+- **`origin_label(activity)`**: el texto del origen, con el identificador que la atención muestra en su listado.
+- **`create_commitment(activity, due_date, territory)`**: crea el compromiso y lo enlaza en `Activity.commitment`; si la atención ya tiene uno, no crea otro y lo devuelve.
 
 #### `operations/admin.py`
 
@@ -2524,6 +2566,7 @@ Las migraciones crean y modifican las tablas de cada app.
 - `0004_userroledelegation.py`: crea la tabla de `UserRoleDelegation`.
 - `0005_userprofile_photo.py`: agrega el campo `userprofile.photo`.
 - `0006_userprofile_photo_imagefield.py`: cambia `userprofile.photo` de `FileField` a `ImageField`; la columna no cambia.
+- `0007_cliente_beneficiario_v33.py`: agrega `userprofile.beneficiary` (uno a uno con el beneficiario, opcional), para las cuentas del perfil Cliente.
 
 ### `core`
 

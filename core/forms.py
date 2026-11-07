@@ -21,13 +21,13 @@ from core import entry_rules, ui, uploads
 from core.access import default_delegation, request_delegation, request_officer
 from core.photos import photo_url_of
 from core.models import BaseModel
-from core.roles import MODULE_LABELS, SYSTEM_GROUPS, managed_permissions, permission_key
+from core.roles import CLIENT_ROLE, MODULE_LABELS, SYSTEM_GROUPS, managed_permissions, permission_key
 from core.rules import collapse_spaces, get_rule, normalize_lines
 from core.search import plain_letter, word_pattern
 from core.widgets import ColorWidget, DelegationsWidget, DependentSelect, LookupWidget, PermissionMatrixWidget, RolesWidget
 from evidence.models import Validation
 from operations.models import Commitment, Followup
-from organization.models import Beneficiary, Delegation, Item, Officer
+from organization.models import Beneficiary, Delegation, Item, Officer, Territory
 from planning.models import Feedback, Goal, Period
 
 
@@ -140,6 +140,7 @@ class PortalAuthenticationForm(BootstrapFormMixin, AuthenticationForm):
 class CrudForm(BootstrapFormMixin, forms.ModelForm):
 
     note = ""
+    after_checks = ()  # campos que se muestran debajo de las casillas, porque dependen de una de ellas
 
     def __init__(self, *args, request=None, crud=None, **kwargs):
         super().__init__(*args, **kwargs)
@@ -604,7 +605,113 @@ class EvidenceForm(CrudForm):
         return uploaded
 
 
-class ActivityIntakeForm(CrudForm):
+class PipelineForm(CrudForm):
+    """Atención con casilla «ingresa al tubo de trabajo»: al marcarla se piden la fecha comprometida y el territorio.
+
+    Con la casilla marcada los dos datos son obligatorios y, al guardar, se crea el compromiso en la agenda colectiva.
+    Una atención que ya tiene su compromiso no los vuelve a pedir. Si una atención quedó marcada de antes, sin
+    compromiso, los datos son opcionales: se completan solo si se quiere crearlo ahora.
+    """
+
+    PIPELINE_BOX = "added_to_pipeline"
+    after_checks = ("due_date", "territory")
+    DUE_BEFORE = "La fecha comprometida no puede ser anterior a la fecha de la atención ({day})."
+    TERRITORY_OTHER = "El territorio debe pertenecer a la delegación de la atención."
+    PAIR_MESSAGE = "Para crear el compromiso completa la fecha comprometida y el territorio."
+    DUE_REQUIRED = "Indica la fecha comprometida: es obligatoria cuando la atención ingresa al tubo de trabajo."
+    TERRITORY_REQUIRED = "Elige el territorio: es obligatorio cuando la atención ingresa al tubo de trabajo."
+
+    due_date = forms.DateField(
+        label="Fecha comprometida",
+        help_text="El día en que te comprometes a tener lista la gestión. Es lo que el tubo de trabajo vigila.",
+    )
+    territory = forms.ModelChoiceField(
+        label="Territorio del compromiso",
+        queryset=Territory.objects.none(),
+        empty_label="Selecciona un territorio",
+        help_text="Dónde se realiza o a quién beneficia la gestión.",
+    )
+
+    def set_up_pipeline(self):
+        self.pipeline_open = self.pipeline_fields_present()
+        if not self.pipeline_open:
+            for name in ("due_date", "territory"):
+                self.fields.pop(name, None)
+            return
+        self.pipeline_stale = bool(self.instance.pk and getattr(self.instance, self.PIPELINE_BOX))
+        # Solo existen cuando la casilla está marcada: el navegador los muestra, los pide y los envía en ese caso
+        # (`data-show-when`); el servidor revisa lo mismo en `check_pipeline`.
+        for name in ("due_date", "territory"):
+            self.fields[name].required = False
+        if self.pipeline_stale:
+            self.fields["due_date"].help_text = (
+                "Esta atención quedó marcada sin compromiso. Completa la fecha y el territorio si quieres crearlo ahora."
+            )
+        if "territory" in self.fields and "delegation" not in self.fields:
+            self.fields["territory"].queryset = self.territory_choices(self.instance.delegation_id)
+
+    def bounds(self):
+        # Los atributos van aquí porque `apply_bounds` corre después de que el formulario cambia los widgets de fecha.
+        if not getattr(self, "pipeline_open", False):
+            return {}
+        attrs = {"data-show-when": f"id_{self.PIPELINE_BOX}"}
+        if not self.pipeline_stale:
+            attrs["data-required-when-shown"] = "1"
+        merged = {"due_date": dict(attrs), "territory": dict(attrs)}
+        day = self.instance.date
+        if day:
+            merged["due_date"]["min"] = day.isoformat()
+        return merged
+
+    def pipeline_fields_present(self):
+        return "due_date" in self.fields and not (self.instance.pk and self.instance.commitment_id)
+
+    def territory_choices(self, delegation_id):
+        rows = Territory.objects.filter(deleted_at__isnull=True)
+        if delegation_id:
+            rows = rows.filter(delegation_id=delegation_id)
+        return rows.select_related("delegation").order_by("delegation__name", "name")
+
+    def wants_pipeline(self):
+        """Al guardar: ¿hay que crear el compromiso? Sí si la casilla está marcada y se entregaron sus dos datos."""
+        data = getattr(self, "cleaned_data", {})
+        return bool(
+            self.pipeline_open
+            and data.get(self.PIPELINE_BOX)
+            and data.get("due_date")
+            and data.get("territory")
+        )
+
+    def check_pipeline(self, cleaned, day):
+        if not self.pipeline_open:
+            return
+        if not cleaned.get(self.PIPELINE_BOX):
+            # Sin la casilla marcada los dos datos no se usan: lo que traigan no puede impedir guardar.
+            for name in ("due_date", "territory"):
+                self._errors.pop(name, None)
+                cleaned.pop(name, None)
+            return
+        due, territory = cleaned.get("due_date"), cleaned.get("territory")
+        if self.has_error("due_date") or self.has_error("territory"):
+            return
+        if not self.pipeline_stale:
+            if not due:
+                self.add_error("due_date", self.DUE_REQUIRED)
+            if not territory:
+                self.add_error("territory", self.TERRITORY_REQUIRED)
+            if not due or not territory:
+                return
+        elif bool(due) != bool(territory):
+            self.add_error("territory" if due else "due_date", self.PAIR_MESSAGE)
+            return
+        if due and day and due < day:
+            self.add_error("due_date", self.DUE_BEFORE.format(day=ui.fmt_date(day)))
+        delegation_id = self.instance.delegation_id or getattr(cleaned.get("delegation"), "pk", None)
+        if territory is not None and delegation_id and territory.delegation_id != delegation_id:
+            self.add_error("territory", self.TERRITORY_OTHER)
+
+
+class ActivityIntakeForm(PipelineForm):
 
     requester = forms.CharField(label="Solicitante (RUT o nombre)", max_length=100)
     attention_type = forms.ModelChoiceField(label="Tipo de atención", queryset=Item.objects.none())
@@ -622,6 +729,7 @@ class ActivityIntakeForm(CrudForm):
         self.set_up_sub_attention()
         self.set_up_description()
         self.set_up_profile()
+        self.set_up_pipeline()
 
     def set_up_description(self):
         field = self.fields["request_description"]
@@ -697,6 +805,7 @@ class ActivityIntakeForm(CrudForm):
         cleaned = super().clean()
         self.check_requester(cleaned)
         self.check_attention(cleaned)
+        self.check_pipeline(cleaned, self.instance.date)
         return cleaned
 
     def check_requester(self, cleaned):
@@ -762,6 +871,15 @@ class UserForm(CrudForm):
             "Define la delegación y el nombre del usuario. Solo el Super Usuario y los perfiles con alcance sobre "
             "todas las delegaciones (como Coordinación) pueden quedar sin funcionario. Para una persona nueva, "
             "créala en Funcionarios: ahí mismo puedes darle su acceso."
+        ),
+    )
+    beneficiary = forms.ModelChoiceField(
+        queryset=Beneficiary.objects.none(),
+        required=False,
+        label="Beneficiario",
+        help_text=(
+            "Solo para el perfil Cliente: el beneficiario cuyas atenciones verá esta persona en su portal. "
+            "Cada beneficiario tiene a lo más una cuenta."
         ),
     )
     extra_delegations = forms.ModelMultipleChoiceField(
@@ -845,6 +963,16 @@ class UserForm(CrudForm):
         if profile is not None:
             self.initial["officer"] = profile.officer_id
 
+        linked = UserProfile.objects.filter(beneficiary__isnull=False)
+        if not creating:
+            linked = linked.exclude(user=self.instance)
+        beneficiaries = Beneficiary.objects.filter(deleted_at__isnull=True).exclude(pk__in=linked.values("beneficiary_id"))
+        field = self.fields["beneficiary"]
+        field.queryset = beneficiaries.order_by("name")
+        field.empty_label = "Sin beneficiario"
+        if profile is not None:
+            self.initial["beneficiary"] = profile.beneficiary_id
+
         stored = stored_delegation_ids(self.instance) if not creating else set()
         offered = Delegation.objects.filter(
             Q(deleted_at__isnull=True, status=Delegation.Status.ACTIVE) | Q(pk__in=stored)
@@ -864,11 +992,32 @@ class UserForm(CrudForm):
                 "password2",
                 "groups",
                 "officer",
+                "beneficiary",
                 "extra_delegations",
                 "photo",
                 "remove_photo",
             ]
         )
+
+    def check_client(self, cleaned, groups, client):
+        """El perfil Cliente es de un beneficiario con cuenta: va solo, con su beneficiario y sin funcionario."""
+        beneficiary = cleaned.get("beneficiary")
+        if not client:
+            if beneficiary is not None:
+                self.add_error("beneficiary", "El beneficiario se asigna solo a cuentas del perfil Cliente.")
+            return
+        if cleaned.get("is_superuser"):
+            self.add_error("is_superuser", "Una cuenta Cliente no puede ser Super Usuario.")
+        if cleaned.get("is_staff"):
+            self.add_error("is_staff", "Una cuenta Cliente no puede entrar al panel de administración.")
+        if len(groups) > 1:
+            self.add_error("groups", "El perfil Cliente no se combina con otros perfiles.")
+        if beneficiary is None:
+            self.add_error("beneficiary", "Elige el beneficiario: es quien ve esta cuenta en su portal.")
+        if cleaned.get("officer") is not None:
+            self.add_error("officer", "Una cuenta Cliente no tiene funcionario.")
+        if cleaned.get("extra_delegations"):
+            self.add_error("extra_delegations", "Una cuenta Cliente no tiene delegaciones.")
 
     def check_extra_delegations(self, cleaned, sees_everything):
         extras = list(cleaned.get("extra_delegations") or [])
@@ -923,10 +1072,12 @@ class UserForm(CrudForm):
 
         groups = cleaned.get("groups") or []
         sees_everything = bool(cleaned.get("is_superuser")) or any(group_is_global(group) for group in groups)
+        client = any(group.name == CLIENT_ROLE for group in groups)
+        self.check_client(cleaned, groups, client)
         if not cleaned.get("is_superuser"):
             if not groups:
                 self.add_error("groups", "Elige al menos un perfil, o marca Super Usuario.")
-            if not cleaned.get("officer") and not sees_everything:
+            if not client and not cleaned.get("officer") and not sees_everything:
                 self.add_error(
                     "officer",
                     "Elige el funcionario: sin él, el usuario no tiene delegación. "
@@ -1092,7 +1243,41 @@ class ProfilePhotoForm(BootstrapFormMixin, forms.Form):
 
     def clean_photo(self):
         uploaded = self.cleaned_data["photo"]
-        return uploads.check_upload(uploaded, uploads.PHOTO_TYPES, settings.PHOTO_MAX_MB)
+        checked = uploads.check_upload(uploaded, uploads.PHOTO_TYPES, settings.PHOTO_MAX_MB)
+        return uploads.square_photo(checked, settings.PHOTO_SIDE_PX)
+
+
+class ClientDataForm(BootstrapFormMixin, forms.Form):
+    """Los datos que el Cliente puede cambiar de sí mismo. El nombre, el RUT, el perfil y el dueño de la cuenta no."""
+
+    email = forms.CharField(label="Correo", required=False, max_length=254)
+    phone = forms.CharField(label="Teléfono", required=False, max_length=20)
+    address = forms.CharField(label="Dirección", required=False, max_length=200)
+
+    RULES = {"email": "email", "phone": "phone", "address": "label"}
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.fields["email"].widget = forms.EmailInput()
+        self.fields["email"].help_text = "Opcional. Sirve para recuperar tu contraseña."
+        self.fields["phone"].help_text = "Con 8 a 14 números; puede partir con +."
+        self.fields["address"].help_text = "Calle y número de tu vivienda (ej.: Los Aromos 1234)."
+        for name, rule_name in self.RULES.items():
+            self.fields[name].widget.attrs.update(get_rule(rule_name).attrs())
+        self.style_fields()
+
+    def clean(self):
+        cleaned = super().clean()
+        for name, rule_name in self.RULES.items():
+            value = cleaned.get(name)
+            if not value or not isinstance(value, str):
+                continue
+            fixed, error = get_rule(rule_name).apply(value)
+            if error:
+                self.add_error(name, error)
+            else:
+                cleaned[name] = fixed
+        return cleaned
 
 
 class PortalPasswordChangeForm(BootstrapFormMixin, PasswordChangeForm):
@@ -1285,16 +1470,26 @@ class FeedbackForm(CrudForm):
         return cleaned
 
 
-class ActivityEditForm(CrudForm):
+class ActivityEditForm(PipelineForm):
 
     DATE_MESSAGE = "La fecha de la atención no puede ser futura."
 
+    def customize_fields(self):
+        self.set_up_pipeline()
+
     def bounds(self):
-        return {"date": self.until_today(self.DATE_MESSAGE)}
+        merged = super().bounds()
+        merged["date"] = self.until_today(self.DATE_MESSAGE)
+        if "due_date" in merged:
+            message = "La fecha comprometida no puede ser anterior a la fecha de la atención."
+            merged["due_date"].pop("min", None)
+            merged["due_date"].update(self.not_before("due_date", "date", message)["due_date"])
+        return merged
 
     def clean(self):
         cleaned = super().clean()
         self.check_not_future(cleaned, "date", self.DATE_MESSAGE)
+        self.check_pipeline(cleaned, cleaned.get("date") or self.instance.date)
         return cleaned
 
 

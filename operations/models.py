@@ -71,9 +71,19 @@ class Activity(BaseModel):
         default=False,
         verbose_name="ingresa al tubo de trabajo",
         help_text=(
-            "Si queda marcado, la actividad se refleja como Commitment "
-            "en la agenda colectiva (tubo de trabajo)."
+            "Si queda marcado, se pide la fecha comprometida y el territorio, y la atención se refleja "
+            "como compromiso en la agenda colectiva (tubo de trabajo)."
         ),
+    )
+    commitment = models.OneToOneField(
+        "operations.Commitment",
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        editable=False,
+        related_name="origin_activity",
+        verbose_name="compromiso en la agenda",
+        help_text="El compromiso que se creó en el tubo de trabajo al marcar la atención. Lo asigna el sistema.",
     )
     requester_is_delegate = models.BooleanField(
         default=False,

@@ -49,6 +49,7 @@ MIDDLEWARE = [
     'django.middleware.csrf.CsrfViewMiddleware',
     'django.contrib.auth.middleware.AuthenticationMiddleware',
     'django.contrib.messages.middleware.MessageMiddleware',
+    'core.clients.ClientPortalMiddleware',
     'core.middleware.PortalLocaleMiddleware',
     'core.middleware.PortalNoCacheMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
@@ -208,6 +209,7 @@ if sys.argv[1:2] == ["test"]:
     MEDIA_ROOT = Path(tempfile.mkdtemp(prefix="sgr-pruebas-media-"))
 EVIDENCE_MAX_MB = 10
 PHOTO_MAX_MB = 2
+PHOTO_SIDE_PX = 512
 DATA_UPLOAD_MAX_MEMORY_SIZE = 2 * 1024 * 1024
 FILE_UPLOAD_PERMISSIONS = 0o640
 

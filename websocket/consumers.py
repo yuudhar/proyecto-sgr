@@ -2,6 +2,7 @@ from asgiref.sync import async_to_sync
 from channels.generic.websocket import JsonWebsocketConsumer
 
 from core import registry as _mantenedores  # noqa: F401  (registra los mantenedores aunque aún no se haya cargado urls.py)
+from core.clients import is_client
 from core.crud import registry
 
 from .services import crud_groups_for, live_groups_for
@@ -13,7 +14,7 @@ class CrudChangesConsumer(JsonWebsocketConsumer):
 
     def connect(self):
         user = self.scope["user"]
-        if not user.is_authenticated:
+        if not user.is_authenticated or is_client(user):
             self.close()
             return
         slug = self.scope["url_route"]["kwargs"]["slug"]
@@ -50,7 +51,8 @@ class LiveConsumer(JsonWebsocketConsumer):
     al recibir el aviso piden su propia pantalla por HTTP, que aplica permisos y delegación."""
 
     def connect(self):
-        if not self.scope["user"].is_authenticated:
+        user = self.scope["user"]
+        if not user.is_authenticated or is_client(user):
             self.close()
             return
         self.groups_joined = live_groups_for(self.scope)
