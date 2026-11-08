@@ -30,17 +30,9 @@ PENDIENTES = [
     (
         "PEN-04",
         "A3 · Correo real de la recuperación",
-        "Probar el envío por SMTP real (EMAIL_HOST) y la recepción del código.",
+        "Probar el envío por SMTP real (EMAIL_HOST) y la recepción del enlace de recuperación.",
         "Las pruebas automáticas usan la bandeja de prueba de Django; el envío real depende del servidor de correo que se configure en AWS.",
-        "Completar EMAIL_HOST y credenciales en el .env de AWS y repetir el flujo de recuperación (evidencia 1).",
-        "Pendiente",
-    ),
-    (
-        "PEN-05",
-        "A3 · Intentos de recuperación con varios procesos",
-        "Comprobar el límite de 5 intentos con gunicorn de varios procesos y la caché compartida configurada.",
-        "Las pruebas corren en un solo proceso con caché local. Con varios procesos hace falta una caché compartida (CACHE_BACKEND=redis).",
-        "Configurar CACHE_BACKEND=redis y REDIS_URL en AWS (docs/aws/DESPLIEGUE_AWS.md) y repetir las pruebas de código incorrecto.",
+        "Completar EMAIL_HOST y credenciales en el .env de AWS, probar con «manage.py sendtestemail» y repetir el flujo de recuperación (evidencia 1; ver README, «Recuperar la contraseña»).",
         "Pendiente",
     ),
     (
@@ -55,7 +47,7 @@ PENDIENTES = [
         "PEN-07",
         "A3 · Comportamiento de JavaScript",
         "Las pruebas de Django revisan el HTML y la respuesta del servidor, pero no ejecutan JavaScript.",
-        "Los avisos SweetAlert2, el pegado del código en seis casillas y la lista dependiente se verifican en navegador en la hoja «Navegador»; lo que esa hoja no cubra queda como revisión manual.",
+        "Los avisos SweetAlert2, el recorte de la foto y la lista dependiente se verifican en navegador en la hoja «Navegador»; lo que esa hoja no cubra queda como revisión manual.",
         "Ejecutar python tools/evidencias/capturar.py (o con --url de AWS) y revisar la hoja «Navegador».",
         "Parcial",
     ),

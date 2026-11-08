@@ -1,2 +1,5 @@
-
-<a class="{{ cls }}" href="{{ url }}" data-delete="{{ name }}" data-delete-kind="{{ kind }}"{% if blocked %} data-blocked="{{ blocked }}"{% endif %} aria-label="Eliminar {{ name }}"><i class="bi bi-trash3" aria-hidden="true"></i> Eliminar</a>
+{% comment %}
+Un mantenedor que además se puede eliminar de verdad (crud.deletable) muestra dos acciones distintas:
+«Archivar» (el registro se oculta y se puede restaurar) y «Eliminar» (se borra de la base).
+Si el mantenedor solo se archiva, esa única acción se llama «Eliminar», como siempre.
+{% endcomment %}{% if kind == "archive" and crud.deletable %}<a class="{{ cls }}" href="{{ url }}" data-delete="{{ name }}" data-delete-kind="archive" data-delete-label="archive"{% if blocked %} data-blocked="{{ blocked }}"{% endif %} aria-label="Archivar {{ name }}"><i class="bi bi-archive" aria-hidden="true"></i> Archivar</a>{% else %}<a class="{{ cls }}" href="{{ url }}" data-delete="{{ name }}" data-delete-kind="{{ kind }}"{% if blocked %} data-blocked="{{ blocked }}"{% endif %} aria-label="Eliminar {{ name }}"><i class="bi bi-trash3" aria-hidden="true"></i> Eliminar</a>{% endif %}

@@ -4,12 +4,12 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="color-scheme" content="light">
-  <title>Tu código para recuperar la contraseña del SGR</title>
+  <title>Elige una contraseña nueva para tu cuenta del SGR</title>
 </head>
 <body style="margin:0; padding:0; background-color:#f3f2ef;">
 
   <div style="display:none; max-height:0; overflow:hidden; opacity:0; color:#f3f2ef; font-size:1px; line-height:1px;">
-    Aquí tienes tu código de recuperación. Tienes {{ duration }} para usarlo.
+    Abre el enlace para elegir tu contraseña nueva. Vale {{ duration }}.
   </div>
 
   <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="background-color:#f3f2ef;">
@@ -29,34 +29,27 @@
             <td style="padding:30px 32px 8px 32px; font-family:Arial, 'Liberation Sans', Helvetica, sans-serif; color:#26221f;">
               <p style="margin:0 0 14px 0; font-size:18px; font-weight:bold; color:#26221f;">Hola {{ name }},</p>
               <p style="margin:0; font-size:15px; line-height:1.5; color:#26221f;">
-                Aquí tienes tu código de recuperación. Tienes <strong>{{ duration }}</strong> para usarlo.
+                Pediste elegir una contraseña nueva para tu cuenta en el SGR. El enlace vale <strong>{{ duration }}</strong>.
               </p>
             </td>
           </tr>
 
           <tr>
-            <td align="center" style="padding:18px 32px 10px 32px;">
-              <table role="presentation" cellpadding="0" cellspacing="0" border="0" style="width:100%;">
-                <tr>
-                  <td align="center" style="background-color:#f7ecec; border:1px solid #e3c3c3; border-radius:6px; padding:22px 12px;">
-                    <div style="font-family:Arial, 'Liberation Sans', Helvetica, sans-serif; font-size:12px; font-weight:bold; letter-spacing:1.5px; text-transform:uppercase; color:#6d0000; padding-bottom:8px;">Tu código</div>
-                    <div style="font-family:Arial, 'Liberation Sans', Helvetica, sans-serif; font-size:44px; font-weight:bold; letter-spacing:10px; color:#920000; line-height:1.1; padding-left:10px;">{{ code }}</div>
-                  </td>
-                </tr>
-              </table>
+            <td align="center" style="padding:22px 32px 14px 32px;">
+              <a href="{{ link }}" style="display:inline-block; background-color:#920000; color:#ffffff; font-family:Arial, 'Liberation Sans', Helvetica, sans-serif; font-size:16px; font-weight:bold; text-decoration:none; padding:14px 28px; border-radius:6px;">Elegir mi contraseña nueva</a>
             </td>
           </tr>
 
           <tr>
-            <td align="center" style="padding:6px 32px 18px 32px; font-family:Arial, 'Liberation Sans', Helvetica, sans-serif; font-size:14px; line-height:1.5; color:#5a554f;">
-              Vence a las <strong style="color:#26221f;">{{ expires_at|time:"H:i:s" }}</strong> (hora de Chile) y solo se puede usar una vez.
+            <td align="center" style="padding:0 32px 18px 32px; font-family:Arial, 'Liberation Sans', Helvetica, sans-serif; font-size:14px; line-height:1.5; color:#5a554f;">
+              El enlace solo se puede usar <strong style="color:#26221f;">una vez</strong>: apenas cambies la contraseña, deja de servir.
             </td>
           </tr>
 
           <tr>
             <td style="padding:0 32px 6px 32px; font-family:Arial, 'Liberation Sans', Helvetica, sans-serif; font-size:14px; line-height:1.55; color:#26221f;">
-              <p style="margin:0 0 10px 0;">Escríbelo en la pantalla de recuperación del SGR para elegir tu contraseña nueva.</p>
-              <p style="margin:0 0 10px 0;">Si pides otro código, este deja de servir: usa siempre el último que te llegó.</p>
+              <p style="margin:0 0 10px 0;">Si el botón no se abre, copia esta dirección y pégala en tu navegador:</p>
+              <p style="margin:0 0 10px 0; word-break:break-all; font-size:13px;"><a href="{{ link }}" style="color:#920000;">{{ link }}</a></p>
             </td>
           </tr>
 
@@ -65,8 +58,8 @@
               <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0">
                 <tr>
                   <td style="background-color:#fcefcf; border:1px solid #e8cc8a; border-radius:6px; padding:12px 14px; font-family:Arial, 'Liberation Sans', Helvetica, sans-serif; font-size:13px; line-height:1.5; color:#6f4700;">
-                    <strong>¿No lo pediste tú?</strong> Ignora este correo: tu contraseña no cambia mientras nadie use el código.
-                    Nunca compartas este código; el equipo del SGR no te lo va a pedir.
+                    <strong>¿No lo pediste tú?</strong> Ignora este correo: tu contraseña no cambia mientras nadie abra el enlace.
+                    Nunca compartas este enlace; el equipo del SGR no te lo va a pedir.
                   </td>
                 </tr>
               </table>

@@ -1,3 +1,4 @@
+from django.conf import settings
 from django.core.exceptions import PermissionDenied
 from django.urls import reverse
 
@@ -11,10 +12,26 @@ from core.access import (
     request_officer,
     request_roles,
 )
+from core.clients import client_beneficiary, is_client
 from core.colors import DEFAULT_COLOR, palette
 from core.crud import registry
-from core.menus import build_menu
-from core.roles import role_info
+from core.menus import build_menu, client_menu
+from core.roles import CLIENT_ROLE, role_info
+
+def _read_text(name):
+    try:
+        return (settings.BASE_DIR / name).read_text(encoding="utf-8").strip()
+    except OSError:
+        return ""
+
+
+# Cambia en cada entrega (VERSION) y en cada despliegue (COMMIT): el navegador no reutiliza CSS ni JS viejos.
+ASSET_VERSION = "-".join(filter(None, (_read_text("VERSION"), _read_text("COMMIT")))) or "dev"
+
+
+def assets(request):
+    return {"asset_version": ASSET_VERSION}
+
 
 ALL_LABEL = "Todas las delegaciones"
 NO_DELEGATION_LABEL = "Sin delegación asignada"
@@ -88,6 +105,24 @@ def portal(request):
     if user is None or not user.is_authenticated:
         return context
 
+    if is_client(user):
+        top, groups = client_menu(request)
+        return {
+            **context,
+            "menu_top": top,
+            "menu_groups": groups,
+            "me": user,
+            "me_name": user.get_full_name() or user.get_username(),
+            "me_officer": None,
+            "me_photo_url": photo_url(user),
+            "me_delegation": None,
+            "me_roles": [role_info(CLIENT_ROLE)],
+            "me_scope": {},
+            "is_client": True,
+            "home_url": reverse("core:portal_home"),
+            "client_beneficiary": client_beneficiary(user),
+        }
+
     top, groups = build_menu(request)
     officer = request_officer(request)
     roles = [role_info(name) for name in request_roles(request)]
@@ -102,6 +137,8 @@ def portal(request):
             "me_delegation": home_delegation(request),
             "me_roles": roles,
             "me_scope": delegation_scope(request),
+            "is_client": False,
+            "home_url": reverse("core:dashboard"),
         }
     )
     return context

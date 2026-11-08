@@ -103,6 +103,14 @@ class Item(BaseModel):
         default=CalculationType.QUANTITATIVE,
         verbose_name="tipo de cálculo",
     )
+    scores = models.BooleanField(
+        default=True,
+        verbose_name="otorga punto",
+        help_text=(
+            "Si está desmarcado, las gestiones de este ítem no suman al avance (por ejemplo las gestiones previas: "
+            "enviar correos, coordinar o invitar; el punto lo da realizar la acción)."
+        ),
+    )
 
     class Meta:
         ordering = ("name",)
@@ -179,6 +187,43 @@ class Territory(BaseModel):
 
     def __str__(self):
         return f"{self.name} · {self.delegation}"
+
+
+class CommunityOrganization(BaseModel):
+    """RF-049: junta de vecinos u otra organización comunitaria (base entregada por el cliente, «sin verificar»)."""
+
+    name = models.CharField(max_length=255, verbose_name="nombre")
+    legal_address = models.CharField(max_length=255, blank=True, default="", verbose_name="domicilio legal")
+    territory = models.ForeignKey(
+        Territory,
+        on_delete=models.PROTECT,
+        null=True,
+        blank=True,
+        related_name="organizations",
+        verbose_name="territorio",
+    )
+    territory_text = models.CharField(
+        max_length=100, blank=True, default="", verbose_name="territorio según la base",
+        help_text="El territorio tal como venía en la base importada.",
+    )
+    active_members = models.PositiveIntegerField(null=True, blank=True, verbose_name="socios activos")
+    constitution_date = models.DateField(null=True, blank=True, verbose_name="fecha de constitución")
+    registry_number = models.PositiveIntegerField(unique=True, verbose_name="N.º de registro")
+    registration_date = models.DateField(null=True, blank=True, verbose_name="fecha de inscripción")
+    directory_number = models.PositiveIntegerField(null=True, blank=True, verbose_name="N.º de directorio")
+    verified = models.BooleanField(
+        default=False,
+        verbose_name="verificada",
+        help_text="La base entregada viene «sin verificar»: se marca cuando se confirman sus datos.",
+    )
+
+    class Meta:
+        ordering = ("name",)
+        verbose_name = "Organización"
+        verbose_name_plural = "Organizaciones"
+
+    def __str__(self):
+        return self.name
 
 
 class Officer(BaseModel):

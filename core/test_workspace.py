@@ -175,7 +175,7 @@ class AtencionTests(PortalTestCase):
         columns = [c.label for c in self.search("matias.cavieres").context["columns"]]
         self.assertEqual(
             columns,
-            ["Identificador", "Fecha", "Contacto", "RUT", "Tipo de atención", "Sub atención", "Funcionario autor", "Estado"],
+            ["Identificador", "Fecha", "Contacto", "RUT", "Tipo de atención", "Sub atención", "Funcionario autor", "Puntaje", "Estado"],
         )
         columns = [c.label for c in self.search("admin").context["columns"]]
         self.assertIn("Delegación", columns)

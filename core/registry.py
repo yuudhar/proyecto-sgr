@@ -5,17 +5,19 @@ from django.contrib.auth.models import Group, User
 from django.db.models import Count, Q
 from django.urls import reverse
 from django.utils import timezone
-from django.utils.text import slugify
 
 from accounts.delegations import listed_extra_delegations, stored_delegation_ids, sync_extra_delegations
 from accounts.models import RoleDetails, RoleProfile, UserProfile, group_is_global, role_details
 from core.access import active_delegation, default_delegation, request_delegation, request_officer
 from core import ui, uploads
 from core.audit import log_event
+from core.commitments import DEADLINE_LABELS, deadline_of, deadline_text, history_of, record_status
 from core.crud import CODE_COLUMN, Cell, Col, Crud, Related, is_id, registry
 from core.forms import (
     ActivityEditForm,
     ActivityIntakeForm,
+    AbsenceForm,
+    FeedbackForm,
     AdjustmentForm,
     CommitmentForm,
     DelegationForm,
@@ -34,6 +36,9 @@ from core.forms import (
     split_person_name,
 )
 from core.models import AuditLog
+from core.activity_stats import recent_activity
+from core.results import current_period, officer_summary, weight_problems, weights_state
+from core.photos import change_photo, photo_url_of, remove_photo
 from core.roles import (
     ACTIONS,
     PERMISSION_MODULES,
@@ -44,9 +49,11 @@ from core.roles import (
     sort_key,
 )
 from evidence.models import Evidence, Validation
+from operations import pipeline
 from operations.models import Activity, Commitment, Followup, ManagementType
 from organization.models import (
     Beneficiary,
+    CommunityOrganization,
     Delegation,
     Item,
     Officer,
@@ -55,7 +62,10 @@ from organization.models import (
     Service,
     Territory,
 )
-from planning.models import Adjustment, Goal, Indicator, Period
+from planning import feedback as feedback_rules
+from planning.calculation import IndicatorIndex
+from planning.models import Absence, Adjustment, Feedback, Goal, Indicator, Period
+from planning.pace import pace_of
 
 
 def count_text(total, one, many):
@@ -107,6 +117,13 @@ def sub_attention_name(activity):
     return item.name if item.parent_item_id else ""
 
 
+SCORING = {"scores": "Puntúa", "no_score": "No puntúa"}
+
+
+def scoring_state(activity):
+    return "scores" if activity.counts_for_score else "no_score"
+
+
 @registry.register
 class ActivityCrud(Crud):
     model = Activity
@@ -131,22 +148,26 @@ class ActivityCrud(Crud):
         "delegation",
         "status",
         "requires_visit",
+        Col("scoring", "Puntaje", kind="badge", sort=False),
     )
-    computed = {"attention_type": attention_type_name, "sub_attention": sub_attention_name}
+    computed = {"attention_type": attention_type_name, "sub_attention": sub_attention_name, "scoring": scoring_state}
+    computed_choices = {"scoring": SCORING}
     search_fields = (
         "contact_name",
         "phone",
         "request_description",
         "beneficiary__name",
         "beneficiary__rut",
+        "organization__name",
     )
-    list_filters = ("delegation", "status", "requires_visit", "added_to_pipeline", "item")
+    list_filters = ("delegation", "status", "counts_for_score", "requires_visit", "added_to_pipeline", "item", "author_officer")
     select_related = ("delegation", "item", "item__parent_item", "author_officer", "beneficiary", "service")
     form_fields = (
         "date",
         "item",
         "service",
         "beneficiary",
+        "organization",
         "contact_name",
         "phone",
         "request_description",
@@ -154,6 +175,9 @@ class ActivityCrud(Crud):
         "status",
         "requires_visit",
         "added_to_pipeline",
+        "due_date",
+        "territory",
+        "requester_is_delegate",
         "delegation",
         "author_officer",
     )
@@ -164,10 +188,14 @@ class ActivityCrud(Crud):
         "attention_type",
         "item",
         "service",
+        "organization",
         "request_description",
         "action_taken",
         "requires_visit",
         "added_to_pipeline",
+        "due_date",
+        "territory",
+        "requester_is_delegate",
         "delegation",
         "author_officer",
     )
@@ -175,7 +203,7 @@ class ActivityCrud(Crud):
     create_save_label = "Registrar atención"
     full_width = ("requester", "request_description", "action_taken")
     help_texts = {
-        "added_to_pipeline": "Marca la actividad para seguirla en el tubo de trabajo.",
+        "added_to_pipeline": "Marca la atención para seguirla en el tubo de trabajo: se pide la fecha comprometida y el territorio.",
     }
     rules = {"phone": "phone", "requester": "label", "contact_name": "label"}
     form_base = ActivityEditForm
@@ -200,6 +228,19 @@ class ActivityCrud(Crud):
             who = f" para {obj.contact_name}" if obj.contact_name else ""
             return f"Atención registrada{who}. Identificador: {self.code_of(obj)}."
         return super().say(kind, obj)
+
+    def after_save(self, request, obj, form, creating):
+        # Tubo de trabajo: la atención marcada «ingresa al tubo» crea su compromiso en la agenda colectiva.
+        if not form.wants_pipeline():
+            return
+        commitment = pipeline.create_commitment(obj, form.cleaned_data["due_date"], form.cleaned_data["territory"])
+        record_status(request.user, commitment, None, commitment.status)
+        log_event(request.user, "Registro creado", commitment, new=str(commitment))
+        messages.info(
+            request,
+            f"Se creó el compromiso en la Agenda colectiva para el {ui.fmt_date(commitment.due_date)} "
+            f"({commitment.territory}).",
+        )
 
 
 @registry.register
@@ -232,7 +273,6 @@ class FollowupCrud(Crud):
     )
     full_width = ("result",)
     rules = {"result": "label"}
-    bounds = {"sequence_number": {"min": "1", "max": "3"}}
     form_base = FollowupForm
     delegation_lookup = "activity__delegation"
 
@@ -240,10 +280,7 @@ class FollowupCrud(Crud):
         initial = {"date": timezone.localdate()}
         activity = visible_activity(request, request.GET.get("activity", ""))
         if activity is not None:
-            used = set(activity.followups.values_list("sequence_number", flat=True))
-            free = [n for n in (1, 2, 3) if n not in used]
-            if free:
-                initial["sequence_number"] = free[0]
+            initial["activity"] = activity.pk
         return initial
 
 
@@ -252,6 +289,7 @@ class CommitmentCrud(Crud):
     model = Commitment
     slug = "agenda"
     icon = "bi-calendar-check"
+    deletable = True
     title = "Compromiso"
     title_plural = "Compromisos"
     list_title = "Agenda colectiva"
@@ -261,9 +299,12 @@ class CommitmentCrud(Crud):
         "territory",
         "responsible_officer",
         "due_date",
+        Col("deadline", "Plazo", kind="badge", sort=False),
         "status",
         "requester_type",
     )
+    computed = {"deadline": deadline_of}
+    computed_choices = {"deadline": DEADLINE_LABELS}
     search_fields = ("requester", "territory__name", "description")
     list_filters = ("delegation", "status", "requester_type")
     select_related = ("territory", "territory__delegation", "delegation", "responsible_officer")
@@ -285,6 +326,24 @@ class CommitmentCrud(Crud):
     rules = {"requester": "label", "source": "label", "support": "label"}
     form_base = CommitmentForm
     delegation_lookup = "delegation"
+    detail_panel = "core/crud/commitment_history.html"
+
+    def panel_context(self, request, obj):
+        return {"history": history_of(obj)}
+
+    def extra_detail(self, obj):
+        state = deadline_of(obj)
+        tone, icon = ui.tone_for(state)
+        return [
+            ("Plazo", Cell(kind="badge", text=DEADLINE_LABELS[state], tone=tone, icon=icon)),
+            ("Detalle del plazo", Cell(text=deadline_text(obj))),
+        ]
+
+    def after_save(self, request, obj, form, creating):
+        # RF-018: cada estado queda en el historial, con quién lo cambió y cuándo.
+        previous = None if creating else form.initial.get("status")
+        if creating or previous != obj.status:
+            record_status(request.user, obj, previous, obj.status)
 
     def initial_values(self, request):
         initial = {"request_date": timezone.localdate()}
@@ -293,23 +352,6 @@ class CommitmentCrud(Crud):
         if delegation is not None:
             initial["delegation"] = delegation.pk
         return initial
-
-
-def suggest_evidence_code(request, activity):
-    delegation = activity.delegation if activity is not None else default_delegation(request)
-    if delegation is None:
-        return ""
-    name = delegation.name
-    if name.lower().startswith("delegación "):
-        name = name[len("delegación "):]
-    prefix = f"EVD-{slugify(name).upper()}-"
-    numbers = [
-        int(code[len(prefix):])
-        for code in Evidence._default_manager.filter(unique_code__startswith=prefix)
-        .values_list("unique_code", flat=True)
-        if is_id(code[len(prefix):])
-    ]
-    return f"{prefix}{max(numbers, default=0) + 1:04d}"
 
 
 @registry.register
@@ -335,7 +377,7 @@ class EvidenceCrud(Crud):
     readonly_on_edit = ("unique_code",)
     rules = {"unique_code": "code"}
     help_texts = {
-        "unique_code": "Identifica la evidencia y no se puede cambiar después de crearla.",
+        "unique_code": "Se asignó sola al subir la evidencia y no se puede cambiar.",
     }
     delegation_lookup = "activity__delegation"
     related = (
@@ -350,7 +392,8 @@ class EvidenceCrud(Crud):
     def initial_values(self, request):
         initial = own_officer_defaults(request, "author_officer")
         activity = visible_activity(request, request.GET.get("activity", ""))
-        initial["unique_code"] = suggest_evidence_code(request, activity)
+        if activity is not None:
+            initial["activity"] = activity.pk
         return initial
 
     def prepare_object(self, request, obj, creating, form):
@@ -440,6 +483,9 @@ class PeriodCrud(Crud):
         "collective_threshold": {"min": "0.01", "max": "100"},
         "amber_threshold": {"min": "0", "max": "100"},
         "weighted_cap": {"min": "0.01"},
+        "compliment_value": {"min": "0.01", "max": "100"},
+        "complaint_value": {"min": "0.01", "max": "100"},
+        "compliment_limit": {"min": "1"},
     }
     form_base = PeriodForm
     form_fields = (
@@ -450,6 +496,9 @@ class PeriodCrud(Crud):
         "collective_threshold",
         "amber_threshold",
         "weighted_cap",
+        "compliment_value",
+        "complaint_value",
+        "compliment_limit",
         "parameters_version",
     )
     related = (Related("metas", "period", "Metas del período"),)
@@ -494,7 +543,37 @@ class GoalCrud(Crud):
     help_texts = {
         "target_value": "Debe ser mayor a 0.",
         "officer": "Elige un funcionario o un cargo para asignar la meta.",
+        "weight": "Los ponderadores de cada funcionario en el período deben sumar 100 %.",
     }
+
+    def after_save(self, request, obj, form, creating):
+        # RF-006: no se impide guardar (las metas se crean de a una), pero se avisa si la suma no llega o pasa de 100 %.
+        problems = weight_problems(obj)
+        for officer, total, state in problems[:3]:
+            verb = "no llegan a" if state == "under" else "superan"
+            messages.warning(
+                request,
+                f"Ponderadores de {officer.name} en este período: suman {ui.fmt_number(total)} % y {verb} 100 %. "
+                "Ajusta las metas para que sumen 100 %.",
+            )
+        if len(problems) > 3:
+            messages.warning(request, f"Otros {len(problems) - 3} funcionarios también tienen ponderadores que no suman 100 %.")
+
+    def extra_detail(self, obj):
+        problems = {officer.pk: (total, state) for officer, total, state in weight_problems(obj)}
+        from core.results import officer_weights
+        from planning.calculation import officers_of
+
+        officers = officers_of(obj)
+        if obj.officer_id:
+            total = officer_weights(obj.period, obj.officer)
+            text = f"{ui.fmt_number(total)} %" + ("" if weights_state(total) == "ok" else " (deben sumar 100 %)")
+            return [("Suma de ponderadores del funcionario", Cell(text=text))]
+        if not officers:
+            return []
+        bad = len(problems)
+        text = "Todos suman 100 %" if not bad else f"{bad} de {len(officers)} funcionarios no suman 100 %"
+        return [("Ponderadores de los funcionarios del cargo", Cell(text=text))]
     related = (
         Related(
             "indicadores",
@@ -583,6 +662,108 @@ class AdjustmentCrud(Crud):
             obj.responsible_user = request.user
 
 
+def feedback_effect(feedback):
+    return feedback_rules.effect_text(feedback)
+
+
+def feedback_alert(feedback):
+    return feedback_rules.hr_alert(feedback)
+
+
+@registry.register
+class FeedbackCrud(Crud):
+    model = Feedback
+    slug = "felicitaciones-y-reclamos"
+    icon = "bi-chat-heart"
+    gender = "f"
+    description = (
+        "Felicitaciones (suman) y reclamos (restan) formales contra un funcionario, con su respaldo. "
+        "Solo el delegado los registra y el ajuste se genera solo."
+    )
+    delegation_lookup = "officer__delegation"
+    list_display = (
+        Col("date", "Fecha", link=True),
+        "kind",
+        Col("officer", "Profesional involucrado"),
+        "channel",
+        "contact_name",
+        Col("support", "Respaldo", sort=False),
+        Col("effect", "Efecto", sort=False),
+        Col("hr_alert", "Aviso", sort=False),
+    )
+    computed = {"effect": feedback_effect, "hr_alert": feedback_alert}
+    search_fields = ("officer__name", "contact_name", "description")
+    list_filters = ("kind", "channel", "officer")
+    select_related = ("officer", "period", "registered_by")
+    form_base = FeedbackForm
+    form_fields = ("kind", "date", "officer", "channel", "contact_name", "contact", "description", "support")
+    full_width = ("description", "support")
+    rules = {"contact_name": "person_name", "contact": "label", "description": "text"}
+    help_texts = {
+        "kind": "Una felicitación suma al funcionario; un reclamo resta. El ajuste se genera solo al guardar.",
+        "officer": "El profesional involucrado, de tu delegación.",
+        "description": "La situación que se felicita o se reclama (un reclamo debe ser por mala atención del funcionario).",
+    }
+
+    def prepare_object(self, request, obj, creating, form):
+        super().prepare_object(request, obj, creating, form)
+        if creating:
+            obj.registered_by = request.user
+
+    def make_cell(self, obj, column):
+        if column.path == "support":
+            name = obj.support.name if obj.support else ""
+            if not name:
+                return Cell(text="")
+            if not obj.support.storage.exists(name):
+                return Cell(text=f"{Path(name).name} (el archivo no está en el sistema)")
+            return Cell(
+                kind="file",
+                text=Path(name).name,
+                url=reverse("core:feedback_file", args=[obj.pk]),
+                preview=uploads.is_image(name),
+            )
+        return super().make_cell(obj, column)
+
+
+@registry.register
+class AbsenceCrud(Crud):
+    model = Absence
+    slug = "ausencias"
+    icon = "bi-calendar-x"
+    gender = "f"
+    description = (
+        "Días en que un funcionario no está disponible. Sus días hábiles se descuentan de los días computables "
+        "y la meta del funcionario se ajusta."
+    )
+    delegation_lookup = "officer__delegation"
+    list_display = (
+        Col("officer", "Funcionario", link=True),
+        "kind",
+        "start_date",
+        "end_date",
+        Col("business_days", "Días hábiles", kind="number", sort=False),
+        "notes",
+    )
+    computed = {"business_days": lambda absence: absence.business_days}
+    search_fields = ("officer__name", "notes")
+    list_filters = ("kind", "officer")
+    select_related = ("officer", "registered_by")
+    form_base = AbsenceForm
+    form_fields = ("officer", "kind", "start_date", "end_date", "notes")
+    rules = {"notes": "label"}
+    full_width = ("notes",)
+    help_texts = {
+        "end_date": "Último día de la ausencia. Cuentan los días de lunes a viernes entre «desde» y «hasta».",
+        "notes": "Opcional: licencia médica, feriado legal u otro dato que ayude a entender la ausencia.",
+    }
+
+    def prepare_object(self, request, obj, creating, form):
+        super().prepare_object(request, obj, creating, form)
+        if creating:
+            obj.registered_by = request.user
+
+
 @registry.register
 class DelegationCrud(Crud):
     model = Delegation
@@ -648,6 +829,7 @@ class TerritoryCrud(Crud):
     model = Territory
     slug = "territorios"
     icon = "bi-geo-alt"
+    deletable = True
     description = "Territorios de cada delegación."
     list_display = ("name", "delegation")
     search_fields = ("name", "delegation__name")
@@ -687,6 +869,27 @@ class OfficerCrud(Crud):
     }
     delegation_lookup = "delegation"
     related = (Related("metas", "officer", "Metas"),)
+    detail_panel = "core/crud/officer_sheet.html"
+
+    def panel_context(self, request, obj):
+        """RF-008: ficha personal con las metas del período, el avance, el cumplimiento y el aporte ponderado."""
+        if not request.user.has_perm("planning.view_indicator"):
+            return {}
+        periods = list(Period.objects.filter(deleted_at__isnull=True).order_by("-start_date"))
+        chosen = request.GET.get("periodo", "")
+        period = next((each for each in periods if str(each.pk) == chosen), None) or current_period()
+        if period is None:
+            return {}
+        goals = list(Goal.objects.filter(deleted_at__isnull=True, period=period).select_related("item"))
+        pace = pace_of(period)
+        sheet = officer_summary(obj, period, goals, IndicatorIndex([goal.pk for goal in goals]), pace)
+        return {
+            "sheet": sheet,
+            "period": period,
+            "periods": periods,
+            "pace": sheet["pace"],
+            "recent": recent_activity([obj.pk], period, pace)[obj.pk],
+        }
 
     def extra_detail(self, obj):
         account = getattr(obj, "user_profile", None)
@@ -722,6 +925,8 @@ class PositionCrud(Crud):
     model = Position
     slug = "cargos"
     icon = "bi-person-badge"
+    deletable = True
+    state_filter = True
     description = "Cargos con su período de vigencia."
     list_display = (Col("name", "Nombre", link=True), "valid_from", "valid_until")
     search_fields = ("name",)
@@ -761,6 +966,7 @@ class ServiceCrud(Crud):
     model = Service
     slug = "servicios"
     icon = "bi-card-checklist"
+    deletable = True
     list_title = "Catálogo de servicios"
     description = "Servicios municipales que se pueden asociar a una actividad."
     list_display = (Col("name", "Nombre", link=True), "status")
@@ -850,7 +1056,7 @@ class ItemColumns:
     select_related = ("parent_item",)
     unique_names = (("name", "parent_item"),)
     rules = {"name": "label", "description": "label"}
-    form_fields = ("name", "description", "parent_item", "calculation_type")
+    form_fields = ("name", "description", "parent_item", "calculation_type", "scores")
     full_width = ("description",)
     help_texts = {
         "name": "Se distingue de los demás aunque cambien las mayúsculas.",
@@ -879,6 +1085,7 @@ class ItemCrud(ItemRules, ItemColumns, Crud):
     title_plural = "Ítems"
     list_title = "Ítems y metas"
     description = "Todos los ítems que se miden en las metas: tipos de atención y sus sub atenciones."
+    search_fields = ("name", "description")
     code_prefix = "IT"
     code_digits = 3
     list_display = (
@@ -888,9 +1095,10 @@ class ItemCrud(ItemRules, ItemColumns, Crud):
         Col("item_class", "Clase", sort=False),
         Col("parent_item", "Tipo asociado", sort="parent_item__name"),
         "calculation_type",
+        Col("scores", "Otorga punto", kind="bool"),
         Col("state", "Estado", kind="badge", sort=False),
     )
-    list_filters = ("parent_item", "calculation_type")
+    list_filters = ("parent_item", "calculation_type", "scores")
     form_base = ItemForm
     labels = {"parent_item": "Ítem padre (tipo de atención)"}
     help_texts = {
@@ -928,14 +1136,15 @@ class AttentionTypeCrud(ItemRules, ItemColumns, Crud):
         "description",
         "calculation_type",
         Col("sub_total", "Sub atenciones activas", kind="number", sort=False),
+        Col("scores", "Otorga punto", kind="bool"),
         Col("state", "Estado", kind="badge", sort=False),
     )
     computed = {**ItemColumns.computed, "sub_total": lambda item: item.sub_total}
     search_fields = ("name", "description")
-    list_filters = ("calculation_type",)
+    list_filters = ("calculation_type", "scores")
     select_related = ()
     form_base = ItemForm
-    form_fields = ("name", "description", "calculation_type")
+    form_fields = ("name", "description", "calculation_type", "scores")
     help_texts = {
         "name": "Se distingue de los demás tipos aunque cambien las mayúsculas.",
         "description": "Qué atiende este tipo de atención. Es opcional.",
@@ -967,11 +1176,12 @@ class SubAttentionCrud(ItemRules, ItemColumns, Crud):
         Col("name", "Nombre", link=True),
         Col("parent_item", "Tipo de Atención asociado", sort="parent_item__name"),
         "calculation_type",
+        Col("scores", "Otorga punto", kind="bool"),
         Col("state", "Estado", kind="badge", sort=False),
     )
-    list_filters = ("parent_item", "calculation_type")
+    list_filters = ("parent_item", "calculation_type", "scores")
     form_base = SubAttentionForm
-    form_fields = ("name", "parent_item", "calculation_type")
+    form_fields = ("name", "parent_item", "calculation_type", "scores")
     detail_exclude = ("description",)
     search_fields = ("name", "parent_item__name")
     labels = {"parent_item": "Tipo de Atención asociado"}
@@ -995,6 +1205,8 @@ class ManagementTypeCrud(Crud):
     model = ManagementType
     slug = "tipos-de-gestion"
     icon = "bi-signpost-split"
+    deletable = True
+    state_filter = True
     description = "Tipos de gestión que se usan en el seguimiento de una actividad."
     list_display = (Col("name", "Nombre", link=True),)
     search_fields = ("name",)
@@ -1004,10 +1216,47 @@ class ManagementTypeCrud(Crud):
 
 
 @registry.register
+class CommunityOrganizationCrud(Crud):
+    model = CommunityOrganization
+    slug = "organizaciones"
+    icon = "bi-houses"
+    gender = "f"
+    deletable = True
+    state_filter = True
+    description = "Juntas de vecinos y otras organizaciones comunitarias. Es un catálogo compartido entre delegaciones."
+    list_display = (
+        Col("name", "Nombre", link=True),
+        "territory",
+        "active_members",
+        "registry_number",
+        "verified",
+    )
+    search_fields = ("name", "legal_address", "territory_text")
+    list_filters = ("territory", "verified")
+    select_related = ("territory",)
+    form_fields = (
+        "name",
+        "legal_address",
+        "territory",
+        "active_members",
+        "constitution_date",
+        "registry_number",
+        "registration_date",
+        "directory_number",
+        "verified",
+    )
+    full_width = ("name", "legal_address")
+    rules = {"name": "label", "legal_address": "label"}
+    bounds = {"active_members": {"min": "0"}, "registry_number": {"min": "1"}, "directory_number": {"min": "0"}}
+
+
+@registry.register
 class BeneficiaryCrud(Crud):
     model = Beneficiary
     slug = "beneficiarios"
     icon = "bi-person-lines-fill"
+    deletable = True
+    state_filter = True
     description = "Personas atendidas. Es un catálogo compartido entre delegaciones."
     list_display = (Col("name", "Nombre", link=True), "rut", "phone", "address")
     search_fields = ("name", "rut", "address")
@@ -1022,6 +1271,10 @@ def roles_text(user):
     if user.is_superuser:
         names.insert(0, SUPERUSER_ROLE)
     return ", ".join(names)
+
+
+def profile_of(user):
+    return getattr(user, "profile", None)
 
 
 def officer_of(user):
@@ -1071,7 +1324,16 @@ class UserCrud(Crud):
     title_plural = "Usuarios"
     list_title = "Control de usuarios"
     description = "Cuentas del sistema con su perfil y su delegación."
-    archivable = False
+    archive_lookup = "profile__deleted_at"
+    archived_label = "Usuarios eliminados"
+    archived_banner = (
+        "Este usuario está eliminado: no puede ingresar ni aparece en el listado de usuarios. "
+        "Solo el Super Usuario lo ve aquí y puede restaurarlo."
+    )
+    archive_note = (
+        "El usuario deja de aparecer en el listado y no podrá ingresar. No se borra de la base de datos: pasa a "
+        "«Usuarios eliminados» y el Super Usuario puede restaurarlo cuando haga falta. Su historial se conserva."
+    )
     ordering = ("username",)
     list_display = (
         Col("username", "Usuario", link=True),
@@ -1083,7 +1345,7 @@ class UserCrud(Crud):
         "last_login",
     )
     computed = {"roles": roles_text, "full_name": full_name_text, "delegation_name": delegation_text}
-    select_related = ("profile", "profile__officer", "profile__officer__delegation")
+    select_related = ("profile", "profile__officer", "profile__officer__delegation", "profile__beneficiary")
     prefetch_related = ("groups__role_profile", "role_delegations__delegation")
     search_fields = (
         "username",
@@ -1137,11 +1399,55 @@ class UserCrud(Crud):
         "password1": "password",
     }
 
+    def can_archive(self, user):
+        return user.is_superuser and super().can_archive(user)
+
+    def can_see_archived(self, request):
+        return request.user.is_superuser
+
+    def get_queryset(self, request, include_archived=False):
+        return super().get_queryset(request, include_archived=include_archived and request.user.is_superuser)
+
+    def archived_at(self, obj):
+        profile = getattr(obj, "profile", None)
+        return profile.deleted_at if profile else None
+
+    def set_archived(self, obj, when):
+        profile, _ = UserProfile.objects.get_or_create(user=obj)
+        profile.deleted_at = when
+        fields = ["deleted_at", "updated_at"]
+        if when is not None:
+            profile.status = UserProfile.Status.INACTIVE
+            fields.append("status")
+            if obj.is_active:
+                obj.is_active = False
+                obj.save(update_fields=["is_active"])
+        profile.save(update_fields=fields)
+        obj.profile = profile
+
+    def archive_guard(self, request, obj):
+        if obj.pk == request.user.pk:
+            return ["No puedes eliminar tu propia cuenta."]
+        return []
+
+    def say(self, kind, obj):
+        name = obj.get_username()
+        if kind == "archived":
+            return f"Usuario «{name}» eliminado. Lo encuentras en Usuarios eliminados."
+        if kind == "restored":
+            return (
+                f"Usuario «{name}» restaurado. Sigue inactivo: actívalo en Editar cuando deba volver a ingresar."
+            )
+        return super().say(kind, obj)
+
     def extra_detail(self, obj):
         officer = officer_of(obj)
+        photo = photo_url_of(obj)
         return [
+            ("Foto de perfil", Cell(kind="avatar", text="Foto de perfil", url=photo) if photo else Cell()),
             ("Perfiles", Cell(text=roles_text(obj))),
             ("Funcionario", Cell(text=str(officer) if officer else "")),
+            ("Beneficiario", Cell(text=str(profile_of(obj).beneficiary) if profile_of(obj) and profile_of(obj).beneficiary_id else "")),
             ("Delegación", Cell(text=str(officer.delegation) if officer else "")),
             ("Delegaciones autorizadas", Cell(text=authorized_text(obj))),
             ("Cargo", Cell(text=str(officer.position) if officer else "")),
@@ -1149,15 +1455,17 @@ class UserCrud(Crud):
 
     def record_meta(self, obj):
         text = f"Cuenta creada el {ui.fmt_datetime(obj.date_joined)}."
-        if obj.last_login:
-            return f"{text} Último ingreso el {ui.fmt_datetime(obj.last_login)}."
-        return f"{text} Todavía no ha ingresado."
+        text += f" Último ingreso el {ui.fmt_datetime(obj.last_login)}." if obj.last_login else " Todavía no ha ingresado."
+        if self.archived_at(obj):
+            text += f" Eliminado el {ui.fmt_datetime(self.archived_at(obj))}."
+        return text
 
     def prepare_object(self, request, obj, creating, form):
         if not creating:
             profile = getattr(obj, "profile", None)
             form.before_roles = roles_text(obj)
             form.before_officer = str(profile.officer) if profile and profile.officer else ""
+            form.before_beneficiary = str(profile.beneficiary) if profile and profile.beneficiary else ""
             form.before_delegations = stored_delegation_ids(obj)
         password = form.cleaned_data.get("password1")
         if password:
@@ -1165,27 +1473,45 @@ class UserCrud(Crud):
 
     def after_save(self, request, obj, form, creating):
         officer = form.cleaned_data.get("officer")
+        beneficiary = form.cleaned_data.get("beneficiary")
         UserProfile.objects.update_or_create(
             user=obj,
             defaults={
                 "officer": officer,
+                "beneficiary": beneficiary,
                 "status": UserProfile.Status.ACTIVE if obj.is_active else UserProfile.Status.INACTIVE,
             },
         )
         obj = User.objects.get(pk=obj.pk)
+        self.save_photo(request, obj, form)
         self.save_extra_delegations(request, obj, form, creating)
         if not creating:
             roles, officer_name = roles_text(obj), str(officer) if officer else ""
-            if (roles, officer_name) != (form.before_roles, form.before_officer):
+            beneficiary_name = str(beneficiary) if beneficiary else ""
+            if (roles, officer_name, beneficiary_name) != (form.before_roles, form.before_officer, form.before_beneficiary):
                 log_event(
                     request.user,
                     "Perfil o funcionario modificado",
                     obj,
-                    previous=f"Perfiles: {form.before_roles or '(ninguno)'}; Funcionario: {form.before_officer or '(ninguno)'}",
-                    new=f"Perfiles: {roles or '(ninguno)'}; Funcionario: {officer_name or '(ninguno)'}",
+                    previous=(
+                        f"Perfiles: {form.before_roles or '(ninguno)'}; Funcionario: {form.before_officer or '(ninguno)'}"
+                        + (f"; Beneficiario: {form.before_beneficiary}" if form.before_beneficiary else "")
+                    ),
+                    new=(
+                        f"Perfiles: {roles or '(ninguno)'}; Funcionario: {officer_name or '(ninguno)'}"
+                        + (f"; Beneficiario: {beneficiary_name}" if beneficiary_name else "")
+                    ),
                 )
             if form.cleaned_data.get("password1"):
                 log_event(request.user, "Contraseña restablecida", obj)
+
+    def save_photo(self, request, obj, form):
+        """La foto la puede cambiar o quitar quien edita al usuario (la persona también la cambia en Mi perfil)."""
+        uploaded = form.cleaned_data.get("photo")
+        if uploaded:
+            change_photo(request.user, obj, uploaded)
+        elif form.cleaned_data.get("remove_photo"):
+            remove_photo(request.user, obj)
 
     def save_extra_delegations(self, request, obj, form, creating):
         if "extra_delegations" not in form.cleaned_data:

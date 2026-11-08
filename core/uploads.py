@@ -77,6 +77,37 @@ def check_upload(uploaded, types, max_mb):
     return uploaded
 
 
+def square_photo(uploaded, side_px):
+    """La foto que se guarda: cuadrada (recorte centrado si no lo era) y de a lo más side_px por lado.
+
+    El recorte con Croppr ya llega cuadrado desde el navegador; esto lo vuelve a garantizar en el servidor
+    (y cubre al navegador sin JavaScript), corrige la orientación de las fotos de celular y mantiene el formato.
+    """
+    from io import BytesIO
+
+    from django.core.files.uploadedfile import SimpleUploadedFile
+    from PIL import Image, ImageOps
+
+    uploaded.seek(0)
+    with Image.open(uploaded) as opened:
+        image = ImageOps.exif_transpose(opened)
+        width, height = image.size
+        side = min(width, height)
+        left, top = (width - side) // 2, (height - side) // 2
+        image = image.crop((left, top, left + side, top + side))
+        if side > side_px:
+            image = image.resize((side_px, side_px), Image.LANCZOS)
+        is_png = extension_of(uploaded.name) == "png"
+        if not is_png and image.mode not in ("RGB", "L"):
+            image = image.convert("RGB")
+        buffer = BytesIO()
+        if is_png:
+            image.save(buffer, format="PNG")
+        else:
+            image.save(buffer, format="JPEG", quality=90)
+    return SimpleUploadedFile(uploaded.name, buffer.getvalue(), content_type=content_type_of(uploaded.name))
+
+
 def sha256_of(uploaded):
     digest = hashlib.sha256()
     uploaded.seek(0)
@@ -107,3 +138,9 @@ def evidence_path(instance, filename):
 def photo_path(instance, filename):
     return f"fotos/usuario-{instance.user_id or 'nuevo'}-{uuid.uuid4().hex[:8]}.{extension_of(filename)}"
 
+
+
+def feedback_path(instance, filename):
+    from django.utils import timezone
+
+    return f"respaldos/{timezone.localdate().year}/respaldo-{uuid.uuid4().hex[:12]}.{extension_of(filename)}"

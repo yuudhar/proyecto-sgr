@@ -1,5 +1,6 @@
 import csv
-from decimal import ROUND_HALF_UP, Decimal
+from datetime import timedelta
+from decimal import Decimal
 from urllib.parse import urlsplit
 
 from django.contrib import messages
@@ -16,7 +17,7 @@ from django.utils.http import url_has_allowed_host_and_scheme
 from django.views.decorators.http import require_POST
 
 from accounts.models import UserProfile
-from core import export, ui, uploads
+from core import charts, export, ui, uploads
 from core.access import (
     active_delegation,
     authorized_delegations,
@@ -26,20 +27,34 @@ from core.access import (
     request_delegation,
     request_officer,
 )
+from core.activity_stats import delegation_recent, recent_activity
 from core.audit import log_event, log_export
-from core.crud import CODE_COLUMN, PAGE_SIZES, SESSION_PAGE_SIZE, Col, Column, CrudListView, query_string, registry
-from core.forms import PortalAuthenticationForm, PortalPasswordChangeForm, ProfilePhotoForm, ValidationForm
+from core.clients import client_beneficiary, is_client
+from core.commitments import DUE_SOON_DAYS, STATUS_ORDER, collective_summary, deadline_counts, status_label
+from core.crud import CODE_COLUMN, PAGE_SIZES, SESSION_PAGE_SIZE, Col, Column, CrudListView, conflict_message, query_string, registry, version_of
+from core.forms import ClientDataForm, PortalAuthenticationForm, PortalPasswordChangeForm, ProfilePhotoForm, ValidationForm
+from core.results import current_period, goals_of, light_of, mean, officer_summary, rounded, team_goals
 from core.rules import rut_with_wrong_digit
 from evidence.models import Evidence, Validation
 from operations.models import Activity, Commitment
 from organization.models import Delegation, Officer
-from planning.models import Adjustment, Goal, Indicator, Period
+from planning import feedback as feedback_rules
+from planning.team import team_score
+from planning.absences import absence_map, kind_breakdown
+from planning.calculation import IndicatorIndex
+from planning.models import Absence, Adjustment, Goal, Period
+from planning.pace import pace_of
 
 
 class PortalLoginView(auth_views.LoginView):
 
     authentication_form = PortalAuthenticationForm
     redirect_authenticated_user = True
+
+    def get_default_redirect_url(self):
+        if is_client(self.request.user):
+            return reverse("core:portal_home")
+        return super().get_default_redirect_url()
 
 
 class PortalLogoutView(auth_views.LogoutView):
@@ -50,12 +65,54 @@ class PortalLogoutView(auth_views.LogoutView):
         return response
 
 
+def save_client_data(user, beneficiary, data):
+    """Guarda lo que el Cliente cambió de sí mismo: su correo y el teléfono y dirección de su ficha.
+
+    La cuenta y la ficha salen del usuario autenticado, nunca de un dato del formulario; así nadie cambia datos ajenos.
+    """
+    with transaction.atomic():
+        before = f"correo: {user.email or '(vacío)'}"
+        if user.email != data["email"]:
+            user.email = data["email"]
+            user.save(update_fields=["email"])
+        if beneficiary is not None:
+            before += f"; teléfono: {beneficiary.phone or '(vacío)'}; dirección: {beneficiary.address or '(vacía)'}"
+            beneficiary.phone = data["phone"] or None
+            beneficiary.address = data["address"]
+            beneficiary.save(update_fields=["phone", "address", "updated_at"])
+        log_event(
+            user,
+            "Datos de cliente actualizados",
+            beneficiary if beneficiary is not None else user,
+            previous=before,
+            new=f"correo: {data['email'] or '(vacío)'}; teléfono: {data['phone'] or '(vacío)'}; dirección: {data['address'] or '(vacía)'}",
+        )
+
+
 @login_required
 def profile(request):
     action = request.POST.get("accion", "") if request.method == "POST" else ""
     form = PortalPasswordChangeForm(request.user, request.POST if action == "" and request.method == "POST" else None)
     photo_form = ProfilePhotoForm(request.POST if action == "foto" else None, request.FILES if action == "foto" else None)
+    beneficiary = client_beneficiary(request.user)
+    client_form = None
+    if is_client(request.user):
+        client_form = ClientDataForm(
+            request.POST if action == "datos" else None,
+            initial={
+                "email": request.user.email,
+                "phone": beneficiary.phone if beneficiary else "",
+                "address": beneficiary.address if beneficiary else "",
+            },
+        )
     if request.method == "POST":
+        if action == "datos":
+            if client_form is None:
+                raise PermissionDenied("Solo las cuentas del perfil Cliente cambian sus datos de contacto aquí.")
+            if client_form.is_valid():
+                save_client_data(request.user, beneficiary, client_form.cleaned_data)
+                messages.success(request, "Listo: actualizaste tus datos.")
+                return redirect("core:profile")
         if action == "foto" and photo_form.is_valid():
             account = UserProfile.objects.get_or_create(user=request.user)[0]
             old = account.photo.name if account.photo else ""
@@ -88,13 +145,17 @@ def profile(request):
         {
             "form": form,
             "photo_form": photo_form,
-            "breadcrumbs": [("Inicio", reverse("core:dashboard")), ("Mi perfil", None)],
+            "client_form": client_form,
+            "beneficiary": beneficiary,
+            "breadcrumbs": [("Inicio", reverse("core:portal_home" if client_form else "core:dashboard")), ("Mi perfil", None)],
         },
     )
 
 
 @login_required
 def profile_photo(request, user_id):
+    if is_client(request.user) and user_id != request.user.pk:
+        raise Http404
     account = get_object_or_404(UserProfile, user_id=user_id)
     name = account.photo.name if account.photo else ""
     if not name or not account.photo.storage.exists(name):
@@ -203,6 +264,7 @@ class AtencionView(CrudListView):
             Col("attention_type", "Tipo de atención"),
             Col("sub_attention", "Sub atención"),
             "author_officer",
+            Col("scoring", "Puntaje", kind="badge", sort=False),
             "status",
         ]
         if active_delegation(request) is None:
@@ -217,47 +279,7 @@ class AtencionView(CrudListView):
         }
 
 
-def current_period():
-    periods = Period.objects.filter(deleted_at__isnull=True).order_by("-start_date")
-    return periods.filter(status=Period.Status.ACTIVE).first() or periods.first()
-
-
-def latest_indicators(goal_ids):
-    latest = {}
-    indicators = Indicator.objects.filter(
-        goal_id__in=goal_ids, deleted_at__isnull=True
-    ).order_by("goal_id", "-calculated_at", "-pk")
-    for indicator in indicators:
-        latest.setdefault(indicator.goal_id, indicator)
-    return latest
-
-
-def goals_of(officer, goals):
-    return [
-        goal
-        for goal in goals
-        if goal.officer_id == officer.pk
-        or (goal.officer_id is None and goal.position_id == officer.position_id)
-    ]
-
-
-def mean(values):
-    values = list(values)
-    if not values:
-        return None
-    return sum(values, Decimal(0)) / len(values)
-
-
-def rounded(value):
-    if value is None:
-        return None
-    return value.quantize(Decimal("0.1"), rounding=ROUND_HALF_UP)
-
-
-def light_of(value, period):
-    if value is None:
-        return ""
-    return ui.light_for_compliance(value, period.collective_threshold, period.amber_threshold)
+latest_indicators = IndicatorIndex
 
 
 def pick_period(request):
@@ -300,40 +322,86 @@ def mini_table(crud, request, queryset, paths, limit=5):
     return columns, rows
 
 
-def goal_lines(goals, indicators):
-    lines = []
-    for goal in goals:
-        indicator = indicators.get(goal.pk)
-        lines.append(
-            {
-                "goal": goal,
-                "item": goal.item,
-                "target": ui.fmt_number(goal.target_value),
-                "unit": goal.unit,
-                "scope": "Meta personal" if goal.officer_id else "Meta del cargo",
-                "indicator": indicator,
-                "progress": ui.fmt_number(indicator.progress) if indicator else "",
-                "compliance": indicator.compliance if indicator else None,
-                "light": indicator.status_light if indicator else "",
-            }
+PACE_STANDING = {
+    "green": "Al día o sobre lo esperado",
+    "amber": "Algo bajo lo esperado",
+    "red": "Muy bajo lo esperado",
+}
+
+
+def pace_summary(period, achieved, pace=None):
+    """Cuadro de ritmo del período (RF-026): lo esperado hoy frente al avance logrado.
+
+    Con `pace` se usa el ritmo de un funcionario con ausencias (RF-047); sin él, el del período.
+    """
+    if period is None:
+        return None
+    pace = pace or pace_of(period)
+    standing = pace.standing(achieved, period.amber_threshold)
+    difference = pace.difference(achieved)
+    return {
+        "pace": pace,
+        "achieved": rounded(achieved),
+        "difference": rounded(difference),
+        "standing": standing,
+        "standing_label": PACE_STANDING.get(standing, ""),
+        "has_achieved": achieved is not None,
+    }
+
+
+def personal_board(officer, period, pace, today):
+    """RF-028: estado de evidencias, compromisos y actividad reciente de un funcionario en el período."""
+    evidence = {status: 0 for status in Evidence.ReviewStatus.values}
+    rows = (
+        Evidence.objects.filter(
+            author_officer=officer,
+            deleted_at__isnull=True,
+            uploaded_at__date__range=(period.start_date, period.end_date),
         )
-    return lines
+        .values("review_status")
+        .annotate(total=Count("pk"))
+    )
+    for row in rows:
+        evidence[row["review_status"]] = row["total"]
+
+    owned = Commitment.objects.filter(responsible_officer=officer, deleted_at__isnull=True)
+    statuses = {status: 0 for status in Commitment.Status.values}
+    for row in owned.values("status").annotate(total=Count("pk")):
+        statuses[row["status"]] = row["total"]
+    deadlines = deadline_counts(owned, today).get(officer.pk, {})
+    return {
+        "evidence": [
+            {"label": label, "total": evidence[value], "tone": ui.tone_for(value)[0]}
+            for value, label in Evidence.ReviewStatus.choices
+        ],
+        "commitments": [
+            {"label": status_label(status), "total": statuses[status], "tone": ui.tone_for(status)[0]}
+            for status in STATUS_ORDER
+        ],
+        "overdue": deadlines.get("overdue", 0),
+        "due_soon": deadlines.get("due_soon", 0),
+        "late": deadlines.get("done_late", 0),
+        "recent": recent_activity([officer.pk], period, pace, today)[officer.pk],
+    }
 
 
 @login_required
 def dashboard(request):
     user = request.user
 
-    visits = request.session.get("dashboard_visits", 0) + 1
+    # El refresco en vivo (fetch) vuelve a pedir esta pantalla sin que la persona la visite de nuevo.
+    live_refresh = request.headers.get("X-Requested-With") == "fetch"
+    visits = request.session.get("dashboard_visits", 0) + (0 if live_refresh else 1)
     request.session["dashboard_visits"] = visits
 
     officer = request_officer(request)
-    period = current_period()
+    period, periods = pick_period(request)
     today = timezone.localdate()
 
     context = {
         "greeting_name": user.first_name or user.get_username(),
         "period": period,
+        "periods": periods,
         "visits": visits,
         "breadcrumbs": None,
     }
@@ -353,7 +421,16 @@ def dashboard(request):
             .select_related("item")
             .order_by("item__name")
         )
-        context["goal_lines"] = goal_lines(goals, latest_indicators([g.pk for g in goals]))
+        pace = pace_of(period)
+        sheet = officer_summary(officer, period, goals, latest_indicators([g.pk for g in goals]), pace)
+        context["goal_lines"] = sheet["lines"]
+        context["sheet"] = sheet
+        context["personal"] = personal_board(officer, period, pace, today)
+        context["team"] = team_of_delegation(officer.delegation, period)
+        context["team_label"] = officer.delegation.name
+        if activities.has_perm(user, "view"):
+            context["activities_url"] = activities.url("list")
+        context["pace_summary"] = pace_summary(period, sheet["exact_average"], sheet["pace"])
 
     if period is not None and is_global_user(request) and user.has_perm("planning.view_indicator"):
         goals = Goal.objects.filter(deleted_at__isnull=True, period=period)
@@ -362,14 +439,19 @@ def dashboard(request):
             goals = goals.filter(Q(officer__delegation=chosen) | Q(officer__isnull=True))
         goals = list(goals)
         indicators = latest_indicators([g.pk for g in goals])
+        effective = indicators.effective()
         counts = {"green": 0, "amber": 0, "red": 0}
-        for indicator in indicators.values():
+        for indicator in effective:
             counts[indicator.status_light] = counts.get(indicator.status_light, 0) + 1
         context["light_counts"] = [
             {"light": key, "label": ui.LIGHT_LABELS[key], "total": counts[key]}
             for key in ("green", "amber", "red")
         ]
-        context["goals_without_indicator"] = len(goals) - len(indicators)
+        context["goals_without_indicator"] = len(goals) - len({indicator.goal_id for indicator in effective})
+        if officer is None:
+            context["pace_summary"] = pace_summary(
+                period, mean(indicator.compliance for indicator in effective)
+            )
 
     pending = []
     if activities.has_perm(user, "view"):
@@ -421,11 +503,17 @@ def dashboard(request):
             status=Commitment.Status.FULFILLED
         )
         overdue = commitment_qs.filter(due_date__lt=today).count()
+        due_soon = commitment_qs.filter(
+            due_date__gte=today, due_date__lte=today + timedelta(days=DUE_SOON_DAYS)
+        ).count()
+        detail = ", ".join(
+            text for text in (f"{overdue} vencido(s)" if overdue else "", f"{due_soon} por vencer" if due_soon else "") if text
+        )
         pending.append(
             {
                 "label": "Compromisos abiertos",
                 "total": commitment_qs.count(),
-                "detail": f"{overdue} vencido(s)" if overdue else "",
+                "detail": detail,
                 "icon": commitments.icon,
                 "url": commitments.url("list"),
                 "tone": "bad" if overdue else "neutral",
@@ -466,7 +554,64 @@ def dashboard(request):
         )
         context["upcoming_commitments"] = {"columns": columns, "rows": rows, "list_url": commitments.url("list")}
 
+    daily = None
+    if activities.has_perm(user, "view"):
+        qs = activities.get_queryset(request).filter(date__range=(today - timedelta(days=13), today))
+        if officer is not None:
+            qs = qs.filter(author_officer=officer)
+        per_day = {row["date"]: row["total"] for row in qs.values("date").annotate(total=Count("pk"))}
+        days = [today - timedelta(days=back) for back in range(13, -1, -1)]
+        daily = [{"label": f"{day:%d/%m}", "value": per_day.get(day, 0)} for day in days]
+    context["charts"] = dashboard_charts(context, daily)
+
     return render(request, "core/dashboard.html", context)
+
+
+def dashboard_charts(context, daily):
+    """Gráficos del dashboard: se arman con los mismos datos que ya muestran las tarjetas de la pantalla."""
+    result = {"donuts": [], "bars": None, "daily": None}
+    if context.get("light_counts") is not None:
+        result["donuts"].append(
+            charts.donut(
+                [
+                    {"label": cell["label"], "value": cell["total"], "tone": ui.tone_for(cell["light"])[0]}
+                    for cell in context["light_counts"]
+                ],
+                "Metas por semáforo",
+                "metas",
+            )
+        )
+    personal = context.get("personal")
+    if personal:
+        result["donuts"].append(
+            charts.donut(
+                [{"label": i["label"], "value": i["total"], "tone": i["tone"]} for i in personal["evidence"]],
+                "Mis evidencias del período",
+                "evidencias",
+            )
+        )
+        result["donuts"].append(
+            charts.donut(
+                [{"label": i["label"], "value": i["total"], "tone": i["tone"]} for i in personal["commitments"]],
+                "Mis compromisos",
+                "compromisos",
+            )
+        )
+    lines = [line for line in context.get("goal_lines", []) if line.get("indicator")]
+    if lines:
+        result["bars"] = charts.bars(
+            [
+                {"label": line["item"], "value": line["compliance"], "tone": ui.tone_for(line["light"])[0]}
+                for line in lines
+            ],
+            "Cumplimiento por meta",
+            " %",
+            maximum=100,
+        )
+    if daily:
+        result["daily"] = charts.columns(daily, "Atenciones de los últimos 14 días")
+    result["any"] = bool(result["donuts"] or result["bars"] or result["daily"])
+    return result
 
 
 STATUS_AFTER_DECISION = {
@@ -511,6 +656,28 @@ def evidence_file(request, pk):
         content_type=content_type,
         as_attachment=content_type not in uploads.INLINE_TYPES,
         filename=f"{evidence.unique_code}.{uploads.extension_of(name)}",
+    )
+    response["X-Content-Type-Options"] = "nosniff"
+    response["Cache-Control"] = "private, no-store"
+    return response
+
+
+@login_required
+def feedback_file(request, pk):
+    """Respaldo de una felicitación o un reclamo: solo lo abre quien ve ese registro (y su delegación)."""
+    crud = registry.get("felicitaciones-y-reclamos")
+    if not crud.has_perm(request.user, "view"):
+        raise PermissionDenied
+    feedback = get_object_or_404(crud.get_queryset(request, include_archived=True), pk=pk)
+    name = feedback.support.name if feedback.support else ""
+    if not name or not feedback.support.storage.exists(name):
+        raise Http404("Este registro no tiene un archivo en el sistema.")
+    content_type = uploads.content_type_of(name)
+    response = FileResponse(
+        feedback.support.open("rb"),
+        content_type=content_type,
+        as_attachment=content_type not in uploads.INLINE_TYPES,
+        filename=f"respaldo-{feedback.pk}.{uploads.extension_of(name)}",
     )
     response["X-Content-Type-Options"] = "nosniff"
     response["Cache-Control"] = "private, no-store"
@@ -588,7 +755,18 @@ def validate_evidence(request, pk):
         raise PermissionDenied("No puedes validar una evidencia que subiste tú: debe revisarla otra persona.")
 
     form = ValidationForm(request.POST or None)
+    conflict = False
     if request.method == "POST" and form.is_valid():
+        opened = request.POST.get("_version", "")
+        with transaction.atomic():
+            # RF-034: si otra persona ya revisó esta evidencia mientras se miraba, se avisa en vez de duplicar la decisión.
+            locked = Evidence.objects.select_for_update().get(pk=evidence.pk)
+            if opened and opened != version_of(locked):
+                conflict = True
+                evidence = locked
+        if conflict:
+            form.add_error(None, conflict_message(evidence))
+    if request.method == "POST" and form.is_valid() and not conflict:
         with transaction.atomic():
             validation = form.save(commit=False)
             validation.evidence = evidence
@@ -628,6 +806,7 @@ def validate_evidence(request, pk):
         {
             "evidence": evidence,
             "form": form,
+            "version": version_of(evidence),
             "history": history,
             "activity_url": (
                 activity_crud.url("detail", evidence.activity_id)
@@ -645,23 +824,53 @@ def validate_evidence(request, pk):
     )
 
 
-def officer_results(officers, goals, indicators, period):
-    results = []
-    for officer in officers:
-        own = goals_of(officer, goals)
-        lines = goal_lines(own, indicators)
-        compliances = [line["compliance"] for line in lines if line["compliance"] is not None]
-        exact = mean(compliances)
-        results.append(
+def absence_rows(results, period):
+    """Filas del bloque «Ausencias del equipo» (RF-047): días hábiles por tipo, total y días efectivos de cada funcionario."""
+    by_kind = kind_breakdown([row["officer"].pk for row in results], period)
+    rows = []
+    for row in results:
+        days = by_kind[row["officer"].pk]
+        rows.append(
             {
-                "officer": officer,
-                "lines": lines,
-                "goal_total": len(own),
-                "exact_average": exact,
-                "average": rounded(exact),
-                "light": light_of(exact, period),
+                "officer": row["officer"],
+                "kinds": [days[value] for value, _label in Absence.Kind.choices],
+                "total": row["absence"].total,
+                "effective": row["effective_days"],
             }
         )
+    return rows
+
+
+def team_of_delegation(delegation, period):
+    """RF-048: puntaje del equipo de una delegación (todos sus funcionarios activos) en un período."""
+    officers = list(
+        Officer.objects.filter(delegation=delegation, status=Officer.Status.ACTIVE, deleted_at__isnull=True)
+        .select_related("position")
+        .order_by("name")
+    )
+    goals = list(Goal.objects.filter(deleted_at__isnull=True, period=period).select_related("item"))
+    indicators = latest_indicators([goal.pk for goal in goals])
+    pace = pace_of(period)
+    away = absence_map([officer.pk for officer in officers], period, pace.today)
+    summaries = [
+        officer_summary(officer, period, goals, indicators, pace, away[officer.pk], Decimal(0)) for officer in officers
+    ]
+    return team_score(summaries, period)
+
+
+def officer_results(officers, goals, indicators, period):
+    pace = pace_of(period)
+    ids = [officer.pk for officer in officers]
+    recent = recent_activity(ids, period, pace)
+    away = absence_map(ids, period, pace.today)
+    nets = feedback_rules.net_by_officer(period, ids)
+    results = []
+    for officer in officers:
+        summary = officer_summary(
+            officer, period, goals, indicators, pace, away[officer.pk], nets.get(officer.pk, Decimal(0))
+        )
+        summary["recent"] = recent[officer.pk]
+        results.append(summary)
     return results
 
 
@@ -744,14 +953,201 @@ def delegation_board(request):
             "results": results,
             "average": rounded(delegation_mean),
             "average_light": light_of(delegation_mean, period),
+            "pace_summary": pace_summary(period, delegation_mean),
+            "recent_summary": delegation_recent({row["officer"].pk: row["recent"] for row in results}, pace_of(period)),
+            "absence_kinds": Absence.Kind.choices,
+            "absence_rows": absence_rows(results, period),
+            "team": team_score(results, period),
             "light_counts": [
                 {"light": key, "label": ui.LIGHT_LABELS[key], "total": lights[key]}
                 for key in ("green", "amber", "red")
             ],
             "tiles": tiles,
+            "charts": {
+                "donuts": [
+                    charts.donut(
+                        [
+                            {"label": ui.LIGHT_LABELS[key], "value": lights[key], "tone": ui.tone_for(key)[0]}
+                            for key in ("green", "amber", "red")
+                        ],
+                        "Funcionarios por semáforo",
+                        "funcionarios",
+                    )
+                ],
+                "bars": charts.bars(
+                    [
+                        {"label": row["officer"].name, "value": row["average"], "tone": ui.tone_for(row["light"])[0]}
+                        for row in results
+                        if row["average"] is not None
+                    ],
+                    "Cumplimiento promedio por funcionario",
+                    " %",
+                    maximum=100,
+                ),
+            },
         }
     )
     return render(request, "core/delegation_board.html", context)
+
+
+@login_required
+@permission_required("operations.view_commitment", raise_exception=True)
+def commitment_summary(request):
+    """RF-021: compromisos por funcionario y estado, con el porcentaje realizado y el que falta por realizar."""
+    crud = registry.get("agenda")
+    delegation, delegations, can_pick = pick_delegation(request, allow_all=True)
+    periods = list(Period.objects.filter(deleted_at__isnull=True).order_by("-start_date"))
+    chosen = request.GET.get("periodo", "todos")
+    period = next((option for option in periods if str(option.pk) == chosen), None)
+
+    commitments = crud.get_queryset(request)
+    officers = Officer.objects.filter(
+        status=Officer.Status.ACTIVE, deleted_at__isnull=True
+    ).select_related("delegation", "position").order_by("name")
+    if delegation is not None:
+        commitments = commitments.filter(delegation=delegation)
+        officers = officers.filter(delegation=delegation)
+    elif not is_global_user(request):
+        officers = officers.filter(delegation__in=authorized_delegations(request))
+    if period is not None:
+        commitments = commitments.filter(due_date__range=(period.start_date, period.end_date))
+
+    rows, total = collective_summary(commitments, list(officers))
+    thresholds = period or current_period()
+    for row in [*rows, total]:
+        row["light"] = light_of(row["done_percent"], thresholds) if thresholds and row["done_percent"] is not None else ""
+
+    context = {
+        "crud": crud,
+        "delegation": delegation,
+        "delegations": delegations,
+        "can_pick_delegation": can_pick,
+        "periods": periods,
+        "period": period,
+        "thresholds": thresholds,
+        "statuses": [status_label(status) for status in STATUS_ORDER],
+        "due_soon_days": DUE_SOON_DAYS,
+        "rows": rows,
+        "total": total,
+        "agenda_url": crud.url("list"),
+        "charts": {
+            "donuts": [
+                charts.donut(
+                    [
+                        {"label": status_label(status), "value": count, "tone": ui.tone_for(status)[0]}
+                        for status, count in zip(STATUS_ORDER, total["counts"])
+                    ],
+                    "Compromisos por estado",
+                    "compromisos",
+                )
+            ],
+            "bars": charts.bars(
+                [
+                    {"label": row["label"], "value": row["done_percent"], "tone": ui.tone_for(row["light"])[0]}
+                    for row in rows
+                    if row["done_percent"] is not None
+                ],
+                "Compromisos realizados por funcionario",
+                " %",
+                maximum=100,
+            ),
+        },
+        "breadcrumbs": [("Inicio", reverse("core:dashboard")), ("Resumen colectivo", None)],
+    }
+    return render(request, "core/commitment_summary.html", context)
+
+
+@login_required
+@permission_required("planning.add_indicator", raise_exception=True)
+@require_POST
+def recalculate_indicators(request):
+    """Recalcula a mano los indicadores de un período (el recálculo normal es automático al validar evidencias)."""
+    from planning import calculation
+
+    period = Period.objects.filter(pk=request.POST.get("periodo", ""), deleted_at__isnull=True).first()
+    if period is None:
+        messages.error(request, "Elige un período para recalcular sus indicadores.")
+        return redirect("core:delegation_board")
+    if period.status == Period.Status.CLOSED:
+        messages.warning(request, "El período está cerrado: sus indicadores ya no cambian.")
+        return redirect(f"{reverse('core:delegation_board')}?periodo={period.pk}")
+    with transaction.atomic():
+        created = calculation.recalculate_period(period)
+        log_event(request.user, "Indicadores recalculados", period, new=f"{created} indicador(es) nuevo(s)")
+    messages.success(
+        request,
+        f"Indicadores recalculados: {created} nuevo{'s' if created != 1 else ''}." if created
+        else "Los indicadores ya estaban al día.",
+    )
+    return redirect(f"{reverse('core:delegation_board')}?periodo={period.pk}")
+
+
+@login_required
+@permission_required("planning.view_indicator", raise_exception=True)
+def position_overview(request):
+    """RF-031: vista global por cargos, con sus funcionarios, metas y cifras logradas por equipo."""
+    delegation, delegations, can_pick = pick_delegation(request, allow_all=True)
+    period, periods = pick_period(request)
+    positions_crud = registry.get("cargos")
+    officers_crud = registry.get("funcionarios")
+    context = {
+        "delegation": delegation,
+        "delegations": delegations,
+        "can_pick_delegation": can_pick,
+        "period": period,
+        "periods": periods,
+        "groups": [],
+        "breadcrumbs": [("Inicio", reverse("core:dashboard")), ("Vista por cargos", None)],
+    }
+    if period is None:
+        return render(request, "core/position_overview.html", context)
+
+    officers = Officer.objects.filter(
+        status=Officer.Status.ACTIVE, deleted_at__isnull=True
+    ).select_related("delegation", "position")
+    if delegation is not None:
+        officers = officers.filter(delegation=delegation)
+    elif not is_global_user(request):
+        officers = officers.filter(delegation__in=authorized_delegations(request))
+    officers = list(officers.order_by("position__name", "name"))
+
+    goals = list(Goal.objects.filter(deleted_at__isnull=True, period=period).select_related("item"))
+    index = latest_indicators([goal.pk for goal in goals])
+    results = []
+    pace = pace_of(period)
+    recent = recent_activity([officer.pk for officer in officers], period, pace)
+    away = absence_map([officer.pk for officer in officers], period, pace.today)
+    nets = feedback_rules.net_by_officer(period, [officer.pk for officer in officers])
+    can_open_officer = officers_crud.has_perm(request.user, "view")
+    for officer in officers:
+        summary = officer_summary(officer, period, goals, index, pace, away[officer.pk], nets.get(officer.pk, Decimal(0)))
+        summary["recent"] = recent[officer.pk]
+        summary["url"] = officers_crud.url("detail", officer.pk) if can_open_officer else ""
+        results.append(summary)
+
+    can_open_position = positions_crud.has_perm(request.user, "view")
+    by_position = {}
+    for summary in results:
+        by_position.setdefault(summary["officer"].position, []).append(summary)
+    for position, rows in by_position.items():
+        average = mean(row["exact_average"] for row in rows if row["exact_average"] is not None)
+        weighted = mean(row["weighted_total"] for row in rows if row["weighted_total"] is not None)
+        dates = [row["recent"].last_date for row in rows if row["recent"].last_date]
+        context["groups"].append(
+            {
+                "position": position,
+                "url": positions_crud.url("detail", position.pk) if can_open_position else "",
+                "officers": rows,
+                "team_goals": team_goals(rows),
+                "team": team_score(rows, period),
+                "average": rounded(average),
+                "light": light_of(average, period),
+                "weighted": rounded(weighted),
+                "last_date": max(dates) if dates else None,
+            }
+        )
+    context["pace"] = pace
+    return render(request, "core/position_overview.html", context)
 
 
 def safe_cell(value):
@@ -804,9 +1200,9 @@ def report_rows(delegation, period, with_adjustment):
     rows = []
     for officer in officers:
         compliances = [
-            indicators[goal.pk].compliance
+            indicators.of(goal, officer).compliance
             for goal in goals_of(officer, goals)
-            if goal.pk in indicators
+            if indicators.of(goal, officer) is not None
         ]
         exact = mean(compliances)
         rows.append(
@@ -936,6 +1332,23 @@ def reports(request):
                 "approved": sum(r["approved"] for r in rows),
                 "pending": sum(r["pending"] for r in rows),
                 "rejected": sum(r["rejected"] for r in rows),
+            },
+            "charts": {
+                "donuts": [
+                    charts.donut(
+                        [
+                            {"label": "Aprobadas", "value": sum(r["approved"] for r in rows), "tone": "ok"},
+                            {"label": "Pendientes", "value": sum(r["pending"] for r in rows), "tone": "warn"},
+                            {"label": "Rechazadas", "value": sum(r["rejected"] for r in rows), "tone": "bad"},
+                        ],
+                        "Evidencias por estado",
+                        "evidencias",
+                    )
+                ],
+                "bars": charts.bars(
+                    [{"label": r["officer"].name, "value": r["activities"], "tone": "info"} for r in rows],
+                    "Actividades por funcionario",
+                ),
             },
             "scope_label": delegation.name if delegation else "Todas las delegaciones",
             "csv_url": query_string(request, formato="csv"),

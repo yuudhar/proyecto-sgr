@@ -134,12 +134,6 @@ RULES = {
             normalizer="trim",
         ),
         Rule(
-            "recovery_code",
-            r"[0-9]{6}",
-            "El código tiene 6 dígitos, solo números.",
-            normalizer="nospaces",
-        ),
-        Rule(
             "hex_color",
             r"#[0-9A-Fa-f]{6}",
             "Escribe el color como #RRGGBB, por ejemplo #920000.",

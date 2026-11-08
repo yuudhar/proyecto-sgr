@@ -8,7 +8,7 @@ from django.db import models
 from core.models import BaseModel
 from core.roles import GLOBAL_ROLE, ROLES
 from core.uploads import photo_path
-from organization.models import Delegation, Officer
+from organization.models import Beneficiary, Delegation, Officer
 
 
 class UserProfile(BaseModel):
@@ -34,11 +34,20 @@ class UserProfile(BaseModel):
             "funcionario asociado en terreno."
         ),
     )
+    beneficiary = models.OneToOneField(
+        Beneficiary,
+        on_delete=models.PROTECT,
+        related_name="user_profile",
+        null=True,
+        blank=True,
+        verbose_name="beneficiario",
+        help_text="Solo para cuentas del perfil Cliente: el beneficiario cuyas atenciones ve el usuario en su portal.",
+    )
     status = models.CharField(
         max_length=20, choices=Status.choices, default=Status.ACTIVE,
         verbose_name="estado",
     )
-    photo = models.FileField(
+    photo = models.ImageField(
         upload_to=photo_path,
         max_length=255,
         null=True,
@@ -52,6 +61,10 @@ class UserProfile(BaseModel):
 
     def clean(self):
         super().clean()
+        if self.officer_id and self.beneficiary_id:
+            raise ValidationError(
+                {"beneficiary": "Una cuenta es de un funcionario o de un beneficiario (cliente), no de los dos."}
+            )
         if self.officer_id and self.officer.status != Officer.Status.ACTIVE:
             raise ValidationError(
                 {

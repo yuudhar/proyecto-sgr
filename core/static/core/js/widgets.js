@@ -1,4 +1,5 @@
 import * as dialog from "./dialog.js";
+import { initSearchable } from "./searchable-select.js";
 
 const HEX_COLOR = /^#[0-9a-fA-F]{6}$/;
 
@@ -217,11 +218,43 @@ function setUpPasswordToggle(input) {
   window.addEventListener("pagehide", () => show(false));
 }
 
+function setUpShowWhen(field, root) {
+  const box = root.querySelector(`#${field.dataset.showWhen}`);
+  const wrapper = field.closest("[class*='col-']");
+  if (!box || !wrapper || field.dataset.showReady) return;
+  field.dataset.showReady = "1";
+  const label = wrapper.querySelector("label.form-label");
+  const needed = field.dataset.requiredWhenShown === "1";
+  let mark = null;
+  if (needed && label && !label.querySelector(".required-mark")) {
+    mark = document.createElement("span");
+    mark.className = "required-mark";
+    mark.setAttribute("aria-hidden", "true");
+    mark.textContent = " *";
+  }
+
+  function update() {
+    const on = box.checked;
+    wrapper.classList.toggle("d-none", !on);
+    field.disabled = !on;
+    field.required = on && needed;
+    if (mark) {
+      if (on) label.append(mark);
+      else mark.remove();
+    }
+  }
+
+  box.addEventListener("change", update);
+  update();
+}
+
 export function initWidgets(root = document) {
   root.querySelectorAll("input[type=password]").forEach(setUpPasswordToggle);
   root.querySelectorAll("[data-color-field]").forEach(setUpColor);
   root.querySelectorAll(".perm-field").forEach(setUpPermissions);
   root.querySelectorAll("select[data-depends-on]").forEach((select) => setUpDependent(select, root));
+  initSearchable(root);
+  root.querySelectorAll("[data-show-when]").forEach((field) => setUpShowWhen(field, root));
   if (dialog.available) root.querySelectorAll("[data-lookup-field]").forEach((box) => setUpLookup(box, root));
 }
 

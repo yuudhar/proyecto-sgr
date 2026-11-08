@@ -351,7 +351,7 @@ def correr(args):
 
         def recuperacion_completa():
             if not args.log_correo:
-                raise Saltar("falta --log-correo (el código del correo no se puede leer desde el navegador)")
+                raise Saltar("falta --log-correo (el enlace del correo no se puede leer desde el navegador)")
             if not datos.get("usuario"):
                 raise Saltar("depende de la cuenta de prueba creada")
             salir(pg, base)
@@ -361,31 +361,21 @@ def correr(args):
             pg.fill("#id_email", correo_e2e)
             pg.click("button[type=submit]")
             pg.wait_for_load_state("networkidle")
-            assert "/recuperar/codigo" in pg.url or "codigo" in pg.url, pg.url
-            cajas = pg.query_selector_all("input.code-box")
-            assert len(cajas) == 6, f"se esperaban 6 casillas y hay {len(cajas)}"
-            c.foto(pg, "EV1_04_recuperar_codigo_seis_casillas")
-            codigo = None
+            assert "/recuperar/enviado" in pg.url, pg.url
+            c.foto(pg, "EV1_04_recuperar_revisa_tu_correo")
+            enlace = None
             for _ in range(20):
-                texto = log.read_text(errors="replace")[antes:]
-                m = re.findall(r"^ {4}(\d{6})$", texto, re.M)
+                texto = re.sub(r"=\r?\n", "", log.read_text(errors="replace")[antes:])  # el correo viene en quoted-printable: une las líneas partidas
+                m = re.findall(r"^https?://\S+/recuperar/[^/\s]+/[^/\s]+/$", texto, re.M)
                 if m:
-                    codigo = m[-1]
+                    enlace = m[-1]
                     break
                 time.sleep(0.5)
-            assert codigo, "no apareció el código en el log del servidor"
-            cajas[0].focus()
-            pg.evaluate(
-                """(codigo) => { const d = new DataTransfer(); d.setData('text', codigo);
-                   document.querySelector('input.code-box').dispatchEvent(new ClipboardEvent('paste', {clipboardData: d, bubbles: true, cancelable: true})); }""",
-                codigo,
-            )
-            valores = "".join(caja.input_value() for caja in pg.query_selector_all("input.code-box"))
-            assert valores == codigo, f"el pegado no llenó las casillas ({valores!r})"
-            c.foto(pg, "EV1_05_codigo_pegado_en_las_seis_casillas")
-            pg.click("button[type=submit]")
+            assert enlace, "no apareció el enlace en el log del servidor"
+            pg.goto(enlace)
             pg.wait_for_load_state("networkidle")
-            assert pg.query_selector("input[type=password]"), "no se abrió el paso de la contraseña nueva"
+            assert "set-password" in pg.url, "el token debe salir de la barra de direcciones: " + pg.url
+            assert pg.query_selector("input[type=password]"), "no se abrió la pantalla de la contraseña nueva"
             for campo in pg.query_selector_all("input[type=password]"):
                 campo.fill(NUEVA_CLAVE)
             c.foto(pg, "EV1_06_recuperar_nueva_contrasena")
@@ -395,14 +385,18 @@ def correr(args):
             pg.click(".swal2-confirm")
             pg.wait_for_load_state("networkidle")
             assert pg.url.rstrip("/") == base or pg.url.endswith("/"), pg.url
+            pg.goto(enlace)
+            pg.wait_for_load_state("networkidle")
+            assert "ya no sirve" in pg.inner_text("body").lower(), "el enlace usado volvió a abrir el cambio de contraseña"
+            c.foto(pg, "EV1_05_enlace_usado_rechazado")
             ingresar(pg, base, usuario_e2e, NUEVA_CLAVE)
             assert "/dashboard" in pg.url, "no entró con la clave nueva"
             salir(pg, base)
             ingresar(pg, base, usuario_e2e, CLAVE)
             assert "/dashboard" not in pg.url, "la clave anterior sigue funcionando"
-            return f"Flujo completo: código de 6 dígitos, pegado en 6 casillas, confirmación «{confirmacion[:60]}…», entra con la clave nueva y la anterior se rechaza.", c.foto(pg, "EV1_07_clave_anterior_rechazada")
+            return f"Flujo completo: enlace del correo, confirmación «{confirmacion[:60]}…», el enlace usado se rechaza, entra con la clave nueva y la anterior se rechaza.", c.foto(pg, "EV1_07_clave_anterior_rechazada")
 
-        c.comprobar("A1-02, A1-03, A1-04, A3-04, A3-05, A3-06, A3-07, C2", "Recuperación completa de contraseña", ["Pedir código", "Leer el código del correo", "Pegarlo en las 6 casillas", "Crear la contraseña nueva y confirmar", "Entrar con la nueva y con la anterior"], "Se cambia la contraseña; la nueva entra y la anterior no.", recuperacion_completa)
+        c.comprobar("A1-02, A1-03, A1-04, A3-04, A3-05, A3-06, A3-07", "Recuperación completa de contraseña", ["Pedir el enlace", "Leer el enlace del correo", "Abrirlo y elegir la contraseña nueva", "Confirmar", "Reabrir el enlace usado", "Entrar con la nueva y con la anterior"], "Se cambia la contraseña; la nueva entra, la anterior no y el enlace usado se rechaza.", recuperacion_completa)
 
         def correo_inexistente():
             salir(pg, base)
@@ -411,7 +405,7 @@ def correr(args):
             pg.click("button[type=submit]")
             pg.wait_for_load_state("networkidle")
             texto = pg.inner_text("body")
-            assert "/codigo" in pg.url, pg.url
+            assert "/recuperar/enviado" in pg.url, pg.url
             assert "no existe" not in texto.lower() and "no está registrado" not in texto.lower(), "revela que el correo no existe"
             return "Un correo inexistente recibe la misma pantalla y el mismo aviso que uno real.", c.foto(pg, "EV1_08_recuperar_correo_inexistente_misma_respuesta")
 
@@ -671,7 +665,7 @@ def escribir_matriz(ruta, matriz, url):
 def main():
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("--url", required=True)
-    ap.add_argument("--log-correo", help="Archivo donde el servidor imprime el correo de recuperación")
+    ap.add_argument("--log-correo", help="Archivo donde el servidor imprime el correo de recuperación (con el enlace)")
     ap.add_argument("--capturas", default="docs/evidencias/capturas")
     ap.add_argument("--salida-json", default="docs/pruebas/resultados/navegador.json")
     ap.add_argument("--responsable", default="Equipo SGR")

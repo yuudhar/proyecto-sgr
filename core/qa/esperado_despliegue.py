@@ -9,7 +9,7 @@ ESPERADO = {
         "trusted_origins_come_from_the_env_as_a_list": "Los orígenes de confianza CSRF se leen de la variable de entorno como lista.",
         "whitenoise_is_optional_and_goes_right_after_the_security_middleware": "WhiteNoise es opcional y, si se activa, va justo después del middleware de seguridad.",
         "static_files_are_collected_in_staticfiles": "Los archivos estáticos se juntan en la carpeta staticfiles.",
-        "the_shared_cache_for_recovery_attempts_is_chosen_from_the_env": "La caché compartida de los intentos de recuperación se elige por variable (redis, db o local).",
+        "the_shared_cache_for_recovery_attempts_is_chosen_from_the_env": "La caché compartida (usada por el chequeo de /salud/) se elige por variable (redis, db o local).",
         "an_unknown_cache_backend_stops_with_a_clear_message": "Un tipo de caché desconocido detiene el arranque con un mensaje claro.",
         "sqlite_gets_wal_and_a_longer_wait_only_outside_development": "SQLite usa modo WAL y más espera solo fuera de desarrollo.",
         "persistent_connections_come_from_the_env": "Las conexiones persistentes se leen del entorno y un valor no numérico se rechaza.",

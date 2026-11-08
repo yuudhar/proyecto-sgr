@@ -1,4 +1,7 @@
-from django.db import models
+import re
+
+from django.db import IntegrityError, models, transaction
+from django.utils.text import slugify
 
 from core.models import BaseModel
 from core.uploads import evidence_path
@@ -45,8 +48,37 @@ class Evidence(BaseModel):
         verbose_name_plural = "Evidencias"
         ordering = ("-uploaded_at",)
 
+    CODE_ATTEMPTS = 5
+
     def __str__(self):
         return self.unique_code
+
+    def next_code(self):
+        """EVD-<DELEGACIÓN>-0001, 0002… de la delegación de la actividad (cuenta también las archivadas)."""
+        name = self.activity.delegation.name
+        if name.lower().startswith("delegación "):
+            name = name[len("delegación "):]
+        prefix = f"EVD-{slugify(name).upper()}-"
+        taken = [
+            int(code[len(prefix):])
+            for code in type(self)._base_manager.filter(unique_code__startswith=prefix).values_list("unique_code", flat=True)
+            if re.fullmatch(r"[0-9]+", code[len(prefix):])
+        ]
+        return f"{prefix}{max(taken, default=0) + 1:04d}"
+
+    def save(self, *args, **kwargs):
+        """El código se asigna solo al crear; si dos personas guardan a la vez, se reintenta con el siguiente."""
+        if self.unique_code:
+            return super().save(*args, **kwargs)
+        for attempt in range(self.CODE_ATTEMPTS):
+            self.unique_code = self.next_code()
+            try:
+                with transaction.atomic():
+                    return super().save(*args, **kwargs)
+            except IntegrityError:
+                if attempt == self.CODE_ATTEMPTS - 1:
+                    self.unique_code = ""
+                    raise
 
 
 class Validation(BaseModel):

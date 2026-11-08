@@ -37,7 +37,7 @@ El SGR reemplaza las planillas sueltas de las delegaciones municipales por un si
 - **Dashboard, tablero de delegación e informes:** indicadores del período, semáforo de metas y exportación a Excel.
 - **Mantenedores:** delegaciones, funcionarios, cargos, territorios, beneficiarios, catálogo de servicios, períodos, metas, ítems, tipos de atención y sub atención.
 - **Operación y evidencias:** la pantalla *Atención* reúne las atenciones (actividades) con su búsqueda, filtros y exportación; además gestiones (compromisos), agenda colectiva y evidencias con archivo real (PDF, imagen, Word o Excel de hasta 10 MB) y su validación.
-- **Usuarios y permisos:** roles con permisos por módulo, delegaciones autorizadas por usuario y recuperación de contraseña con código de seis dígitos enviado por correo.
+- **Usuarios y permisos:** roles con permisos por módulo, delegaciones autorizadas por usuario y recuperación de contraseña con un enlace de un solo uso enviado por correo.
 - **Auditoría:** cada alta, edición, archivo, exportación y recuperación queda registrada con quién, cuándo y qué valor tenía antes y después.
 
 Todos los listados incluyen búsqueda (sin distinguir mayúsculas ni tildes), paginador, filtros, orden y exportación a Excel. Los formularios se abren en ventanas modales, validan los datos en la pantalla y otra vez en el servidor, y avisan con SweetAlert2.
@@ -47,7 +47,7 @@ Todos los listados incluyen búsqueda (sin distinguir mayúsculas ni tildes), pa
 - **Contraseñas:** de 8 a 128 caracteres, con al menos una minúscula, una mayúscula, un número y un símbolo (por ejemplo `! # $ %`); además, que no sea de uso común, que no sea solo de números y que no se parezca a los datos del usuario. El mensaje dice exactamente qué le falta. Se revisan al crear un usuario, al cambiar la contraseña desde *Mi perfil* y al recuperarla.
 - **Formatos:** RUT con dígito verificador, teléfono, correo, nombres, códigos, usuario y color (`#RRGGBB`) tienen una regla propia en `core/rules.py`, que usan igual el servidor y el navegador.
 
-Los cambios de la versión 16 (archivos de evidencia, foto de perfil, alta única de funcionario y pantalla Atención única) están resumidos en [`docs/CAMBIOS_v16.md`](docs/CAMBIOS_v16.md). En la versión 17, a un funcionario que todavía no tiene usuario se le puede dar el acceso desde su propia pantalla «Editar», sin pasar por Control de usuarios, y su ficha indica con qué usuario ingresa. En la versión 18 los listados y la pantalla Atención buscan mientras se escribe (con una pausa breve) y al cambiar un filtro, sin apretar «Buscar»; el botón y la tecla Enter siguen funcionando. La versión 19 no cambia el sistema ni la base: quita los datos de demostración y deja los scripts de la base al día (ver [`docs/CAMBIOS_v19.md`](docs/CAMBIOS_v19.md)). En la versión 20 el identificador institucional del funcionario se genera solo al guardar y ya no se escribe a mano (ver [`docs/CAMBIOS_v20.md`](docs/CAMBIOS_v20.md)).
+Los cambios de la versión 16 (archivos de evidencia, foto de perfil, alta única de funcionario y pantalla Atención única) están resumidos en [`docs/CAMBIOS.md`](docs/CAMBIOS.md). En la versión 17, a un funcionario que todavía no tiene usuario se le puede dar el acceso desde su propia pantalla «Editar», sin pasar por Control de usuarios, y su ficha indica con qué usuario ingresa. En la versión 18 los listados y la pantalla Atención buscan mientras se escribe (con una pausa breve) y al cambiar un filtro, sin apretar «Buscar»; el botón y la tecla Enter siguen funcionando. La versión 19 no cambia el sistema ni la base: quita los datos de demostración y deja los scripts de la base al día (ver [`docs/CAMBIOS.md`](docs/CAMBIOS.md)). En la versión 20 el identificador institucional del funcionario se genera solo al guardar y ya no se escribe a mano (ver [`docs/CAMBIOS.md`](docs/CAMBIOS.md)). En la versión 21 los listados ofrecen 5, 15 o 30 filas por página (por defecto 15), la foto de perfil pasa a `ImageField` (ahora requiere Pillow) y se documenta la política de archivos reemplazados (ver [`docs/CAMBIOS.md`](docs/CAMBIOS.md)). En la versión 22 seis mantenedores (Beneficiarios, Territorios, Servicios, Cargos, Tipos de gestión y Agenda) se pueden **eliminar de verdad**, con confirmación de SweetAlert2 y bloqueo si el registro está en uso, y quienes no tenían filtro o buscador lo reciben (ver [`docs/CAMBIOS.md`](docs/CAMBIOS.md)). En la versión 23 el Super Usuario puede **eliminar usuarios**: pasan a «Usuarios eliminados» (no se borran de la base, quedan inactivos y se pueden restaurar) y nadie más ve ni usa esa opción (ver [`docs/CAMBIOS.md`](docs/CAMBIOS.md)). La versión 24 aplica la Clase 11 (Django Channels): los **listados de los mantenedores se actualizan solos** cuando otra persona guarda un cambio y el **dashboard, el tablero de delegación y Validar evidencias también** (si A cambia un dato, B lo ve en su pantalla abierta sin F5); además, el Super Usuario puede ver, cambiar y quitar la foto de perfil de cualquier usuario desde Control de usuarios; el servidor pasa de gunicorn a Daphne (ver [`docs/CAMBIOS.md`](docs/CAMBIOS.md)). La versión 25 implementa tres requisitos del informe: la **meta esperada al día** (cuadro «Ritmo del período» en el dashboard y el tablero), los **estados de compromisos Ingresado, Pendiente, En proceso y Realizado con su historial** y la pantalla **Resumen colectivo** de la agenda (ver [`docs/CAMBIOS.md`](docs/CAMBIOS.md)). La versión 26 calcula **solos** el avance, el cumplimiento y el cumplimiento ponderado de cada meta con las actividades que tienen evidencia aprobada, valida que los ponderadores sumen 100 %, agrega la ficha del funcionario, la actividad reciente, los plazos de compromisos (vencidos, por vencer, fuera de plazo), el inicio personal, la vista por cargos y el control de ediciones simultáneas (ver [`docs/CAMBIOS.md`](docs/CAMBIOS.md)). La versión 27 extiende el **tiempo real a todas las pantallas de consulta** (Atención, fichas de cada registro, historial de estados, Informes, Administración y «Usuarios eliminados»; los formularios de registro y edición no), hace que los **listados también escuchen los cambios hechos desde otras pantallas** y que los catálogos y la auditoría avisen, y agrega la versión de la entrega a los CSS y JS para que el navegador no use archivos viejos y ordena el código (pruebas agrupadas por tema, un solo SQL del esquema vigente y un solo historial de cambios) (ver [`docs/CAMBIOS.md`](docs/CAMBIOS.md)).
 
 ## Requisitos
 
@@ -55,10 +55,12 @@ Los cambios de la versión 16 (archivos de evidencia, foto de perfil, alta únic
 |---|---|
 | Python | 3.12 o superior (en el servidor se usa 3.13) |
 | Django | 6.1.1 |
+| Pillow | 12.3.0 (lo exige `ImageField` de la foto de perfil; se instala con `requirements.txt`) |
 | Base de datos | SQLite (desarrollo, no necesita instalar nada) o MariaDB 10.11 / MySQL 8.4 o superior (producción) |
 | `mysqlclient` | 2.2.1 o superior, solo si se usa MariaDB o MySQL |
 | Navegador | Chrome, Edge o Firefox actualizados |
-| Servidor (despliegue) | Amazon Linux 2023, Apache, gunicorn y certbot |
+| Channels y Daphne | 4.3.2 y 4.2.3 (tiempo real: listados y dashboard en vivo; Daphne es el servidor ASGI, también en local con `runserver`) |
+| Servidor (despliegue) | Amazon Linux 2023, Apache, Daphne y certbot |
 
 Las dependencias de Python están en `requirements.txt` (desarrollo) y `deploy/requirements-produccion.txt` (servidor). Bootstrap 5 y SweetAlert2 vienen incluidos en el proyecto: funciona sin internet.
 
@@ -119,13 +121,51 @@ Los roles de la tabla siguiente son los que usan las pruebas automáticas y la g
 | `matias.cavieres` | Funcionario y Verificador, Delegación Norte |
 | `matias.quiroz` | Funcionario y Verificador, Delegación Sur |
 | `consulta1` | Solo lectura |
+| `cliente1` | Cliente (María Pérez): portal con solo sus datos y sus atenciones |
+| `cliente2` | Cliente (Carla Muñoz): portal con solo sus datos y sus atenciones |
 
 ### Recuperar la contraseña
 
-En la pantalla de ingreso, *¿Olvidaste tu contraseña?*: escribes el correo de la cuenta, llega un código de 6 dígitos que vale **2 minutos** y se usa una sola vez (reenvío cada 45 segundos, 5 intentos por código y hasta 5 códigos por hora), y después eliges la contraseña nueva.
+En la pantalla de ingreso, *¿Olvidaste tu contraseña?*:
 
-- Sin `EMAIL_HOST` en el `.env`, el correo no sale: se imprime en la terminal donde corre el servidor (las cuentas demo tienen un correo `usuario@sgr.example`).
-- Con `EMAIL_HOST` configurado, llega un correo HTML con los colores del portal y el código en grande. Cada cuenta necesita un correo propio y distinto (se edita en *Control de usuarios*).
+1. Escribes el correo de la cuenta. La respuesta es **siempre la misma**, exista o no ese correo (*«Si ese correo está registrado, te enviamos un enlace…»*): nadie puede averiguar qué correos están registrados.
+2. Llega un correo con un **enlace firmado por Django**. Vale **1 hora** (`PASSWORD_RESET_TIMEOUT`) y se usa **una sola vez**: en cuanto cambias la contraseña, ese enlace y cualquier otro pendiente de la cuenta dejan de servir. A cada cuenta se le mandan como máximo **5 enlaces por hora**.
+3. Al abrir el enlace eliges la contraseña nueva, que pasa por los validadores de Django (largo, no común, no solo números, no parecida a tus datos) y se confirma con SweetAlert2. Después vuelves al ingreso; las demás sesiones abiertas de esa cuenta se cierran.
+4. Un enlace inventado, vencido o ya usado muestra *«Este enlace ya no sirve»* con código **400**, sin detalles técnicos, y ofrece pedir otro.
+
+El correo sale por SMTP con los datos del `.env`. Cada cuenta necesita un correo propio (se edita en *Control de usuarios*). El enlace se arma con la dirección con la que se abrió el sitio, así que en AWS llega como `http://<ip-o-dominio>/recuperar/…` (con `https` si el sitio ya está bajo HTTPS).
+
+**En desarrollo** (sin `EMAIL_HOST`): el correo no sale, se imprime en la terminal donde corre el servidor, con el enlace en una línea propia. Si el enlace es largo, la terminal puede mostrarlo partido con un `=` al final de la línea (así se codifican los correos): junta las líneas y borra esos `=`; en un buzón real se ve entero. Las cuentas demo tienen un correo `usuario@sgr.example`.
+
+**Con correo real** (obligatorio para la revisión en AWS: mostrar solo el enlace en la consola no sirve). Hay tres caminos gratuitos; todos se configuran con las mismas variables del `.env`:
+
+| Servicio | `EMAIL_HOST` | `EMAIL_PORT` | `EMAIL_HOST_USER` / `EMAIL_HOST_PASSWORD` | Notas |
+|---|---|---|---|---|
+| **Gmail** (el más rápido) | `smtp.gmail.com` | `587` (`EMAIL_USE_TLS=True`) | tu cuenta de Gmail y una **contraseña de aplicación** | Exige verificación en dos pasos en esa cuenta; la contraseña de aplicación se crea en *Cuenta de Google → Seguridad → Contraseñas de aplicaciones*. Con las claves normales no funciona. `DEFAULT_FROM_EMAIL` debe ser esa misma cuenta. |
+| **Mailtrap** (buzón de pruebas) | `sandbox.smtp.mailtrap.io` | `2525` (también `587`) | usuario y clave de tu *sandbox* (pestaña *Integration*) | Los correos **no llegan a nadie**: se leen en el panel de Mailtrap, que se puede abrir durante la revisión. Ideal para mostrar el enlace sin depender de una casilla real. |
+| **Amazon SES** | `email-smtp.<región>.amazonaws.com` | `587` (`EMAIL_USE_TLS=True`) | credenciales **SMTP** creadas en SES (no las de IAM) | Hay que verificar el remitente (`DEFAULT_FROM_EMAIL`); mientras la cuenta esté en *sandbox* de SES, también hay que verificar cada destinatario. |
+
+Ejemplo (Mailtrap):
+
+```ini
+EMAIL_HOST=sandbox.smtp.mailtrap.io
+EMAIL_PORT=2525
+EMAIL_USE_TLS=True
+EMAIL_HOST_USER=<usuario-del-sandbox>
+EMAIL_HOST_PASSWORD=<clave-del-sandbox>
+DEFAULT_FROM_EMAIL=sgr@proyecto.local
+```
+
+**Cómo probarlo en AWS** (después de poner los datos en `/etc/sgr/sgr.env` y reiniciar el servicio con `sudo systemctl restart sgr`):
+
+```bash
+cd /opt/sgr/app; set -a; . /etc/sgr/sgr.env; set +a
+sudo -E -u sgr /opt/sgr/venv/bin/python manage.py sendtestemail destinatario@ejemplo.cl
+```
+
+`sendtestemail` es de Django: manda un correo de prueba con la misma configuración y, si el SMTP rechaza la conexión o la clave, muestra el error real (la pantalla de recuperación nunca lo muestra, a propósito). Cuando llegue, repite el flujo completo en el navegador: pedir el enlace → abrirlo → elegir la clave → comprobar que la anterior ya no entra y que el mismo enlace ya no abre nada. El puerto 25 está bloqueado por defecto en EC2; usa 587 o 2525.
+
+Si el correo no llega, el servidor lo anota en su registro (`journalctl -u sgr`, línea *«No se pudo enviar el enlace de recuperación a la cuenta N»*) y la persona ve la misma respuesta de siempre.
 
 ## Configuración
 
@@ -138,9 +178,9 @@ La configuración se lee desde el archivo `.env`, que se crea a partir de `.env.
 | `ALLOWED_HOSTS` | dominios o IP desde los que se accede, separados por coma |
 | `DB_ENGINE` | `sqlite` (por defecto) o `mysql` (sirve para MariaDB) |
 | `DB_NAME`, `DB_USER`, `DB_PASSWORD`, `DB_HOST`, `DB_PORT` | conexión a MariaDB/MySQL |
-| `EMAIL_HOST`, `EMAIL_PORT`, `EMAIL_HOST_USER`, `EMAIL_HOST_PASSWORD`, `EMAIL_USE_TLS`, `DEFAULT_FROM_EMAIL` | correo de la recuperación de contraseña |
+| `EMAIL_HOST`, `EMAIL_PORT`, `EMAIL_HOST_USER`, `EMAIL_HOST_PASSWORD`, `EMAIL_USE_TLS`, `DEFAULT_FROM_EMAIL` | correo del enlace de recuperación de contraseña (ver *Recuperar la contraseña*) |
 | `CSRF_TRUSTED_ORIGINS`, `HTTPS`, `BEHIND_PROXY` | publicación detrás de Apache o nginx con HTTPS |
-| `CACHE_BACKEND`, `REDIS_URL` | caché de los intentos de recuperación (`locmem`, `redis` o `db`) |
+| `CACHE_BACKEND`, `REDIS_URL` | caché compartida (la usa el chequeo de `/salud/`): `locmem`, `redis` o `db` |
 | `MEDIA_ROOT` | carpeta de los archivos subidos (evidencias y fotos); vacío = carpeta `media/` del proyecto |
 
 ### Ejemplo de configuración sin secretos
@@ -180,6 +220,34 @@ DEFAULT_FROM_EMAIL=<tu-cuenta>@gmail.com
 
 Las plantillas completas para el servidor están en `deploy/sgr.env.example` y `deploy/al2023/sgr.env.example`, siempre con los secretos en blanco.
 
+### Archivos subidos: límites y política
+
+El sistema recibe dos tipos de archivos. Ninguno se guarda dentro de la base de datos: la tabla guarda solo la ruta (`varchar(255)`) y el archivo queda en `MEDIA_ROOT`.
+
+| Qué se sube | Campo | Tipos aceptados | Máximo | Carpeta dentro de `MEDIA_ROOT` |
+|---|---|---|---|---|
+| Archivo de una evidencia | `Evidence.file_link` (`FileField`) | PDF, PNG, JPG, Word (`.docx`) o Excel (`.xlsx`) | 10 MB | `evidencias/AAAA/` |
+| Foto de perfil | `UserProfile.photo` (`ImageField`, requiere Pillow) | PNG o JPG | 2 MB | `fotos/` |
+
+Qué se revisa en el servidor (`check_upload` en `core/uploads.py`): que la extensión esté permitida, que el archivo no pese más del máximo, que no esté vacío y que el contenido corresponda a la extensión (no basta con que el nombre termine en `.pdf`). En la foto, además, `ImageField` con Pillow comprueba que sea una imagen real, no solo que empiece con la firma de una. El atributo `accept` del navegador solo orienta; la decisión es del servidor. El archivo se guarda con un nombre propio (el código de la evidencia o el usuario, más un número al azar), nunca con el que trae el computador de quien sube; el nombre original queda anotado en los metadatos de la evidencia.
+
+Cómo se entregan: no hay ninguna URL pública hacia `media/`. Los archivos se abren solo por `evidence_file` y `profile_photo` (`core/views.py`), que piden sesión iniciada; la evidencia, además, el permiso de ver evidencias y estar dentro de la delegación activa. La carpeta `media/` está en `.gitignore`: no se sube a Git. En el servidor queda en `/opt/sgr/app/media` (o en `MEDIA_ROOT` si se define) y hay que respaldarla junto con la base de datos.
+
+**Qué pasa con un archivo cuando se reemplaza, se archiva o queda sin registro**
+
+El registro y su archivo tienen ciclos de vida distintos: cambiar o archivar el registro no limpia por sí solo el archivo. Estas son las decisiones del equipo:
+
+| Situación | Qué pasa con el archivo | Por qué |
+|---|---|---|
+| Cambiar la foto de perfil | Se borra la foto anterior | Una foto vieja no tiene valor para el registro y no conviene dejar fotos de personas sin uso |
+| Quitar la foto de perfil | Se borra el archivo | Lo mismo |
+| Reemplazar el archivo de una evidencia (Editar) | El archivo anterior **no se borra**: queda en `MEDIA_ROOT` como rastro. Los metadatos de la evidencia pasan a describir el archivo nuevo (nombre original, tipo, tamaño y huella SHA-256) y, si ya estaba revisada, vuelve a «Pendiente» para una nueva revisión | Se conserva lo que alguien pudo haber revisado antes; la edición queda en la auditoría |
+| Archivar una evidencia | El archivo se conserva. Desde las pantallas del sistema las evidencias solo se archivan, no se eliminan, y un archivado se puede restaurar | Archivar no es borrar |
+| Archivo que quedó sin registro (huérfano) | Sigue en el disco, pero el sistema no lo puede abrir ni mostrar, porque cada archivo se entrega solo a partir de un registro | Un archivo suelto no se expone a nadie |
+| Limpieza | No hay limpieza automática. Si hace falta liberar espacio, se revisa a mano comparando la carpeta `media/evidencias/` con la columna `file_link` de `evidence_evidence` antes de borrar algo | Borrar sin revisar podría eliminar una evidencia que sigue en uso |
+
+En resumen: las fotos se limpian solas; los archivos de evidencia se conservan hasta que el equipo decida borrarlos a mano.
+
 ## Base de datos: migraciones y scripts
 
 El esquema se crea con las **migraciones de Django**, que vienen en el repositorio (`python manage.py migrate`):
@@ -202,7 +270,7 @@ Comandos de datos (`python manage.py <comando>`):
 | `cargar_volumen_estres` | Carga un volumen grande de registros marcados como prueba (`--limpiar` los borra); necesita funcionarios e ítems ya creados |
 | `exportar_registro_pruebas` | Genera `docs/pruebas/registro_pruebas_funcionales.csv` y `.xlsx` |
 
-La carpeta `sql/` guarda los scripts SQL de la base. **`sgr_django_v19.sql`** es la estructura real de la base del servidor (`sgr_django`, 32 tablas, MariaDB 10.11, exportada desde phpMyAdmin y puesta al día; sin datos ni contraseñas). **`sgr_django_v19_dbeaver.sql`** es el mismo esquema, pero crea una base aparte (`sgr_django_der`) y la vuelve a crear si ya existe: se abre en DBeaver con *Ejecutar script* (Alt+X) para generar los diagramas ER sin tocar la base real. `sgr_v19_modelo_relacional_completo_en.sql` es el diseño relacional de 22 tablas en inglés (el v9 se conserva sin cambios), y `sgr_v3_modelo_relacional_completo.sql` y `sgr_v5_modelo_relacional_completo.sql` (con su diagrama `sgr_v5_mer.png`) son los diseños originales, con los scripts de paso `sgr_v3_a_v5_alter.sql` y `sgr_v5_a_v3_revertir.sql`. Los cambios de la v16 sobre la base del servidor están en `sgr_v13_a_v16_alter.sql`, que no hace falta ejecutar porque `migrate` los aplica. **Cuidado:** el script en inglés borra y vuelve a crear una base llamada `sgr_db` (no `sgr_django`), así que sirve para el diagrama y para pruebas, no para actualizar la base del servidor: ahí las tablas las crea `migrate`. La v17, la v18, la v19 y la v20 no cambian ninguna tabla.
+La carpeta `sql/` tiene un solo archivo, **`sgr_django.sql`**: la estructura de la base del servidor (`sgr_django`, 32 tablas, MariaDB/MySQL, sin datos ni contraseñas), al día con las migraciones de Django. Sirve para crear la base a mano en phpMyAdmin; con `python manage.py migrate` se obtiene lo mismo.
 
 **Zonas horarias en MariaDB:** los informes agrupan por fecha en hora de Chile y necesitan las tablas de zonas horarias del motor. Se cargan una vez con:
 
@@ -218,8 +286,8 @@ El sistema se publica en una instancia EC2 con Amazon Linux 2023 (la AMI LAMP de
 
 | Pieza | Para qué |
 |---|---|
-| Apache | Recibe los puertos 80 y 443, pone el certificado, sirve `/static/` y `/phpMyAdmin`, y le pasa el resto a gunicorn (`deploy/al2023/apache-http.conf` y `apache-https.conf`) |
-| gunicorn (servicio `sgr`) | Ejecuta Django en `127.0.0.1:8000`, con un proceso y 8 hilos (`deploy/gunicorn.conf.py`, `deploy/sgr.service`) |
+| Apache | Recibe los puertos 80 y 443, pone el certificado, sirve `/static/` y `/phpMyAdmin`, y le pasa el resto a Daphne; `/ws/` pasa por WebSocket (`deploy/al2023/apache-http.conf` y `apache-https.conf`) |
+| Daphne (servicio `sgr`) | Ejecuta Django por ASGI en `127.0.0.1:8000`: atiende HTTP y WebSocket con un solo proceso (`deploy/sgr.service`). Reemplaza a gunicorn desde la v24 |
 | MariaDB 10.11 | Base de datos `sgr_django` con el usuario `sgr_user`. Django 6.1 no se conecta a la 10.5 que instala el tutorial LAMP: hay que instalar `mariadb1011-server` |
 | certbot (`/opt/certbot`) | Certificado de Let's Encrypt para la IP pública o un dominio, con renovación automática (`sgr-certbot.timer`) |
 
@@ -254,7 +322,7 @@ cd /opt/sgr/app && sudo bash deploy/actualizar.sh <rama-o-etiqueta>
 
 ### Producción: lo que ya está configurado
 
-`DEBUG=False`, `SECRET_KEY` propia, `ALLOWED_HOSTS`, `CSRF_TRUSTED_ORIGINS`, cookies seguras y redirección a HTTPS, archivos estáticos servidos por Apache, y una sola instancia de gunicorn para que el límite de intentos de la recuperación sea válido (con más procesos hace falta Redis: `CACHE_BACKEND=redis`). phpMyAdmin queda detrás del mismo HTTPS y se puede limitar a una IP en `/etc/httpd/conf.d/00-sgr.conf`.
+`DEBUG=False`, `SECRET_KEY` propia, `ALLOWED_HOSTS`, `CSRF_TRUSTED_ORIGINS`, cookies seguras y redirección a HTTPS, archivos estáticos servidos por Apache, y una sola instancia de Daphne para que la capa de canales en memoria sea válida (con más procesos haría falta `channels_redis` para el tiempo real, y Redis para la caché compartida, `CACHE_BACKEND=redis`). phpMyAdmin queda detrás del mismo HTTPS y se puede limitar a una IP en `/etc/httpd/conf.d/00-sgr.conf`.
 
 ## Estado de cada módulo
 
@@ -263,7 +331,7 @@ Todos los módulos leen y escriben en la base de datos real, con permisos por ro
 | Módulo | Dónde está en el menú | Estado | Notas |
 |---|---|---|---|
 | Ingreso, login y sesión | Pantalla de ingreso | Operativo | Usuario o correo; rechaza cuentas inactivas sin decir qué dato falló |
-| Recuperar contraseña | Pantalla de ingreso | Operativo | Código de 6 dígitos de 120 s; correo real por SMTP |
+| Recuperar contraseña | Pantalla de ingreso | Operativo | Enlace firmado de 1 hora y un solo uso; correo real por SMTP |
 | Atención (ingreso y listado) | Atención | Operativo | Tipo y sub atención dependientes; identificador `ATN00001`…; el listado de actividades es esta misma pantalla, con filtros y Excel |
 | Dashboard | Dashboard | Operativo | Promedios y semáforo con las metas guardadas |
 | Gestiones, Agenda colectiva | Operación | Operativo | Ligadas a la atención y a la delegación de quien las crea (las actividades se ven en Atención) |
@@ -287,7 +355,7 @@ Todo lo de esta tabla lee y escribe en la base de datos del proyecto; nada es un
 | Función | Qué hace de verdad | Dónde comprobarlo |
 |---|---|---|
 | Login y sesión | Entra con usuario o correo y contraseña; rechaza la cuenta inactiva y no dice cuál dato falló. La sesión queda en la tabla `django_session` y al salir se borra. | Pantalla de ingreso; `accounts/test_backends.py`, `core/test_access_flow.py` |
-| Recuperar contraseña | Código de 6 dígitos que vale 120 s, se reenvía cada 45 s, falla a los 5 intentos y se pide hasta 5 veces por hora. El código no se guarda, solo su huella, y cada envío queda en la auditoría. | Tres pantallas de recuperación; `accounts/test_recovery.py` |
+| Recuperar contraseña | Enlace firmado por Django que llega por correo: vale 1 hora, se usa una sola vez, la respuesta de la solicitud es siempre la misma y se mandan hasta 5 enlaces por hora a cada cuenta. El token no se guarda ni se audita; cada envío y cada cambio quedan en la auditoría. Un enlace inválido responde 400. | Tres pantallas de recuperación; `accounts/test_recovery.py` |
 | Contraseñas | Las revisan los validadores de Django (largo mínimo, no común, no solo números, no parecida a los datos del usuario) al crear usuarios, al cambiarla en *Mi perfil* y al recuperarla. | *Mi perfil*, *Control de usuarios*; `core/test_users.py`, `core/test_workspace.py` |
 | Roles y alcance | Cada rol trae su descripción, su alcance (su delegación o todas), su estado y su matriz de permisos. El menú, los botones y el servidor (403) siguen esa matriz. | Roles y permisos; `core/test_a1.py`, `core/test_permissions.py` |
 | Selector de delegaciones | Cada usuario trabaja en la delegación de su funcionario y, si tiene filas en `Usuario_Rol_Delegacion` (se marcan en Control de usuarios), elige otras en la franja de arriba; quienes ven todas pueden elegir también «Todas». Al cambiar se actualizan listados, filtros, exportaciones y formularios. | Franja de arriba con `supervision1`; `core/test_a2.py` |
@@ -306,11 +374,10 @@ Estas funciones existen y se pueden mostrar, pero con menos alcance que en un si
 
 | Función | Cómo funciona hoy | Para que sea real |
 |---|---|---|
-| Correo de recuperación | Sin `EMAIL_HOST` en el `.env` el mensaje no sale: se imprime en la consola donde corre el servidor. Con `EMAIL_HOST` (Gmail, Mailtrap u otro SMTP) se envía de verdad, en HTML con los colores del portal. Las pruebas automáticas revisan el mensaje en memoria. | Configurar el SMTP en el `.env` del servidor |
+| Correo de recuperación | Sin `EMAIL_HOST` en el `.env` el mensaje no sale: se imprime en la consola donde corre el servidor. Con `EMAIL_HOST` (Gmail, Mailtrap, Amazon SES u otro SMTP) se envía de verdad, en HTML con los colores del portal y el enlace. Las pruebas automáticas revisan el mensaje en memoria. | Configurar el SMTP en el `.env` del servidor y probarlo con `manage.py sendtestemail` (ver *Recuperar la contraseña*) |
 | Datos de la base | El sistema no trae datos ficticios: lo que hay en la base (usuarios, delegaciones, atenciones, evidencias, indicadores) son registros normales que se ven y editan en el portal o en phpMyAdmin. Las pruebas automáticas usan sus propios datos (`core/datos_prueba.py`) en una base temporal. | Respaldar la base con la exportación de phpMyAdmin |
 | Archivos de evidencia y fotos | Se suben a la carpeta de archivos del servidor (`MEDIA_ROOT`, por defecto `media/`; en AWS `/opt/sgr/app/media`), con un nombre propio. Se aceptan PDF, PNG, JPG, Word y Excel de hasta 10 MB (fotos: PNG o JPG de hasta 2 MB) y se revisa que el contenido corresponda a la extensión. Los metadatos (nombre original, tipo, tamaño y huella SHA-256) los arma el sistema. Los archivos no tienen dirección pública: se entregan solo a quien puede ver esa evidencia. | Respaldar la carpeta de archivos junto con la base de datos |
 | Indicadores | El avance, el cumplimiento y la ponderación se ingresan a mano en Indicadores. El semáforo sí se calcula con los umbrales del período. No se calculan solos desde las atenciones registradas. | Definir la fórmula de cada ítem |
-| Límite de intentos del código | El contador usa la caché de Django, que por defecto vive en la memoria de cada proceso. Con varios procesos el límite no se comparte. | Una caché compartida (Redis), o un solo proceso |
 | Base de datos | SQLite por defecto; MariaDB o MySQL se activa con `DB_ENGINE` en el `.env`. Las pruebas automáticas corren sobre SQLite. | Probar con el motor que use AWS (ya es MariaDB en el servidor) |
 | Diseño del municipio | Estilo inspirado en la Municipalidad de La Serena, con Arial, el rojo `#920000` que declara su sitio y el escudo oficial (en el ingreso, la recuperación y la franja de arriba). El pie de página dice que no es un sitio oficial. | Confirmar el código exacto del color con el manual de normas gráficas |
 
@@ -342,6 +409,8 @@ python manage.py test                 # toda la suite
 python manage.py test --parallel 4    # más rápido
 python manage.py test accounts        # una aplicación
 python manage.py test core.test_rules # un archivo
+python manage.py test accounts.test_recovery   # recuperación de contraseña por enlace
+python manage.py test core.test_errores -v 2   # páginas 400, 403, 404 y 500 con DEBUG=False
 ```
 
 Son más de 700 pruebas sobre SQLite en memoria, sin tocar tu base de datos. Cada prueba tiene su descripción y el requisito que cubre en `core/qa/`; una prueba sin registrar hace fallar la suite.
@@ -353,7 +422,7 @@ Son más de 700 pruebas sobre SQLite en memoria, sin tocar tu base de datos. Cad
 3. Con `supervision1` cambia de delegación en la franja de arriba y mira cómo cambian los listados.
 4. Con `matias.cavieres` ingresa una atención en *Atención* y sube una evidencia con un archivo PDF. La valida otra persona (`matias.cavieres` revisa las evidencias de su delegación que subió el otro funcionario, porque nadie revisa la suya).
 5. En *Funcionarios › Nuevo funcionario* llena «Acceso al sistema»: se crean el funcionario y su cuenta en un solo paso. En *Mi perfil* sube tu foto.
-6. Prueba la recuperación de contraseña con una cuenta que tenga correo propio.
+6. Prueba la recuperación de contraseña con una cuenta que tenga correo propio: pide el enlace, ábrelo, elige la contraseña nueva y comprueba que la anterior ya no entra y que el mismo enlace ya no abre nada.
 
 La matriz de menús por rol está en `docs/evidencias/matriz_menus_por_rol.md`.
 
@@ -401,7 +470,7 @@ planning/       períodos, metas e indicadores
 operations/     atenciones, actividades, compromisos y seguimientos
 evidence/       evidencias y su validación
 templates/      plantillas HTML (incluye el correo de recuperación)
-sql/            scripts de la base de datos
+sql/            estructura de la base de datos (sgr_django.sql)
 deploy/         archivos para publicar en un servidor (nginx y Amazon Linux 2023 con Apache)
 docs/           documentación del despliegue, registro de pruebas y evidencias
 tools/          herramientas de pruebas de estrés y de capturas

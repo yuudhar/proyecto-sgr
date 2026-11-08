@@ -51,7 +51,7 @@ ESPERADO = {
         "a_position_item_weight_goes_above_zero_up_to_100": "El ponderador de un ítem de cargo debe ser mayor que 0 y como máximo 100.",
         "the_maximum_cap_of_a_position_item_is_positive": "El tope máximo de un ítem de cargo, si se indica, debe ser mayor que 0.",
         "bonus_and_penalty_still_need_a_cap": "Las bonificaciones y penalizaciones siguen exigiendo un tope.",
-        "the_followup_number_goes_from_1_to_3": "El número de seguimiento va de 1 a 3.",
+        "the_followup_number_is_automatic_and_goes_from_1_to_3": "El número de gestión es automático (1 a 3) aunque se mande otro a mano.",
         "the_goal_target_must_be_above_zero": "El valor objetivo de una meta debe ser mayor que 0 (0,01 es válido; 0 y negativos, no).",
         "the_numbers_reach_the_browser_with_their_limits": "Los números llegan al navegador con sus atributos min y max.",
         "the_limits_in_the_browser_match_the_server_for_the_edit_forms_too": "Los límites del navegador coinciden con los del servidor también al editar.",

@@ -1,6 +1,7 @@
 from django.urls import path
 from django.views.generic import RedirectView
 
+from core import portal_cliente
 from core import registry as _mantenedores
 from core import views
 from core.crud import registry
@@ -17,13 +18,20 @@ urlpatterns = [
         views.AtencionView.as_view(crud=registry.get("actividades")),
         name="atencion",
     ),
+    path("portal/", portal_cliente.home, name="portal_home"),
+    path("portal/atenciones/", portal_cliente.activities, name="portal_activities"),
+    path("portal/atenciones/<int:pk>/", portal_cliente.activity, name="portal_activity"),
     path("dashboard/", views.dashboard, name="dashboard"),
     path("filas/", views.set_page_size, name="page_size"),
     path("contexto/", views.set_context, name="set_context"),
     path("evidencias/<int:pk>/archivo/", views.evidence_file, name="evidence_file"),
+    path("felicitaciones-y-reclamos/<int:pk>/respaldo/", views.feedback_file, name="feedback_file"),
     path("evidencias/validar/", views.validate_list, name="validate_list"),
     path("evidencias/<int:pk>/validar/", views.validate_evidence, name="validate_evidence"),
     path("tablero/delegacion/", views.delegation_board, name="delegation_board"),
+    path("agenda/resumen/", views.commitment_summary, name="commitment_summary"),
+    path("tablero/recalcular/", views.recalculate_indicators, name="recalculate_indicators"),
+    path("resultados/cargos/", views.position_overview, name="position_overview"),
     path("informes/", views.reports, name="reports"),
     path("administracion/", views.administration, name="administration"),
     path(

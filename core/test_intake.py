@@ -1,8 +1,7 @@
 import json
 import re
-from zoneinfo import ZoneInfo
+from datetime import timedelta
 
-from django.conf import settings
 from django.contrib.auth.models import Group, Permission, User
 from django.contrib.messages import get_messages
 from django.core.exceptions import FieldDoesNotExist
@@ -10,15 +9,10 @@ from django.urls import reverse
 from django.utils import timezone
 
 from core.models import AuditLog
-from core.testing import PortalTestCase
+from core.testing import PortalTestCase, portal_today
 from core.registry import attention_type_name, sub_attention_name
 from operations.models import Activity
-from organization.models import Beneficiary, Item, Service
-
-
-def portal_today():
-    with timezone.override(ZoneInfo(settings.PORTAL_TIME_ZONE)):
-        return timezone.localdate()
+from organization.models import Beneficiary, Item, Service, Territory
 
 
 def user_named(username):
@@ -287,10 +281,14 @@ class FixedProfileTests(IntakeCase):
                 "attention_type",
                 "item",
                 "service",
+                "organization",
                 "request_description",
                 "action_taken",
                 "requires_visit",
                 "added_to_pipeline",
+                "due_date",
+                "territory",
+                "requester_is_delegate",
             ],
         )
 
@@ -332,7 +330,11 @@ class FixedProfileTests(IntakeCase):
         self.assertIn("Matías Quiroz", form.note)
 
     def test_the_flags_can_be_marked_when_registering(self):
-        created = self.assertSaved(self.register(requires_visit="on", added_to_pipeline="on"))
+        territory = Territory.objects.get(name="Territorio 1", delegation__name="Delegación Norte")
+        due = (timezone.localdate() + timedelta(days=7)).isoformat()
+        created = self.assertSaved(
+            self.register(requires_visit="on", added_to_pipeline="on", due_date=due, territory=territory.pk)
+        )
         self.assertTrue(created.requires_visit)
         self.assertTrue(created.added_to_pipeline)
         plain = self.assertSaved(self.register())

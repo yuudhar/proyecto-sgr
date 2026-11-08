@@ -32,12 +32,13 @@ sgr_project/              configuración (settings, rutas, WSGI/ASGI)
 core/                     motor de pantallas, acceso, formularios, utilidades, menú y estáticos
 accounts/                 usuarios, perfiles, roles, delegaciones adicionales y recuperación de contraseña
 organization/             delegaciones, cargos, ítems, servicios, beneficiarios, territorios, funcionarios
-planning/                 períodos, metas, indicadores y ajustes
+planning/                 períodos, metas, indicadores, ajustes y ausencias
 operations/               atenciones, gestiones de seguimiento y compromisos
 evidence/                 evidencias y validaciones
+websocket/                tiempo real (Clase 11): avisos de cambio para listados, dashboard, tablero y validar
 templates/                marco general, errores y pantallas sin sesión
 deploy/                   archivos para instalar y actualizar en el servidor
-sql/                      scripts de la base de datos
+sql/                      estructura de la base de datos (sgr_django.sql)
 docs/                     documentos del proyecto
 ```
 
@@ -80,12 +81,13 @@ Los roles son grupos de Django que crea el comando `seed_roles` (`accounts/manag
 | Funcionario | Registra atenciones, gestiones, evidencias y compromisos de su delegación. |
 | Verificador | Revisa las evidencias de su delegación y registra la validación. |
 | Consulta | Solo consulta la información de su delegación. |
+| Cliente | Usuario final (beneficiario con cuenta, v33): ve solo su perfil y sus propias atenciones en el portal; no tiene permisos de ningún módulo. |
 
 Cada rol tiene una ficha (`RoleProfile`) con descripción, alcance (su delegación o todas) y estado, que se edita en el mantenedor de roles.
 
 ## 7. Mantenedores registrados
 
-`core/registry.py` declara un `Crud` por cada una de estas pantallas (`slug` = parte de la dirección): `actividades`, `gestiones`, `agenda`, `evidencias`, `validaciones`, `periodos`, `metas`, `indicadores`, `ajustes`, `delegaciones`, `territorios`, `funcionarios`, `cargos`, `items-de-cargo`, `servicios`, `items`, `tipos-de-atencion`, `sub-atenciones`, `tipos-de-gestion`, `beneficiarios`, `usuarios`, `roles` y `auditoria`.
+`core/registry.py` declara un `Crud` por cada una de estas pantallas (`slug` = parte de la dirección): `actividades`, `gestiones`, `agenda`, `evidencias`, `validaciones`, `periodos`, `metas`, `indicadores`, `ajustes`, `delegaciones`, `territorios`, `funcionarios`, `cargos`, `items-de-cargo`, `servicios`, `items`, `tipos-de-atencion`, `sub-atenciones`, `tipos-de-gestion`, `beneficiarios`, `felicitaciones-y-reclamos`, `organizaciones`, `usuarios`, `roles` y `auditoria`.
 
 ## 8. Cómo leer el resto del documento
 
@@ -141,16 +143,14 @@ Configuración del proyecto. Lee las variables de entorno (archivo `.env` en des
 | `DEFAULT_FROM_EMAIL` | Remitente de los correos del sistema. |
 | `PORTAL_LANGUAGE` | Idioma de las pantallas del portal (`es`). |
 | `PORTAL_TIME_ZONE` | Zona horaria de las pantallas del portal (`America/Santiago`). |
+| `DAILY_ENTRY_LIMIT` | Máximo de atenciones que un funcionario puede registrar con la misma fecha (7, v29). |
 | `AUTHENTICATION_BACKENDS` | Forma de autenticar: `EmailOrUsernameBackend` (usuario o correo). |
 | `LOGIN_URL` | Ruta del ingreso. |
 | `LOGIN_REDIRECT_URL` | A dónde se va después de ingresar (el dashboard). |
 | `LOGOUT_REDIRECT_URL` | A dónde se va después de salir (el ingreso). |
 | `SESSION_ENGINE` | Las sesiones se guardan en la base de datos. |
-| `RECOVERY_CODE_SECONDS` | Segundos que vale el código de recuperación (120). |
-| `RECOVERY_MAX_ATTEMPTS` | Intentos permitidos al escribir el código (5). |
-| `RECOVERY_MAX_REQUESTS` | Veces que se puede pedir un código (5). |
-| `RECOVERY_RESEND_SECONDS` | Espera entre un envío y otro del código (45 segundos). |
-| `RECOVERY_PASSWORD_SECONDS` | Segundos disponibles para elegir la contraseña nueva una vez validado el código (600). |
+| `PASSWORD_RESET_TIMEOUT` | Segundos que vale el enlace de recuperación de contraseña (3600 = 1 hora, v34). Lo usa el generador de tokens de Django. |
+| `RECOVERY_MAX_REQUESTS` | Enlaces de recuperación que se mandan a una misma cuenta por hora (5). |
 | `_env_bool` | Lee una variable de entorno como verdadero o falso. |
 | `_env_int` | Lee una variable de entorno como número entero y avisa si no lo es. |
 | `STATIC_ROOT` | Carpeta donde `collectstatic` junta los estáticos. |
@@ -185,6 +185,9 @@ Rutas de primer nivel: la revisión de estado `/salud/`, el Django Admin en `/ad
 | `/accounts/logout/` | `PortalLogoutView.as_view()` |  |
 | `/accounts/password_change/` | `RedirectView.as_view(pattern_name='core:profile')` |  |
 | `/accounts/password_reset/` | `RedirectView.as_view(pattern_name='accounts:recover')` |  |
+| `/accounts/password_reset/done/` | `RedirectView.as_view(pattern_name='accounts:recover_done')` |  |
+| `/accounts/reset/done/` | `RedirectView.as_view(pattern_name='core:login')` |  |
+| `/accounts/reset/<uidb64>/<token>/` | `RedirectView.as_view(pattern_name='accounts:recover_confirm')` |  |
 | `/accounts/` | `include('django.contrib.auth.urls')` |  |
 | `/` | `include('accounts.urls')` |  |
 | `/` | `include('core.urls')` |  |
@@ -248,6 +251,28 @@ Registro de auditoría: guarda qué evento ocurrió, sobre qué entidad y regist
 Opciones del modelo (`Meta`): `verbose_name` = `'Auditoría'`; `verbose_name_plural` = `'Auditorías'`; `ordering` = `('-date',)`.
 
 - **`__str__()`**: Texto del registro: el evento y la entidad con su identificador.
+
+#### `core/clients.py` (perfil Cliente, v33)
+
+El Cliente es un beneficiario con cuenta. Ve solo su perfil y sus propias atenciones; el filtro se hace siempre en el servidor con el usuario autenticado, nunca con un identificador que mande el navegador.
+
+- **`is_client(user)`**: True si la cuenta está en el perfil Cliente. Un superusuario nunca lo es. El resultado se guarda en el objeto `user` para no repetir la consulta.
+- **`client_beneficiary(user)`**: El beneficiario vinculado (`UserProfile.beneficiary`), o `None` si no tiene o está archivado.
+- **`own_activities(user)`**: Las atenciones del beneficiario del usuario autenticado (sin las archivadas); vacío si no hay beneficiario. Todas las pantallas del portal parten de aquí.
+- **`ClientPortalMiddleware`**: Va después de la autenticación y encierra al Cliente en su portal. Solo deja pasar `ALLOWED_URL_NAMES` (portal, perfil, foto, salida, ingreso), la recuperación de contraseña, los estáticos y `/salud/`. Un `GET` al dashboard lo lleva a su portal; todo lo demás (listados, fichas, exportaciones, formularios, tablero, administración, `/admin/`) responde 403 sin mostrar contenido y deja «Acceso de cliente rechazado» en la auditoría.
+
+#### `core/portal_cliente.py` (portal del Cliente, v33)
+
+- **`home`** (`portal/`): perfil del beneficiario, conteo de atenciones por estado y las últimas cinco.
+- **`activities`** (`portal/atenciones/`): listado paginado de las atenciones propias, con búsqueda por tema o solicitud y filtro por estado.
+- **`activity`** (`portal/atenciones/<pk>/`): detalle con sus gestiones. Una atención ajena, archivada o inexistente responde 404 igual. No muestra datos internos (puntaje, evidencias, compromiso del tubo).
+- Las tres usan el decorador `client_only`: cualquier cuenta que no sea Cliente recibe 403.
+- Menú del Cliente (`core/menus.py: client_menu`): Mi portal, Mis atenciones y Mi perfil. El contexto de las plantillas trae `is_client` y `home_url`; la franja y la tarjeta de delegación no se muestran.
+- Mi perfil del Cliente (`core/views.py: profile`) agrega el formulario `ClientDataForm` («Mis datos»: correo, teléfono y dirección). La cuenta y la ficha salen del usuario autenticado (`save_client_data`), así que nadie cambia datos ajenos; el nombre, el RUT, el perfil y los permisos no se pueden cambiar. Queda en la auditoría.
+- `profile_photo`: el Cliente solo puede pedir su propia foto.
+- WebSocket: `CrudChangesConsumer` y `LiveConsumer` cierran la conexión de una cuenta Cliente.
+- Alta de cuentas (`UserForm`/`UserCrud`): el campo «Beneficiario» es obligatorio para el perfil Cliente, que va solo (sin otro perfil, funcionario, delegaciones, Super Usuario ni acceso al panel). Un beneficiario tiene a lo más una cuenta y los que ya la tienen no se ofrecen.
+- Cuentas de prueba: `cliente1` (María Pérez) y `cliente2` (Carla Muñoz), de la misma delegación (Norte) y con atenciones distintas.
 
 #### `core/access.py`
 
@@ -365,6 +390,7 @@ Formulario base de los mantenedores (ver core/crud.py).
 
 - **`__init__(*args, request, crud, **kwargs)`**: Recibe la petición y el CRUD. Oculta las opciones archivadas, limita las listas a la delegación activa, aplica los títulos, ayudas y campos de solo lectura del CRUD y, al final, ejecuta `customize_fields`, los límites de texto, las reglas de validación, las fechas y el estilo.
 - **`customize_fields()`**: Gancho: un formulario puede cambiar aquí sus campos antes de que se les dé estilo.
+- **`pick_small_ranges()`** (v29): un número entero con rango de 10 valores o menos (según los validadores del modelo o el mínimo y máximo del campo) se dibuja como lista desplegable y no como caja de texto. La lista parte vacía si el campo es obligatorio, devuelve el valor como número, y un valor fuera del rango se rechaza con «Debe ser un número entre 1 y 3». Se ejecuta después de `customize_fields`.
 - **`effective_rules()`**: Campo -> regla: las del mantenedor, más la regla «text» para los cuadros de varias líneas que no tengan una.
 - **`apply_rules()`**: Pasa a cada campo con regla de formato los atributos data-* que lee core/js/validation.js.
 - **`bounds()`**: Gancho: límites propios de este formulario (fechas que dependen de otra, por ejemplo): campo -> {atributo: valor}.
@@ -435,7 +461,16 @@ Los metadatos (nombre original, tipo, tamaño y huella SHA-256) los arma el sist
 - **`customize_fields()`**: Cambia el campo de archivo: acepta solo los tipos permitidos, indica el tamaño máximo y, al editar, muestra el nombre del archivo actual.
 - **`clean_file_link()`**: Si se subió un archivo, revisa su tipo, su tamaño y que el contenido corresponda a la extensión.
 
-##### `ActivityIntakeForm` — hereda de `CrudForm`
+##### `PipelineForm` — hereda de `CrudForm`
+
+Base de los formularios de atención con la casilla «ingresa al tubo de trabajo» (v32). Declara dos campos, `due_date` («Fecha comprometida») y `territory` («Territorio del compromiso»), que el formulario muestra debajo de las casillas (`after_checks`) solo cuando la casilla está marcada: `widgets.js` los muestra, los pide y los envía en ese caso (atributos `data-show-when` y `data-required-when-shown`). El servidor revisa lo mismo.
+
+- **`set_up_pipeline()`**: deja los dos campos como opcionales a nivel de Django y los quita si la atención ya tiene su compromiso. Si una atención quedó marcada de antes, sin compromiso, los datos son opcionales (`pipeline_stale`): se completan solo si se quiere crearlo ahora.
+- **`bounds()`**: pone los atributos del navegador en los dos campos (van aquí porque `apply_bounds` corre después de que el formulario cambia los widgets de fecha).
+- **`check_pipeline(cleaned, day)`**: con la casilla marcada exige la fecha y el territorio, rechaza una fecha anterior a la de la atención y un territorio de otra delegación; si la casilla no está marcada ignora lo que traigan los dos campos.
+- **`wants_pipeline()`**: al guardar, dice si hay que crear el compromiso (casilla marcada y los dos datos entregados).
+
+##### `ActivityIntakeForm` — hereda de `PipelineForm`
 
 Ingreso de atención : lo que se pide al registrar una atención nueva.
 
@@ -482,7 +517,9 @@ Una persona nueva se da de alta una sola vez: sus datos de funcionario y, si va 
 Foto de perfil de quien tiene la sesión iniciada (pantalla Mi perfil).
 
 - **`__init__(*args, **kwargs)`**: Pone la ayuda con el tamaño máximo de la foto y aplica el estilo.
-- **`clean_photo()`**: Revisa la foto: PNG o JPG, tamaño máximo y que el contenido corresponda a la extensión.
+- **`clean_photo()`**: Revisa la foto: PNG o JPG, tamaño máximo y que el contenido corresponda a la extensión; después la deja cuadrada (recorte centrado si no lo era) y de a lo más `PHOTO_SIDE_PX` (512) por lado con `uploads.square_photo` (v33), corrigiendo la orientación y conservando el formato. El recorte que hace Croppr en el navegador ya llega cuadrado; esto lo vuelve a garantizar en el servidor y cubre al navegador sin JavaScript.
+
+  El campo `photo` es un `forms.ImageField`: antes de `clean_photo()`, Pillow comprueba que el archivo sea una imagen real (un archivo que solo imita la firma de un PNG se rechaza con «El archivo no es una imagen válida»).
 
 ##### `PortalPasswordChangeForm` — hereda de `BootstrapFormMixin`, `PasswordChangeForm`
 
@@ -518,7 +555,7 @@ Ajuste: el valor es un porcentaje mayor que 0 y de hasta 100.
 
 - **`clean_percentage_value()`**: El valor del ajuste debe ser mayor que 0 y como máximo 100.
 
-##### `ActivityEditForm` — hereda de `CrudForm`
+##### `ActivityEditForm` — hereda de `PipelineForm`
 
 Actividad (edición): la fecha de una atención ya ocurrida no puede ser futura.
 
@@ -718,7 +755,10 @@ Describe las pantallas de un modelo. Se subclasea en core/registry.py.
   
   Se redefine en cada mantenedor que tiene registros que dependen de otros (un tipo de atención con sub atenciones activas, por ejemplo). Lo revisa el servidor al archivar y la pantalla lo avisa antes.
 - **`restore_blockers(obj)`**: Motivos por los que un registro archivado no se puede restaurar todavía.
-- **`delete_blockers(obj)`**: Motivos por los que el registro no se puede eliminar de verdad (un perfil del sistema, uno con usuarios).
+- **`archive_guard(request, obj)`** (v23): Motivos que dependen de quién archiva, no del registro; en usuarios, «No puedes eliminar tu propia cuenta». `archive_problems(request, obj)` junta estos con `archive_blockers`.
+- **`archived_at(obj)` / `set_archived(obj, when)`** (v23): Leen y guardan la marca de archivado. Por defecto es el campo `deleted_at` del modelo; `UserCrud` la guarda en `UserProfile.deleted_at` (`archive_lookup = "profile__deleted_at"`), porque `User` de Django no hereda de `BaseModel`, y además deja la cuenta inactiva.
+- **`can_see_archived(request)`** (v23): Quién puede ver los archivados; en usuarios solo el Super Usuario. Habilita la vista `?archivados=solo` («Usuarios eliminados»).
+- **`delete_blockers(obj)`**: Motivos por los que el registro no se puede eliminar de verdad. Por defecto revisa las relaciones inversas del modelo (`PROTECT`, `RESTRICT` y `CASCADE`) y, si otros registros lo usan, devuelve «Está en uso en N …»; así el listado puede avisar con SweetAlert2 antes de intentar el borrado. Un mantenedor puede sumar sus propios motivos (los roles: un perfil del sistema, uno con usuarios).
 - **`duplicate_message(label, archived)`**: Frase cuando el nombre ya existe sin distinguir mayúsculas; archived dice si el que existe está archivado.
 - **`validate_form(form, cleaned)`**: Reglas de negocio entre campos de un formulario de este mantenedor; se agregan con form.add_error.
 - **`filter_choices(request, name, model_field)`**: Opciones de un filtro del listado, como lista de (valor, texto); None usa las de siempre.
@@ -852,7 +892,7 @@ Restaura un registro archivado.
 
 ##### `CrudDeleteView` — hereda de `CrudView`
 
-Elimina de verdad un registro (solo en los mantenedores con deletable, como los perfiles).
+Elimina de verdad un registro (solo en los mantenedores con deletable: Roles, Beneficiarios, Territorios, Servicios, Cargos, Tipos de gestión y Agenda). Estos, salvo Roles, también se pueden archivar: el botón de archivar se llama «Archivar» y el de eliminar «Eliminar» (partials/delete_link.html y confirm.js).
 
 GET pide la confirmación y POST elimina. Pide el permiso delete del modelo y se niega si el registro está en uso (delete_blockers). La eliminación queda en la auditoría, y si la base de datos la rechaza porque otros registros dependen de este, no queda nada anotado ni se avisa un éxito falso.
 
@@ -877,7 +917,7 @@ GET pide la confirmación y POST elimina. Pide el permiso delete del modelo y se
 - **`query_string(request, drop, **updates)`**: Parámetros actuales de la URL con cambios, para armar enlaces de orden y páginas.
 - **`page_size_of(request)`**: Filas por página de los listados: las que la persona eligió en esta sesión, o PAGE_SIZE.
   
-  La elección se guarda en request.session (ver set_page_size en core/views.py). Aquí se revisa otra vez contra PAGE_SIZES por si la sesión trajera otro valor.
+  La elección se guarda en request.session (ver set_page_size en core/views.py). Aquí se revisa otra vez contra PAGE_SIZES por si la sesión trajera otro valor. Las opciones son 5, 15 y 30 filas (`PAGE_SIZES`), y 15 el valor por defecto (`PAGE_SIZE`).
 
 #### `core/registry.py`
 
@@ -894,6 +934,7 @@ Atributos principales: `model` = `Activity`; `slug` = `'actividades'`; `icon` = 
 - **`new_label()`** *(propiedad)*: Texto del botón de nuevo: «Registrar atención».
 - **`initial_values(request)`**: Con ?beneficiary=<id> (el botón «Nueva» de una fila de Atención) el formulario parte con esa persona.
 - **`say(kind, obj)`**: Al crear una atención, el aviso incluye el nombre del contacto y el identificador de la atención.
+- **`after_save(request, obj, form, creating)`** (v32): si `form.wants_pipeline()`, crea el compromiso con `operations.pipeline.create_commitment`, deja su estado inicial en el historial y su creación en la auditoría, y avisa «Se creó el compromiso en la Agenda colectiva…». Desmarcar la casilla después no borra el compromiso.
 
 ##### `FollowupCrud` — hereda de `Crud`
 
@@ -917,7 +958,7 @@ CRUD de evidencias: sube el archivo, calcula sus metadatos y muestra su estado d
 
 Atributos principales: `model` = `Evidence`; `slug` = `'evidencias'`; `icon` = `'bi-file-earmark-check'`; `gender` = `'f'`; `description` = `'Archivos que respaldan cada actividad y su estado de revisión.'`; `list_display` = `unique_code, activity, author_officer, review_status, uploaded_at`; `search_fields` = `unique_code, file_link, activity__contact_name`; `form_fields` = `activity, unique_code, file_link, author_officer`.
 
-- **`initial_values(request)`**: Valores de partida de una evidencia: el funcionario autor y un código único sugerido para la actividad.
+- **`initial_values(request)`**: Valores de partida de una evidencia: el funcionario autor y, si viene `?activity=`, esa actividad ya elegida. El código único no se pide: lo asigna `Evidence.next_code()` al guardar.
 - **`prepare_object(request, obj, creating, form)`**: Antes de guardar, si cambió el archivo calcula sus metadatos (nombre, tipo, tamaño, huella). Si se edita una evidencia ya revisada y cambia el archivo o la actividad, la deja otra vez pendiente y avisa.
 - **`make_cell(obj, column)`**: Celda del archivo: nombre con enlace para verlo o descargarlo (o aviso si el archivo no está en el sistema) y celda de los metadatos en una sola línea.
 - **`extra_actions(request, obj)`**: Agrega el botón «Validar evidencia» cuando la evidencia no está archivada, no la subió la propia persona y esta tiene permiso para validar.
@@ -1104,7 +1145,6 @@ Atributos principales: `model` = `AuditLog`; `slug` = `'auditoria'`; `icon` = `'
 - **`visible_beneficiary(request, pk)`**: Beneficiario con ese id si el usuario puede verlo: tiene permiso sobre Beneficiarios o ya lo atendió.
 - **`attention_type_name(activity)`**: Tipo de atención de una actividad: su ítem padre o, si el ítem es un tipo, el ítem mismo.
 - **`sub_attention_name(activity)`**: Sub atención de una actividad: su ítem, si es una sub atención; si es un tipo, queda vacía.
-- **`suggest_evidence_code(request, activity)`**: Código sugerido como EVD-NORTE-0003: delegación en mayúsculas y número correlativo.
 - **`officer_access_text(officer)`**: Con qué usuario ingresa el funcionario, o «Sin acceso».
 - **`item_state(item)`**: Estado de un ítem: no se guarda, sale de deleted_at (archivado = Inactivo).
 - **`item_class(item)`**: «Tipo de atención» si el ítem no tiene padre y «Sub atención» si lo tiene.
@@ -1125,6 +1165,10 @@ Atributos principales: `model` = `AuditLog`; `slug` = `'auditoria'`; `icon` = `'
 Pantallas especiales: ingreso, perfil, atención, inicio, validación de evidencias, tablero e informes.
 
 Las pantallas de listado, ficha y formulario de cada modelo están en core/crud.py; aquí van las que no calzan con ese esquema. Todas respetan las mismas reglas de acceso del Django Admin: permisos por modelo y alcance por delegación.
+
+Desde la v25 también están aquí `pace_summary` (cuadro «Ritmo del período» del dashboard y del tablero, RF-026) y `commitment_summary` (pantalla Resumen colectivo en `/agenda/resumen/`, RF-021).
+
+Desde la v26: `personal_board` (evidencias, compromisos y actividad del funcionario en su inicio, RF-028), `recalculate_indicators` (botón «Recalcular indicadores» del tablero, solo POST, permiso para agregar indicadores), `position_overview` (Vista por cargos en `/resultados/cargos/`, RF-031) y la comprobación de versión al validar una evidencia (RF-034).
 
 ##### `PortalLoginView` — hereda de `auth_views.LoginView`
 
@@ -1276,6 +1320,20 @@ Muestran datos de la sesión iniciada: así, después de cerrar sesión, el bot�
 - **`__init__(get_response)`**: Guarda la función que sigue en la cadena de middleware.
 - **`__call__(request)`**: Fuera de `/admin/` y de los archivos estáticos, agrega a la respuesta las cabeceras para que el navegador no guarde las pantallas.
 
+#### `core/entry_rules.py` (límite diario y cierre semanal, v30, RF-041 y RF-042)
+
+La semana va de lunes a domingo. Las atenciones de una semana se ingresan hasta el lunes siguiente; desde el martes ya no se ingresan las de la semana pasada. La fecha de hoy es la de Santiago (`PORTAL_TIME_ZONE`).
+
+- **`portal_today()`**: la fecha de hoy en la zona del portal.
+- **`week_start(day)`**, **`week_end(day)`** y **`last_entry_day(day)`**: el lunes y el domingo de la semana de una fecha, y el lunes siguiente (último día para ingresarla).
+- **`is_week_closed(day, today)`**: verdadero si hoy es posterior al último día para ingresar esa semana.
+- **`closed_message(day)`**, **`week_text(day)`** y **`week_notice(day)`**: los textos del rechazo y del aviso del formulario.
+- **`entries_on(officer_id, day, exclude_pk)`** y **`daily_state(officer_id, day)`**: atenciones de un funcionario en una fecha (sin archivadas) y «llevadas, máximo» del día.
+
+#### `core/charts.py`
+
+Gráficos sin librerías (v28). `donut(items, title, center)` calcula los arcos de un anillo (el círculo mide 100 unidades, así el largo de cada arco es su porcentaje) y su leyenda; `bars(items, title, unit, maximum)` las barras horizontales con su valor escrito; `columns(items, title)` columnas verticales (atenciones por día). Cada gráfico trae un texto alternativo con todos sus valores. Se dibujan con las etiquetas `show_donut`, `show_bars` y `show_columns` (`core/templatetags/core_ui.py`).
+
 #### `core/ui.py`
 
 Ayudas de presentación: colores de estado, íconos y formato de fechas y números.
@@ -1340,6 +1398,8 @@ Exportación de listados a Excel (.xlsx) con openpyxl.
 Archivos que suben las personas: evidencias y fotos de perfil.
 
 Se aceptan pocos tipos, se revisa que el contenido corresponda a la extensión (no basta con el nombre) y se limita el tamaño. Los archivos se guardan en MEDIA_ROOT con un nombre propio, sin usar el que trae el computador de quien sube, y se entregan solo mediante una vista que revisa el permiso (core/views.py), nunca por una URL pública.
+
+Qué pasa con un archivo reemplazado o sin registro: la foto anterior se borra al cambiarla o quitarla; el archivo anterior de una evidencia no se borra (queda como rastro) y archivar una evidencia no toca su archivo. No hay limpieza automática. La política completa está en el README, sección «Archivos subidos: límites y política».
 
 **Funciones**
 
@@ -1481,14 +1541,15 @@ Perfil de un usuario de Django. Lo une con su funcionario (uno a uno, vacío sol
 |---|---|---|---|
 | `user` | usuario | OneToOneField | relación con `settings.AUTH_USER_MODEL`; nombre inverso `profile`; CASCADE |
 | `officer` | funcionario | OneToOneField | relación con `Officer`; nombre inverso `user_profile`; PROTECT; admite nulo; opcional — Vacío solo para cuentas técnicas (superusuario) sin un funcionario asociado en terreno. |
+| `beneficiary` | beneficiario | OneToOneField | relación con `Beneficiary`; nombre inverso `user_profile`; PROTECT; admite nulo; opcional (v33) — Solo para cuentas del perfil Cliente: el beneficiario cuyas atenciones ve el usuario en su portal. |
 | `status` | estado | CharField | largo 20; con opciones; por defecto `Status.ACTIVE` |
-| `photo` | foto de perfil | FileField | largo 255; admite nulo; opcional; sube archivo |
+| `photo` | foto de perfil | ImageField | largo 255; admite nulo; opcional; sube archivo; requiere Pillow |
 
 Opciones del modelo (`Meta`): `verbose_name` = `'Perfil de usuario'`; `verbose_name_plural` = `'Perfiles de usuario'`.
 
 Opciones de `Status`: `active` (Activo), `inactive` (Inactivo).
 
-- **`clean()`**: No permite vincular un usuario a un funcionario que no esté activo.
+- **`clean()`**: No permite vincular un usuario a un funcionario que no esté activo, ni que una cuenta tenga a la vez un funcionario y un beneficiario (v33).
 - **`__str__()`**: Nombre de usuario y funcionario vinculado.
 
 ##### `RoleProfile` — hereda de `BaseModel`
@@ -1603,87 +1664,50 @@ El largo mínimo lo revisa MinimumLengthValidator, que sigue activo, para no rep
 
 #### `accounts/recovery.py`
 
-Recuperación de contraseña con un código temporal que llega por correo.
+Recuperación de contraseña por correo, con un enlace firmado de un solo uso (v34; antes era un código de 6 dígitos).
 
-Son tres pantallas (accounts/views.py) y este módulo hace el trabajo de cada una:
+Se apoya en lo que trae Django en vez de inventar tokens. Son tres pantallas (accounts/views.py):
 
-  1. La persona escribe su correo   -> send_codes() crea un código de 6 dígitos y lo envía.
-  2. Escribe el código que le llegó -> check() revisa que calce, que esté vigente y que no se haya usado.
-  3. Elige su contraseña nueva      -> el código ya quedó usado, así que no sirve una segunda vez.
+  1. La persona escribe su correo -> RecoveryRequestForm.save() manda un correo con el enlace a cada cuenta que corresponda. La respuesta es siempre la misma, exista o no el correo.
+  2. «Revisa tu correo»           -> aviso genérico, sin repetir el correo.
+  3. Abre el enlace del correo    -> RecoveryConfirmView valida el token y deja elegir la contraseña nueva.
 
-Reglas del código: 6 dígitos, vale RECOVERY_CODE_SECONDS (120), se usa una sola vez, falla tras RECOVERY_MAX_ATTEMPTS intentos equivocados y pedir uno nuevo deja sin efecto los anteriores de la misma cuenta, se hayan pedido desde este navegador o desde otro. Reenviar el código se puede cada RECOVERY_RESEND_SECONDS (45) y hasta RECOVERY_MAX_REQUESTS (5) veces por hora. Los números están en settings.py.
+Cómo se cumple cada exigencia:
 
-Dónde queda cada cosa (no se agrega ninguna tabla al modelo de datos):
+  - **Un solo uso**: el token (default_token_generator) se calcula con la contraseña actual de la cuenta, su último ingreso y su correo. Al guardar la contraseña nueva, ese token y cualquier otro pendiente de la cuenta dejan de calzar. También dejan de servir si cambia el correo de la cuenta.
+  - **Vencimiento**: PASSWORD_RESET_TIMEOUT (1 hora), revisado por Django al abrir el enlace y al guardar.
+  - **Sin filtrar el token**: al abrir un enlace vigente, Django guarda el token en la sesión y redirige a una dirección con «set-password» en su lugar, así el token no viaja en el encabezado Referer.
+  - **Respuesta genérica**: la solicitud siempre termina en «Revisa tu correo». No se guarda el correo en la sesión ni se repite en pantalla; si el correo no existe, la cuenta está inactiva, no tiene contraseña utilizable o ya pidió demasiados enlaces, nadie se entera.
+  - **Contraseña nueva**: pasa por AUTH_PASSWORD_VALIDATORS (la política del SGR incluida). Las demás sesiones abiertas de la cuenta se cierran solas porque cambia el hash de la contraseña.
+  - **Tope por hora**: RECOVERY_MAX_REQUESTS (5) enlaces por cuenta, contados en la auditoría (base de datos), así que lo comparten todos los procesos. Un envío que falla no gasta el cupo.
+  - No se agrega ninguna tabla al modelo de datos.
 
-  - En request.session va lo que hay que recordar entre una pantalla y otra: el correo escrito, la hora en
-    que vence el código, la hora del último envío y la huella del código. La sesión vive en el servidor (la
-    tabla django_session que ya trae Django) y el navegador solo lleva una cookie con su clave, así que la
-    persona no puede cambiar esos valores.
-  - El código no se guarda: se guarda su huella (un HMAC con la SECRET_KEY). Para comparar se calcula la
-    huella del código que escribió la persona.
-  - Los intentos de cada código se cuentan en la caché de Django. Cada intento se anota antes de revisar el
-    código y la suma es atómica, así que mandar muchos intentos a la vez no sirve para saltarse el límite.
-  - Cada código enviado y cada código aceptado dejan un evento en la auditoría (Audit_Log). Ahí se cuentan los
-    códigos enviados a una cuenta en la última hora y ahí se sabe cuál es el código vigente: el último evento
-    de la cuenta, si es un envío. Un código nuevo (pedido desde donde sea) deja de ser el último y los
-    anteriores dejan de servir; un código aceptado queda como último evento y tampoco sirve de nuevo.
+**Constantes**
 
-##### `Result`
-
-Lo que devuelve check(): la cuenta si el código era válido, o el motivo del rechazo.
+- **`SENT_EVENT`**: Evento de auditoría «Enlace de recuperación enviado». Es lo que cuenta `sent_last_hour`.
+- **`RESET_EVENT`**: Evento de auditoría «Contraseña restablecida con enlace».
 
 **Funciones**
 
-- **`new_code()`**: Seis dígitos al azar. Se usa secrets (pensado para claves); random se puede adivinar.
-- **`fingerprint(user_pk, code, nonce)`**: Huella de un código. Incluye la cuenta y el envío: el mismo número en otra cuenta o en otro envío da otra huella.
-- **`users_for(email)`**: Cuentas activas con ese correo, sin distinguir mayúsculas. Un correo vacío no calza con nadie.
-- **`mask_email(email)`**: Esconde casi todo el correo (ma***@dominio.cl): alcanza para que la persona reconozca el suyo.
-- **`clear(session)`**: Borra de la sesión todo lo de la recuperación.
-- **`pending(session)`**: True si la persona ya escribió su correo (paso 1) y le corresponde escribir el código.
-- **`seconds_left(session)`**: Segundos que le quedan al código; 0 cuando venció.
-- **`cooldown_left(session)`**: Segundos que faltan para poder pedir otro código desde esta sesión; 0 cuando ya se puede.
-  
-  La espera corre desde el último envío y vale igual exista o no una cuenta con ese correo, así que tampoco delata qué correos están registrados.
-- **`_count(key, timeout)`**: Suma 1 a un contador de la caché y devuelve el valor nuevo. La suma es atómica.
-- **`_attempts_key(session)`**: Clave de la caché donde se cuentan los intentos de código de esa sesión de recuperación.
-- **`failures(session)`**: Intentos que lleva el código actual (los equivocados y, si lo hubo, el que lo aceptó).
-- **`sent_last_hour(user)`**: Cuántos códigos se le enviaron a la cuenta en la última hora, según la auditoría.
-- **`live_code_id(user)`**: Id, en la auditoría, del envío cuyo código sigue vigente para la cuenta; None si no hay ninguno.
-  
-  Manda el último evento de recuperación de la cuenta (código enviado o código aceptado):
-    - si es un envío, ese es el único código vigente. Los anteriores quedaron sin efecto, aunque se
-      hayan pedido desde otro navegador u otro computador;
-    - si es una validación, el código ya se usó y no queda ninguno vigente.
-- **`describe_duration(seconds)`**: Cuánto dura el código dicho como lo diría una persona: 120 -> «2 minutos», 60 -> «1 minuto», 45 -> «45 segundos».
-- **`send_code(user, code, expires_at)`**: Envía el correo con el código. Con el correo de consola (sin EMAIL_HOST) sale en la terminal.
-  
-  Va en dos versiones dentro del mismo mensaje: el texto simple (lo que muestra un lector que no sabe de HTML y lo que se ve en la consola) y la versión con los colores del portal, con el código grande al centro. El lector de correo elige la que sepa mostrar.
-- **`send_codes(session, email)`**: Paso 1 (y reenvío): envía un código a cada cuenta activa con ese correo y deja la sesión lista para el paso 2.
-  
-  La sesión queda igual exista o no una cuenta con ese correo, haya pedido demasiados códigos o haya fallado el envío: así la respuesta no deja averiguar qué correos están registrados. Cada envío queda anotado en la auditoría, y eso es lo que deja sin efecto los códigos anteriores de la cuenta.
-- **`check(session, code)`**: Paso 2: revisa el código que escribió la persona y devuelve un Result.
-  
-  Es válido si calza con el que se envió, no venció, es el último que se pidió para la cuenta y no tiene demasiados intentos. Al aceptarlo se borra de la sesión y queda anotado en la auditoría, así que sirve una sola vez, y queda anotado hasta cuándo puede elegir su contraseña nueva. El vencimiento se revisa contra la hora del servidor, no contra la cuenta regresiva de la pantalla.
-- **`verification_expired(session)`**: True si la persona ya validó su código pero se le acabó el tiempo para elegir la contraseña.
-- **`verified_user(session)`**: Cuenta cuyo código se validó hace poco, o None si no corresponde estar en el paso 3.
+- **`sent_last_hour(user)`**: Cuántos enlaces se le mandaron a la cuenta en la última hora, según la auditoría.
+- **`over_the_limit(user)`**: True si la cuenta ya recibió RECOVERY_MAX_REQUESTS enlaces en la última hora.
+- **`describe_duration(seconds)`**: Cuánto dura el enlace dicho como lo diría una persona: 3600 -> «1 hora», 1800 -> «30 minutos», 45 -> «45 segundos».
+- **`link_duration()`**: La vigencia del enlace (PASSWORD_RESET_TIMEOUT) dicha con `describe_duration`.
 
 #### `accounts/forms.py`
 
-Formularios de la recuperación de contraseña (uno por pantalla).
+Formularios de la recuperación de contraseña.
 
-##### `RecoveryEmailForm` — hereda de `BootstrapFormMixin`, `forms.Form`
+##### `RecoveryRequestForm` — hereda de `BootstrapFormMixin`, `PasswordResetForm`
 
-Paso 1: el correo de la cuenta.
+Paso 1: el correo de la cuenta. Usa las reglas de Django para saber a quién escribir (cuentas activas, con contraseña utilizable y con ese correo, sin distinguir mayúsculas) y le suma el tope de envíos por hora. Los textos del correo son `registration/recovery_subject.txt`, `recovery_email.txt` y `recovery_email.html`.
 
 - **`__init__(*args, **kwargs)`**: Aplica el estilo de los campos.
 - **`clean_email()`**: Valida el formato del correo con la regla `email` y lo devuelve en minúsculas.
-
-##### `RecoveryCodeForm` — hereda de `BootstrapFormMixin`, `forms.Form`
-
-Paso 2: el código de 6 dígitos que llegó por correo.
-
-- **`__init__(*args, **kwargs)`**: Aplica el estilo de los campos.
-- **`clean_code()`**: Valida que el código sean seis dígitos (regla `recovery_code`).
+- **`get_users(email)`**: Las cuentas que corresponden a ese correo. Un correo en blanco no busca nada (Django lo casaría con las cuentas sin correo).
+- **`build_link(request, user)`**: El enlace completo: dirección con la que se abrió el sitio (y `https` si la conexión es segura) más el uid y el token de la cuenta.
+- **`send_mail(to_email, context)`**: Manda el correo en texto y HTML. A diferencia del de Django, deja pasar el error de envío para que `save` lo registre.
+- **`save(request)`**: Manda un enlace a cada cuenta que corresponda y no pase del tope por hora. Si un envío falla, lo anota en el registro del servidor y sigue, sin gastar el cupo ni avisar a quien pidió el enlace. Cada envío exitoso queda en la auditoría. Devuelve cuántos salieron.
 
 ##### `RecoveryPasswordForm` — hereda de `BootstrapFormMixin`, `SetPasswordForm`
 
@@ -1694,32 +1718,33 @@ Paso 3: la contraseña nueva, con las mismas exigencias de siempre (AUTH_PASSWOR
 
 #### `accounts/views.py`
 
-Pantallas de la recuperación de contraseña con código (la lógica está en accounts/recovery.py).
+Pantallas de la recuperación de contraseña por enlace (v34). La lógica de fondo está en `accounts/recovery.py` y en `RecoveryRequestForm`.
 
-Entre una pantalla y otra se guarda en request.session lo que hay que recordar: el correo escrito, la huella del código y cuándo vence. La sesión vive en el servidor y el navegador solo lleva la cookie con su clave, así que la persona no puede cambiar esos valores.
-
-**Funciones**
-
-- **`sent_text(new)`**: Aviso que sigue a un envío. Es el mismo exista o no una cuenta con ese correo.
-- **`wait_text(seconds)`**: Aviso cuando se pide otro código antes de que termine la espera.
-- **`request_code(request)`**: Paso 1: la persona escribe su correo y se le envía el código.
-- **`enter_code(request)`**: Paso 2: la persona escribe el código que le llegó.
-- **`resend_code(request)`**: Reenvío: se pide otro código para el mismo correo; los anteriores de la cuenta dejan de servir.
-  
-  Hay que esperar RECOVERY_RESEND_SECONDS desde el último envío y no se pasan de RECOVERY_MAX_REQUESTS por hora. El servidor es el que hace respetar la espera: la cuenta regresiva del botón es solo un aviso.
-- **`rejection_text(result)`**: Lo que se le dice a la persona cuando el código no sirvió.
-- **`new_password(request)`**: Paso 3: con el código ya validado, la persona elige su contraseña nueva.
+- **`AnonymousOnlyMixin`**: Estas pantallas son para quien no tiene sesión; con sesión, la persona va a su perfil.
+- **`RecoveryRequestView`**: Paso 1: se escribe el correo, se manda el enlace y siempre se va a «Revisa tu correo».
+- **`RecoveryDoneView`**: Paso 2: «Revisa tu correo». No dice si el correo estaba registrado y no lo repite. Muestra cuánto vale el enlace.
+- **`RecoveryConfirmView`** — hereda de `PasswordResetConfirmView`: Paso 3: el enlace del correo. Con el enlace vigente deja elegir la contraseña nueva (formulario `RecoveryPasswordForm`, con confirmación SweetAlert2). Un enlace inventado, vencido o ya usado muestra «Este enlace ya no sirve» con código 400.
+  - **`get_user(uidb64)`**: Solo cuentas activas: una cuenta desactivada después de pedir el enlace no lo puede usar.
+  - **`form_valid(form)`**: Guarda la contraseña (Django invalida el token), deja «Contraseña restablecida con enlace» en la auditoría y avisa en el ingreso.
+  - **`render_to_response(context)`**: Si el enlace no es válido, responde 400 en vez de 200.
 
 #### `accounts/urls.py`
 
-Rutas de la recuperación de contraseña: pedir el código, escribirlo, reenviarlo y elegir la contraseña nueva.
+Rutas de la recuperación de contraseña: pedir el enlace, «revisa tu correo» y el enlace del correo.
 
 | Ruta | Vista | Nombre |
 |---|---|---|
-| `/recuperar/` | `views.request_code` | `recover` |
-| `/recuperar/codigo/` | `views.enter_code` | `recover_code` |
-| `/recuperar/reenviar/` | `views.resend_code` | `recover_resend` |
-| `/recuperar/nueva/` | `views.new_password` | `recover_password` |
+| `/recuperar/` | `views.RecoveryRequestView` | `recover` |
+| `/recuperar/enviado/` | `views.RecoveryDoneView` | `recover_done` |
+| `/recuperar/<uidb64>/<token>/` | `views.RecoveryConfirmView` | `recover_confirm` |
+
+Las pantallas del código de 6 dígitos (`/recuperar/codigo/`, `/recuperar/reenviar/` y `/recuperar/nueva/`) se retiraron en la v34. Las rutas de contraseña olvidada que trae Django (`/accounts/password_reset/done/`, `/accounts/reset/<uidb64>/<token>/` y `/accounts/reset/done/`) llevan a estas.
+
+#### `core/errors.py` (v34)
+
+Páginas de error del portal. 403, 404 y 500 las resuelve Django con `templates/403.html`, `404.html` y `500.html`; el 400 pasa por aquí (`handler400` en `sgr_project/urls.py`).
+
+- **`bad_request(request, exception, template_name)`**: Manejador del 400. Dibuja `templates/400.html` con el diseño del portal y nunca le pasa el texto de la excepción (un host no permitido, un cuerpo demasiado grande o un formulario mal armado traen datos técnicos). Si la plantilla no se puede dibujar (por ejemplo, con un encabezado Host que Django rechazó antes de preparar la sesión), entrega `FALLBACK_PAGE`, una página mínima, igual con código 400 y sin detalles.
 
 #### `accounts/admin.py`
 
@@ -1853,6 +1878,7 @@ Opciones del modelo (`Meta`): `ordering` = `('name',)`; `verbose_name` = `'Cargo
 | `name` | nombre | CharField | largo 150 |
 | `description` | descripción | CharField | largo 255; por defecto `''`; opcional |
 | `calculation_type` | tipo de cálculo | CharField | largo 20; con opciones; por defecto `CalculationType.QUANTITATIVE` |
+| `scores` | otorga punto | BooleanField | por defecto `True` (v29) — Si está desmarcado, las gestiones de este ítem no suman al avance (por ejemplo las gestiones previas). Al cambiarlo, `planning/signals.py` reclasifica las atenciones del ítem y de sus sub atenciones. |
 
 Opciones del modelo (`Meta`): `ordering` = `('name',)`; `verbose_name` = `'Ítem'`; `verbose_name_plural` = `'Ítems'`.
 
@@ -1889,6 +1915,10 @@ Persona atendida (RUT, nombre, teléfono y dirección). Es un catálogo comparti
 Opciones del modelo (`Meta`): `ordering` = `('name',)`; `verbose_name` = `'Beneficiario'`; `verbose_name_plural` = `'Beneficiarios'`.
 
 - **`__str__()`**: Texto con que se muestra el registro.
+
+##### `CommunityOrganization` — hereda de `BaseModel`
+
+Organización comunitaria (junta de vecinos) de la base importada (v31, RF-049): nombre, domicilio legal, territorio (enlazado y, aparte, el texto original), socios activos, fecha de constitución, N.º de registro (único), fecha de inscripción, N.º de directorio y la marca `verified` (por defecto falso). Las atenciones pueden asociarse a una organización (`Activity.organization`, opcional).
 
 ##### `Territory` — hereda de `BaseModel`
 
@@ -2009,7 +2039,7 @@ Período de medición: ventana de fechas con sus días computables, su estado (p
 | `status` | estado | CharField | largo 20; con opciones; por defecto `Status.PLANNED` |
 | `collective_threshold` | umbral colectivo | DecimalField | 5 dígitos, 2 decimales; por defecto `80` |
 | `amber_threshold` | umbral ámbar | DecimalField | 5 dígitos, 2 decimales; por defecto `60` |
-| `weighted_cap` | tope ponderado | DecimalField | 5 dígitos, 2 decimales; por defecto `150` |
+| `weighted_cap` | tope ponderado | DecimalField | 5 dígitos, 2 decimales; por defecto `120` (desde la v29; los períodos cerrados conservan 150) |
 | `parameters_version` | versión de parámetros | CharField | largo 20; por defecto `'1'` |
 
 Opciones del modelo (`Meta`): `ordering` = `('-start_date',)`; `verbose_name` = `'Período'`; `verbose_name_plural` = `'Períodos'`.
@@ -2049,6 +2079,9 @@ Medición de una meta: avance, cumplimiento, ponderación, color del semáforo y
 | `status_light` | semáforo | CharField | largo 20; con opciones |
 | `calculated_at` | fecha de cálculo | DateTimeField |  |
 | `goal` | meta | ForeignKey | relación con `Goal`; nombre inverso `indicators`; PROTECT |
+| `officer` | calculado para | ForeignKey | relación con `Officer`; nombre inverso `indicators`; PROTECT; puede ser nulo (v26) |
+
+Desde la v26 cada indicador lleva el funcionario para el que se calculó, porque una meta del cargo la cumple cada funcionario por separado. Los indicadores anteriores (sin funcionario) se siguen mostrando mientras no exista uno calculado para esa persona. Migración: `planning/migrations/0002_indicator_officer.py`.
 
 Opciones del modelo (`Meta`): `ordering` = `('-calculated_at',)`; `verbose_name` = `'Indicador'`; `verbose_name_plural` = `'Indicadores'`.
 
@@ -2076,9 +2109,40 @@ Opciones de `Kind`: `bonus` (Bonificación), `penalty` (Penalización).
 
 - **`__str__()`**: Texto con que se muestra el registro.
 
+##### `Absence` — hereda de `BaseModel`
+
+Ausencia de un funcionario (v30, RF-047): licencia, vacaciones, día administrativo, emergencia o compensatorio. Sus días hábiles (lunes a viernes) se descuentan de los días computables del período y ajustan la meta.
+
+| Campo | Nombre visible | Tipo | Detalle |
+|---|---|---|---|
+| `officer` | funcionario | ForeignKey | relación con `Officer`; nombre inverso `absences`; PROTECT |
+| `kind` | tipo de ausencia | CharField | largo 20; con opciones |
+| `start_date` | desde | DateField |  |
+| `end_date` | hasta | DateField |  |
+| `notes` | observación | CharField | largo 255; por defecto `''`; opcional |
+| `registered_by` | registrada por | ForeignKey | relación con `settings.AUTH_USER_MODEL`; nombre inverso `registered_absences`; SET_NULL; admite nulo; no se edita — Lo asigna el mantenedor al crear. |
+
+Opciones del modelo (`Meta`): `ordering` = `('-start_date',)`; `verbose_name` = `'Ausencia'`; `verbose_name_plural` = `'Ausencias'`.
+
+Opciones de `Kind`: `license` (Licencia), `vacation` (Vacaciones), `administrative` (Día administrativo), `emergency` (Emergencia), `compensatory` (Compensatorio).
+
+- **`business_days`** (propiedad): días de lunes a viernes entre «desde» y «hasta», ambos incluidos.
+- **`clean()`**: rechaza una fecha «hasta» anterior a «desde» y una ausencia que se traslape con otra del mismo funcionario (sin contar las archivadas ni ella misma).
+- **`__str__()`**: Texto con que se muestra el registro.
+
+##### `Feedback` — hereda de `BaseModel`
+
+Felicitación o reclamo sobre un funcionario (v31, RF-046). Guarda el tipo, la fecha, quién reclama o felicita (nombre y contacto), el medio por el que llegó (correo al delegado, WhatsApp al delegado o libro de observaciones), el profesional involucrado, la descripción y el **respaldo obligatorio** (captura o foto). El período, si tiene efecto (`effective`), el ajuste que generó (`adjustment`) y quién lo registró no se editan: los asigna el sistema.
+Opciones de `Kind`: `compliment` (Felicitación), `complaint` (Reclamo). Opciones de `Channel`: `email`, `whatsapp`, `logbook`.
+
+- **`clean()`**: busca el período de la fecha y rechaza el registro si no hay período, si el período está cerrado o si el funcionario está inactivo.
+- **`save()`**: deja asignado el período de la fecha.
+
+Campos nuevos de `Period` (v31): `compliment_value` (10 %), `complaint_value` (30 %) y `compliment_limit` (3 felicitaciones con efecto por persona), configurables en cada período.
+
 #### `planning/admin.py`
 
-Django Admin de períodos, metas, indicadores y ajustes.
+Django Admin de períodos, metas, indicadores, ajustes y ausencias.
 
 ##### `PeriodAdmin` — hereda de `SoftDeleteAdminMixin`, `admin.ModelAdmin`
 
@@ -2095,6 +2159,71 @@ Configuración del Django Admin para `Indicator`. Columnas: 'goal', 'progress', 
 ##### `AdjustmentAdmin` — hereda de `SoftDeleteAdminMixin`, `admin.ModelAdmin`
 
 Configuración del Django Admin para `Adjustment`. Columnas: 'officer', 'kind', 'percentage_value', 'period', 'responsible_user', 'date'. Búsqueda por: 'officer__name', 'reason'. Filtros: 'kind', 'period'.
+
+##### `AbsenceAdmin` — hereda de `SoftDeleteAdminMixin`, `admin.ModelAdmin`
+
+Configuración del Django Admin para `Absence` (v30). Columnas: 'officer', 'kind', 'start_date', 'end_date', 'registered_by'. Búsqueda por: 'officer__name', 'notes'. Filtros: 'kind'.
+
+#### `planning/pace.py` (meta esperada al día, RF-026)
+
+Regla de la guía (RN-007): meta esperada al día = días computables transcurridos ÷ días computables totales × 100. Cuentan los días de lunes a viernes; hoy ya cuenta como transcurrido; antes del inicio se espera 0 % y después del término (o con el período cerrado) 100 %, nunca más.
+
+- **`weekdays_between(start, end)`**: cantidad de días de lunes a viernes entre dos fechas, ambas incluidas.
+- **`pace_of(period, today=None, absence=None)`**: con `absence` (`AbsenceDays`, v30) los días hábiles de ausencia se descuentan del total y de los transcurridos, y el esperado se calcula sobre los días efectivos. Devuelve un `Pace` con la fecha de hoy, el inicio y el término, los días totales (los «días computables» del período), los días transcurridos, el porcentaje esperado, el porcentaje diario y la etapa («Aún no comienza», «En curso» o «Terminado»).
+- **`Pace.expected_for(target)`**: valor esperado hoy para una meta (objetivo × porcentaje esperado).
+- **`Pace.difference(achieved)`** y **`Pace.standing(achieved, amber_threshold)`**: diferencia en puntos porcentuales y estado frente a lo esperado (verde si lo alcanza, ámbar desde el umbral ámbar de lo esperado, rojo bajo eso; RN-008).
+
+#### `planning/absences.py` (ausencias y meta ajustada, v30, RF-047)
+
+Regla elegida por el cliente: **días efectivos = días computables − días hábiles de ausencia** y **meta ajustada = meta × días efectivos ÷ días computables**. Todos los tipos de ausencia descuentan igual y los feriados no se descuentan (solo cuentan los días de lunes a viernes).
+
+- **`AbsenceDays(total, elapsed)`**: días hábiles de ausencia de un funcionario en un período y los ya transcurridos a una fecha. Es falso si no tiene ausencias (`NONE`).
+- **`clipped_days(start, end, window_start, window_end)`**: días de lunes a viernes de una ausencia que caen dentro de una ventana.
+- **`absence_map(officer_ids, period, today)`** y **`absence_days(officer_id, period, today)`**: los `AbsenceDays` de varios funcionarios (una consulta) o de uno.
+- **`kind_breakdown(officer_ids, period)`**: días hábiles por tipo de ausencia, para el bloque «Ausencias del equipo».
+- **`effective_days(period, days)`** y **`adjusted_target(target, period, days)`**: días efectivos (nunca menos de 0) y meta ajustada con dos decimales; sin ausencias devuelve la meta original.
+
+#### `planning/feedback.py` (felicitaciones y reclamos, v31, RF-046)
+
+Regla de la matriz: cada felicitación suma el valor del período (10 %) hasta un máximo por persona (3; las que pasan del máximo quedan **sin efecto**); cada reclamo resta el valor del período (30 %, el de las hojas de cada cargo); reclamos en más de dos períodos seguidos se informan a Recursos Humanos (aquí, un aviso en el listado). El efecto es **solo de la persona aludida**: no entra al puntaje del equipo.
+
+- **`period_for(day)`**: el período no archivado que incluye la fecha.
+- **`sync(officer_id, period_id)`**: deja al día los ajustes (`Adjustment`) del funcionario en el período: crea, actualiza o archiva el de cada registro. Las felicitaciones se ordenan por fecha y las primeras, hasta el máximo, tienen efecto.
+- **`discard(adjustment_id)`**: archiva el ajuste de un registro eliminado.
+- **`net_by_officer(period, officer_ids)`**: suma de bonificaciones menos penalizaciones por funcionario; se muestra como «Ajustes» y «total con ajustes» en la ficha, el dashboard y el tablero (el cumplimiento ponderado no cambia).
+- **`complaint_streak(officer_id, period)`** y **`hr_alert(feedback)`**: períodos seguidos con reclamos y el aviso para Recursos Humanos (desde 3 períodos).
+- **`effect_text(feedback)`**: texto del listado («Suma 10 %», «Resta 30 %», «Sin efecto: …»).
+
+El ajuste se genera solo: `planning/signals.py` llama a `sync` al guardar, archivar o eliminar un registro, y también al cambiar la persona o la fecha (se actualiza la situación anterior y la nueva).
+
+#### `planning/team.py` (puntaje de equipo, v31, RF-048)
+
+Regla 10 de la matriz (equilibrado: juntos suman más que de forma individual). El método lo eligió el equipo de desarrollo, porque el cliente lo dejó abierto. Un equipo es una delegación (o el grupo de un cargo). Por cada ítem: se suman las metas ajustadas por ausencias y el avance válido de todos los integrantes; el cumplimiento del equipo es avance ÷ meta × 100 con el mismo tope del período (120 %); el aporte ponderado es el ponderador promedio × cumplimiento ÷ 100. El puntaje es la suma de los aportes llevada a base 100.
+
+- **`team_score(summaries, period)`**: recibe los resúmenes de `core.results.officer_summary` y devuelve las líneas por ítem, el `score`, el promedio individual, la diferencia entre ambos, el semáforo y el aporte de cada persona (su parte del avance; los aportes suman el puntaje).
+
+#### `planning/calculation.py` (cálculo automático, RF-022, RF-023, RF-024 y RF-014)
+
+Reglas de la guía (RN-003 a RN-005 y RN-009): el **avance** es la cantidad de actividades **válidas** del funcionario en el ítem de la meta (o en una de sus sub atenciones) dentro de las fechas del período; una actividad es válida solo si tiene una evidencia **aprobada** y no eliminada. El **cumplimiento** es avance ÷ objetivo × 100 con tope en el «tope ponderado» del período (150 %). El **ponderado** es ponderador × cumplimiento ÷ 100. El semáforo usa los umbrales del período.
+
+- **`suspended()` / `is_suspended()`**: pausa el recálculo automático (por ejemplo, mientras se cargan los datos de prueba).
+- **`officers_of(goal)`**: el funcionario de una meta personal o todos los activos del cargo en una meta del cargo.
+- **`compute(goal, officer, days=None)`** (v30): usa la meta ajustada por las ausencias del funcionario en el período (`days` permite pasar los `AbsenceDays` ya calculados).
+- **`recalculate_officer(officer_id, period)`** (v30): recalcula todas las metas de un funcionario en un período.
+- **`valid_activities(goal, officer)`**: las actividades que cuentan para el avance: con evidencia aprobada y, desde la v29, con `counts_for_score=True`.
+- **`compute(goal, officer)`**: devuelve un `Result` con avance, cumplimiento, ponderado, semáforo y el cumplimiento sin tope.
+- **`calculable(goal, force=False)`**: un período cerrado ya no cambia (RN-013) salvo que se fuerce.
+- **`save_if_changed(goal, officer)`**: guarda un indicador nuevo solo si cambió algún valor respecto del último del mismo funcionario y meta; así la tabla guarda el historial sin repetir filas.
+- **`recalculate_goal`, `recalculate_period`, `recalculate_all(include_closed, period)` y `recalculate_for(officer_id, item_ids, on_date)`**: recalculan una meta, un período, todo o lo que una actividad pudo haber cambiado.
+- **`IndicatorIndex(goal_ids)`**: el último indicador de cada meta y funcionario para las pantallas. `.of(goal, officer)` entrega el propio o, si no hay, el general anterior a la v26 (el más nuevo de los dos); `.effective()` entrega uno por meta y funcionario sin repetir el general.
+
+#### `planning/signals.py`
+
+Recalcula con `transaction.on_commit` cuando se guarda o elimina una actividad (también al cambiar su autor, ítem o fecha: se recalcula la situación anterior y la nueva), una evidencia o una validación, o cuando se guarda una meta o un período. Respeta `suspended()`. Desde la v29 también reacciona al guardar un ítem: si cambió `scores`, `refresh_item_activities(item_id)` reclasifica (`counts_for_score` y `no_score_reason`) las atenciones del ítem y de sus sub atenciones y recalcula lo afectado. Desde la v30 también reacciona a las ausencias: al guardar (o archivar) una `Absence` se recalculan las metas del funcionario en los períodos que toca la ausencia, y si cambiaron el funcionario o las fechas, también en los períodos de antes.
+
+#### `planning/management/commands/recalcular_indicadores.py`
+
+Comando `python manage.py recalcular_indicadores [--periodo ID] [--incluir-cerrados]`. Sirve para dejar al día los indicadores después de actualizar el sistema y como respaldo del cálculo automático.
 
 ### App `operations`: atenciones, gestiones y compromisos
 
@@ -2137,8 +2266,13 @@ Atención registrada por un funcionario: fecha, solicitud, acción realizada, da
 | `status` | estado | CharField | largo 30; con opciones; por defecto `Status.REGISTERED` |
 | `requires_visit` | requiere visita | BooleanField | por defecto `False` |
 | `added_to_pipeline` | ingresa al tubo de trabajo | BooleanField | por defecto `False` — Si queda marcado, la actividad se refleja como Commitment en la agenda colectiva (tubo de trabajo). |
+| `requester_is_delegate` | el solicitante es el delegado | BooleanField | por defecto `False` (v29) — Una gestión pedida por el delegado es «otra gestión»: queda registrada, pero no suma puntaje. |
+| `counts_for_score` | puntúa | BooleanField | por defecto `True`; con índice; no se edita (v29) — Lo calcula `save()`. |
+| `no_score_reason` | motivo por el que no puntúa | CharField | largo 120; por defecto `''`; no se edita (v29) — Lo calcula `save()`; vacío si puntúa. |
 | `item` | ítem | ForeignKey | relación con `Item`; nombre inverso `activities`; PROTECT |
 | `service` | servicio | ForeignKey | relación con `Service`; nombre inverso `activities`; PROTECT; admite nulo; opcional |
+| `organization` | organización | ForeignKey | relación con `CommunityOrganization`; nombre inverso `activities`; PROTECT; admite nulo; opcional (v31) |
+| `commitment` | compromiso en la agenda | OneToOneField | relación con `Commitment`; nombre inverso `origin_activity`; SET_NULL; admite nulo; no se edita — Lo asigna el sistema al crear el compromiso del tubo de trabajo (v32). |
 | `delegation` | delegación | ForeignKey | relación con `Delegation`; nombre inverso `activities`; PROTECT |
 | `author_officer` | funcionario autor | ForeignKey | relación con `Officer`; nombre inverso `authored_activities`; PROTECT |
 
@@ -2146,7 +2280,12 @@ Opciones del modelo (`Meta`): `ordering` = `('-date',)`; `verbose_name` = `'Acti
 
 Opciones de `Status`: `registered` (Registrada), `in_progress` (En proceso), `closed` (Cerrada).
 
-- **`clean()`**: Comprueba que la delegación de la actividad sea la del funcionario que la registra.
+- **`score_reason()`**: Motivo por el que la actividad no suma puntaje, o texto vacío si puede sumar. Reglas en este orden: el solicitante es el delegado (`REASON_DELEGATE`); falta el nombre o el teléfono del usuario, valiendo los de la persona vinculada (`REASON_NO_CONTACT`); el ítem, o el tipo de atención del que es sub atención, no otorga punto (`REASON_ITEM`).
+- **`refresh_scoring()`**: Calcula `counts_for_score` y `no_score_reason` con `score_reason()`.
+- **`save()`**: Antes de guardar vuelve a calcular si puntúa (también cuando se guarda con `update_fields`). No recalcula las atenciones anteriores a la v29: se reclasifican al editarlas.
+- **`clean()`**: Comprueba que la delegación de la actividad sea la del funcionario que la registra y llama a `check_week_open()` y `check_daily_limit()`.
+- **`check_daily_limit()`**: Rechaza la atención si el funcionario ya tiene `settings.DAILY_ENTRY_LIMIT` (7) atenciones con la misma fecha, sin contar las archivadas ni esta misma.
+- **`check_week_open()`** (v30): rechaza una atención nueva, o una a la que se le cambia la fecha, si esa fecha es de una semana ya cerrada (`core/entry_rules.py`). Editar otros datos de una atención antigua no se bloquea.
 - **`__str__()`**: Texto con que se muestra el registro.
 
 ##### `Followup` — hereda de `BaseModel`
@@ -2155,7 +2294,7 @@ Gestión de seguimiento de una actividad (hasta tres): número, tipo de gestión
 
 | Campo | Nombre visible | Tipo | Detalle |
 |---|---|---|---|
-| `sequence_number` | número de gestión | PositiveSmallIntegerField | con validadores — 1ra, 2da o 3ra gestión sobre la misma actividad. |
+| `sequence_number` | número de gestión | PositiveSmallIntegerField | con validadores — 1ra, 2da o 3ra gestión sobre la misma actividad. Lo asigna `FollowupForm.clean()` (primer número libre, 1 a 3); con las tres hechas el formulario rechaza la cuarta. |
 | `management_type` | tipo de gestión | ForeignKey | relación con `ManagementType`; nombre inverso `followups`; PROTECT; admite nulo; opcional |
 | `date` | fecha | DateField |  |
 | `result` | resultado | CharField | largo 255 |
@@ -2192,10 +2331,17 @@ Opciones del modelo (`Meta`): `ordering` = `('-due_date',)`; `verbose_name` = `'
 
 Opciones de `RequesterType`: `INTERNAL` (Interno), `EXTERNAL` (Externo).
 
-Opciones de `Status`: `submitted` (Ingresado), `in_progress` (En proceso), `fulfilled` (Cumplido).
+Opciones de `Status`: `submitted` (Ingresado), `pending` (Pendiente), `in_progress` (En proceso), `fulfilled` (Realizado). `TRANSITIONS` define a qué estados se puede pasar desde cada uno; `can_move(actual, nuevo)` y `next_choices(actual)` lo consultan (RF-018, v25).
 
 - **`clean()`**: Comprueba que el territorio pertenezca a la delegación elegida.
 - **`__str__()`**: Texto con que se muestra el registro.
+
+#### `operations/pipeline.py` (tubo de trabajo, v32)
+
+Una atención marcada «ingresa al tubo» crea su compromiso en la agenda colectiva con lo que ya dice la atención (solicitante, descripción, fecha, delegación y funcionario responsable) más la fecha comprometida y el territorio que se piden en el formulario. El compromiso nace «Ingresado» y su origen dice «Atención ATN00012».
+
+- **`origin_label(activity)`**: el texto del origen, con el identificador que la atención muestra en su listado.
+- **`create_commitment(activity, due_date, territory)`**: crea el compromiso y lo enlaza en `Activity.commitment`; si la atención ya tiene uno, no crea otro y lo devuelve.
 
 #### `operations/admin.py`
 
@@ -2218,6 +2364,17 @@ Configuración del Django Admin para `Followup`. Columnas: 'activity', 'sequence
 ##### `CommitmentAdmin` — hereda de `DelegationScopedAdminMixin`, `admin.ModelAdmin`
 
 Configuración del Django Admin para `Commitment`. Columnas: 'requester', 'territory', 'delegation', 'requester_type', 'responsible_officer', 'due_date', 'status'. Búsqueda por: 'requester', 'territory__name', 'description'. Filtros: 'delegation', 'status', 'requester_type'.
+
+#### `core/management/commands/importar_jjvv.py` (importación de juntas de vecinos, v31, RF-049)
+
+Comando `python manage.py importar_jjvv <archivo.xlsx> [--simular] [--delegacion "Nombre"]`. Lee la planilla «base de datos JJVV sin verificar» y crea o actualiza `CommunityOrganization`.
+
+- Idempotente por **N.º de registro**: repetir la importación no duplica, y una fila ya cargada solo se actualiza si cambió.
+- `--simular` hace todo y lo deshace al final: no escribe nada, pero entrega el mismo informe.
+- Las organizaciones nuevas quedan **sin verificar**; una importación posterior no cambia la marca de las existentes.
+- Los territorios que faltan se crean en la delegación cuyo nombre contiene el del territorio; si ninguna calza (o calzan varias), se usa `--delegacion`. Sin ninguna de las dos, la organización se guarda sin territorio enlazado (el texto queda en `territory_text`) y el informe lo avisa.
+- Las filas sin nombre, sin N.º de registro o con N.º repetido en la planilla se descartan y se listan en el informe.
+- Funciones auxiliares: `plain` (compara sin tildes ni mayúsculas), `clean`, `as_int`, `as_date`, `read_rows` y la clase `Territories` (busca o crea los territorios).
 
 #### `operations/management/commands/seed_management_types.py`
 
@@ -2251,7 +2408,7 @@ Archivo que respalda una actividad: código único, archivo, fecha de subida, es
 
 | Campo | Nombre visible | Tipo | Detalle |
 |---|---|---|---|
-| `unique_code` | código único | CharField | largo 50; único |
+| `unique_code` | código único | CharField | largo 50; único. Lo asigna el sistema (`Evidence.next_code()`: `EVD-<DELEGACIÓN>-0001`, cuenta también las archivadas y reintenta si dos personas guardan a la vez); no se pide en el formulario y no se puede cambiar |
 | `file_link` | archivo | FileField | largo 255; sube archivo — PDF, imagen (PNG o JPG), Word o Excel de hasta 10 MB. |
 | `uploaded_at` | fecha de carga | DateTimeField |  |
 | `review_status` | estado de revisión | CharField | largo 30; con opciones; por defecto `ReviewStatus.PENDING` |
@@ -2302,6 +2459,65 @@ Configuración del Django Admin para `Evidence`. Columnas: 'unique_code', 'activ
 
 Configuración del Django Admin para `Validation`. Columnas: 'evidence', 'decision', 'reviewer_officer', 'date'. Filtros: 'decision',.
 
+### App `websocket`: tiempo real (Clase 11)
+
+Usa Django Channels y Daphne (servidor ASGI). El navegador **envía** por HTTP (con CSRF) y **recibe** por WebSocket. La capa de canales es `InMemoryChannelLayer`: sirve con un solo proceso (el servicio `sgr` ejecuta uno).
+
+#### `websocket/services.py`
+
+Nombres de grupos y publicación de eventos. Los mensajes se publican después de confirmar la transacción (`transaction.on_commit`), para no avisar de cambios que se deshacen.
+
+- **`crud_group(slug, delegation_id)`**: grupo `crud_<slug>_d<id>` de los avisos de un mantenedor.
+- **`publish_crud_changed(crud, *delegation_ids)`**: avisa `crud_changed` a quienes tienen abierto ese listado.
+- **`live_group(delegation_id)`**, **`live_groups_for(scope)`** y **`publish_live_changed(label, *delegation_ids)`**: grupos `live_d<id>` / `live_all` de los avisos de cambio de datos (dashboard, tablero, validar) y su publicación.
+- **`notify_crud_change(crud, obj, before=None)`**: lo llama el motor (`core/crud.py`) al guardar, archivar, restaurar y eliminar; también avisa a la delegación anterior si el registro cambió de delegación.
+
+#### `websocket/consumers.py`
+
+- **`LiveConsumer`** (`ws/live/`): exige sesión y une a la persona a `live_all` y a los grupos de las delegaciones que ve; entrega `{"type": "live_changed", "model": ...}` (sin datos).
+- **`CrudChangesConsumer`** (`ws/crud/<slug>/`): exige el permiso de ver ese mantenedor y une a la persona a los grupos de las delegaciones que puede ver.
+
+#### `core/commitments.py` (historial de estados y resumen colectivo)
+
+- **`record_status(user, commitment, previous, new)`**: deja en la auditoría el cambio de estado de un compromiso (evento «Estado de compromiso») o su estado inicial (RF-018).
+- **`history_of(commitment)`**: los cambios de estado de un compromiso, del más antiguo al más reciente, con quién y cuándo; los muestra el panel «Historial de estados» de la ficha.
+- **`collective_summary(commitments, officers)`**: totales de compromisos por funcionario y estado, con el % realizado (Realizado ÷ total) y el % por realizar (el resto), más la fila total (RF-021). Incluye a los funcionarios de la lista aunque no tengan compromisos.
+- **Plazos (RF-019, v26)**: `deadline_state(due_date, status, today, done_on)` devuelve `overdue`, `due_soon`, `on_time`, `done_on_time` o `done_late`; «por vencer» son los próximos `DUE_SOON_DAYS` días (7, configurable con `SGR_DIAS_POR_VENCER`). `fulfilled_dates` toma del historial de estados el día en que se realizó cada compromiso; `deadline_of`, `deadline_text` y `deadline_counts` los usan la lista, la ficha, el resumen colectivo y el dashboard.
+
+#### `core/results.py` (resultados por funcionario, v26)
+
+- **`officer_summary(officer, period, goals, index, pace)`**: las metas del funcionario con avance, cumplimiento, ponderador y aporte ponderado, su promedio, semáforo, suma de ponderadores y total ponderado. Lo usan el inicio, el tablero, la vista por cargos y la ficha (RF-008).
+- **`goal_lines(..., days)` y `officer_summary(..., absence)`** (v30): con ausencias, cada línea trae la meta ajustada (`target`, `adjusted_target`), la original (`original_target`) y `adjusted`; el resumen trae `absence`, `effective_days` y `pace` (el ritmo del funcionario con sus días efectivos).
+- **`lowest_lines(lines)`** (v29): los hasta tres ítems con menor cumplimiento (menos de 100 %, con ponderador y sin los que llegaron al tope), del peor al mejor. `goal_lines(..., period)` marca con `capped` la línea cuyo cumplimiento llegó al tope del período, y `officer_summary` entrega `lowest` y `capped_total`.
+- **`weights_state`, `officer_weights`, `weight_problems`**: la regla de que los ponderadores de un funcionario en un período sumen 100 % (RF-006); al guardar una meta se avisa, no se bloquea.
+- **`team_goals(summaries)`**, **`goal_lines`**, **`goals_of`**, **`mean`**, **`rounded`**, **`light_of`**, **`current_period`**.
+
+#### `core/activity_stats.py` (actividad reciente, RF-030)
+
+- **`recent_activity(officer_ids, period, pace, today)`**: por funcionario, el último ingreso, los días sin ingreso, los registros del período y el promedio diario (registros ÷ días computables transcurridos). Desde la v30 los días de ausencia no cuentan: ni en los días sin ingreso (`absence_ranges`, `absent_calendar_days`) ni en el promedio (usa el ritmo del funcionario con sus ausencias).
+- **`delegation_recent(recent, pace, today)`**: el resumen de varios funcionarios. `Recent.alert` marca más de 7 días sin ingreso.
+
+#### `core/crud.py`: edición concurrente (RF-034, RNF-003)
+
+`CrudFormView.save` bloquea la fila (`select_for_update`) dentro de la transacción y compara de nuevo la versión con la que se abrió el formulario; si cambió lanza `StaleRecord`. El aviso (`conflict_message`) dice quién, cuándo y qué cambió según la auditoría (`last_change_text`). Un dato repetido que la base rechaza (`IntegrityError`) se informa en el formulario (`DUPLICATE_TEXT`).
+
+#### `core/photos.py` (foto de perfil de otra persona)
+
+- **`photo_url_of(user)`**: dirección de la foto de un usuario o texto vacío.
+- **`change_photo(actor, user, uploaded)`** y **`remove_photo(actor, user)`**: guardan o quitan la foto de `user` (la usa `UserCrud.save_photo` cuando el Super Usuario edita un usuario), borran el archivo anterior después del commit y registran el evento en la auditoría.
+
+#### `websocket/signals.py`
+
+Señales `pre_save`, `post_save` y `post_delete` de los modelos de `LIVE_MODELS` (atenciones, gestiones, compromisos, evidencias, validaciones, metas, indicadores, ajustes, períodos y funcionarios). Publican con `transaction.on_commit` un aviso a la delegación del registro (y a la anterior si cambió de delegación); un dato general avisa a todas. Desde la v27 `LIVE_MODELS` incluye también los catálogos (tipos de atención, delegaciones, cargos, ítems de cargo, ítems, servicios, territorios, beneficiarios, usuarios y roles) y `audit_saved` avisa solo al listado de Auditoría cuando se crea una entrada. En el navegador, `core/static/core/js/live-updates.js` escucha `/ws/live/` y, en listados y fichas, también `/ws/crud/<slug>/`; las fichas llevan `data-live-page data-live-slug`, Atención `data-live-results`.
+
+#### `websocket/routing.py`
+
+Rutas WebSocket (`ws/crud/<slug>/` y `ws/live/`).
+
+#### `sgr_project/asgi.py`
+
+`ProtocolTypeRouter`: HTTP a Django y WebSocket a través de `AllowedHostsOriginValidator` + `AuthMiddlewareStack` + `URLRouter`.
+
 ## 10. Migraciones
 
 Las migraciones crean y modifican las tablas de cada app.
@@ -2313,6 +2529,8 @@ Las migraciones crean y modifican las tablas de cada app.
 - `0003_create_role_profiles.py`: crea la ficha de los roles que ya existían.
 - `0004_userroledelegation.py`: crea la tabla de `UserRoleDelegation`.
 - `0005_userprofile_photo.py`: agrega el campo `userprofile.photo`.
+- `0006_userprofile_photo_imagefield.py`: cambia `userprofile.photo` de `FileField` a `ImageField`; la columna no cambia.
+- `0007_cliente_beneficiario_v33.py`: agrega `userprofile.beneficiary` (uno a uno con el beneficiario, opcional), para las cuentas del perfil Cliente.
 
 ### `core`
 
@@ -2327,16 +2545,22 @@ Las migraciones crean y modifican las tablas de cada app.
 ### `operations`
 
 - `0001_initial.py`: crea la tabla de `ManagementType`; crea la tabla de `Activity`; crea la tabla de `Commitment`; crea la tabla de `Followup`.
+- `0002_commitment_status_pending.py`: agrega el estado «Pendiente» y cambia «Cumplido» por «Realizado» en las opciones de `commitment.status`; no modifica la estructura de la tabla.
+- `0003_reglas_de_puntaje_v29.py`: agrega el campo `activity.requester_is_delegate`; agrega el campo `activity.counts_for_score` (con índice); agrega el campo `activity.no_score_reason`.
 
 ### `organization`
 
 - `0001_initial.py`: crea la tabla de `Beneficiary`; crea la tabla de `Delegation`; crea la tabla de `Position`; crea la tabla de `Service`; crea la tabla de `Item`; crea la tabla de `Officer`; crea la tabla de `PositionItem`; crea la tabla de `Territory`.
 - `0002_delegation_color.py`: agrega el campo `delegation.color`.
 - `0003_delegation_address_commune_item_description.py`: agrega el campo `delegation.address`; agrega el campo `delegation.commune`; agrega el campo `item.description`.
+- `0004_reglas_de_puntaje_v29.py`: agrega el campo `item.scores` («Otorga punto»).
 
 ### `planning`
 
 - `0001_initial.py`: crea la tabla de `Period`; crea la tabla de `Goal`; crea la tabla de `Indicator`; crea la tabla de `Adjustment`.
+- `0002_indicator_officer.py`: agrega el campo `indicator.officer`.
+- `0003_reglas_de_puntaje_v29.py`: cambia a 120 el valor por defecto de `period.weighted_cap` y baja a 120 el tope de los períodos que no están cerrados (los cerrados conservan el suyo).
+- `0004_ausencias_v30.py`: crea la tabla de `Absence`.
 
 ## 11. Plantillas
 
@@ -2345,22 +2569,25 @@ Plantillas de Django. Las de `templates/` son el marco general, los errores y la
 | Plantilla | Qué muestra |
 |---|---|
 | `templates/base.html` | Marco de todas las pantallas con sesión: cabecera HTML, barra lateral, franja de arriba, avisos, bloque de contenido y pie. Carga los módulos JavaScript. |
+| `templates/400.html` | Error 400 (v34): no se pudo procesar la solicitud; ofrece volver al inicio. No muestra la excepción. |
 | `templates/403.html` | Error 403: no tiene permiso para esa pantalla, con enlace al dashboard. |
 | `templates/403_csrf.html` | Error 403 por token CSRF vencido: la pantalla ya no es válida. |
 | `templates/404.html` | Error 404: la página no existe. |
-| `templates/500.html` | Error 500: algo salió mal en el servidor. Es una página independiente. |
+| `templates/500.html` | Error 500: problema temporal del servidor, sin culpar a la persona. Es una página independiente (no usa sesión, menú ni base de datos), pero lleva el mismo diseño que las demás. |
 | `templates/registration/auth_base.html` | Marco de las pantallas sin sesión (ingreso y recuperación de contraseña). |
 | `templates/registration/login.html` | Pantalla de ingreso (la usa `LoginView`). |
-| `templates/registration/recover_request.html` | Recuperación, paso 1: se escribe el correo. |
-| `templates/registration/recover_code.html` | Recuperación, paso 2: se escribe el código de seis dígitos, con el reloj del código y el reenvío. |
-| `templates/registration/recover_password.html` | Recuperación, paso 3: se elige la contraseña nueva. |
-| `templates/registration/recovery_email.html` | Correo con el código de recuperación (versión HTML). |
-| `templates/registration/recovery_email.txt` | Correo con el código de recuperación (versión texto). |
+| `templates/registration/recover_request.html` | Recuperación, paso 1: se escribe el correo y se pide el enlace. |
+| `templates/registration/recover_done.html` | Recuperación, paso 2: «Revisa tu correo», con la respuesta genérica y cuánto vale el enlace. |
+| `templates/registration/recover_confirm.html` | Recuperación, paso 3: el enlace del correo. Con enlace vigente, el formulario de la contraseña nueva; si no, «Este enlace ya no sirve» (400). |
+| `templates/registration/recovery_subject.txt` | Asunto del correo de recuperación. |
+| `templates/registration/recovery_email.html` | Correo con el enlace de recuperación (versión HTML, con botón). |
+| `templates/registration/recovery_email.txt` | Correo con el enlace de recuperación (versión texto). |
 | `core/templates/core/dashboard.html` | Dashboard: saludo, metas del período del funcionario, semáforo, pendientes, accesos directos, atenciones recientes y compromisos próximos. |
 | `core/templates/core/atencion.html` | Pantalla de Atención: listado de actividades con buscador, filtros, tabla, filas por página y paginación. |
 | `core/templates/core/profile.html` | Mi perfil: datos de la cuenta, foto, delegación y cambio de contraseña. |
 | `core/templates/core/administration.html` | Administración: período vigente y accesos a los mantenedores de organización, planificación y catálogos. |
 | `core/templates/core/delegation_board.html` | Tablero de delegación: promedio, semáforo, resultado de cada funcionario y tarjetas de pendientes. |
+| `core/templates/core/commitment_summary.html` | Resumen colectivo: compromisos por funcionario y estado, con % realizado y % por realizar, filtros de delegación y período y actualización en vivo. |
 | `core/templates/core/reports.html` | Informes: filtros de período y delegación, tabla por funcionario y botones para exportar a Excel, CSV o imprimir. |
 | `core/templates/core/validate_list.html` | Evidencias por revisar y últimas validaciones. |
 | `core/templates/core/validate_form.html` | Revisión de una evidencia: sus datos, el archivo, el formulario de decisión y las revisiones anteriores. |
@@ -2371,6 +2598,7 @@ Plantillas de Django. Las de `templates/` son el marco general, los errores y la
 | `core/templates/core/crud/_form_body.html` | Contenido del formulario sin los botones; lo comparten la página y la ventana modal. |
 | `core/templates/core/crud/archive_confirm.html` | Confirmación de archivar un registro, con los motivos si no se puede. |
 | `core/templates/core/crud/delete_confirm.html` | Confirmación de eliminar un registro, con los motivos si no se puede. |
+| `core/templates/core/crud/commitment_history.html` | Panel «Historial de estados» en la ficha de un compromiso. |
 | `core/templates/core/crud/role_permissions.html` | Panel de permisos en la ficha de un rol: una fila por módulo con las acciones que tiene. |
 | `core/templates/core/partials/cell.html` | Dibuja una celda según su tipo: etiqueta, sí/no, archivo con vista previa, color, enlace o texto. |
 | `core/templates/core/partials/check.html` | Casilla de verificación de un formulario. |
@@ -2382,11 +2610,13 @@ Plantillas de Django. Las de `templates/` son el marco general, los errores y la
 | `core/templates/core/partials/footer.html` | Pie de página de todas las pantallas. |
 | `core/templates/core/partials/meter.html` | Barra de cumplimiento con sus marcas de umbral. |
 | `core/templates/core/partials/mini_table.html` | Listado corto con la primera celda enlazada a la ficha. |
+| `core/templates/core/partials/pace_panel.html` | Cuadro «Ritmo del período»: meta esperada al día, % diario, avance logrado y estado frente a lo esperado. |
 | `core/templates/core/partials/page_size.html` | Selector de filas por página (se guarda en la sesión). |
 | `core/templates/core/partials/pagination.html` | Paginación con páginas anterior, siguiente y saltos. |
 | `core/templates/core/partials/public_head.html` | Cabecera simple de las páginas sin sesión. |
 | `core/templates/core/partials/sidebar.html` | Barra lateral: marca, delegación con su color, perfiles y menú. |
 | `core/templates/core/partials/topbar.html` | Franja de arriba: delegación, persona con sesión, perfil y cerrar sesión; con varias delegaciones, el selector. |
+| `core/templates/core/partials/chart_donut.html`, `chart_bars.html`, `chart_columns.html` | Gráficos de anillo, barras horizontales y columnas hechos con SVG/CSS, con leyenda y números escritos (los arma `core/charts.py`). |
 | `core/templates/core/widgets/color.html` | Campo de color: muestra, texto `#RRGGBB` y selector de color del navegador. |
 | `core/templates/core/widgets/delegations.html` | Delegaciones adicionales de un usuario: una casilla por delegación con su color. |
 | `core/templates/core/widgets/lookup.html` | Campo de texto con lista de sugerencias y lupa para buscar. |
@@ -2430,27 +2660,6 @@ Funciones:
 - **`stop(control)`**: Deja el botón o enlace como estaba.
 - **`lock(form, submitter = null)`**: Un formulario que se está enviando: todos sus botones de enviar se desactivan y el que se apretó (o el primero) muestra el indicador. Un lector de pantalla recibe un aviso de «Procesando…».
 - **`unlock(form)`**: Vuelve el formulario a como estaba (el envío no llegó al servidor, o se volvió con el botón «atrás»).
-
-### `core/static/core/js/code-boxes.js`
-
-```text
-Seis casillas para escribir el código de recuperación, una por dígito.
-
-El campo de texto del formulario (name="code") sigue siendo el que se envía y el que revisa validation.js:
-este script solo lo esconde y lo mantiene al día con lo que se escribe en las casillas. Así el servidor
-recibe lo mismo de siempre y, sin JavaScript, la persona ve el campo de texto normal.
-
-Se puede escribir, pegar el código completo (con espacios o sin ellos), borrar con retroceso y moverse con
-las flechas. Solo se aceptan dígitos.
-```
-
-Funciones:
-
-- **`digitsOf(text)`**
-- **`sync()`**: Lo escrito en las casillas pasa al campo de verdad, y validation.js se entera como si se hubiera escrito en él.
-- **`fill(start, digits)`**: Pone los dígitos desde la casilla start y deja el cursor en la siguiente a la última escrita.
-- **`target()`**: Dónde parte el cursor: la primera casilla vacía o, si están todas llenas, la última.
-- **`mirrorErrors()`**: Si el servidor devolvió el campo con un error, las casillas se marcan igual; validation.js cambia la clase del campo y aquí se copia a las casillas.
 
 ### `core/static/core/js/confirm.js`
 
@@ -2496,28 +2705,6 @@ Funciones:
 - **`markDirty(event)`**
 - **`formsWithUnsavedChanges()`**: Formularios de la página con datos escritos que todavía no se guardan.
 - **`optionText(value)`**
-
-### `core/static/core/js/countdown.js`
-
-```text
-Relojes de la pantalla donde se escribe el código de recuperación.
-
- 1. Cuánto le queda al código (data-countdown).
- 2. Cuánto falta para poder reenviarlo (data-resend): el botón queda desactivado mientras corre la espera.
-
-Solo avisan cuánto falta: quien decide es el servidor (accounts/recovery.py), que revisa el vencimiento
-del código y la espera del reenvío con su propia hora. Sin JavaScript la pantalla funciona igual; se ve el
-tiempo que quedaba al cargar la página y, si se aprieta "Reenviar" antes de tiempo, el servidor avisa cuánto falta.
-```
-
-Funciones:
-
-- **`remaining(end)`**: Los dos relojes se cuentan contra la hora del navegador y no sumando de a uno, para que no se atrasen si la pestaña queda en segundo plano.
-- **`codeClock()`**
-- **`format(seconds)`**
-- **`tick()`**
-- **`resendWait()`**
-- **`tick()`**
 
 ### `core/static/core/js/crud-modal.js`
 
@@ -2684,6 +2871,14 @@ Funciones:
 - **`show(visible)`**
 - **`initWidgets(root = document)`**: Prepara los campos especiales que hay dentro de root (la página entera o un formulario recién cargado).
 
+### `core/static/core/js/live-updates.js`
+
+Pantallas en vivo. Dos modos. Si la página tiene `[data-live-page]` (dashboard, tablero de delegación y validar), se conecta a `ws/live/`, y al llegar `live_changed` vuelve a pedir la misma dirección y reemplaza `[data-live-region]`. Listados en vivo: si la página tiene `[data-live-crud]`, se conecta a `ws/crud/<slug>/`; al llegar `crud_changed` espera 300 ms, vuelve a pedir la misma dirección (conserva filtros y página) y reemplaza solo la región `data-live-target="resultados"`. Muestra el estado («En vivo», «Reconectando…») y reintenta con espera creciente. Desde la v28 tiene respaldo por consulta: si el WebSocket no conecta, la pantalla se revisa sola cada 8 segundos (y cada 60 s como respaldo con WebSocket abierto, solo con la pestaña visible); una revisión que no cambia nada (se ignora el token CSRF y el indicador) no toca la pantalla.
+
+### `core/static/core/js/searchable-select.js`
+
+Selector con buscador (v28). Los `<select>` con `data-searchable` y 8 opciones o más (o `data-searchable="always"`) reciben encima una caja de texto con lista desplegable: filtra por todas las palabras escritas, sin importar tildes, mayúsculas ni orden; dibuja como máximo 60 filas y avisa cuántas coincidencias más hay; funciona con teclado (flechas, Enter, Esc, Tab) y roles `combobox`/`listbox`. El `<select>` original sigue guardando el valor (se oculta visualmente), así que validación, búsqueda en vivo y envío no cambian. `CrudForm` marca con `data-searchable` todos los selectores de un solo registro y los filtros de los listados lo llevan en la plantilla.
+
 ## 13. Hoja de estilos
 
 `core/static/core/css/sgr.css` es la única hoja de estilos propia (sobre Bootstrap). Sus secciones, en orden:
@@ -2717,19 +2912,21 @@ Funciones:
 
 | Archivo | Qué hace |
 |---|---|
-| `deploy/actualizar.sh` | Pone al día una instalación existente. Recibe la rama o etiqueta (por defecto `main`): baja la versión (`fetch`, `checkout`, `pull`), instala las dependencias, anota la versión desplegada en `COMMIT`, carga las variables de `/etc/sgr/sgr.env`, crea la carpeta de archivos subidos, ejecuta `check --deploy`, `migrate` y `collectstatic`, reinicia el servicio `sgr` y consulta `/salud/`. |
+| `deploy/probar_websocket.py` | Prueba de verdad el WebSocket: handshake a `/ws/live/` directo en Daphne y a través de Apache; da por bueno un 101 o el «403 Access denied» de Daphne y explica qué revisar si no llega. `actualizar.sh` lo corre al terminar. |
+| `deploy/actualizar.sh` | Pone al día una instalación existente. Desde la v28 deja listo el WebSocket (corre `al2023/agregar_websocket.sh`: Apache pasa `/ws/` y el servicio es Daphne) y al terminar prueba el WebSocket. Recibe la rama o etiqueta (por defecto `main`): baja la versión (`fetch`, `checkout`, `pull`), instala las dependencias, anota la versión desplegada en `COMMIT`, carga las variables de `/etc/sgr/sgr.env`, crea la carpeta de archivos subidos, ejecuta `check --deploy`, `migrate` y `collectstatic`, reinicia el servicio `sgr` y consulta `/salud/`. |
 | `deploy/instalar_ec2.sh` | Primera instalación en una instancia EC2 con Ubuntu: instala los paquetes (Python, git, nginx y redis), crea el usuario `sgr`, clona el repositorio en `/opt/sgr/app`, crea el entorno virtual, instala las dependencias y deja `/etc/sgr/sgr.env` para completar. |
-| `deploy/gunicorn.conf.py` | Configuración de gunicorn: dirección, procesos, hilos (clase `gthread`), tiempos y registro de acceso, con valores cambiables por variables de entorno. |
-| `deploy/nginx-sgr.conf` | Sitio de nginx que pasa el tráfico a gunicorn (puerto 8000), con límite de 12 MB por petición. |
-| `deploy/sgr.service` | Servicio de systemd que ejecuta gunicorn con el usuario `sgr`, desde `/opt/sgr/app` y con las variables de `/etc/sgr/sgr.env`. |
+| `deploy/gunicorn.conf.py` | Configuración de gunicorn (ya no la usa el servicio desde la v24; se conserva como referencia). |
+| `deploy/nginx-sgr.conf` | Sitio de nginx que pasa el tráfico a Daphne (puerto 8000), con `/ws/` preparado para WebSocket y límite de 12 MB por petición. |
+| `deploy/sgr.service` | Servicio de systemd que ejecuta Daphne (`sgr_project.asgi:application`) con el usuario `sgr`, desde `/opt/sgr/app` y con las variables de `/etc/sgr/sgr.env`. |
 | `deploy/sgr.env.example` | Modelo de las variables de entorno para un servidor (copiar a `/etc/sgr/sgr.env`). |
 | `deploy/requirements-produccion.txt` | Dependencias extra para el servidor: gunicorn, WhiteNoise y redis (y mysqlclient si la base es MySQL). |
 | `deploy/al2023/instalar_al2023.sh` | Primera instalación en Amazon Linux 2023 (Apache, MariaDB y phpMyAdmin): recibe repositorio, rama y dirección del sitio; crea el usuario y las carpetas, el entorno virtual, el servicio y el sitio de Apache. |
 | `deploy/al2023/https_certificado.sh` | Activa HTTPS en Amazon Linux 2023: pide el certificado a Let's Encrypt, pasa el sitio al puerto 443, redirige el 80 al 443 y deja la renovación automática. |
+| `deploy/al2023/agregar_websocket.sh` | Pasa un servidor ya instalado a la v24: agrega `/ws/` a Apache (con copia de respaldo y `httpd -t`), cambia el servicio a Daphne y recarga. |
 | `deploy/al2023/apache-http.conf` | Sitio de Apache por HTTP (fase 1): pasa el tráfico a gunicorn y deja fuera phpMyAdmin. |
 | `deploy/al2023/apache-https.conf` | Sitio de Apache por HTTPS (fase 2): el puerto 80 solo verifica el certificado y redirige; el 443 sirve el sistema. |
 | `deploy/al2023/sgr.env.example` | Modelo de variables de entorno para Amazon Linux 2023: modo, claves, HTTPS y proxy, base de datos, caché, correo y nivel de registro. |
-| `requirements.txt` | Dependencias de Python: Django 6.1.1, asgiref, sqlparse, python-dotenv y openpyxl (exportar a Excel); `mysqlclient` opcional para MySQL/MariaDB. |
+| `requirements.txt` | Dependencias de Python: Django 6.1.1, asgiref, sqlparse, python-dotenv, openpyxl (exportar a Excel), Channels y Daphne (tiempo real); `mysqlclient` opcional para MySQL/MariaDB. |
 | `VERSION` | Versión del sistema que muestra `/salud/`. |
 | `manage.py` | Punto de entrada de los comandos de Django. |
 
@@ -2737,12 +2934,4 @@ Funciones:
 
 | Archivo | Qué hace |
 |---|---|
-| `sql/sgr_django_v19.sql` | Estructura completa de la base `sgr_django` (32 tablas: 22 del proyecto, 6 del framework, 3 de unión y `django_migrations`) para MariaDB 10.11 / MySQL 8. |
-| `sql/sgr_django_v19_dbeaver.sql` | El mismo esquema, pero crea una base aparte llamada `sgr_django_der` para abrirla en DBeaver y generar el diagrama. |
-| `sql/sgr_v19_modelo_relacional_completo_en.sql` | Modelo relacional completo con nombres en inglés (`sgr_db`). |
-| `sql/sgr_v13_a_v16_alter.sql` | Cambios de la base entre la v13 y la v16 (equivalen a las migraciones de `evidence` 0002 y 0003 y `accounts` 0005). |
-| `sql/sgr_v3_modelo_relacional_completo.sql` | Modelo relacional de la v3. |
-| `sql/sgr_v3_a_v5_alter.sql` | Agrega el color de la delegación a una base de la v3. |
-| `sql/sgr_v5_a_v3_revertir.sql` | Quita el color de la delegación (deshace el anterior). |
-| `sql/sgr_v5_modelo_relacional_completo.sql` | Modelo relacional de la v5 (la v3 más el color de la delegación). |
-| `sql/sgr_v9_modelo_relacional_completo_en.sql` | Modelo relacional de la v9 con nombres en inglés. |
+| `sql/sgr_django.sql` | Estructura completa de la base `sgr_django` (32 tablas: 22 del proyecto, 6 del framework, 3 de unión y `django_migrations`) para MariaDB 10.11 / MySQL 8, al día con las migraciones (incluye `planning_indicator.officer_id`). |

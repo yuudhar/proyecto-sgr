@@ -1,0 +1,38 @@
+ESPERADO = {
+    "ErrorPagesTests": {
+        "these_tests_run_with_debug_off": "Estas pruebas corren con DEBUG=False, como en el servidor.",
+        "the_four_pages_exist_and_the_400_has_its_own_handler": "Existen las cuatro plantillas (400, 403, 404, 500) y el 400 tiene su propio manejador.",
+        "a_missing_page_answers_404_with_the_portal_design": "Una ruta inexistente responde 404 con el diseño del portal, sin detalles técnicos.",
+        "a_record_that_does_not_exist_answers_404_with_the_same_page": "Un registro que no existe responde 404 con la misma pantalla.",
+        "a_logged_in_person_gets_the_404_inside_the_layout_with_the_menu": "Con sesión, el 404 se ve dentro del diseño con el menú.",
+        "an_action_without_permission_answers_403_with_a_way_back": "Una acción sin permiso (por URL o por POST directo) responde 403 con la salida «Volver al inicio».",
+        "a_client_asking_for_an_administrative_page_gets_a_403_without_content": "Un Cliente que pide una pantalla administrativa recibe 403 sin contenido de otras personas.",
+        "an_expired_form_token_answers_403_with_its_own_notice": "Un token de formulario vencido responde 403 con su aviso propio.",
+        "a_forbidden_page_only_shows_the_messages_the_portal_wrote": "La pantalla 403 solo muestra los mensajes que escribió el portal.",
+    },
+    "BadRequestTests": {
+        "a_host_that_is_not_allowed_answers_400_without_naming_it": "Un host no permitido responde 400 sin nombrar el host ni la configuración.",
+        "a_host_that_is_not_allowed_is_refused_on_every_screen": "Un host no permitido se rechaza con 400 en todas las pantallas.",
+        "a_body_over_the_limit_answers_400_with_the_portal_page": "Un cuerpo de petición sobre el límite responde 400 con la pantalla del portal.",
+        "a_broken_upload_answers_400_and_saves_nothing": "Una subida mal formada responde 400 y no guarda nada.",
+        "too_many_form_fields_answer_400": "Un formulario con demasiados campos responde 400.",
+        "the_400_page_says_what_happened_and_how_to_continue": "La pantalla 400 explica que no se pudo procesar la solicitud y ofrece volver al inicio.",
+        "the_400_page_keeps_the_design_of_the_403_and_404_pages": "La pantalla 400 tiene el mismo diseño que la 403 y la 404.",
+        "the_400_page_never_shows_the_text_of_the_exception": "La pantalla 400 nunca muestra el texto de la excepción.",
+        "if_the_page_cannot_be_drawn_a_minimal_400_still_comes_out": "Si la plantilla no se puede dibujar, sale igual una página 400 mínima, sin detalles técnicos.",
+        "a_bad_request_does_not_change_any_data": "Una solicitud inválida no modifica datos.",
+    },
+    "ServerErrorTests": {
+        "a_failure_inside_a_view_answers_500_without_details": "Una falla dentro de una vista responde 500 sin trazas, SQL ni rutas.",
+        "a_database_failure_answers_500_without_details": "Una caída de la base de datos responde 500 sin detalles técnicos.",
+        "the_500_page_does_not_blame_the_person_and_offers_a_way_out": "La pantalla 500 no culpa a la persona y ofrece volver al inicio.",
+        "the_500_page_keeps_the_design_of_the_other_error_pages": "La pantalla 500 tiene el mismo diseño que las demás.",
+        "the_500_page_needs_nothing_from_the_session_or_the_database": "La pantalla 500 no necesita la sesión ni la base de datos.",
+        "a_failure_is_written_to_the_server_log_for_the_team": "La falla queda en el registro del servidor para el equipo.",
+        "a_failed_request_does_not_log_the_person_out_or_change_data": "Una petición fallida no cierra la sesión ni cambia datos.",
+    },
+    "ErrorTemplatesTests": {
+        "no_error_page_prints_the_exception_or_the_request": "Ninguna plantilla de error imprime la excepción ni datos de la petición.",
+        "the_403_page_prints_only_the_message_of_the_exception_and_nothing_else": "La plantilla 403 imprime solo el mensaje de la excepción y nada más.",
+    },
+}

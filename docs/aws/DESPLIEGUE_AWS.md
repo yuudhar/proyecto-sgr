@@ -9,10 +9,10 @@ Guía para dejar el SGR funcionando en una instancia EC2 y para actualizarlo. To
 | Componente | Servicio AWS / programa | Para qué |
 |---|---|---|
 | Servidor | EC2 (Ubuntu 22.04/24.04; t3.small o superior) | Ejecuta la aplicación |
-| Aplicación | Django 6 + gunicorn (`deploy/gunicorn.conf.py`) bajo systemd (`deploy/sgr.service`) | Sirve el portal |
-| Proxy web | nginx (`deploy/nginx-sgr.conf`) | Recibe el tráfico en 80/443, sirve `/static/` y traspasa el resto a gunicorn |
+| Aplicación | Django 6 + Daphne (ASGI: HTTP y WebSocket) bajo systemd (`deploy/sgr.service`); `deploy/gunicorn.conf.py` queda sin uso desde la v24 | Sirve el portal |
+| Proxy web | nginx (`deploy/nginx-sgr.conf`) | Recibe el tráfico en 80/443, sirve `/static/` y traspasa el resto a Daphne (y `/ws/` con las cabeceras de WebSocket) |
 | Base de datos | SQLite en modo WAL (por defecto) o MySQL en RDS (`DB_ENGINE=mysql`) | Datos del sistema |
-| Caché compartida | Redis local (paquete `redis-server`) o ElastiCache | Contador de intentos de la recuperación de contraseña con varios procesos |
+| Caché compartida | Redis local (paquete `redis-server`) o ElastiCache | Chequeo de `/salud/` y, con varios procesos, caché común (el tope de enlaces de recuperación sale de la base de datos y no la necesita) |
 | Red | Grupo de seguridad: 22 (solo tu IP), 80 y 443 (público). La base RDS, si se usa, solo acepta tráfico del grupo de la instancia | Aislamiento |
 | IP | Elastic IP (y un dominio o subdominio si se dispone) | Dirección estable |
 | HTTPS | Certificado Let's Encrypt (`certbot`) o ACM con un balanceador | Cifrado |
@@ -84,5 +84,5 @@ SQLite: detener o usar `sqlite3 db.sqlite3 ".backup '/ruta/copia.db'"` con el se
 
 1. Crear la instancia, aplicar esta guía y anotar la **URL**.
 2. Repetir en esa URL: `tools/evidencias/capturar.py` (evidencias 1–6) y `tools/estres/estres.py` (ver `docs/pruebas/estres/PLAN_ESTRES.md`).
-3. Probar el correo real y la caché Redis con varios procesos (PEN-04 y PEN-05).
+3. Probar el correo real de la recuperación de contraseña (PEN-04; ver el README, «Recuperar la contraseña», con `manage.py sendtestemail`).
 4. Entregar al docente la URL, las cuentas de evaluación y el acceso al repositorio.

@@ -18,6 +18,7 @@
 <section class="panel mb-4" aria-label="Búsqueda de atenciones">
   <form method="get" class="atencion-search" role="search" data-validate data-loading data-live-search>
     <span class="visually-hidden" role="status" data-live-status></span>
+    <p class="live-note">{% include "core/partials/live_chip.html" %}</p>
     <label class="form-label" for="atencion-q">RUT / nombre / otro</label>
     <div class="atencion-row">
       <div class="input-group input-group-lg">
@@ -32,7 +33,7 @@
       {% for filter in filters %}
       <div class="field">
         <label for="filtro-{{ filter.name }}">{{ filter.label }}</label>
-        <select class="form-select" id="filtro-{{ filter.name }}" name="{{ filter.name }}">
+        <select class="form-select" id="filtro-{{ filter.name }}" name="{{ filter.name }}" data-searchable>
           <option value="">Todos</option>
           {% for value, label in filter.options %}
           <option value="{{ value }}"{% if value == filter.selected %} selected{% endif %}>{{ label }}</option>
@@ -57,7 +58,7 @@
   </form>
 </section>
 
-<section class="panel" aria-label="Resultados de la búsqueda" data-live-target="resultados" data-live-count="{{ page.paginator.count }}">
+<section class="panel" aria-label="Resultados de la búsqueda" data-live-results data-live-target="resultados" data-live-count="{{ page.paginator.count }}">
   <div class="panel-head">
     <h2 class="panel-title">{% if q %}Resultados para «{{ q }}»{% else %}Últimas atenciones{% endif %}</h2>
     <div class="panel-head-side">

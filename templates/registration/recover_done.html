@@ -1,0 +1,19 @@
+{% extends "registration/auth_base.html" %}
+{% block title %}Revisa tu correo{% endblock %}
+
+{% block auth_title %}Revisa tu correo{% endblock %}
+{% block auth_lead %}Si ese correo está registrado, te enviamos un enlace para elegir una contraseña nueva.{% endblock %}
+
+{% block auth_body %}
+<div class="alert alert-info d-flex gap-2" role="status">
+  <i class="bi bi-envelope-check" aria-hidden="true"></i>
+  <div>
+    <p class="mb-1">El enlace vale <strong>{{ duration }}</strong> y se usa <strong>una sola vez</strong>.</p>
+    <p class="mb-0">Si no lo ves, revisa la carpeta de spam. Si el correo no llega, puedes pedir otro enlace.</p>
+  </div>
+</div>
+<p class="auth-links">
+  <a href="{% url 'accounts:recover' %}">Pedir otro enlace</a>
+  <a href="{% url 'core:login' %}"><i class="bi bi-arrow-left" aria-hidden="true"></i> Volver a ingresar</a>
+</p>
+{% endblock %}

@@ -1,0 +1,48 @@
+{% load core_ui %}
+{% comment %}RF-048: puntaje del equipo. Espera `team` (planning.team.team_score) y, opcionalmente, `mine` (el total del funcionario) y `team_label`.{% endcomment %}
+<section class="panel mb-4" aria-label="Puntaje del equipo">
+  <div class="panel-head">
+    <h2 class="panel-title">Puntaje del equipo{% if team_label %}: {{ team_label }}{% endif %}</h2>
+    <span class="panel-note">{{ team.people }} funcionario{{ team.people|pluralize }}</span>
+  </div>
+  {% if team.score is not None %}
+  <dl class="pace-grid">
+    {% if mine is not None %}<div><dt>Mi puntaje</dt><dd class="pace-strong">{{ mine|fnumber }} %</dd></div>{% endif %}
+    <div><dt>Puntaje del equipo</dt><dd class="pace-strong">{{ team.score|fnumber }} %</dd></div>
+    <div><dt>Promedio individual</dt><dd>{% if team.individual_average is not None %}{{ team.individual_average|fnumber }} %{% else %}Sin cálculo{% endif %}</dd></div>
+    <div><dt>Semáforo del equipo</dt><dd>{% if team.light %}<span class="chip chip-{{ team.light|tone }}"><i class="bi {{ team.light|tone_icon }}" aria-hidden="true"></i>{{ team.light|light_label }}</span>{% endif %}</dd></div>
+  </dl>
+  <div class="table-responsive">
+    <table class="table data-table align-middle">
+      <caption class="visually-hidden">Cifras del equipo por ítem</caption>
+      <thead><tr><th scope="col">Ítem</th><th scope="col" class="num">Meta sumada</th><th scope="col" class="num">Avance sumado</th><th scope="col" class="num">Cumplimiento</th><th scope="col" class="num">Ponderador</th><th scope="col" class="num">Aporte</th></tr></thead>
+      <tbody>
+        {% for line in team.lines %}
+        <tr>
+          <td>{{ line.item }}{% if line.capped %} <span class="chip chip-info" title="El equipo llegó al tope del período."><i class="bi bi-shield-check" aria-hidden="true"></i>Tope alcanzado</span>{% endif %}</td>
+          <td class="num">{{ line.target|fnumber }} {{ line.unit }}</td>
+          <td class="num">{{ line.progress|fnumber }}</td>
+          <td class="num">{{ line.compliance|fnumber }} %</td>
+          <td class="num">{{ line.weight|fnumber }} %</td>
+          <td class="num">{{ line.weighted|fnumber }} %</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% if team.members %}
+  <div class="table-responsive">
+    <table class="table data-table align-middle mb-0">
+      <caption class="visually-hidden">Aporte de cada persona al puntaje del equipo</caption>
+      <thead><tr><th scope="col">Funcionario</th><th scope="col" class="num">Aporte al equipo</th></tr></thead>
+      <tbody>
+        {% for member in team.members %}<tr><td>{{ member.officer.name }}</td><td class="num">{{ member.contribution|fnumber }} %</td></tr>{% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% endif %}
+  <p class="meter-legend">El equipo suma las metas (ajustadas por ausencias) y el avance válido de todos sus integrantes y calcula un solo cumplimiento por ítem, con el tope de {{ period.weighted_cap|fnumber }} %. Lo que una persona logra de más compensa lo que a otra le falta, sin pasar del tope. Las felicitaciones y los reclamos son de cada persona y no entran al equipo.</p>
+  {% else %}
+  <div class="empty"><i class="bi bi-people" aria-hidden="true"></i><p>Aún no hay metas para calcular el puntaje del equipo.</p></div>
+  {% endif %}
+</section>

@@ -6,8 +6,8 @@ Para una instancia EC2 con Amazon Linux 2023 que ya tiene Apache, PHP, MariaDB y
 
 | Pieza | Para qué |
 |---|---|
-| Apache (el de la AMI) | Recibe 80 y 443, pone el certificado, sirve `/static/` y `/phpMyAdmin`, y le pasa el resto a gunicorn |
-| gunicorn (servicio `sgr`) | Ejecuta Django (Apache con PHP no ejecuta Python) |
+| Apache (el de la AMI) | Recibe 80 y 443, pone el certificado, sirve `/static/` y `/phpMyAdmin`, y le pasa el resto a Daphne (`/ws/` por WebSocket) |
+| Daphne (servicio `sgr`) | Ejecuta Django por ASGI, con HTTP y WebSocket (Apache con PHP no ejecuta Python). Desde la v24 reemplaza a gunicorn |
 | MariaDB 10.11 o más | Base de datos; Django 6.1 no se conecta a la 10.5 que instala el tutorial |
 | certbot (en `/opt/certbot`) | Certificado de Let's Encrypt para la IP pública (dura 6 días, se renueva solo) o para un dominio |
 
@@ -25,10 +25,18 @@ Grupo de seguridad: 22 solo desde tu IP; 80 y 443 abiertos. El 3306 no se abre.
 4. **Migrar y arrancar:** `cd /opt/sgr/app && sudo bash deploy/actualizar.sh <rama>`. Solo si la base está vacía: `set -a; . /etc/sgr/sgr.env; set +a; sudo -E -u sgr /opt/sgr/venv/bin/python manage.py seed_roles` y lo mismo con `seed_management_types` y `createsuperuser`. Si la base ya tiene datos (se administra desde phpMyAdmin), no se hace nada.
 5. **HTTPS:** `sudo bash deploy/al2023/https_certificado.sh <ip-o-dominio> <correo>`. Con `--prueba` ensaya contra el entorno de pruebas de Let's Encrypt sin tocar el sitio. Deja HTTPS=True, redirige 80 a 443 y crea el temporizador `sgr-certbot.timer`.
 6. **Comprobar:** `curl https://<ip-o-dominio>/salud/` y `systemctl list-timers sgr-certbot.timer`. Renovación de ensayo: `sudo /opt/certbot/bin/certbot renew --dry-run`.
+7. **Correo de la recuperación de contraseña** (la evaluación exige ver llegar el correo con el enlace; mostrarlo solo en la consola no sirve). Completa `EMAIL_HOST`, `EMAIL_PORT`, `EMAIL_HOST_USER`, `EMAIL_HOST_PASSWORD`, `EMAIL_USE_TLS` y `DEFAULT_FROM_EMAIL` en `/etc/sgr/sgr.env` (Gmail con contraseña de aplicación, Mailtrap o Amazon SES: datos exactos en el README, sección *Recuperar la contraseña*), reinicia con `sudo systemctl restart sgr` y prueba el envío:
+   ```bash
+   cd /opt/sgr/app; set -a; . /etc/sgr/sgr.env; set +a
+   sudo -E -u sgr /opt/sgr/venv/bin/python manage.py sendtestemail destinatario@ejemplo.cl
+   ```
+   Luego repite el flujo en el navegador (pedir el enlace, abrirlo, elegir la clave, comprobar que el mismo enlace ya no abre nada). El enlace se arma con la dirección con la que se abre el sitio, así que `ALLOWED_HOSTS` debe tener la IP o el dominio reales y Apache debe conservar el `Host` (`ProxyPreserveHost On`, ya incluido en `apache-http.conf` y `apache-https.conf`). El puerto 25 está bloqueado por defecto en EC2: usa 587 o 2525.
 
 ## Notas
 
 - Un certificado para IP exige certbot 5.4 o más y el perfil `shortlived`; el script lo instala en su propio entorno.
-- Un solo proceso de gunicorn con 8 hilos y caché local, para que el contador de intentos de la recuperación de contraseña sea válido. Con más procesos hace falta Redis (`CACHE_BACKEND=redis`).
+- Un solo proceso de Daphne con caché local y capa de canales en memoria (los avisos en vivo solo llegan entre conexiones del mismo proceso), porque la capa de canales en memoria no se comparte entre procesos. Con más procesos hace falta Redis (`CACHE_BACKEND=redis` y `channels_redis`). El tope de enlaces de recuperación por hora sale de la base de datos, así que no depende de la caché.
 - phpMyAdmin queda detrás del mismo HTTPS. Para dejarlo solo para tu IP, descomenta el bloque `<Location /phpMyAdmin>` de `/etc/httpd/conf.d/00-sgr.conf`.
 - Actualizar: `cd /opt/sgr/app && sudo bash deploy/actualizar.sh <rama-o-etiqueta>`.
+- **Pasar un servidor instalado con gunicorn (v11 a v23) a la v24**, una sola vez: `cd /opt/sgr/app && sudo -u sgr git fetch --all && sudo -u sgr git checkout <rama> && sudo bash deploy/al2023/agregar_websocket.sh && sudo bash deploy/actualizar.sh <rama>`. El primer script deja a Apache pasando `/ws/` y cambia el servicio a Daphne; el segundo instala Channels y Daphne y reinicia. Para ver el WebSocket: abre el Dashboard en dos navegadores y mira Network → WS (101 Switching Protocols); al editar una atención en uno, el otro se actualiza solo.
+- Daphne no sirve los estáticos: los sirve Apache (`/static/`), como hasta ahora.

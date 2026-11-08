@@ -205,7 +205,7 @@ class SessionValueTests(PortalTestCase):
     def test_logout_erases_the_session_so_nobody_inherits_it(self):
         self.login_as("admin")
         self.client.get(reverse("core:dashboard"))
-        self.client.post(reverse("core:page_size"), {"filas": "10"})
+        self.client.post(reverse("core:page_size"), {"filas": "5"})
         self.assertIn("dashboard_visits", self.client.session)
         self.assertIn("page_size", self.client.session)
         self.client.post(reverse("core:logout"))
@@ -238,34 +238,42 @@ class PageSizeTests(PortalTestCase):
         self.login_as("admin")
         self.url = reverse("core:beneficiarios_list")
 
-    def test_default_is_twenty_rows(self):
+    def test_default_is_fifteen_rows(self):
         response = self.client.get(self.url)
         self.assertEqual(response.context["page_size"], PAGE_SIZE)
         self.assertEqual(len(response.context["rows"]), PAGE_SIZE)
-        self.assertEqual(PAGE_SIZES, (10, 20, 50))
+        self.assertEqual(PAGE_SIZE, 15)
+        self.assertEqual(PAGE_SIZES, (5, 15, 30))
 
     def test_choosing_a_size_stores_it_in_the_session_and_changes_every_list(self):
-        response = self.client.post(reverse("core:page_size"), {"filas": "10", "next": self.url})
+        response = self.client.post(reverse("core:page_size"), {"filas": "5", "next": self.url})
         self.assertRedirects(response, self.url, fetch_redirect_response=False)
-        self.assertEqual(self.client.session["page_size"], 10)
+        self.assertEqual(self.client.session["page_size"], 5)
         for url in (self.url, reverse("core:atencion"), reverse("core:delegaciones_list")):
             with self.subTest(url=url):
-                self.assertEqual(self.client.get(url).context["page_size"], 10)
-        self.assertEqual(len(self.client.get(self.url).context["rows"]), 10)
+                self.assertEqual(self.client.get(url).context["page_size"], 5)
+        self.assertEqual(len(self.client.get(self.url).context["rows"]), 5)
 
     def test_the_success_notice_appears_after_the_redirect_and_only_once(self):
-        response = self.client.post(reverse("core:page_size"), {"filas": "50", "next": self.url}, follow=True)
-        self.assertContains(response, "Listo: los listados muestran 50 filas por página mientras dure tu sesión.")
+        response = self.client.post(reverse("core:page_size"), {"filas": "30", "next": self.url}, follow=True)
+        self.assertContains(response, "Listo: los listados muestran 30 filas por página mientras dure tu sesión.")
         self.assertContains(response, "alert-success")
         self.assertNotContains(self.client.get(self.url), "mientras dure tu sesión")
 
     def test_the_button_of_the_current_size_is_marked(self):
-        self.client.post(reverse("core:page_size"), {"filas": "10", "next": self.url})
+        self.client.post(reverse("core:page_size"), {"filas": "5", "next": self.url})
         page = self.client.get(self.url).content.decode()
-        self.assertRegex(page, r'class="btn btn-primary"[^>]*aria-pressed="true">10</button>')
+        self.assertRegex(page, r'class="btn btn-primary"[^>]*aria-pressed="true">5</button>')
+
+    def test_the_chosen_size_survives_a_refresh(self):
+        self.client.post(reverse("core:page_size"), {"filas": "30", "next": self.url})
+        for _ in range(2):
+            response = self.client.get(self.url)
+            self.assertEqual(response.context["page_size"], 30)
+            self.assertEqual(len(response.context["rows"]), 30)
 
     def test_invalid_sizes_are_refused_and_nothing_is_stored(self):
-        for value in ("7", "0", "-5", "abc", "", "1000"):
+        for value in ("7", "0", "-5", "abc", "", "1000", "10", "20", "50"):
             with self.subTest(value=value):
                 response = self.client.post(reverse("core:page_size"), {"filas": value, "next": self.url}, follow=True)
                 self.assertContains(response, "Esa cantidad de filas no está disponible.")
@@ -281,7 +289,7 @@ class PageSizeTests(PortalTestCase):
     def test_next_never_leaves_the_site(self):
         for target in ("https://ejemplo.invalid/", "//ejemplo.invalid/", "javascript:alert(1)", ""):
             with self.subTest(target=target):
-                response = self.client.post(reverse("core:page_size"), {"filas": "10", "next": target})
+                response = self.client.post(reverse("core:page_size"), {"filas": "5", "next": target})
                 self.assertRedirects(response, reverse("core:dashboard"), fetch_redirect_response=False)
 
     def test_next_keeps_the_search_but_not_the_page(self):
@@ -293,12 +301,12 @@ class PageSizeTests(PortalTestCase):
     def test_only_post_and_only_with_a_session(self):
         self.assertEqual(self.client.get(reverse("core:page_size")).status_code, 405)
         anonymous = Client()
-        response = anonymous.post(reverse("core:page_size"), {"filas": "10"})
+        response = anonymous.post(reverse("core:page_size"), {"filas": "5"})
         self.assertEqual(response.status_code, 302)
         self.assertTrue(response["Location"].startswith(reverse("core:login")))
 
     def test_excel_export_ignores_the_page_size(self):
-        self.client.post(reverse("core:page_size"), {"filas": "10", "next": self.url})
+        self.client.post(reverse("core:page_size"), {"filas": "5", "next": self.url})
         response = self.client.get(self.url, {"formato": "xlsx"})
         self.assertEqual(response.status_code, 200)
         self.assertIn("spreadsheetml", response["Content-Type"])
