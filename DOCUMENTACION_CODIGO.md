@@ -39,7 +39,8 @@ websocket/                tiempo real (Clase 11): avisos de cambio para listados
 templates/                marco general, errores y pantallas sin sesión
 deploy/                   archivos para instalar y actualizar en el servidor
 sql/                      estructura de la base de datos (sgr_django.sql)
-docs/                     documentos del proyecto
+docs/                     documentos del proyecto (incluye DIAGRAMA_MODELOS.md, el diagrama de modelos)
+tools/                    herramientas de pruebas de estrés, de capturas y el generador del diagrama de modelos
 ```
 
 Cada app tiene `models.py` (tablas), `admin.py` (Django Admin), `apps.py` y `migrations/`. `core` y `accounts` agregan además pantallas, formularios y reglas propias.
@@ -2403,6 +2404,23 @@ Comando `python manage.py importar_jjvv <archivo.xlsx> [--simular] [--delegacion
 - Las filas sin nombre, sin N.º de registro o con N.º repetido en la planilla se descartan y se listan en el informe.
 - Funciones auxiliares: `plain` (compara sin tildes ni mayúsculas), `clean`, `as_int`, `as_date`, `read_rows` y la clase `Territories` (busca o crea los territorios).
 
+#### `core/management/commands/cargar_datos_revision.py` (datos y cuentas para la revisión, v36)
+
+Comando `python manage.py cargar_datos_revision [--password …] [--reasignar-claves]`. Deja la base lista para la revisión grupal: más de 3.000 registros ficticios en dos ámbitos (Delegación Norte = organización A y Delegación Sur = organización B), las seis cuentas de prueba y, al terminar, el total por modelo y una verificación.
+
+- **Idempotente por clave natural** (nunca por `date.today()`): beneficiario por RUT, funcionario por identificador (`REV-N-001`…), organización por N.º de registro, territorio por nombre y delegación, compromiso por delegación, solicitante y fecha, atención por funcionario, fecha, persona y organización, gestión por atención y número, evidencia por código (`EVD-NORTE-R0001`), felicitación o reclamo por funcionario, fecha, contacto y tipo, ausencia por funcionario, tipo y fecha de inicio, meta por ítem, funcionario y período. Solo se crea lo que falta; no pisa lo editado o archivado después.
+- **Reproducible**: todo sale de `random.Random(SEMILLA)` (2026) y de `FECHA_BASE` (30-10-2026). Los valores se sortean siempre, exista o no el registro, para que lo generado no dependa de lo que ya haya en la base.
+- **Reglas del negocio respetadas**: la delegación de la atención es la de su funcionario, no más de `DAILY_ENTRY_LIMIT` (7) atenciones por funcionario y día, solo días hábiles, `counts_for_score` y `no_score_reason` calculados con `Activity.refresh_scoring()` (el `bulk_create` no llama a `save()`), una gestión por número del 1 al 3, evidencias con archivo PDF real y una validación por evidencia revisada.
+- **Indicadores y ajustes reales**: se crean las metas y, al final, `planning.calculation.recalculate_period` calcula los indicadores; los ajustes los genera `planning.feedback.sync` como al registrar una felicitación o un reclamo. Durante la carga el recálculo automático queda en pausa (`calculation.suspended()`).
+- **Fechas de creación**: después de insertar, `created_at` se fija con la fecha del negocio (`bulk_update`), para que «de reciente a antiguo» siga el orden de las fechas.
+- **Cuentas**: `admin_a` (Jefatura y Funcionario, con permisos propios de eliminar y archivar los módulos operativos y de ver, crear y editar usuarios; no es superusuario), `editor_a` (Funcionario, con beneficiarios; sin ningún permiso de eliminar), `lector_a` y `lector_b` (Consulta, con beneficiarios y organizaciones en lectura) y `cliente1` y `cliente2` (Cliente, cada uno con su beneficiario y 24 atenciones propias). Si una cuenta ya existe se respeta (contraseña, perfil); los clientes existentes conservan su beneficiario.
+- **Contraseñas**: nunca están en el repositorio. Se leen de `SGR_PASSWORD_<ALIAS>`, de `--password`, de `SGR_REVISION_PASSWORD` o se piden por terminal; se validan con los validadores de Django y solo se asignan al crear la cuenta (o con `--reasignar-claves`). Sin contraseña el comando se detiene antes de escribir.
+- **Antes y después**: ejecuta `seed_roles` y `seed_management_types` (el despliegue no los ejecuta). Al final imprime el total por modelo, calcula los 50 mínimos de los CRUD evaluados (`CRUDS_EVALUADOS`: `actividades` y `beneficiarios`; además por delegación cuando el CRUD se filtra por ella) y los 2.000 en total, y comprueba los permisos de las cuentas; si algo falla, termina con `CommandError`.
+- **Constantes**: `SEMILLA`, `FECHA_BASE`, `DIAS_ATRAS`, `MINIMO_TOTAL`, `MINIMO_POR_CRUD`, `CRUDS_EVALUADOS`, las cantidades por delegación (`FUNCIONARIOS`, `TERRITORIOS`, `ATENCIONES`, `ATENCIONES_CLIENTE`, `COMPROMISOS`, `EVIDENCIAS`, `FELICITACIONES_Y_RECLAMOS`, `AUSENCIAS`), `AMBITOS` y `CUENTAS`.
+- **Funciones auxiliares**: `pdf_minimo` (PDF válido de una página), `rut_de` (RUT con dígito verificador, reutiliza `digito_verificador` de `cargar_volumen_estres`), `momento`, `dia_habil`, `elegir_con_peso`, `telefono`, `nombre_persona` y `prefijo_evidencia`.
+- **Métodos de `Command`**: `handle`, `reunir_claves`, `catalogos`, `estructura`, `de_terreno`, `permisos`, `cuentas`, `beneficiarios_y_organizaciones`, `compromisos`, `atenciones`, `gestiones`, `evidencias_y_validaciones`, `felicitaciones_y_reclamos`, `ausencias`, `metas`, `modelos_de_negocio`, `total_negocio`, `informe`, `verificar` y `verificar_permisos`.
+- No usa `core/datos_prueba.py`, que es solo para las pruebas automáticas y no se carga en el servidor. Las pruebas están en `core/test_carga_revision.py`.
+
 #### `operations/management/commands/seed_management_types.py`
 
 Comando `python manage.py seed_management_types`: crea el catálogo inicial de tipos de gestión.
@@ -2953,6 +2971,7 @@ Selector con buscador (v28). Los `<select>` con `data-searchable` y 8 opciones o
 | `deploy/al2023/apache-http.conf` | Sitio de Apache por HTTP (fase 1): pasa el tráfico a gunicorn y deja fuera phpMyAdmin. |
 | `deploy/al2023/apache-https.conf` | Sitio de Apache por HTTPS (fase 2): el puerto 80 solo verifica el certificado y redirige; el 443 sirve el sistema. |
 | `deploy/al2023/sgr.env.example` | Modelo de variables de entorno para Amazon Linux 2023: modo, claves, HTTPS y proxy, base de datos, caché, correo y nivel de registro. |
+| `tools/diagrama_modelos.py` | Genera `docs/DIAGRAMA_MODELOS.md` (diagrama entidad-relación en Mermaid `erDiagram`) a partir de `apps.get_models()`: entidades con sus campos (sin `created_at`, `updated_at` ni contraseñas), relaciones con su multiplicidad (obligatoria u opcional según `null`; uno a muchos, uno a uno o muchos a muchos según el campo) y una tabla de revisión manual con las reglas que el diagrama no puede decir (`REVISION_MANUAL`). `--verificar` no escribe y falla si el documento está desactualizado; `--salida` cambia el archivo. Funciones: `preparar_django`, `modelos`, `tipo_de`, `entidad`, `relaciones`, `generar` y `main`. |
 | `requirements.txt` | Dependencias de Python: Django 6.1.1, asgiref, sqlparse, python-dotenv, openpyxl (exportar a Excel), Channels y Daphne (tiempo real); `mysqlclient` opcional para MySQL/MariaDB. |
 | `VERSION` | Versión del sistema que muestra `/salud/`. |
 | `manage.py` | Punto de entrada de los comandos de Django. |

@@ -15,11 +15,12 @@ Qué hace cada parte del código (módulos, clases, funciones, modelos, plantill
 5. [Configuración](#configuración)
 6. [Base de datos: migraciones y scripts](#base-de-datos-migraciones-y-scripts)
 7. [Despliegue en Amazon Linux 2023](#despliegue-en-amazon-linux-2023)
-8. [Estado de cada módulo](#estado-de-cada-módulo)
-9. [Funciones operativas, simuladas y pendientes](#funciones-operativas-simuladas-y-pendientes)
-10. [Instrucciones de pruebas](#instrucciones-de-pruebas)
-11. [Entrega y evidencias (A4)](#entrega-y-evidencias-a4)
-12. [Estructura del proyecto](#estructura-del-proyecto)
+8. [Datos y cuentas para la revisión en AWS](#datos-y-cuentas-para-la-revisión-en-aws)
+9. [Estado de cada módulo](#estado-de-cada-módulo)
+10. [Funciones operativas, simuladas y pendientes](#funciones-operativas-simuladas-y-pendientes)
+11. [Instrucciones de pruebas](#instrucciones-de-pruebas)
+12. [Entrega y evidencias (A4)](#entrega-y-evidencias-a4)
+13. [Estructura del proyecto](#estructura-del-proyecto)
 
 ## Integrantes
 
@@ -104,7 +105,7 @@ Luego abre `http://127.0.0.1:8000/`. Las próximas veces solo hacen falta la act
 
 ### Sin datos de demostración
 
-`migrate` solo crea las tablas, sin datos. El sistema no trae datos ficticios ni cuentas de partida: los roles, los tipos de gestión y tu superusuario se crean con los tres comandos de arriba, y todo lo demás se registra desde el portal o directamente en la base (phpMyAdmin). Los datos que usan las pruebas automáticas están en `core/datos_prueba.py` y solo se cargan en la base temporal de las pruebas.
+`migrate` solo crea las tablas, sin datos. El sistema no trae datos ficticios ni cuentas de partida: los roles, los tipos de gestión y tu superusuario se crean con los tres comandos de arriba, y todo lo demás se registra desde el portal o directamente en la base (phpMyAdmin). Los datos que usan las pruebas automáticas están en `core/datos_prueba.py` y solo se cargan en la base temporal de las pruebas: **ese módulo no se carga nunca en el servidor**. Para la revisión grupal existe un comando aparte, `cargar_datos_revision`, que carga datos ficticios y las seis cuentas de prueba (ver [Datos y cuentas para la revisión en AWS](#datos-y-cuentas-para-la-revisión-en-aws)).
 
 ### Cuentas
 
@@ -267,6 +268,7 @@ Comandos de datos (`python manage.py <comando>`):
 |---|---|
 | `seed_roles` | Crea los roles Coordinación, Jefatura, Funcionario, Verificador y Consulta con sus permisos |
 | `seed_management_types` | Crea los tipos de gestión |
+| `cargar_datos_revision` | Carga reproducible para la revisión: más de 3.000 registros ficticios en dos ámbitos y las seis cuentas de prueba; ejecuta antes `seed_roles` y `seed_management_types`, y no duplica al repetirse (ver [Datos y cuentas para la revisión en AWS](#datos-y-cuentas-para-la-revisión-en-aws)) |
 | `cargar_volumen_estres` | Carga un volumen grande de registros marcados como prueba (`--limpiar` los borra); necesita funcionarios e ítems ya creados |
 | `exportar_registro_pruebas` | Genera `docs/pruebas/registro_pruebas_funcionales.csv` y `.xlsx` |
 
@@ -310,7 +312,7 @@ Grupo de seguridad: puerto 22 solo desde tu IP; 80 y 443 abiertos; el 3306 no se
    sudo bash deploy/al2023/instalar_al2023.sh https://github.com/yuudhar/proyecto-sgr.git <rama> <ip-o-dominio>
    ```
 4. **Migrar y arrancar:** `cd /opt/sgr/app && sudo bash deploy/actualizar.sh <rama>`. Hace `check --deploy`, `migrate`, `collectstatic` y reinicia el servicio.
-5. **Cuentas:** solo si la base está vacía, `seed_roles`, `seed_management_types` y `createsuperuser` (como root, con las variables de `/etc/sgr/sgr.env` cargadas). Si la base ya tiene datos, no se hace nada.
+5. **Roles, datos y cuentas:** `actualizar.sh` **no ejecuta** `seed_roles` ni `seed_management_types` ni carga datos. Para la revisión se corre `cargar_datos_revision` (ejecuta los dos primeros por su cuenta; ver [Datos y cuentas para la revisión en AWS](#datos-y-cuentas-para-la-revisión-en-aws)); si solo se quiere la base mínima, `seed_roles`, `seed_management_types` y `createsuperuser` (como root, con las variables de `/etc/sgr/sgr.env` cargadas).
 6. **HTTPS:** `sudo bash deploy/al2023/https_certificado.sh <ip-o-dominio> <correo>`. Con `--prueba` ensaya contra el entorno de pruebas de Let's Encrypt sin tocar el sitio. Deja `HTTPS=True`, redirige el 80 al 443 y crea el temporizador de renovación.
 7. **Comprobar:** `curl https://<ip-o-dominio>/salud/` (responde con la versión desplegada) y `systemctl list-timers sgr-certbot.timer`.
 
@@ -323,6 +325,138 @@ cd /opt/sgr/app && sudo bash deploy/actualizar.sh <rama-o-etiqueta>
 ### Producción: lo que ya está configurado
 
 `DEBUG=False`, `SECRET_KEY` propia, `ALLOWED_HOSTS`, `CSRF_TRUSTED_ORIGINS`, cookies seguras y redirección a HTTPS, archivos estáticos servidos por Apache, y una sola instancia de Daphne para que la capa de canales en memoria sea válida (con más procesos haría falta `channels_redis` para el tiempo real, y Redis para la caché compartida, `CACHE_BACKEND=redis`). phpMyAdmin queda detrás del mismo HTTPS y se puede limitar a una IP en `/etc/httpd/conf.d/00-sgr.conf`.
+
+## Datos y cuentas para la revisión en AWS
+
+La revisión grupal se hace sobre la aplicación desplegada en AWS, con datos ficticios y seis cuentas de prueba. Esta sección dice cómo llegar a ella, cómo arrancan HTTP y WebSocket, cómo se cargan los datos y qué puede y no puede hacer cada cuenta. **Las contraseñas no están en el repositorio ni en este documento.**
+
+### Dirección de acceso (AWS)
+
+| Dato | Valor |
+|---|---|
+| Dirección de acceso | `http://32.198.200.215/` (IP elástica de la instancia EC2); pasa a `https://32.198.200.215/` al activar el certificado |
+| Recurso AWS | Una instancia EC2 con Amazon Linux 2023 (AMI LAMP): Apache, Daphne y MariaDB 10.11 en la misma máquina |
+| Commit desplegado | `/salud/` (por ejemplo `http://32.198.200.215/salud/`) muestra la etiqueta y el commit que están corriendo; se compara con el último commit de `main` |
+
+### Cómo arrancan HTTP y WebSocket
+
+- **Un solo servidor ASGI:** Daphne ejecuta `sgr_project.asgi:application`, que atiende el HTTP de Django y el WebSocket de Channels (rutas `/ws/crud/<módulo>/` y `/ws/live/`).
+- **En AWS** lo hace el servicio `sgr` (`deploy/sgr.service`): `daphne -b 127.0.0.1 -p 8000 --proxy-headers sgr_project.asgi:application`. Apache recibe los puertos 80 y 443, pasa todo a Daphne y deja pasar `/ws/` como WebSocket (`ProxyPass /ws/ ws://127.0.0.1:8000/ws/`). Se controla con `sudo systemctl status sgr`, `sudo systemctl restart sgr` y `journalctl -u sgr -f`.
+- **En tu equipo:** `python manage.py runserver` (Daphne está primero en `INSTALLED_APPS`, así que `runserver` ya atiende HTTP y WebSocket) o `daphne -b 127.0.0.1 -p 8000 sgr_project.asgi:application`.
+- **Capa de canales:** `channels.layers.InMemoryChannelLayer` (`CHANNEL_LAYERS` en `sgr_project/settings.py`). Vive en la memoria de **un solo proceso**: los avisos en vivo solo llegan entre conexiones del mismo proceso. Por eso el servicio corre **un solo proceso** de Daphne (nada de varios workers ni de dos servicios). Con varios procesos haría falta una capa compartida (`channels_redis` con Redis).
+- **Comprobarlo:** abre el Dashboard o un listado en dos navegadores; en *Network → WS* debe verse `101 Switching Protocols`, y al editar un registro en uno, el otro se actualiza sin F5. En el servidor también: `python3 deploy/probar_websocket.py <ip-o-dominio>`.
+
+### Cargar los datos de la revisión
+
+El comando `cargar_datos_revision` deja listo todo lo que pide la revisión. Se ejecuta **después de `migrate`**:
+
+```bash
+# En tu equipo
+export SGR_REVISION_PASSWORD='<contraseña-segura-de-las-cuentas>'   # solo en esta terminal
+python manage.py cargar_datos_revision
+```
+
+```bash
+# En el servidor (la contraseña se escribe sin que quede en el historial ni en un archivo)
+cd /opt/sgr/app; set -a; . /etc/sgr/sgr.env; set +a
+read -rs -p "Contraseña de las cuentas de prueba: " SGR_REVISION_PASSWORD; export SGR_REVISION_PASSWORD
+sudo -E -u sgr /opt/sgr/venv/bin/python manage.py cargar_datos_revision
+unset SGR_REVISION_PASSWORD
+```
+
+- **Contraseñas:** se leen de `SGR_PASSWORD_<ALIAS>` (una cuenta, por ejemplo `SGR_PASSWORD_LECTOR_B`), de `--password` (queda en el historial de la terminal: es preferible la variable), de `SGR_REVISION_PASSWORD` o, en una terminal, se piden por pantalla. Tienen que cumplir los validadores de Django. Solo se asignan al **crear** la cuenta; `--reasignar-claves` las cambia también en las que ya existen. Sin contraseña, el comando se detiene antes de escribir nada.
+- **No duplica:** se puede repetir todas las veces que haga falta. Cada registro tiene una clave natural (RUT, identificador de funcionario, N.º de registro de la organización, código de evidencia, o funcionario + fecha + persona de una atención, etc.) y solo se crea lo que falta. Los valores salen de `random.Random(2026)` y de una fecha base fija (30-10-2026, no la de hoy), así que dos ejecuciones generan exactamente lo mismo. No pisa lo que alguien editó o archivó después.
+- **Qué prepara:** `seed_roles` y `seed_management_types` (por eso un servidor recién migrado queda con roles y tipos de gestión), las dos delegaciones, cargos, ítems, servicios, territorios, funcionarios, beneficiarios, organizaciones, atenciones, gestiones, compromisos, evidencias con archivo real y su validación, felicitaciones y reclamos (con su ajuste automático), ausencias, metas y los indicadores, que salen del mismo cálculo que usa el sistema (no son números escritos a mano).
+- **Qué comprueba al terminar:** imprime el total por modelo (la tabla de abajo), verifica los mínimos (2.000 registros en total y 50 en cada CRUD evaluado, y en cada delegación cuando el CRUD se filtra por delegación) y que cada cuenta tenga exactamente los permisos que se documentan más abajo; si algo falla, termina con error.
+- **`core/datos_prueba.py` no se usa:** es solo para las pruebas automáticas y nunca se carga en el servidor.
+- **`deploy/actualizar.sh` no carga ni ejecuta nada de esto:** hace `check --deploy`, `migrate` y `collectstatic`. En un servidor nuevo, `migrate` deja la base sin roles: hay que correr `cargar_datos_revision` (o, como mínimo, `seed_roles` y `seed_management_types`).
+
+**CRUD evaluados:** los dos CRUD que el grupo presenta son **Atenciones** (`actividades`) y **Beneficiarios**; se cambian en `CRUDS_EVALUADOS` del comando, que verifica los mínimos de los que estén ahí. Los demás módulos de negocio también quedan con 50 o más registros en cada delegación.
+
+### Dos ámbitos y distribución de los datos
+
+El ámbito de cada cuenta es su **delegación**: **Delegación Norte = organización A** y **Delegación Sur = organización B**. Un funcionario ve y modifica solo lo de su delegación; el servidor lo valida en cada petición (el objeto de la otra delegación responde 404). Los beneficiarios y las organizaciones comunitarias son un catálogo compartido entre delegaciones: el aislamiento se ve en las atenciones, gestiones, evidencias, compromisos y demás registros que cuelgan de ellos (por ejemplo, el bloque de atenciones de un beneficiario).
+
+Registros vigentes por módulo (los archivados no se cuentan):
+
+| Módulo | Norte (A) | Sur (B) | Total |
+|---|---|---|---|
+| Atenciones (`actividades`) | 334 | 333 | 667 |
+| Gestiones | 335 | 326 | 661 |
+| Agenda colectiva (compromisos) | 58 | 54 | 112 |
+| Evidencias | 112 | 111 | 223 |
+| Validaciones | 80 | 84 | 164 |
+| Felicitaciones y reclamos | 55 | 55 | 110 |
+| Ausencias | 55 | 55 | 110 |
+| Territorios | 55 | 55 | 110 |
+| Funcionarios | 55 | 55 | 110 |
+| Beneficiarios (compartido) | — | — | 402 |
+| Organizaciones comunitarias (compartido) | — | — | 80 |
+| Metas, indicadores y ajustes | — | — | 107, 160 y 110 |
+
+Los datos son variados para probar búsqueda, filtros, orden y paginación (con 30 filas por página, las atenciones de cada delegación ocupan más de diez páginas): tres estados de atención, cinco ítems (tipos de atención y sub atenciones), cuatro servicios, fechas repartidas en los 240 días anteriores a la fecha base (solo días hábiles), atenciones con y sin puntaje, compromisos en los cuatro estados, evidencias pendientes, aprobadas y rechazadas, y una fracción archivada (6 % de las atenciones y 7 % de los compromisos) para probar «Archivados» y restaurar.
+
+### Total por modelo
+
+Resultado de ejecutar el comando sobre una base recién migrada (la misma tabla que imprime al terminar). Solo cuentan los modelos del proyecto: no incluye sesiones, permisos, grupos ni tablas internas de Django. Sin contar catálogos, cuentas ni auditoría hay más de 3.100 registros de negocio.
+
+| Modelo | Total | Vigentes | Archivados |
+|---|---|---|---|
+| `core.AuditLog` | 6 | 6 | 0 |
+| `organization.Delegation` | 2 | 2 | 0 |
+| `organization.Position` | 4 | 4 | 0 |
+| `organization.Item` | 5 | 5 | 0 |
+| `organization.Service` | 4 | 4 | 0 |
+| `organization.Beneficiary` | 402 | 402 | 0 |
+| `organization.Territory` | 110 | 110 | 0 |
+| `organization.CommunityOrganization` | 80 | 80 | 0 |
+| `organization.Officer` | 110 | 110 | 0 |
+| `organization.PositionItem` | 4 | 4 | 0 |
+| `operations.ManagementType` | 6 | 6 | 0 |
+| `operations.Activity` | 708 | 667 | 41 |
+| `operations.Followup` | 661 | 661 | 0 |
+| `operations.Commitment` | 120 | 112 | 8 |
+| `evidence.Evidence` | 223 | 223 | 0 |
+| `evidence.Validation` | 164 | 164 | 0 |
+| `planning.Period` | 2 | 2 | 0 |
+| `planning.Goal` | 107 | 107 | 0 |
+| `planning.Indicator` | 160 | 160 | 0 |
+| `planning.Adjustment` | 110 | 110 | 0 |
+| `planning.Absence` | 110 | 110 | 0 |
+| `planning.Feedback` | 110 | 110 | 0 |
+| `accounts.UserProfile` | 6 | 6 | 0 |
+| `accounts.RoleProfile` | 6 | 6 | 0 |
+| `accounts.UserRoleDelegation` | 0 | 0 | 0 |
+| **Total** | **3220** | **3171** | **49** |
+
+Si la base ya tenía otros datos (por ejemplo los de una prueba anterior), los totales de la base completa son mayores: el comando solo agrega lo suyo.
+
+### Cuentas de prueba
+
+Las seis cuentas son **exclusivamente de prueba**. Ninguna es Super Usuario ni entra al panel `/admin/`; todas tienen un correo `…@revision.sgr.example`. Para una cuenta técnica aparte (superusuario) se usa `python manage.py createsuperuser`: no forma parte de las seis.
+
+| Alias | Rol | Ámbito (propietario) | Responsabilidad | Permitido | Restringido | Prueba y resultado esperado |
+|---|---|---|---|---|---|---|
+| `admin_a` | Administrador A (Jefatura + Funcionario, con permisos propios; **no** es Super Usuario) | Delegación Norte (org. A), funcionario `REV-N-001` | Administrar los datos de la organización A y sus cuentas de usuario | Ver, crear, editar y **eliminar o archivar** (y restaurar) en los módulos operativos de Norte; ver, crear y editar usuarios | No ve ni toca Sur; no elimina usuarios (solo el Super Usuario); no define períodos, metas ni roles | En *Atención* archiva una atención de Norte: SweetAlert2 pide confirmar, al cancelar no pasa nada, al confirmar desaparece del listado y aparece en «Archivados», desde donde se restaura. La misma acción sobre una atención de Sur (por URL) responde 404 |
+| `editor_a` | Editor A (rol Funcionario, más ver, crear y editar beneficiarios) | Delegación Norte (org. A), funcionario `REV-N-002` | Registrar y corregir atenciones, gestiones, evidencias, compromisos y beneficiarios de Norte | Ver, crear y editar, con modal y validaciones | **No elimina ni archiva nada**: no ve el botón y la petición directa (`POST /actividades/<id>/archivar/`, `…/beneficiarios/<id>/eliminar/`) responde 403 | Crea y edita una atención con modal; un dato inválido muestra el mensaje y no guarda; intenta archivar por URL: 403 y el registro sigue igual. Al guardar, `lector_a` lo ve sin F5 |
+| `lector_a` | Lector A (rol Consulta, más ver beneficiarios y organizaciones) | Delegación Norte (org. A), funcionario `REV-N-003` | Consultar y exportar la información de Norte | Ver, buscar, filtrar, ordenar, paginar y exportar a Excel el conjunto filtrado | Crear, editar, archivar o eliminar: los botones no aparecen y las peticiones directas responden 403; Sur responde 404 | Desde el navegador: `/actividades/nuevo/` responde 403; en una petición `POST` directa también. Mantiene la pantalla abierta y ve cambiar lo que edita `editor_a` sin F5 |
+| `lector_b` | Lector B (rol Consulta, más ver beneficiarios y organizaciones) | Delegación Sur (org. B), funcionario `REV-S-003` | Consultar y exportar la información de Sur | Igual que `lector_a`, pero solo con datos de Sur | Todo lo de Norte: una atención, evidencia o gestión de Norte responde 404; sus tablas y su Excel solo traen Sur | Abre por URL una atención de Norte: 404. Con la pantalla abierta, lo que edita `editor_a` no le llega (ni datos ni eventos) |
+| `cliente1` | Cliente (portal) | Beneficiaria «Marta Villarroel Cáceres», atendida por Norte | Ver su propio portal: su perfil y sus 24 atenciones | Portal `/portal/` y `/portal/atenciones/` con solo lo suyo | Cualquier módulo de gestión responde 403; una atención de `cliente2` responde 404 | Entra, ve 24 atenciones propias; abre por URL una atención de `cliente2`: 404 |
+| `cliente2` | Cliente (portal) | Beneficiario «Héctor Bravo Ibáñez», atendido por Sur | Ver su propio portal | Portal con solo lo suyo (24 atenciones distintas de las de `cliente1`) | Igual que `cliente1`; una atención de `cliente1` responde 404 | Entra, ve sus 24 atenciones; abre por URL una de `cliente1`: 404 |
+
+Si la base ya tenía las cuentas `cliente1` y `cliente2` (las de demostración), conservan su contraseña y su beneficiario, y el comando les suma sus atenciones.
+
+**Cómo se arma cada cuenta:** el rol sale de `seed_roles` (grupos `Jefatura`, `Funcionario`, `Consulta` y `Cliente`); como ningún rol base trae «eliminar» y archivar y eliminar exigen el permiso `delete_<modelo>`, el administrador A lo recibe como permiso propio de la cuenta, junto con ver, crear y editar usuarios (`auth.view_user`, `auth.add_user`, `auth.change_user`). El editor y los lectores no tienen ningún permiso de eliminar. El comando comprueba todo esto al terminar y falla si una cuenta quedó con más o con menos permisos. Una limitación conocida: el listado de usuarios no se filtra por delegación, así que `admin_a` ve todas las cuentas del sistema, no solo las de Norte.
+
+**Recorrido sugerido para la revisión** (cada navegador o perfil con una cuenta distinta, para que no compartan sesión):
+
+| Paso de la revisión | Cuenta | Resultado esperado |
+|---|---|---|
+| 2. Ejecutar ambos CRUD, modal, cancelar SweetAlert2 y borrado lógico | `admin_a` y `editor_a` | Crear y editar con modal en Atenciones y Beneficiarios; al archivar, cancelar no cambia nada y confirmar archiva; solo `admin_a` puede archivar |
+| 5. Intentar crear o eliminar por URL o petición directa | `lector_a` | 403 y sin cambios en la base |
+| 6. Acceder a un objeto o una relación de otro ámbito | `lector_a` y `lector_b` | 404 con una atención, evidencia o gestión del otro ámbito; las tablas y el Excel solo traen lo propio |
+| 7. Editar con el editor y observar al lector sin F5 | `editor_a`, `lector_a` y `lector_b` | `lector_a` ve el cambio al instante; `lector_b` no recibe nada |
+| 8. Portal con dos clientes y rechazo de datos ajenos | `cliente1` y `cliente2` | Cada uno ve solo sus atenciones; el objeto del otro responde 404 |
 
 ## Estado de cada módulo
 
@@ -377,7 +511,7 @@ Estas funciones existen y se pueden mostrar, pero con menos alcance que en un si
 | Función | Cómo funciona hoy | Para que sea real |
 |---|---|---|
 | Correo de recuperación | Sin `EMAIL_HOST` en el `.env` el mensaje no sale: se imprime en la consola donde corre el servidor. Con `EMAIL_HOST` (Gmail, Mailtrap, Amazon SES u otro SMTP) se envía de verdad, en HTML con los colores del portal y el enlace. Las pruebas automáticas revisan el mensaje en memoria. | Configurar el SMTP en el `.env` del servidor y probarlo con `manage.py sendtestemail` (ver *Recuperar la contraseña*) |
-| Datos de la base | El sistema no trae datos ficticios: lo que hay en la base (usuarios, delegaciones, atenciones, evidencias, indicadores) son registros normales que se ven y editan en el portal o en phpMyAdmin. Las pruebas automáticas usan sus propios datos (`core/datos_prueba.py`) en una base temporal. | Respaldar la base con la exportación de phpMyAdmin |
+| Datos de la base | El sistema no trae datos ficticios por sí solo: lo que hay en la base son registros normales que se ven y editan en el portal o en phpMyAdmin. Para la revisión se cargan con `python manage.py cargar_datos_revision` (datos y seis cuentas de prueba, sin contraseñas en el repositorio). Las pruebas automáticas usan sus propios datos (`core/datos_prueba.py`) en una base temporal. | Respaldar la base con la exportación de phpMyAdmin |
 | Archivos de evidencia y fotos | Se suben a la carpeta de archivos del servidor (`MEDIA_ROOT`, por defecto `media/`; en AWS `/opt/sgr/app/media`), con un nombre propio. Se aceptan PDF, PNG, JPG, Word y Excel de hasta 10 MB (fotos: PNG o JPG de hasta 2 MB) y se revisa que el contenido corresponda a la extensión. Los metadatos (nombre original, tipo, tamaño y huella SHA-256) los arma el sistema. Los archivos no tienen dirección pública: se entregan solo a quien puede ver esa evidencia. | Respaldar la carpeta de archivos junto con la base de datos |
 | Indicadores | El avance, el cumplimiento y la ponderación se ingresan a mano en Indicadores. El semáforo sí se calcula con los umbrales del período. No se calculan solos desde las atenciones registradas. | Definir la fórmula de cada ítem |
 | Base de datos | SQLite por defecto; MariaDB o MySQL se activa con `DB_ENGINE` en el `.env`. Las pruebas automáticas corren sobre SQLite. | Probar con el motor que use AWS (ya es MariaDB en el servidor) |
@@ -415,7 +549,7 @@ python manage.py test accounts.test_recovery   # recuperación de contraseña po
 python manage.py test core.test_errores -v 2   # páginas 400, 403, 404 y 500 con DEBUG=False
 ```
 
-Son más de 700 pruebas sobre SQLite en memoria, sin tocar tu base de datos. Cada prueba tiene su descripción y el requisito que cubre en `core/qa/`; una prueba sin registrar hace fallar la suite.
+Son más de 1.500 pruebas sobre SQLite en memoria, sin tocar tu base de datos. Cada prueba tiene su descripción y el requisito que cubre en `core/qa/`; una prueba sin registrar hace fallar la suite.
 
 ### Probar a mano por rol
 
@@ -475,5 +609,7 @@ templates/      plantillas HTML (incluye el correo de recuperación)
 sql/            estructura de la base de datos (sgr_django.sql)
 deploy/         archivos para publicar en un servidor (nginx y Amazon Linux 2023 con Apache)
 docs/           documentación del despliegue, registro de pruebas y evidencias
-tools/          herramientas de pruebas de estrés y de capturas
+tools/          herramientas de pruebas de estrés, de capturas y el generador del diagrama de modelos
 ```
+
+El diagrama de los modelos y sus relaciones está en [`docs/DIAGRAMA_MODELOS.md`](docs/DIAGRAMA_MODELOS.md) (Mermaid `erDiagram`, generado con `python tools/diagrama_modelos.py` a partir de `apps.get_models()`; las multiplicidades se revisaron a mano).

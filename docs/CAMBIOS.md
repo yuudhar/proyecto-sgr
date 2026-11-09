@@ -17,6 +17,60 @@ Nombres que cambiaron en la v27 (los textos antiguos los mencionan con el nombre
 | `core/qa/esperado_vNN.py` | `core/qa/esperado_<tema>.py` (mismo tema que su archivo de pruebas) |
 | `sql/*.sql` (todos) | `sql/sgr_django.sql` (estructura vigente) |
 
+## Versión 36
+
+Datos y cuentas para la revisión de la Evaluación Sumativa III: comando de carga reproducible, las seis cuentas de prueba, el README de la revisión y el diagrama de modelos. Siguen pendientes el ensayo de la revisión completa en AWS (los diez pasos) y los puntos abiertos de las versiones 30 a 33.
+
+### Comando `cargar_datos_revision`
+
+- **Más de 3.000 registros ficticios** (3.220 sobre una base recién migrada) repartidos entre los 25 modelos del proyecto: sin sesiones, permisos ni tablas internas de Django. Al terminar imprime el **total por modelo** (la misma tabla que está en el README) y verifica los mínimos.
+- **Al menos 50 en cada CRUD evaluado**, y también por delegación cuando el CRUD se filtra por ella. Los CRUD evaluados son una constante (`CRUDS_EVALUADOS`): Atenciones (`actividades`) y Beneficiarios. Los demás módulos de negocio también quedan con 50 o más por delegación.
+- **Dos ámbitos**: Delegación Norte = organización A y Delegación Sur = organización B, con funcionarios, territorios, atenciones, gestiones, compromisos, evidencias, felicitaciones y reclamos y ausencias de cada una. Beneficiarios y organizaciones comunitarias son un catálogo compartido.
+- **Variado**: tres estados de atención, cinco ítems, cuatro servicios, fechas en 240 días hábiles, atenciones con y sin puntaje, evidencias pendientes, aprobadas y rechazadas, y una fracción archivada (6 % de las atenciones, 7 % de los compromisos). Más de dos páginas de 30 por delegación.
+- **No duplica**: cada registro tiene una clave natural y solo se crea lo que falta (RUT, identificador de funcionario, N.º de registro, código de evidencia, funcionario + fecha + persona de la atención, etc.). Todo sale de `random.Random(2026)` y de una **fecha base fija** (30-10-2026), no de la fecha de hoy; los valores se sortean siempre, exista o no el registro, así que dos ejecuciones generan lo mismo. No pisa lo que alguien editó o archivó después. Comprobado: la segunda y la tercera ejecución dejan todas las tablas y los archivos idénticos, también sobre una base con los datos de demostración.
+- **Reglas del negocio**: la delegación de la atención es la de su funcionario, nunca más de 7 atenciones por funcionario y día, solo días hábiles, puntaje calculado con la regla del modelo, evidencias con archivo PDF real y una validación por evidencia revisada. Los **indicadores** salen de `planning.calculation` y los **ajustes** de `planning.feedback.sync`: no hay cifras escritas a mano.
+- **Orden de reciente a antiguo**: las fechas de creación se fijan con la fecha del negocio, para que los listados ordenados por creación sigan el orden de las atenciones.
+- **Contraseñas**: nunca en el repositorio ni en el README. Se leen de `SGR_PASSWORD_<ALIAS>`, `--password`, `SGR_REVISION_PASSWORD` o se piden por terminal, pasan los validadores de Django y solo se asignan al crear la cuenta (`--reasignar-claves` las cambia en las existentes). Sin contraseña el comando se detiene antes de escribir nada.
+- **Roles**: ejecuta `seed_roles` y `seed_management_types` por su cuenta. `deploy/actualizar.sh` **no** los ejecuta ni carga datos: un servidor recién migrado queda sin roles (documentado en el README y en `docs/aws/DESPLIEGUE_AL2023.md`).
+- **`core/datos_prueba.py` no se usa ni se carga en el servidor.**
+- Funciona con MariaDB por diseño (sin SQL propio; los identificadores se vuelven a leer tras `bulk_create`, porque MySQL no los devuelve), pero **solo se probó en SQLite**: la primera ejecución en la instancia es la prueba real.
+
+### Seis cuentas de prueba
+
+| Alias | Rol | Ámbito |
+|---|---|---|
+| `admin_a` | Administrador A (Jefatura y Funcionario, con permisos propios; **no** es Super Usuario) | Norte (organización A) |
+| `editor_a` | Editor A (Funcionario, con beneficiarios; sin permisos de eliminar) | Norte (organización A) |
+| `lector_a` | Lector A (Consulta, con beneficiarios y organizaciones en lectura) | Norte (organización A) |
+| `lector_b` | Lector B (igual, en la Sur) | Sur (organización B) |
+| `cliente1`, `cliente2` | Cliente: su portal y sus 24 atenciones propias, distintas entre sí | Norte y Sur |
+
+- **Archivar y eliminar exigen `delete_<modelo>`** y ningún rol base lo trae, así que el administrador A lo recibe como permiso propio de la cuenta (en los módulos operativos), junto con ver, crear y editar usuarios. No cambia `seed_roles` ni los roles existentes.
+- El comando **comprueba los permisos** al terminar y falla si una cuenta quedó con más o con menos: el administrador no es superusuario, el editor no puede eliminar ni archivar en ningún módulo, los lectores solo ven y exportan.
+- Limitaciones que se dejan dichas: el listado de usuarios no se filtra por delegación (el administrador A ve todas las cuentas) y eliminar usuarios sigue siendo solo del Super Usuario.
+
+### README y guía de AWS
+
+Sección nueva del README, *Datos y cuentas para la revisión en AWS*: dirección de acceso, cómo arrancan HTTP y WebSocket (Daphne, `sgr_project.asgi:application`, servicio `sgr`, capa de canales en memoria y su límite de un solo proceso), cómo se ejecuta el comando, distribución de los datos, total por modelo, tabla de cuentas (alias, rol, ámbito, responsabilidad, permitido, restringido y prueba con resultado esperado, sin contraseñas) y recorrido por pasos de la revisión. `docs/aws/DESPLIEGUE_AL2023.md` incorpora el requisito de los comandos de carga.
+
+### Diagrama de modelos
+
+`docs/DIAGRAMA_MODELOS.md`: diagrama entidad-relación en Mermaid (`erDiagram`) **generado** por `tools/diagrama_modelos.py` a partir de `apps.get_models()` (25 modelos propios más `User` y `Group`, 47 relaciones). Las multiplicidades salen del tipo de campo y se **revisaron a mano**: la tabla «Revisión manual» recoge lo que el diagrama no puede decir (atención de una persona u organización, meta personal o del cargo, delegación igual a la del funcionario, hasta tres gestiones por atención, etc.). `python tools/diagrama_modelos.py --verificar` falla si el documento está desactualizado, y una prueba lo comprueba. El bloque se validó con el analizador de Mermaid.
+
+### Base de datos
+
+Sin cambios: no hay migraciones nuevas ni cambia `sql/sgr_django.sql`.
+
+### Pruebas
+
+Nuevo `core/test_carga_revision.py` (49 pruebas): volumen, mínimos por CRUD y por delegación, variedad, reglas del negocio, idempotencia (repetir, editar y repetir, reponer filas faltantes, sobre datos de demostración), contraseñas, las seis cuentas con sus permisos y el aislamiento por URL, exportación y portal, README y guía de AWS, y el diagrama. Están en el catálogo QA como V36-01, V36-02 y V36-03.
+
+### ❓ Para confirmar con el grupo
+
+- Cuáles son los **dos CRUD evaluados**: esta versión usa Atenciones y Beneficiarios. Beneficiarios es un catálogo compartido entre delegaciones; si se prefiere demostrar el aislamiento en ambos CRUD, conviene cambiar el segundo por un módulo con delegación (por ejemplo Agenda colectiva) en `CRUDS_EVALUADOS`.
+- Que el **reparto de roles** sea el esperado (administrador A = Jefatura Norte con eliminar y archivar y gestión de usuarios; editor A = Funcionario Norte sin eliminar; lector A y B = Consulta).
+- La **dirección de AWS** del README (`http://32.198.200.215/`) y la cuenta técnica de superusuario, que no forma parte de las seis.
+
 ## Versión 35
 
 Estado de los listados en la sesión y perfil editable, de la Evaluación Sumativa III. Siguen pendientes las demás exigencias de esa evaluación (2.000 registros de prueba, las seis cuentas y la tabla del README, y el diagrama de modelos) y los puntos abiertos de las versiones 30 a 33.

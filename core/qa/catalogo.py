@@ -18,6 +18,7 @@ from core.qa.esperado_felicitaciones_equipo_y_jjvv import ESPERADO as _FELICITAC
 from core.qa.esperado_tubo_de_trabajo import ESPERADO as _TUBO_DE_TRABAJO
 from core.qa.esperado_cliente_y_recorte import ESPERADO as _CLIENTE_Y_RECORTE
 from core.qa.esperado_listado_y_perfil import ESPERADO as _LISTADO_Y_PERFIL
+from core.qa.esperado_carga_revision import ESPERADO as _CARGA_REVISION
 
 REQUISITOS = {
     "A1-01": ("A1", "Login: usuario o correo más contraseña, validación y acceso según perfil"),
@@ -91,6 +92,9 @@ REQUISITOS = {
     "V34-02": ("Versión 34", "Páginas de error 400, 403, 404 y 500 con el diseño del portal, el código HTTP correcto y sin trazas, SQL ni configuración (probadas con DEBUG=False)"),
     "V35-01": ("Versión 35", "Estado del listado en la sesión, por módulo (página, tamaño, búsqueda, filtros y orden): se restaura al volver, «Limpiar» lo reinicia, parámetros inválidos ignorados, orden por defecto por creación descendente"),
     "V35-02": ("Versión 35", "Mi perfil: cada persona edita su propio nombre y correo con validación y auditoría, sin poder cambiar permisos, delegación ni otra cuenta manipulando campos"),
+    "V36-01": ("Versión 36", "Comando reproducible de carga para la revisión: más de 2.000 registros ficticios y variados, al menos 50 en cada CRUD evaluado (y por delegación), dos ámbitos, sin duplicar al repetirse, total por modelo y verificación al terminar"),
+    "V36-02": ("Versión 36", "Seis cuentas de prueba (administrador A, editor A, lector A, lector B y dos clientes) con permisos comprobados: el editor no elimina ni archiva, los lectores solo ven y exportan, aislamiento entre organizaciones y contraseñas fuera del repositorio"),
+    "V36-03": ("Versión 36", "Documentación para la revisión: README con cuentas, dirección de AWS, arranque de HTTP y WebSocket y total por modelo; guía de despliegue con el comando de carga; diagrama de modelos generado desde los modelos registrados"),
     "V29-04": ("Versión 29", "Números de pocas opciones (por ejemplo 1 a 3) se eligen de una lista y no se pueden escribir mal"),
     "T11-04": ("Clase 11", "Dashboard, tablero y validar en vivo: el cambio de una persona se ve en la pantalla abierta de otra de la misma delegación, sin F5"),
     "RF-018": ("Informe SGR", "Gestionar estados de compromisos: Ingresado, Pendiente, En proceso y Realizado, con transiciones válidas e historial"),
@@ -311,9 +315,17 @@ CLASES = {
     "DaphneDeployTests": (["T11-01", "A4-02"], "Despliegue con Daphne y WebSocket", _SIN_BD),
     "DeletedUsersTests": (["A1-07", "A2-02"], "Usuarios eliminados: borrar, ver y restaurar", _SEMILLA + "; sesión del Super Usuario"),
     "OnlySuperuserDeletesUsersTests": (["A1-07", "A2-02"], "Solo el Super Usuario elimina y restaura usuarios", _SEMILLA + "; usuario con permisos de usuarios sin ser Super Usuario"),
+    "ReviewDataVolumeTests": (["V36-01"], "Carga de datos de revisión: volumen, variedad y reglas", "Base de datos vacía y una ejecución de cargar_datos_revision"),
+    "ReviewDataIdempotencyTests": (["V36-01", "V36-03"], "Carga de datos de revisión: se puede repetir sin duplicar", "Base de datos vacía y una ejecución de cargar_datos_revision"),
+    "ReviewWithDemoDataTests": (["V36-01"], "Carga de datos de revisión sobre los datos de demostración", _SEMILLA + "; luego cargar_datos_revision"),
+    "ReviewPasswordsTests": (["V36-01", "V36-02"], "Carga de datos de revisión: contraseñas", "Base de datos vacía; variables de entorno controladas por la prueba"),
+    "ReviewAccountsTests": (["V36-02"], "Seis cuentas de prueba: permisos, aislamiento y portal", "Base de datos vacía y una ejecución de cargar_datos_revision"),
+    "RoleSeedRequirementTests": (["V36-01", "V36-03"], "Roles y tipos de gestión que prepara la carga", "Base de datos vacía, sin roles"),
+    "ReviewReadmeTests": (["V36-02", "V36-03"], "README de la revisión: cuentas, AWS, WebSocket y carga", _SIN_BD),
+    "ModelDiagramTests": (["V36-03"], "Diagrama de modelos generado desde los modelos registrados", _SIN_BD),
 }
 
 ESPERADO = {}
-for _grupo in (_ACCESO, _MANTENEDORES, _INGRESO, _LISTADOS, _DESPLIEGUE, _VALIDACIONES, _ARCHIVOS_Y_FOTO, _ELIMINAR_Y_LISTADOS, _USUARIOS_ELIMINADOS, _TIEMPO_REAL, _RITMO_Y_COMPROMISOS, _RESULTADOS_Y_CALCULO, _CODES_SEARCH_AND_CHARTS, _REGLAS_PUNTAJE, _CIERRE_Y_AUSENCIAS, _FELICITACIONES_EQUIPO_Y_JJVV, _TUBO_DE_TRABAJO, _CLIENTE_Y_RECORTE, _ERRORES, _LISTADO_Y_PERFIL, ):
+for _grupo in (_ACCESO, _MANTENEDORES, _INGRESO, _LISTADOS, _DESPLIEGUE, _VALIDACIONES, _ARCHIVOS_Y_FOTO, _ELIMINAR_Y_LISTADOS, _USUARIOS_ELIMINADOS, _TIEMPO_REAL, _RITMO_Y_COMPROMISOS, _RESULTADOS_Y_CALCULO, _CODES_SEARCH_AND_CHARTS, _REGLAS_PUNTAJE, _CIERRE_Y_AUSENCIAS, _FELICITACIONES_EQUIPO_Y_JJVV, _TUBO_DE_TRABAJO, _CLIENTE_Y_RECORTE, _ERRORES, _LISTADO_Y_PERFIL, _CARGA_REVISION, ):
     for _clase, _metodos in _grupo.items():
         ESPERADO.setdefault(_clase, {}).update(_metodos)

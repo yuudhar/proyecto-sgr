@@ -22,15 +22,34 @@ Grupo de seguridad: 22 solo desde tu IP; 80 y 443 abiertos. El 3306 no se abre.
    git clone -b <rama> --single-branch https://github.com/yuudhar/proyecto-sgr.git && cd proyecto-sgr
    sudo bash deploy/al2023/instalar_al2023.sh https://github.com/yuudhar/proyecto-sgr.git <rama> <ip-o-dominio>
    ```
-4. **Migrar y arrancar:** `cd /opt/sgr/app && sudo bash deploy/actualizar.sh <rama>`. Solo si la base está vacía: `set -a; . /etc/sgr/sgr.env; set +a; sudo -E -u sgr /opt/sgr/venv/bin/python manage.py seed_roles` y lo mismo con `seed_management_types` y `createsuperuser`. Si la base ya tiene datos (se administra desde phpMyAdmin), no se hace nada.
-5. **HTTPS:** `sudo bash deploy/al2023/https_certificado.sh <ip-o-dominio> <correo>`. Con `--prueba` ensaya contra el entorno de pruebas de Let's Encrypt sin tocar el sitio. Deja HTTPS=True, redirige 80 a 443 y crea el temporizador `sgr-certbot.timer`.
-6. **Comprobar:** `curl https://<ip-o-dominio>/salud/` y `systemctl list-timers sgr-certbot.timer`. Renovación de ensayo: `sudo /opt/certbot/bin/certbot renew --dry-run`.
-7. **Correo de la recuperación de contraseña** (la evaluación exige ver llegar el correo con el enlace; mostrarlo solo en la consola no sirve). Completa `EMAIL_HOST`, `EMAIL_PORT`, `EMAIL_HOST_USER`, `EMAIL_HOST_PASSWORD`, `EMAIL_USE_TLS` y `DEFAULT_FROM_EMAIL` en `/etc/sgr/sgr.env` (Gmail con contraseña de aplicación, Mailtrap o Amazon SES: datos exactos en el README, sección *Recuperar la contraseña*), reinicia con `sudo systemctl restart sgr` y prueba el envío:
+4. **Migrar y arrancar:** `cd /opt/sgr/app && sudo bash deploy/actualizar.sh <rama>`. `actualizar.sh` hace `check --deploy`, `migrate` y `collectstatic` y reinicia el servicio, pero **no ejecuta** `seed_roles` ni `seed_management_types` y no carga datos: un servidor recién migrado queda sin roles. El paso 5 lo resuelve.
+5. **Roles, datos y cuentas de prueba:** para la revisión, `cargar_datos_revision` (ver más abajo). Ejecuta por su cuenta `seed_roles` y `seed_management_types`. Si solo se quiere la base mínima y no los datos de revisión: `set -a; . /etc/sgr/sgr.env; set +a; sudo -E -u sgr /opt/sgr/venv/bin/python manage.py seed_roles`, lo mismo con `seed_management_types` y `createsuperuser`. Si la base ya tiene datos (se administra desde phpMyAdmin), no se hace nada.
+6. **HTTPS:** `sudo bash deploy/al2023/https_certificado.sh <ip-o-dominio> <correo>`. Con `--prueba` ensaya contra el entorno de pruebas de Let's Encrypt sin tocar el sitio. Deja HTTPS=True, redirige 80 a 443 y crea el temporizador `sgr-certbot.timer`.
+7. **Comprobar:** `curl https://<ip-o-dominio>/salud/` y `systemctl list-timers sgr-certbot.timer`. Renovación de ensayo: `sudo /opt/certbot/bin/certbot renew --dry-run`.
+8. **Correo de la recuperación de contraseña** (la evaluación exige ver llegar el correo con el enlace; mostrarlo solo en la consola no sirve). Completa `EMAIL_HOST`, `EMAIL_PORT`, `EMAIL_HOST_USER`, `EMAIL_HOST_PASSWORD`, `EMAIL_USE_TLS` y `DEFAULT_FROM_EMAIL` en `/etc/sgr/sgr.env` (Gmail con contraseña de aplicación, Mailtrap o Amazon SES: datos exactos en el README, sección *Recuperar la contraseña*), reinicia con `sudo systemctl restart sgr` y prueba el envío:
    ```bash
    cd /opt/sgr/app; set -a; . /etc/sgr/sgr.env; set +a
    sudo -E -u sgr /opt/sgr/venv/bin/python manage.py sendtestemail destinatario@ejemplo.cl
    ```
    Luego repite el flujo en el navegador (pedir el enlace, abrirlo, elegir la clave, comprobar que el mismo enlace ya no abre nada). El enlace se arma con la dirección con la que se abre el sitio, así que `ALLOWED_HOSTS` debe tener la IP o el dominio reales y Apache debe conservar el `Host` (`ProxyPreserveHost On`, ya incluido en `apache-http.conf` y `apache-https.conf`). El puerto 25 está bloqueado por defecto en EC2: usa 587 o 2525.
+
+## Datos y cuentas de la revisión
+
+El comando `cargar_datos_revision` carga más de 3.000 registros ficticios en dos ámbitos (Delegación Norte = organización A, Delegación Sur = organización B) y crea las seis cuentas de prueba (`admin_a`, `editor_a`, `lector_a`, `lector_b`, `cliente1` y `cliente2`). Se ejecuta **después de `migrate`** y se puede repetir sin duplicar nada:
+
+```bash
+cd /opt/sgr/app; set -a; . /etc/sgr/sgr.env; set +a
+read -rs -p "Contraseña de las cuentas de prueba: " SGR_REVISION_PASSWORD; export SGR_REVISION_PASSWORD
+sudo -E -u sgr /opt/sgr/venv/bin/python manage.py cargar_datos_revision
+unset SGR_REVISION_PASSWORD
+```
+
+- Las contraseñas **no están en el repositorio**: se leen de `SGR_REVISION_PASSWORD`, de `SGR_PASSWORD_<ALIAS>` (una sola cuenta), de `--password` o se piden por pantalla. Solo se asignan al crear la cuenta (`--reasignar-claves` las cambia en las existentes).
+- Ejecuta antes `seed_roles` y `seed_management_types`, y al final imprime el total por modelo y comprueba los mínimos (2.000 registros y 50 en cada CRUD evaluado) y los permisos de las cuentas; si algo falla, termina con error.
+- Después de cada `actualizar.sh` no hace falta volver a cargarlo: `actualizar.sh` no ejecuta ni carga datos, y lo cargado queda en la base.
+- `core/datos_prueba.py` es solo para las pruebas automáticas y no se carga en el servidor.
+- Se probó con SQLite y con las pruebas automáticas; no se pudo probar contra MariaDB en el entorno de desarrollo. La primera ejecución en la instancia es la prueba real: conviene hacerla (y repetirla, para comprobar que no duplica) **antes** de la revisión.
+- Detalle de las cuentas, distribución de los datos y total por modelo: README, sección *Datos y cuentas para la revisión en AWS*. Diagrama de modelos: `docs/DIAGRAMA_MODELOS.md`.
 
 ## Notas
 
