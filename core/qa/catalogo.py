@@ -19,6 +19,7 @@ from core.qa.esperado_tubo_de_trabajo import ESPERADO as _TUBO_DE_TRABAJO
 from core.qa.esperado_cliente_y_recorte import ESPERADO as _CLIENTE_Y_RECORTE
 from core.qa.esperado_listado_y_perfil import ESPERADO as _LISTADO_Y_PERFIL
 from core.qa.esperado_carga_revision import ESPERADO as _CARGA_REVISION
+from core.qa.esperado_ensayo_revision import ESPERADO as _ENSAYO_REVISION
 
 REQUISITOS = {
     "A1-01": ("A1", "Login: usuario o correo más contraseña, validación y acceso según perfil"),
@@ -95,6 +96,9 @@ REQUISITOS = {
     "V36-01": ("Versión 36", "Comando reproducible de carga para la revisión: más de 2.000 registros ficticios y variados, al menos 50 en cada CRUD evaluado (y por delegación), dos ámbitos, sin duplicar al repetirse, total por modelo y verificación al terminar"),
     "V36-02": ("Versión 36", "Seis cuentas de prueba (administrador A, editor A, lector A, lector B y dos clientes) con permisos comprobados: el editor no elimina ni archiva, los lectores solo ven y exportan, aislamiento entre organizaciones y contraseñas fuera del repositorio"),
     "V36-03": ("Versión 36", "Documentación para la revisión: README con cuentas, dirección de AWS, arranque de HTTP y WebSocket y total por modelo; guía de despliegue con el comando de carga; diagrama de modelos generado desde los modelos registrados"),
+    "V37-01": ("Versión 37", "Ensayo de los diez pasos de la revisión con las seis cuentas y los datos de la carga: una prueba automática reproducible por paso (aplicación y datos, CRUD con modal, datos inválidos y archivos, listados y Excel, lector sin permisos, aislamiento, WebSocket, recuperación, recorte y clientes, ramas y evento, navegación y errores)"),
+    "V37-02": ("Versión 37", "Herramienta con navegador real (tools/ensayo/ensayo_revision.py) que recorre los diez pasos contra el servidor local o AWS, con una sesión por cuenta, contraseñas solo del entorno, datos de prueba marcados y archivados al terminar, e informe de lo que falló o queda manual"),
+    "V37-03": ("Versión 37", "Guía del ensayo (docs/ENSAYO_REVISION.md): cuenta, qué mostrar y resultado esperado en cada paso, recorrido del evento en vivo, cómo repetirlo en AWS y qué falta decidir con el equipo; README y registro de pruebas al día"),
     "V29-04": ("Versión 29", "Números de pocas opciones (por ejemplo 1 a 3) se eligen de una lista y no se pueden escribir mal"),
     "T11-04": ("Clase 11", "Dashboard, tablero y validar en vivo: el cambio de una persona se ve en la pantalla abierta de otra de la misma delegación, sin F5"),
     "RF-018": ("Informe SGR", "Gestionar estados de compromisos: Ingresado, Pendiente, En proceso y Realizado, con transiciones válidas e historial"),
@@ -323,9 +327,20 @@ CLASES = {
     "RoleSeedRequirementTests": (["V36-01", "V36-03"], "Roles y tipos de gestión que prepara la carga", "Base de datos vacía, sin roles"),
     "ReviewReadmeTests": (["V36-02", "V36-03"], "README de la revisión: cuentas, AWS, WebSocket y carga", _SIN_BD),
     "ModelDiagramTests": (["V36-03"], "Diagrama de modelos generado desde los modelos registrados", _SIN_BD),
+    "EnsayoPaso1AplicacionYDatosTests": (["V37-01"], "Ensayo, paso 1: la aplicación abre y tiene datos", "Base de datos vacía y una ejecución de cargar_datos_revision"),
+    "EnsayoPaso2CrudConModalYBorradoLogicoTests": (["V37-01"], "Ensayo, paso 2: CRUD con modal, SweetAlert2 y borrado lógico", "Base de datos vacía y una ejecución de cargar_datos_revision"),
+    "EnsayoPaso3DatosInvalidosYArchivosTests": (["V37-01"], "Ensayo, paso 3: datos inválidos, reglas de negocio y archivos", "Base de datos vacía y una ejecución de cargar_datos_revision"),
+    "EnsayoPaso4ListadosYExcelTests": (["V37-01"], "Ensayo, paso 4: búsqueda, filtro, orden, paginación, preferencia y Excel", "Base de datos vacía y una ejecución de cargar_datos_revision"),
+    "EnsayoPaso5LectorSinPermisosTests": (["V37-01"], "Ensayo, paso 5: el lector no puede escribir", "Base de datos vacía y una ejecución de cargar_datos_revision"),
+    "EnsayoPaso6AislamientoTests": (["V37-01"], "Ensayo, paso 6: aislamiento entre organizaciones", "Base de datos vacía y una ejecución de cargar_datos_revision"),
+    "EnsayoPaso7WebSocketTests": (["V37-01"], "Ensayo, paso 7: cambios en vivo por WebSocket entre cuentas", "Base de datos vacía y una ejecución de cargar_datos_revision; WebSocket de prueba por cuenta"),
+    "EnsayoPaso8RecuperacionCropprYClientesTests": (["V37-01"], "Ensayo, paso 8: recuperación de contraseña, recorte de foto y clientes", "Base de datos vacía y una ejecución de cargar_datos_revision; correo en memoria"),
+    "EnsayoPaso9RamasYEventoTests": (["V37-01", "V37-03"], "Ensayo, paso 9: recorrido del evento y ramas en la guía", _SIN_BD),
+    "EnsayoPaso10NavegacionYErroresTests": (["V37-01"], "Ensayo, paso 10: menú de las seis cuentas, páginas 403, 404, 400 y 500", "Base de datos vacía y una ejecución de cargar_datos_revision"),
+    "EnsayoHerramientaYGuiaTests": (["V37-02", "V37-03"], "Herramienta y guía del ensayo", _SIN_BD),
 }
 
 ESPERADO = {}
-for _grupo in (_ACCESO, _MANTENEDORES, _INGRESO, _LISTADOS, _DESPLIEGUE, _VALIDACIONES, _ARCHIVOS_Y_FOTO, _ELIMINAR_Y_LISTADOS, _USUARIOS_ELIMINADOS, _TIEMPO_REAL, _RITMO_Y_COMPROMISOS, _RESULTADOS_Y_CALCULO, _CODES_SEARCH_AND_CHARTS, _REGLAS_PUNTAJE, _CIERRE_Y_AUSENCIAS, _FELICITACIONES_EQUIPO_Y_JJVV, _TUBO_DE_TRABAJO, _CLIENTE_Y_RECORTE, _ERRORES, _LISTADO_Y_PERFIL, _CARGA_REVISION, ):
+for _grupo in (_ACCESO, _MANTENEDORES, _INGRESO, _LISTADOS, _DESPLIEGUE, _VALIDACIONES, _ARCHIVOS_Y_FOTO, _ELIMINAR_Y_LISTADOS, _USUARIOS_ELIMINADOS, _TIEMPO_REAL, _RITMO_Y_COMPROMISOS, _RESULTADOS_Y_CALCULO, _CODES_SEARCH_AND_CHARTS, _REGLAS_PUNTAJE, _CIERRE_Y_AUSENCIAS, _FELICITACIONES_EQUIPO_Y_JJVV, _TUBO_DE_TRABAJO, _CLIENTE_Y_RECORTE, _ERRORES, _LISTADO_Y_PERFIL, _CARGA_REVISION, _ENSAYO_REVISION, ):
     for _clase, _metodos in _grupo.items():
         ESPERADO.setdefault(_clase, {}).update(_metodos)

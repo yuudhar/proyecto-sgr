@@ -17,6 +17,45 @@ Nombres que cambiaron en la v27 (los textos antiguos los mencionan con el nombre
 | `core/qa/esperado_vNN.py` | `core/qa/esperado_<tema>.py` (mismo tema que su archivo de pruebas) |
 | `sql/*.sql` (todos) | `sql/sgr_django.sql` (estructura vigente) |
 
+## Versión 37
+
+Ensayo de los diez pasos de la revisión de la Evaluación Sumativa III y revisión final antes del Pull Request. No cambia la aplicación ni la base de datos: agrega pruebas, una herramienta de ensayo con navegador y la guía para repetirlo en AWS.
+
+### Qué se ensayó y cómo
+
+- **Ensayo local con navegador real** (Daphne + Chrome, una sesión por cuenta) sobre los datos que deja `cargar_datos_revision`: 64 comprobaciones correctas, 0 fallas de la aplicación y 2 que quedan manuales (el correo real y la página 500). Un rastreo de todos los enlaces del menú de las seis cuentas tampoco encontró errores. **No se pudo ensayar en AWS** desde el entorno de desarrollo: la herramienta y la guía quedan para repetirlo allí.
+- **`tools/ensayo/ensayo_revision.py`**: recorre los diez pasos contra una dirección (`--url`), con una función por paso, una sesión de navegador por cuenta y las contraseñas solo del entorno (`SGR_REVISION_PASSWORD` o `SGR_PASSWORD_<ALIAS>`). Los datos que crea llevan la marca «ENSAYO» y se archivan al terminar; imprime `OK`, `FALLÓ` o `MANUAL` y puede escribir un informe (`--informe`) y capturas (`--capturas`). Termina con código 1 si algo falló. Se puede importar sin Playwright (solo lo exige al abrir el navegador).
+- **`core/test_ensayo_revision.py`** (54 pruebas, una clase por paso más una de herramienta y guía): lo mismo que se hizo con el navegador, sin navegador y sobre la misma carga de datos, con el cliente de pruebas de Django y `WebsocketCommunicator`. Cubre, entre otras cosas, tres reglas de negocio que rechazan el guardado, el Excel con el conjunto filtrado, el 403 del lector por URL y petición directa, el 404 entre organizaciones (detalle, edición, archivo, relaciones ajenas y Excel), los avisos por WebSocket después del commit (y ninguno si el guardado es inválido o la transacción se deshace), la recuperación de contraseña con enlace de un solo uso, el recorte cuadrado de la foto y las dos cuentas cliente.
+- **`docs/ENSAYO_REVISION.md`**: por cada paso, la cuenta, qué mostrar y el resultado esperado; el recorrido del evento en vivo con los archivos (`core/crud.py` → `websocket/services.py` → `websocket/consumers.py` → `core/static/core/js/live-updates.js`); cómo correr la herramienta y repetir todo en AWS; ramas y Pull Request; y lo que falta decidir.
+- README: fila nueva en *Registro de pruebas, estrés y evidencias*, enlace desde *Datos y cuentas para la revisión* y `tools/ensayo/` en la estructura.
+
+### Lo que el ensayo encontró (no se cambió, porque son decisiones del grupo)
+
+- **Atención se actualiza en vivo por `/ws/live/`** (cualquier dato de la delegación) y Beneficiarios por `/ws/crud/beneficiarios/`. Los avisos de Beneficiarios no se separan por delegación, porque ese catálogo es común: `lector_b` también los recibiría. Es consistente con el catálogo compartido, pero hay que tenerlo presente al explicar el paso 7.
+- **Beneficiarios no tiene un filtro de negocio ni aislamiento por delegación**, así que como segundo CRUD evaluado cumple menos que Atención. Ver «Para confirmar con el grupo».
+- El botón que archiva en la lista de Atención se llama «Eliminar», pero archiva y la confirmación pregunta «¿Archivar registro?».
+- El **commit en `/salud/`** solo aparece si el servidor se actualizó con `deploy/actualizar.sh` (lo escribe con `git describe`); un `git pull` a mano deja «sin definir».
+- La recuperación de contraseña se limita a **5 enlaces por hora** por cuenta: repetir el ensayo varias veces seguidas se detiene por ese límite (comportamiento correcto; la guía lo explica).
+- El ensayo deja unas pocas atenciones y beneficiarios archivados marcados «ENSAYO». No aparecen en los listados normales.
+
+### Ajustes menores
+
+- `VERSION` pasa a `v37` y se vuelven a generar `docs/pruebas/registro_pruebas_funcionales.csv` y `.xlsx` (estaban desactualizados desde antes de la v34).
+
+### Base de datos
+
+Sin cambios: no hay migraciones nuevas ni cambia `sql/sgr_django.sql`.
+
+### Pruebas
+
+Nuevo `core/test_ensayo_revision.py` (54 pruebas), registrado en el catálogo QA como V37-01 (diez pasos), V37-02 (herramienta) y V37-03 (guía y documentación).
+
+### ❓ Para confirmar con el grupo
+
+- Los **dos CRUD evaluados** (sigue sin respuesta): con el ensayo hecho, Beneficiarios no sirve para demostrar filtro de negocio ni aislamiento. Opciones: cambiarlo por **Agenda colectiva** en `CRUDS_EVALUADOS`, o agregarle un filtro de negocio y un ámbito.
+- Si el botón de Atención debe decir «Archivar» en vez de «Eliminar».
+- Cuándo se ensaya en AWS, y con qué casilla real se prueba el correo de recuperación (`lector_b` usa `lector_b@revision.sgr.example`, que no existe: en AWS hay que poner un correo real a esa cuenta antes de la prueba).
+
 ## Versión 36
 
 Datos y cuentas para la revisión de la Evaluación Sumativa III: comando de carga reproducible, las seis cuentas de prueba, el README de la revisión y el diagrama de modelos. Siguen pendientes el ensayo de la revisión completa en AWS (los diez pasos) y los puntos abiertos de las versiones 30 a 33.

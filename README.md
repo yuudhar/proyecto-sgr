@@ -330,6 +330,8 @@ cd /opt/sgr/app && sudo bash deploy/actualizar.sh <rama-o-etiqueta>
 
 La revisión grupal se hace sobre la aplicación desplegada en AWS, con datos ficticios y seis cuentas de prueba. Esta sección dice cómo llegar a ella, cómo arrancan HTTP y WebSocket, cómo se cargan los datos y qué puede y no puede hacer cada cuenta. **Las contraseñas no están en el repositorio ni en este documento.**
 
+Para ensayar antes los diez pasos con estas cuentas (pruebas automáticas, herramienta con navegador y guía de qué mostrar y qué resultado esperar) está [`docs/ENSAYO_REVISION.md`](docs/ENSAYO_REVISION.md).
+
 ### Dirección de acceso (AWS)
 
 | Dato | Valor |
@@ -570,6 +572,7 @@ La matriz de menús por rol está en `docs/evidencias/matriz_menus_por_rol.md`.
 | Pruebas de estrés | `python tools/estres/estres.py --url <URL> --etapas 1,5,10,20 --duracion 60` (solo biblioteca estándar); opcionalmente `python manage.py cargar_volumen_estres` para tener volumen de datos. El plan y los resultados están en `docs/pruebas/estres/` |
 | Capturas de evidencia | `python tools/evidencias/capturar.py --url <URL>` (requiere `pip install playwright && playwright install chromium`); salen en `docs/evidencias/capturas/` |
 | Revisión de despliegue | `python manage.py check --deploy` con las variables de producción cargadas |
+| Ensayo de los diez pasos de la revisión | `python manage.py test core.test_ensayo_revision` (sin navegador) y, contra un servidor local o AWS con los datos cargados, `python tools/ensayo/ensayo_revision.py --url <URL>` con `SGR_REVISION_PASSWORD` en el entorno (requiere Playwright). Guía paso a paso, cuentas y resultado esperado en [`docs/ENSAYO_REVISION.md`](docs/ENSAYO_REVISION.md) |
 
 ## Entrega y evidencias (A4)
 
@@ -609,7 +612,7 @@ templates/      plantillas HTML (incluye el correo de recuperación)
 sql/            estructura de la base de datos (sgr_django.sql)
 deploy/         archivos para publicar en un servidor (nginx y Amazon Linux 2023 con Apache)
 docs/           documentación del despliegue, registro de pruebas y evidencias
-tools/          herramientas de pruebas de estrés, de capturas y el generador del diagrama de modelos
+tools/          herramientas de pruebas de estrés, de capturas, el ensayo de la revisión (`tools/ensayo/`) y el generador del diagrama de modelos
 ```
 
 El diagrama de los modelos y sus relaciones está en [`docs/DIAGRAMA_MODELOS.md`](docs/DIAGRAMA_MODELOS.md) (Mermaid `erDiagram`, generado con `python tools/diagrama_modelos.py` a partir de `apps.get_models()`; las multiplicidades se revisaron a mano).

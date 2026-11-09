@@ -40,7 +40,7 @@ templates/                marco general, errores y pantallas sin sesión
 deploy/                   archivos para instalar y actualizar en el servidor
 sql/                      estructura de la base de datos (sgr_django.sql)
 docs/                     documentos del proyecto (incluye DIAGRAMA_MODELOS.md, el diagrama de modelos)
-tools/                    herramientas de pruebas de estrés, de capturas y el generador del diagrama de modelos
+tools/                    herramientas de pruebas de estrés, de capturas, del ensayo de la revisión y el generador del diagrama de modelos
 ```
 
 Cada app tiene `models.py` (tablas), `admin.py` (Django Admin), `apps.py` y `migrations/`. `core` y `accounts` agregan además pantallas, formularios y reglas propias.
@@ -2419,7 +2419,7 @@ Comando `python manage.py cargar_datos_revision [--password …] [--reasignar-cl
 - **Constantes**: `SEMILLA`, `FECHA_BASE`, `DIAS_ATRAS`, `MINIMO_TOTAL`, `MINIMO_POR_CRUD`, `CRUDS_EVALUADOS`, las cantidades por delegación (`FUNCIONARIOS`, `TERRITORIOS`, `ATENCIONES`, `ATENCIONES_CLIENTE`, `COMPROMISOS`, `EVIDENCIAS`, `FELICITACIONES_Y_RECLAMOS`, `AUSENCIAS`), `AMBITOS` y `CUENTAS`.
 - **Funciones auxiliares**: `pdf_minimo` (PDF válido de una página), `rut_de` (RUT con dígito verificador, reutiliza `digito_verificador` de `cargar_volumen_estres`), `momento`, `dia_habil`, `elegir_con_peso`, `telefono`, `nombre_persona` y `prefijo_evidencia`.
 - **Métodos de `Command`**: `handle`, `reunir_claves`, `catalogos`, `estructura`, `de_terreno`, `permisos`, `cuentas`, `beneficiarios_y_organizaciones`, `compromisos`, `atenciones`, `gestiones`, `evidencias_y_validaciones`, `felicitaciones_y_reclamos`, `ausencias`, `metas`, `modelos_de_negocio`, `total_negocio`, `informe`, `verificar` y `verificar_permisos`.
-- No usa `core/datos_prueba.py`, que es solo para las pruebas automáticas y no se carga en el servidor. Las pruebas están en `core/test_carga_revision.py`.
+- No usa `core/datos_prueba.py`, que es solo para las pruebas automáticas y no se carga en el servidor. Las pruebas están en `core/test_carga_revision.py`; el ensayo de los diez pasos de la revisión sobre estos datos está en `core/test_ensayo_revision.py` y en `tools/ensayo/ensayo_revision.py` (v37, ver `docs/ENSAYO_REVISION.md`).
 
 #### `operations/management/commands/seed_management_types.py`
 
@@ -2972,6 +2972,7 @@ Selector con buscador (v28). Los `<select>` con `data-searchable` y 8 opciones o
 | `deploy/al2023/apache-https.conf` | Sitio de Apache por HTTPS (fase 2): el puerto 80 solo verifica el certificado y redirige; el 443 sirve el sistema. |
 | `deploy/al2023/sgr.env.example` | Modelo de variables de entorno para Amazon Linux 2023: modo, claves, HTTPS y proxy, base de datos, caché, correo y nivel de registro. |
 | `tools/diagrama_modelos.py` | Genera `docs/DIAGRAMA_MODELOS.md` (diagrama entidad-relación en Mermaid `erDiagram`) a partir de `apps.get_models()`: entidades con sus campos (sin `created_at`, `updated_at` ni contraseñas), relaciones con su multiplicidad (obligatoria u opcional según `null`; uno a muchos, uno a uno o muchos a muchos según el campo) y una tabla de revisión manual con las reglas que el diagrama no puede decir (`REVISION_MANUAL`). `--verificar` no escribe y falla si el documento está desactualizado; `--salida` cambia el archivo. Funciones: `preparar_django`, `modelos`, `tipo_de`, `entidad`, `relaciones`, `generar` y `main`. |
+| `tools/ensayo/ensayo_revision.py` | Ensayo de la revisión (v37): recorre los diez pasos de la Evaluación Sumativa III con un navegador real (Playwright; Chrome con `--chromium`) contra una dirección (`--url`), local o AWS. Una sesión de navegador (contexto) por cuenta de `CUENTAS` (`admin_a`, `editor_a`, `lector_a`, `lector_b`, `cliente1`, `cliente2`); las contraseñas salen de `SGR_PASSWORD_<ALIAS>` o `SGR_REVISION_PASSWORD` (`clave_de`) y no se escriben en ningún archivo. Clase `Ensayo`: `paso1` … `paso10` (cada una devuelve el texto de lo comprobado o lanza `Saltar` si el punto queda manual), `comprobar` (corre una comprobación y la anota como OK, FALLÓ o MANUAL), apoyos de navegador (`abrir`, `ingresar`, `ir`, `por_menu`, `swal`, `cerrar_swal`, `guardar_modal`, `registrar_atencion`, `peticion`, `http_crudo`, `apreton_ws`), de datos (`total`, `contar`, `ids_de`, `filas_visibles`, `parametros`, `exportar`, `leer_excel`, `enlace_del_correo`), `limpiar` (archiva lo que creó, marcado «ENSAYO»), `correr` e `informe` (Markdown con `--informe`). Funciones sueltas: `rut_valido`, `png`, `png_dos_colores`. Opciones: `--pasos`, `--chromium`, `--capturas`, `--informe`, `--bandeja`, `--descargas`, `--sin-verificar-tls`, `--depurar`. Termina con código 1 si algo falló. Se importa sin Playwright (solo lo exige `correr`). Guía: `docs/ENSAYO_REVISION.md`; pruebas sin navegador: `core/test_ensayo_revision.py`. |
 | `requirements.txt` | Dependencias de Python: Django 6.1.1, asgiref, sqlparse, python-dotenv, openpyxl (exportar a Excel), Channels y Daphne (tiempo real); `mysqlclient` opcional para MySQL/MariaDB. |
 | `VERSION` | Versión del sistema que muestra `/salud/`. |
 | `manage.py` | Punto de entrada de los comandos de Django. |
