@@ -17,6 +17,7 @@ from core.qa.esperado_cierre_y_ausencias import ESPERADO as _CIERRE_Y_AUSENCIAS
 from core.qa.esperado_felicitaciones_equipo_y_jjvv import ESPERADO as _FELICITACIONES_EQUIPO_Y_JJVV
 from core.qa.esperado_tubo_de_trabajo import ESPERADO as _TUBO_DE_TRABAJO
 from core.qa.esperado_cliente_y_recorte import ESPERADO as _CLIENTE_Y_RECORTE
+from core.qa.esperado_listado_y_perfil import ESPERADO as _LISTADO_Y_PERFIL
 
 REQUISITOS = {
     "A1-01": ("A1", "Login: usuario o correo más contraseña, validación y acceso según perfil"),
@@ -88,6 +89,8 @@ REQUISITOS = {
     "V33-03": ("Versión 33", "Foto de perfil con recorte (Croppr): vista previa, recorte real, cancelar sin cambios y validación del resultado en el servidor"),
     "V34-01": ("Versión 34", "Recuperación de contraseña por correo con enlace y token de Django: respuesta genérica, un solo uso, vencimiento, token inválido rechazado sin errores internos y validadores de contraseña"),
     "V34-02": ("Versión 34", "Páginas de error 400, 403, 404 y 500 con el diseño del portal, el código HTTP correcto y sin trazas, SQL ni configuración (probadas con DEBUG=False)"),
+    "V35-01": ("Versión 35", "Estado del listado en la sesión, por módulo (página, tamaño, búsqueda, filtros y orden): se restaura al volver, «Limpiar» lo reinicia, parámetros inválidos ignorados, orden por defecto por creación descendente"),
+    "V35-02": ("Versión 35", "Mi perfil: cada persona edita su propio nombre y correo con validación y auditoría, sin poder cambiar permisos, delegación ni otra cuenta manipulando campos"),
     "V29-04": ("Versión 29", "Números de pocas opciones (por ejemplo 1 a 3) se eligen de una lista y no se pueden escribir mal"),
     "T11-04": ("Clase 11", "Dashboard, tablero y validar en vivo: el cambio de una persona se ve en la pantalla abierta de otra de la misma delegación, sin F5"),
     "RF-018": ("Informe SGR", "Gestionar estados de compromisos: Ingresado, Pendiente, En proceso y Realizado, con transiciones válidas e historial"),
@@ -126,6 +129,16 @@ CLASES = {
     "BadRequestTests": (["V34-02"], "Página 400", _SEMILLA + "; DEBUG=False"),
     "ServerErrorTests": (["V34-02"], "Página 500", _SEMILLA + "; DEBUG=False"),
     "ErrorTemplatesTests": (["V34-02"], "Plantillas de error", _SIN_BD),
+    "ListStateIsSavedTests": (["A2-04", "A3-09", "V35-01"], "Estado del listado en la sesión", _SEMILLA + "; sesión del Super Usuario"),
+    "ListStateValidationTests": (["A3-09", "V35-01"], "Estado del listado: parámetros inválidos y páginas", _SEMILLA + "; sesión del Super Usuario"),
+    "ListStatePageOneTests": (["A2-04", "V35-01"], "Estado del listado: cambios que vuelven a la página 1", _SEMILLA + "; sesión del Super Usuario; 12 beneficiarios de relleno"),
+    "ListStateNavigationTests": (["A2-02", "A2-08", "V35-01"], "Estado del listado: volver desde detalle, edición y otros módulos", _SEMILLA + "; sesión del Super Usuario; 12 beneficiarios de relleno"),
+    "ListStateEveryModuleTests": (["A2-02", "A2-04", "V35-01"], "Estado del listado en todos los módulos", _SEMILLA + "; sesión del Super Usuario"),
+    "ListStateInteractionTests": (["A2-07", "T11-03", "V35-01"], "Estado del listado con Excel, WebSocket y tamaño de página", _SEMILLA + "; sesión del Super Usuario"),
+    "DefaultOrderTests": (["A2-03", "V35-01"], "Orden por defecto de los listados", _SEMILLA + "; sesión del Super Usuario; tres beneficiarios con fechas de creación distintas"),
+    "ProfileIdentityTests": (["A3-02", "A3-12", "V35-02"], "Mi perfil: nombre y correo", _SEMILLA + "; sesión de Matías Cavieres (Norte)"),
+    "ProfileTamperingTests": (["IMP-02", "V35-02"], "Mi perfil: campos manipulados", _SEMILLA + "; sesión de Matías Cavieres (Norte)"),
+    "ClientProfileIdentityTests": (["V33-02", "V35-02"], "Mi perfil del Cliente: nombre y correo", _SEMILLA + "; sesión de Cliente 1"),
     "DelegationFieldsTests": (["A1-05", "A3-08"], "CRUD Delegaciones", _SEMILLA + "; sesión del Super Usuario"),
     "ItemDescriptionTests": (["A1-08", "A1-09", "A3-08"], "CRUD Ítems y Tipo de Atención", _SEMILLA + "; sesión del Super Usuario"),
     "RoleProfileTests": (["A1-06", "A3-08"], "CRUD Roles", _SEMILLA + "; sesión del Super Usuario"),
@@ -301,6 +314,6 @@ CLASES = {
 }
 
 ESPERADO = {}
-for _grupo in (_ACCESO, _MANTENEDORES, _INGRESO, _LISTADOS, _DESPLIEGUE, _VALIDACIONES, _ARCHIVOS_Y_FOTO, _ELIMINAR_Y_LISTADOS, _USUARIOS_ELIMINADOS, _TIEMPO_REAL, _RITMO_Y_COMPROMISOS, _RESULTADOS_Y_CALCULO, _CODES_SEARCH_AND_CHARTS, _REGLAS_PUNTAJE, _CIERRE_Y_AUSENCIAS, _FELICITACIONES_EQUIPO_Y_JJVV, _TUBO_DE_TRABAJO, _CLIENTE_Y_RECORTE, _ERRORES, ):
+for _grupo in (_ACCESO, _MANTENEDORES, _INGRESO, _LISTADOS, _DESPLIEGUE, _VALIDACIONES, _ARCHIVOS_Y_FOTO, _ELIMINAR_Y_LISTADOS, _USUARIOS_ELIMINADOS, _TIEMPO_REAL, _RITMO_Y_COMPROMISOS, _RESULTADOS_Y_CALCULO, _CODES_SEARCH_AND_CHARTS, _REGLAS_PUNTAJE, _CIERRE_Y_AUSENCIAS, _FELICITACIONES_EQUIPO_Y_JJVV, _TUBO_DE_TRABAJO, _CLIENTE_Y_RECORTE, _ERRORES, _LISTADO_Y_PERFIL, ):
     for _clase, _metodos in _grupo.items():
         ESPERADO.setdefault(_clase, {}).update(_metodos)

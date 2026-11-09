@@ -295,6 +295,7 @@ class PageSizeTests(PortalTestCase):
     def test_next_keeps_the_search_but_not_the_page(self):
         response = self.client.get(self.url, {"q": "persona", "page": 2})
         self.assertEqual(response.context["page_size_next"], f"{self.url}?q=persona")
+        self.client.get(self.url, {"limpiar": 1})  # sin «Limpiar» la visita sin parámetros restauraría la búsqueda (v35)
         plain = self.client.get(self.url)
         self.assertEqual(plain.context["page_size_next"], self.url)
 

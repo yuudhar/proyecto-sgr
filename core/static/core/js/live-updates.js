@@ -44,7 +44,9 @@ function startLive({ sources, selector, message }) {
     try {
       const response = await fetch(location.href, {
         credentials: "same-origin",
-        headers: { "X-Requested-With": "fetch" },
+        // X-Live-Refresh: consulta de fondo. El servidor no restaura ni guarda el estado del listado con ella,
+        // así una pestaña olvidada no pisa lo último que se hizo en otra.
+        headers: { "X-Requested-With": "fetch", "X-Live-Refresh": "1" },
       });
       if (mine !== ticket) return;
       if (!response.ok || new URL(response.url).pathname !== location.pathname) return;

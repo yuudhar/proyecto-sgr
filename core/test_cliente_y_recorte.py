@@ -355,7 +355,7 @@ class ClientInterfaceTests(ClientCase):
 
 class ClientProfileTests(ClientCase):
     def data(self, **changes):
-        data = {"accion": "datos", "email": "maria.nueva@correo.cl", "phone": "+56 9 1111 2222", "address": "Los Aromos 999"}
+        data = {"accion": "datos", "phone": "+56 9 1111 2222", "address": "Los Aromos 999"}
         data.update(changes)
         return data
 
@@ -372,7 +372,6 @@ class ClientProfileTests(ClientCase):
         beneficiary = Beneficiary.objects.get(rut=MARIA_RUT)
         self.assertEqual(beneficiary.address, "Los Aromos 999")
         self.assertEqual(beneficiary.phone, "+56 9 1111 2222")
-        self.assertEqual(User.objects.get(pk=self.maria.pk).email, "maria.nueva@correo.cl")
         self.assertTrue(AuditLog.objects.filter(event="Datos de cliente actualizados", user=self.maria).exists())
 
     def test_the_edit_never_touches_the_other_client(self):
@@ -404,8 +403,8 @@ class ClientProfileTests(ClientCase):
         self.assertEqual(Beneficiary.objects.get(rut=MARIA_RUT).phone, before)
 
     def test_a_bad_email_is_rejected(self):
-        response = self.client.post(reverse("core:profile"), self.data(email="no-es-correo"))
-        self.assertIn("email", response.context["client_form"].errors)
+        response = self.client.post(reverse("core:profile"), {"accion": "perfil", "first_name": "María", "email": "no-es-correo"})
+        self.assertIn("email", response.context["identity_form"].errors)
 
     def test_the_staff_cannot_use_the_client_form(self):
         self.login_as("matias.cavieres")

@@ -17,6 +17,38 @@ Nombres que cambiaron en la v27 (los textos antiguos los mencionan con el nombre
 | `core/qa/esperado_vNN.py` | `core/qa/esperado_<tema>.py` (mismo tema que su archivo de pruebas) |
 | `sql/*.sql` (todos) | `sql/sgr_django.sql` (estructura vigente) |
 
+## Versión 35
+
+Estado de los listados en la sesión y perfil editable, de la Evaluación Sumativa III. Siguen pendientes las demás exigencias de esa evaluación (2.000 registros de prueba, las seis cuentas y la tabla del README, y el diagrama de modelos) y los puntos abiertos de las versiones 30 a 33.
+
+### Estado del listado en la sesión, por módulo
+
+- **Una sola vez, en el motor (`core/crud.py`)**: lo heredan los 26 mantenedores y la pantalla Atención. Cada módulo guarda en `request.session["list_state:<slug>"]` su página, tamaño de página, búsqueda, filtros y orden.
+- **Regla fácil de explicar**: si la URL llega **con** parámetros de listado, se usan y se guardan; si llega **sin** ninguno (el menú, «Volver», cancelar, guardar, volver desde otro módulo), se restaura lo último guardado **redirigiendo a la misma URL con esos parámetros**. «Limpiar» (`?limpiar=1`) lo borra y vuelve al listado sin parámetros (conserva el tamaño de página elegido).
+- Por qué se restaura con una redirección y no en silencio: la barra de direcciones siempre dice lo que se ve, así que el **Excel** exporta lo que se está viendo, el **WebSocket** vuelve a pedir esa misma URL y los enlaces de página y de orden parten de los mismos parámetros. Los enlaces «Volver al listado», las migas de pan, cancelar y guardar ya apuntaban a la URL sin parámetros, así que restauran solos.
+- **Cambiar la búsqueda, un filtro o el orden vuelve a la página 1** (esos enlaces y el formulario nunca llevan `page`). Una **página que ya no existe se ajusta** a la última (y se guarda la ajustada); `page=abc`, `0` o negativo es la página 1.
+- **Parámetros inválidos se ignoran**: tamaño distinto de 5, 15 o 30, orden fuera de las columnas permitidas, dirección que no es asc/desc, filtro que no es una opción, `archivados` no permitido. Un valor alterado en la sesión se revalida y nunca rompe el listado; los filtros guardados se vuelven a validar contra lo que la persona puede usar (delegación, archivados).
+- **WebSocket**: la consulta de fondo de `live-updates.js` manda la cabecera `X-Live-Refresh`; el servidor no restaura ni guarda el estado con ella, así que una pestaña olvidada no pisa lo último que se hizo en otra. La exportación a Excel tampoco guarda.
+- **Tamaño de página por módulo**: los botones de filas por página (5, 15, 30) ahora indican el módulo; el tamaño vale para ese módulo y lo manda a su página 1. `/filas/` sin módulo sigue valiendo para todos los listados, como antes.
+- **Orden por defecto**: lo más recién **creado** primero (`created_at` descendente) con el id descendente de desempate; editar un registro no lo mueve (antes cada módulo usaba su fecha de negocio o su nombre). Roles y Usuarios: Roles no tiene fecha de creación y se ordena por nombre; Usuarios por `date_joined` descendente.
+- Cambia el comportamiento de dos pruebas existentes (`PageSizeTests` y la auditoría de descargas): una visita sin parámetros después de una con parámetros ahora restaura, así que usan «Limpiar» antes.
+
+### Mi perfil: nombre y correo editables
+
+- **Todos los perfiles** editan su nombre, apellido y correo en *Mi perfil* (formulario `ProfileDataForm`, acción `perfil`). Es un `ModelForm` con **lista blanca de tres campos** (nunca `__all__`) y la instancia siempre es la cuenta de quien tiene la sesión (se vuelve a leer de la base): enviar `groups`, `is_superuser`, `is_staff`, `is_active`, `username`, `officer`, `beneficiary`, delegaciones, `id` o `user` ajenos no cambia nada, ni a la persona ni a otra.
+- **Validación**: nombre y apellido con la regla `person_name`; correo con la regla `email`; el correo no puede ser el de otra cuenta (sin distinguir mayúsculas); no se puede vaciar el nombre ni el correo si ya existen (sin correo no hay recuperación de contraseña); largos máximos de la base. El navegador valida con los mismos atributos.
+- **Auditoría**: «Datos de perfil actualizados» con lo anterior y lo nuevo, solo de los campos que cambiaron; si no se cambió nada, se avisa y no se registra.
+- **Cliente**: se edita el **nombre de la cuenta** (`User`), no el de la ficha del beneficiario, que es el dato oficial y se muestra como «Nombre en tu ficha», solo lectura. Así no se rompe el vínculo cuenta–ficha ni lo que ve en su portal. El correo, que antes se editaba en «Mis datos», pasa al formulario común; «Mis datos» queda con teléfono y dirección de su ficha.
+- ❓ Para confirmar con el grupo: que «nombre del Cliente» sea el de la cuenta (esta versión) y no el de la ficha.
+
+### Base de datos
+
+Sin cambios: no hay migraciones nuevas ni cambia `sql/sgr_django.sql`. El estado de los listados vive en la sesión (`django_session`).
+
+### Pruebas
+
+Nuevos `core/test_listados_sesion.py` (71 pruebas: reglas, validación de parámetros, página 1, navegación detalle/edición/otro módulo, el mismo recorrido en **todos** los módulos, Excel, consulta de fondo del WebSocket, tamaño por módulo y orden por defecto) y `core/test_perfil_editable.py` (38 pruebas: validación, auditoría, campos manipulados, Cliente). Están en el catálogo QA como V35-01 y V35-02 (`core/qa/esperado_listado_y_perfil.py`). La comprobación en dos navegadores (WebSocket entre dos sesiones con el estado restaurado) no se puede hacer desde el entorno de desarrollo: queda para la revisión en AWS.
+
 ## Versión 34
 
 Recuperación de contraseña por enlace con token y página 400, de la Evaluación Sumativa III. Siguen pendientes las demás exigencias de esa evaluación (estado de los listados en sesión, perfil editable, 2.000 registros de prueba, las seis cuentas y la tabla del README, y el diagrama de modelos) y los puntos abiertos de las versiones 30 a 33.

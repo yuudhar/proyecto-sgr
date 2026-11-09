@@ -196,6 +196,7 @@ class ListExportTests(ExcelTestCase):
         self.assertEqual(log.record_id, 0)
         self.assertTrue(log.new_value.startswith("1 fila. "))
         self.assertIn("Búsqueda: «munoz»", log.new_value)
+        self.client.get(reverse("core:atencion"), {"limpiar": 1})  # v35: sin «Limpiar», la exportación sin parámetros usaría la búsqueda guardada
         self.download("core:atencion")
         self.assertIn("5 filas. Sin filtros", AuditLog.objects.order_by("-pk").first().new_value)
 

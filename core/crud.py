@@ -11,6 +11,7 @@ from django.forms import modelform_factory
 from django.http import HttpResponse, JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import path, reverse
+from django.utils.http import urlencode
 from django.utils import timezone
 from django.views import View
 from django.views.generic import RedirectView
@@ -27,6 +28,11 @@ from websocket.services import notify_crud_change
 PAGE_SIZE = 15
 PAGE_SIZES = (5, 15, 30)
 SESSION_PAGE_SIZE = "page_size"
+# Estado de cada listado en la sesión, por módulo: la clave es "list_state:<slug>" (ver ListState más abajo).
+SESSION_LIST_STATE = "list_state:"
+LIST_RESET = "limpiar"
+# Cabecera que manda live-updates.js en sus consultas de fondo: esas consultas ni restauran ni guardan el estado.
+LIVE_REFRESH_HEADER = "X-Live-Refresh"
 RELATED_LIMIT = 25
 SEARCH_WORDS = 10
 CODE_COLUMN = "__code__"
@@ -503,6 +509,20 @@ class Crud:
             raise FieldDoesNotExist(f"{self.model.__name__} no tiene el campo «{name}» para filtrar.")
         return found
 
+    def default_ordering(self):
+        """Orden de un listado sin orden elegido: lo más recién creado primero, con el id descendente de desempate.
+
+        Es la fecha de creación (created_at) y no la de última edición (updated_at): editar un registro no lo
+        mueve de lugar. Los modelos sin created_at (roles) declaran su orden en `ordering`.
+        """
+        if self.ordering:
+            return tuple(self.ordering)
+        try:
+            self.model._meta.get_field("created_at")
+        except FieldDoesNotExist:
+            return tuple(self.model._meta.ordering)
+        return ("-created_at", "-pk")
+
     def build_filters(self, request):
         specs = []
         for name in self.list_filters:
@@ -773,6 +793,9 @@ class Registry:
     def get(self, slug):
         return self._by_slug[slug]
 
+    def find(self, slug):
+        return self._by_slug.get(slug)
+
     def all(self):
         return list(self._by_slug.values())
 
@@ -884,6 +907,79 @@ def page_size_of(request):
     return size if size in PAGE_SIZES else PAGE_SIZE
 
 
+# --- Estado del listado en la sesión (una sola vez, en el motor: lo heredan todos los módulos) -----------------
+#
+# Regla, fácil de explicar:
+#   1. Si la URL del listado llega con parámetros de listado (q, filtros, orden, página, filas, archivados), se usan
+#      y se guardan en la sesión, en una clave por módulo: "list_state:<slug>".
+#   2. Si llega sin ninguno (menú, "Volver", cancelar, guardar, volver desde otro módulo), se restaura lo último
+#      guardado redirigiendo a la misma URL con esos parámetros. Así la barra de direcciones siempre dice lo que
+#      se está viendo y el WebSocket, la exportación a Excel y los demás enlaces parten de los mismos parámetros.
+#   3. El enlace "Limpiar" (?limpiar=1) borra lo guardado y vuelve al listado sin parámetros.
+#   4. Cambiar la búsqueda, un filtro o el orden no manda la página: se vuelve a la 1. Una página que ya no existe se
+#      ajusta a la última, y un parámetro inválido (page=abc, filas=999, orden no permitido…) se ignora.
+# La consulta de fondo del WebSocket (cabecera X-Live-Refresh) ni restaura ni guarda: así una pestaña vieja no pisa
+# lo que se hizo en otra. La exportación a Excel tampoco guarda (no cambia lo que se está viendo).
+
+LIST_STATE_PARAMS = ("q", "orden", "dir", "page", "filas", STATE_FILTER, "archivados")
+
+
+def blank_list_state(size=None):
+    return {"q": "", "filters": {}, "orden": "", "dir": "", "archivados": "", "page": 1, "size": size}
+
+
+def read_list_state(request, slug):
+    """Estado guardado de un módulo. Se revalida: lo que haya en la sesión nunca debe romper el listado."""
+    raw = request.session.get(SESSION_LIST_STATE + slug)
+    state = blank_list_state()
+    if not isinstance(raw, dict):
+        return state
+    if isinstance(raw.get("q"), str):
+        state["q"] = raw["q"]
+    if isinstance(raw.get("filters"), dict):
+        state["filters"] = {
+            str(name): str(value) for name, value in raw["filters"].items() if isinstance(value, (str, int)) and value != ""
+        }
+    for key in ("orden", "dir", "archivados"):
+        if isinstance(raw.get(key), str):
+            state[key] = raw[key]
+    if isinstance(raw.get("page"), int) and raw["page"] >= 1:
+        state["page"] = raw["page"]
+    if raw.get("size") in PAGE_SIZES:
+        state["size"] = raw["size"]
+    return state
+
+
+def save_list_state(request, slug, state):
+    if request.session.get(SESSION_LIST_STATE + slug) != state:
+        request.session[SESSION_LIST_STATE + slug] = state
+
+
+def list_state_params(state):
+    """Parámetros de URL que reproducen un estado guardado (lo que no es el valor por defecto no se escribe)."""
+    params = {}
+    if state["q"]:
+        params["q"] = state["q"]
+    params.update(state["filters"])
+    if state["orden"]:
+        params["orden"] = state["orden"]
+        params["dir"] = state["dir"] if state["dir"] in ("asc", "desc") else "asc"
+    if state["archivados"]:
+        params["archivados"] = state["archivados"]
+    if state["page"] > 1:
+        params["page"] = str(state["page"])
+    return params
+
+
+def page_number_of(raw, paginator):
+    """Página pedida, siempre válida: un texto o un número menor que 1 es la página 1; uno que ya no existe, la última."""
+    try:
+        number = int(raw)
+    except (TypeError, ValueError):
+        number = 1
+    return min(max(number, 1), paginator.num_pages)
+
+
 class CrudListView(CrudView):
 
     template_name = "core/crud/list.html"
@@ -897,8 +993,35 @@ class CrudListView(CrudView):
     def extra_context(self, request):
         return {}
 
+    def state_params(self):
+        return {*LIST_STATE_PARAMS, *self.crud.list_filters}
+
+    def asked_size(self, request):
+        """Tamaño pedido en la URL (filas=5|15|30); cualquier otro valor se ignora."""
+        try:
+            asked = int(request.GET.get("filas", ""))
+        except ValueError:
+            return None
+        return asked if asked in PAGE_SIZES else None
+
     def get(self, request):
         crud = self.crud
+        saved = read_list_state(request, crud.slug)
+
+        if LIST_RESET in request.GET:
+            save_list_state(request, crud.slug, blank_list_state(saved["size"]))
+            return redirect(request.path)
+
+        background = bool(request.headers.get(LIVE_REFRESH_HEADER))
+        exporting = request.GET.get("formato") == "xlsx"
+        if not background and not any(name in request.GET for name in self.state_params()):
+            params = list_state_params(saved)
+            if params:
+                merged = request.GET.copy()
+                for name, value in params.items():
+                    merged[name] = value
+                return redirect(f"{request.path}?{merged.urlencode()}")
+
         columns = self.get_columns(request)
         filters = crud.build_filters(request)
         state = next((spec.selected for spec in filters if spec.name == STATE_FILTER), "")
@@ -922,14 +1045,33 @@ class CrudListView(CrudView):
             qs = qs.order_by(("-" if direction == "desc" else "") + sort, "pk")
         else:
             sort = ""
-            qs = qs.order_by(*(crud.ordering or crud.model._meta.ordering), "pk")
+            default = list(crud.default_ordering())
+            if not any(name.lstrip("-") in ("pk", "id") for name in default):
+                default.append("pk")
+            qs = qs.order_by(*default)
 
-        if request.GET.get("formato") == "xlsx":
+        if exporting:
             return self.download(request, qs, columns, crud.filter_summary(text, filters, archived))
 
-        page_size = page_size_of(request)
+        asked = self.asked_size(request)
+        page_size = asked or saved["size"] or page_size_of(request)
         paginator = Paginator(qs, page_size)
-        page = paginator.get_page(request.GET.get("page"))
+        page = paginator.page(page_number_of(request.GET.get("page"), paginator))
+
+        if not background:
+            save_list_state(
+                request,
+                crud.slug,
+                {
+                    "q": text,
+                    "filters": {spec.name: spec.selected for spec in filters if spec.selected},
+                    "orden": sort,
+                    "dir": direction if sort else "",
+                    "archivados": mode,
+                    "page": page.number,
+                    "size": asked or saved["size"],
+                },
+            )
 
         shown = []
         for col in columns:
@@ -941,7 +1083,7 @@ class CrudListView(CrudView):
                 else:
                     next_dir = "asc"
                 current.sort_url = query_string(
-                    request, drop=("page",), orden=col.sort_key, dir=next_dir
+                    request, drop=("page", "filas"), orden=col.sort_key, dir=next_dir
                 )
             shown.append(current)
 
@@ -958,24 +1100,26 @@ class CrudListView(CrudView):
                 paginator.get_elided_page_range(page.number, on_each_side=2, on_ends=1)
             ),
             "ellipsis": paginator.ELLIPSIS,
-            "page_query": query_string(request, drop=("page",)),
+            "page_query": query_string(request, drop=("page", "filas")),
             "page_sizes": PAGE_SIZES,
             "page_size": page_size,
-            "page_size_next": request.path + query_string(request, drop=("page",)).rstrip("?"),
+            "page_size_next": request.path + query_string(request, drop=("page", "filas")).rstrip("?"),
             "archived_url": query_string(
-                request, drop=("page",), archivados="" if archived else "1"
+                request, drop=("page", "filas"), archivados="" if archived else "1"
             ),
-            "trash_url": query_string(request, drop=("page",), archivados="" if only_archived else ONLY_ARCHIVED),
+            "trash_url": query_string(request, drop=("page", "filas"), archivados="" if only_archived else ONLY_ARCHIVED),
             "only_archived": only_archived,
             "archived_mode": mode,
             "can_see_archived": crud.can_see_archived(request),
-            "export_url": query_string(request, drop=("page",), formato="xlsx"),
+            "export_url": query_string(request, drop=("page", "filas"), formato="xlsx"),
+            "reset_url": f"{request.path}?{LIST_RESET}=1",
             "filters": filters,
             "q": text,
             "sort": sort,
             "direction": direction,
             "archived": archived,
             "has_filters": bool(text or archived or any(f.selected for f in filters)),
+            "can_reset": bool(text or archived or sort or page.number > 1 or any(f.selected for f in filters)),
             "can_add": crud.can_add(request.user),
             "create_url": crud.url("create") if crud.can_add(request.user) else "",
             "breadcrumbs": self.breadcrumbs(),

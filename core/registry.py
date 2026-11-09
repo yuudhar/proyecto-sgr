@@ -1334,7 +1334,7 @@ class UserCrud(Crud):
         "El usuario deja de aparecer en el listado y no podrá ingresar. No se borra de la base de datos: pasa a "
         "«Usuarios eliminados» y el Super Usuario puede restaurarlo cuando haga falta. Su historial se conserva."
     )
-    ordering = ("username",)
+    ordering = ("-date_joined", "-pk")
     list_display = (
         Col("username", "Usuario", link=True),
         Col("full_name", "Nombre", sort="first_name"),

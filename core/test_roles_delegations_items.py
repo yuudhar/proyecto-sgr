@@ -136,7 +136,8 @@ class DelegationFieldsTests(ExcelTestCase):
         response = self.download("core:delegaciones_list")
         headers, _rows = self.table(self.sheet(response))
         self.assertEqual(headers[:4], ["Código", "Nombre", "Dirección", "Comuna"])
-        self.assertEqual(self.column(response, "Dirección"), ["Av. Cuatro Esquinas 1200", "Av. Juan Bohón 850"])
+        # El orden por defecto es el de creación (v35), así que se compara el contenido sin depender del orden.
+        self.assertEqual(sorted(self.column(response, "Dirección")), ["Av. Cuatro Esquinas 1200", "Av. Juan Bohón 850"])
         self.assertEqual(self.column(response, "Comuna"), ["La Serena", "La Serena"])
 
 
@@ -313,7 +314,7 @@ class RoleProfileTests(ExcelTestCase):
         self.assertNotIn("Auditor", names(role_profile__status="active"))
         self.assertEqual(names(role_profile__scope="all"), ["Auditor", "Coordinación"])
         self.assertEqual(names(role_profile__scope="all", role_profile__status="active"), ["Coordinación"])
-        filters = {spec.label: spec for spec in self.client.get(url).context["filters"]}
+        filters = {spec.label: spec for spec in self.client.get(url, {"q": ""}).context["filters"]}
         self.assertEqual(set(filters), {"Estado", "Alcance autorizado"})
         self.assertEqual([label for _value, label in filters["Estado"].options], ["Activo", "Inactivo"])
 

@@ -11,7 +11,7 @@
 <section class="page-head">
   <div>
     <h1 class="page-title"><i class="bi bi-person-circle" aria-hidden="true"></i>Mi perfil</h1>
-    <p class="page-sub">{% if is_client %}Tus datos de contacto, tu foto y el cambio de contraseña.{% else %}Tus datos en el sistema, tu delegación, tus perfiles y el cambio de contraseña.{% endif %}</p>
+    <p class="page-sub">{% if is_client %}Tu nombre, tu correo, tus datos de contacto, tu foto y el cambio de contraseña.{% else %}Tu nombre y correo, tu delegación, tus perfiles y el cambio de contraseña.{% endif %}</p>
   </div>
 </section>
 
@@ -50,11 +50,25 @@
         {% endif %}
       </div>
       <dl class="facts">
-        <div class="facts-row"><dt>Nombre</dt><dd>{{ me_name }}</dd></div>
         <div class="facts-row"><dt>Usuario</dt><dd>{{ me.get_username }}</dd></div>
-        <div class="facts-row"><dt>Correo</dt><dd>{% if me.email %}{{ me.email }}{% else %}<span class="muted">Sin correo</span>{% endif %}</dd></div>
         <div class="facts-row"><dt>Ingreso actual</dt><dd>{{ me.last_login|fdatetime }}</dd></div>
       </dl>
+      <form method="post" class="panel-body" aria-label="Mi nombre y mi correo" data-once data-validate data-unsaved-guard{% if identity_form.is_bound %}="dirty"{% endif %}>
+        {% csrf_token %}
+        <input type="hidden" name="accion" value="perfil">
+        {% if identity_form.errors %}
+        <div class="alert alert-danger d-flex gap-2" role="alert">
+          <i class="bi bi-x-octagon-fill" aria-hidden="true"></i>
+          <div><strong>No se guardaron tu nombre ni tu correo.</strong> Revisa los campos marcados en rojo.</div>
+        </div>
+        {% endif %}
+        <div class="row g-3">
+          {% for field in identity_form %}{% include "core/partials/field.html" with wide=True %}{% endfor %}
+        </div>
+        <div class="form-actions form-actions-flush">
+          <button type="submit" class="btn btn-primary"><i class="bi bi-check-lg" aria-hidden="true"></i> Guardar nombre y correo</button>
+        </div>
+      </form>
     </section>
 
     {% if client_form %}
@@ -62,7 +76,7 @@
       <div class="panel-head"><h2 class="panel-title">Mis datos</h2></div>
       {% if beneficiary %}
       <dl class="facts">
-        <div class="facts-row"><dt>Nombre</dt><dd>{{ beneficiary.name }}</dd></div>
+        <div class="facts-row"><dt>Nombre en tu ficha</dt><dd>{{ beneficiary.name }} <span class="muted">(dato oficial: si está mal, pide que lo corrijan)</span></dd></div>
         <div class="facts-row"><dt>RUT</dt><dd>{{ beneficiary.rut }}</dd></div>
       </dl>
       {% endif %}

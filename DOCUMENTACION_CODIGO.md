@@ -268,7 +268,7 @@ El Cliente es un beneficiario con cuenta. Ve solo su perfil y sus propias atenci
 - **`activity`** (`portal/atenciones/<pk>/`): detalle con sus gestiones. Una atención ajena, archivada o inexistente responde 404 igual. No muestra datos internos (puntaje, evidencias, compromiso del tubo).
 - Las tres usan el decorador `client_only`: cualquier cuenta que no sea Cliente recibe 403.
 - Menú del Cliente (`core/menus.py: client_menu`): Mi portal, Mis atenciones y Mi perfil. El contexto de las plantillas trae `is_client` y `home_url`; la franja y la tarjeta de delegación no se muestran.
-- Mi perfil del Cliente (`core/views.py: profile`) agrega el formulario `ClientDataForm` («Mis datos»: correo, teléfono y dirección). La cuenta y la ficha salen del usuario autenticado (`save_client_data`), así que nadie cambia datos ajenos; el nombre, el RUT, el perfil y los permisos no se pueden cambiar. Queda en la auditoría.
+- Mi perfil del Cliente (`core/views.py: profile`) agrega el formulario `ClientDataForm` («Mis datos»: teléfono y dirección de su ficha). La ficha sale del usuario autenticado (`save_client_data`), así que nadie cambia datos ajenos; el RUT, el perfil y los permisos no se pueden cambiar. Queda en la auditoría. Desde la v35 su **nombre y su correo** (los de la cuenta) se editan en el formulario `ProfileDataForm`, igual que los demás perfiles; el nombre de la ficha del beneficiario es el dato oficial y se muestra como «Nombre en tu ficha», solo lectura, para no romper el vínculo cuenta–ficha.
 - `profile_photo`: el Cliente solo puede pedir su propia foto.
 - WebSocket: `CrudChangesConsumer` y `LiveConsumer` cierran la conexión de una cuenta Cliente.
 - Alta de cuentas (`UserForm`/`UserCrud`): el campo «Beneficiario» es obligatorio para el perfil Cliente, que va solo (sin otro perfil, funcionario, delegaciones, Super Usuario ni acceso al panel). Un beneficiario tiene a lo más una cuenta y los que ya la tienen no se ofrecen.
@@ -520,6 +520,13 @@ Foto de perfil de quien tiene la sesión iniciada (pantalla Mi perfil).
 - **`clean_photo()`**: Revisa la foto: PNG o JPG, tamaño máximo y que el contenido corresponda a la extensión; después la deja cuadrada (recorte centrado si no lo era) y de a lo más `PHOTO_SIDE_PX` (512) por lado con `uploads.square_photo` (v33), corrigiendo la orientación y conservando el formato. El recorte que hace Croppr en el navegador ya llega cuadrado; esto lo vuelve a garantizar en el servidor y cubre al navegador sin JavaScript.
 
   El campo `photo` es un `forms.ImageField`: antes de `clean_photo()`, Pillow comprueba que el archivo sea una imagen real (un archivo que solo imita la firma de un PNG se rechaza con «El archivo no es una imagen válida»).
+
+##### `ProfileDataForm` — hereda de `BootstrapFormMixin`, `forms.ModelForm`
+
+Nombre, apellido y correo de la propia cuenta, para todos los perfiles (v35, pantalla Mi perfil). **Lista blanca de tres campos** (`first_name`, `last_name`, `email`; nunca `__all__`): permisos, perfiles, delegación, funcionario, beneficiario, estado y usuario no existen en el formulario, así que enviarlos no cambia nada. La vista le pasa siempre la cuenta de quien tiene la sesión.
+
+- **`__init__(*args, **kwargs)`**: Aplica las reglas de nombre y correo del navegador, y exige nombre y correo solo si la cuenta ya los tiene (no se puede vaciar lo que existe: sin correo no hay recuperación de contraseña).
+- **`clean()`**: Aplica las reglas `person_name` y `email` (con su normalización) y comprueba que ninguna otra cuenta use ese correo, sin distinguir mayúsculas.
 
 ##### `PortalPasswordChangeForm` — hereda de `BootstrapFormMixin`, `PasswordChangeForm`
 
@@ -774,6 +781,7 @@ Describe las pantallas de un modelo. Se subclasea en core/registry.py.
   
   Solo se usan las primeras SEARCH_WORDS palabras: cada una agrega condiciones a la consulta y un texto larguísimo la dejaría demasiado grande para la base de datos.
 - **`filter_field(name)`**: Campo de un filtro. Puede ser una ruta, como «role_profile__status» (el estado en la ficha de un rol).
+- **`default_ordering()`**: Orden de un listado sin orden elegido (v35): `-created_at` y `-pk`; o el `ordering` que declare el CRUD (Roles y Usuarios, que no tienen `created_at`).
 - **`build_filters(request)`**: Filtros del listado con sus opciones; ignora valores que no sean opciones válidas.
 - **`apply_filters(qs, specs)`**: Aplica al listado los filtros elegidos en la barra de filtros.
 - **`scope_summary(request)`**: «Delegación: DEL02 · Delegación Norte» si el listado se limita a una delegación; vacío si trae todas.
@@ -809,6 +817,7 @@ Guarda los Crud por slug y arma sus direcciones.
 - **`__init__()`**: Crea el diccionario de CRUD por nombre corto (`slug`).
 - **`register(crud_class)`**: Registra una clase de CRUD (se usa como decorador).
 - **`get(slug)`**: Devuelve el CRUD de un `slug`.
+- **`find(slug)`**: Devuelve el CRUD de un `slug` o `None` si no existe (v35: lo usa `set_page_size` con el campo `modulo` del formulario).
 - **`all()`**: Lista todos los CRUD registrados.
 - **`urls()`**: Genera las rutas de cada CRUD: listado (o redirección), nuevo, detalle, editar, archivar, restaurar y eliminar, según lo que el CRUD permita.
 
@@ -824,9 +833,21 @@ Base de las vistas: exige sesión iniciada y el permiso del modelo.
 
 Listado con búsqueda, filtros, orden, paginador y descarga a Excel (?formato=xlsx).
 
+Desde la v35 guarda su estado en la sesión, **una sola vez, aquí**, y lo heredan todos los módulos (y Atención). La regla:
+
+1. Una URL con parámetros de listado (`q`, filtros, `orden`, `dir`, `page`, `filas`, `archivados`) se usa y se guarda en `request.session["list_state:<slug>"]` como `{q, filters, orden, dir, archivados, page, size}`.
+2. Una URL **sin** ninguno (el menú, «Volver», cancelar, guardar) restaura lo último guardado **redirigiendo a la misma URL con esos parámetros**. Así la barra de direcciones siempre dice lo que se ve, y el WebSocket, el Excel y los enlaces de página parten de los mismos parámetros.
+3. `?limpiar=1` (botón «Limpiar») borra lo guardado, menos el tamaño de página, y vuelve al listado sin parámetros.
+4. Cambiar búsqueda, filtro u orden no manda `page`: se vuelve a la 1. Una página que no existe se ajusta a la última, y un parámetro inválido (`page=abc`, `filas=999`, orden fuera de las columnas permitidas, filtro que no es una opción, `archivados` no permitido) se ignora.
+5. La consulta de fondo del WebSocket (cabecera `X-Live-Refresh`, que manda `live-updates.js`) ni restaura ni guarda; la exportación a Excel tampoco guarda.
+
+El orden por defecto es `Crud.default_ordering()`: `-created_at` y `-pk` (la fecha de creación, no la de última edición, con el id descendente de desempate). Roles y Usuarios, que no tienen `created_at`, declaran el suyo.
+
 - **`get_columns(request)`**: Columnas del listado: las de la vista o las del CRUD.
 - **`extra_context(request)`**: Datos que una pantalla basada en este listado agrega a la plantilla.
-- **`get(request)`**: Arma el listado: lee los filtros, decide si se muestran archivados, aplica búsqueda, filtros y orden (por la columna pedida o el orden del CRUD), descarga Excel si se pide `formato=xlsx`, pagina, prepara los enlaces de orden y las filas, y dibuja la plantilla.
+- **`state_params()`**: Nombres de parámetros que cuentan como «estado del listado»: los fijos más los filtros del CRUD.
+- **`asked_size(request)`**: Tamaño pedido en la URL (`filas`); solo vale 5, 15 o 30, lo demás se ignora.
+- **`get(request)`**: Arma el listado: restaura o reinicia el estado guardado (ver arriba), lee los filtros, decide si se muestran archivados, aplica búsqueda, filtros y orden (por la columna pedida o `default_ordering`), descarga Excel si se pide `formato=xlsx`, pagina con una página siempre válida, guarda el estado, prepara los enlaces de orden y las filas, y dibuja la plantilla.
 - **`download(request, qs, columns, summary)`**: Descarga en Excel lo mismo que muestra el listado (con su búsqueda, filtros y orden).
 
 ##### `CrudDetailView` — hereda de `CrudView`
@@ -915,9 +936,14 @@ GET pide la confirmación y POST elimina. Pide el permiso delete del modelo y se
   
   Si un paso es un método sin parámetros ("get_full_name"), se llama.
 - **`query_string(request, drop, **updates)`**: Parámetros actuales de la URL con cambios, para armar enlaces de orden y páginas.
-- **`page_size_of(request)`**: Filas por página de los listados: las que la persona eligió en esta sesión, o PAGE_SIZE.
+- **`page_size_of(request)`**: Filas por página generales: las que la persona eligió en esta sesión sin indicar módulo, o PAGE_SIZE.
   
-  La elección se guarda en request.session (ver set_page_size en core/views.py). Aquí se revisa otra vez contra PAGE_SIZES por si la sesión trajera otro valor. Las opciones son 5, 15 y 30 filas (`PAGE_SIZES`), y 15 el valor por defecto (`PAGE_SIZE`).
+  La elección se guarda en request.session (ver set_page_size en core/views.py). Aquí se revisa otra vez contra PAGE_SIZES por si la sesión trajera otro valor. Las opciones son 5, 15 y 30 filas (`PAGE_SIZES`), y 15 el valor por defecto (`PAGE_SIZE`). Desde la v35 el tamaño que vale es el del módulo (guardado en su estado); este general solo se usa si el módulo no tiene uno.
+- **`blank_list_state(size)`**: Estado vacío de un listado (v35): sin búsqueda, filtros ni orden, en la página 1.
+- **`read_list_state(request, slug)`**: Estado guardado de un módulo, revalidado: un valor de sesión alterado o de otro tipo nunca rompe el listado.
+- **`save_list_state(request, slug, state)`**: Guarda el estado en `list_state:<slug>` solo si cambió.
+- **`list_state_params(state)`**: Parámetros de URL que reproducen un estado guardado (lo que es valor por defecto no se escribe).
+- **`page_number_of(raw, paginator)`**: Página pedida, siempre válida: texto, 0 o negativo es la 1; una que no existe es la última.
 
 #### `core/registry.py`
 
@@ -1101,7 +1127,7 @@ Atributos principales: `model` = `Beneficiary`; `slug` = `'beneficiarios'`; `ico
 
 Control de usuarios: cuentas, perfiles y funcionario. Solo lo ve quien tiene permisos sobre usuarios.
 
-Atributos principales: `model` = `User`; `slug` = `'usuarios'`; `icon` = `'bi-people'`; `title` = `'Usuario'`; `title_plural` = `'Usuarios'`; `description` = `'Cuentas del sistema con su perfil y su delegación.'`; `archivable` = `False`; `ordering` = `username`; `list_display` = `username, full_name, email, roles, delegation_name, is_active, last_login`; `search_fields` = `username, first_name, last_name, email, groups__name, profile__officer__name, profile__officer__delegation__name`; `form_fields` = `username, first_name, last_name, email, groups, is_active, is_staff, is_superuser`.
+Atributos principales: `model` = `User`; `slug` = `'usuarios'`; `icon` = `'bi-people'`; `title` = `'Usuario'`; `title_plural` = `'Usuarios'`; `description` = `'Cuentas del sistema con su perfil y su delegación.'`; `archivable` = `False`; `ordering` = `-date_joined, -pk`; `list_display` = `username, full_name, email, roles, delegation_name, is_active, last_login`; `search_fields` = `username, first_name, last_name, email, groups__name, profile__officer__name, profile__officer__delegation__name`; `form_fields` = `username, first_name, last_name, email, groups, is_active, is_staff, is_superuser`.
 
 - **`extra_detail(obj)`**: Agrega al detalle los perfiles (roles), el funcionario, su delegación, las delegaciones autorizadas y el cargo.
 - **`record_meta(obj)`**: Texto con la fecha de creación de la cuenta y su último ingreso (o que todavía no ha ingresado).
@@ -1193,11 +1219,12 @@ Es el listado de Actividades con una pantalla pensada para atender: un cuadro de
 
 **Funciones**
 
-- **`profile(request)`**: Mi perfil: los datos de la cuenta, la foto de perfil y el cambio de contraseña.
+- **`profile(request)`**: Mi perfil: nombre y correo de la cuenta (formulario `ProfileDataForm`, acción `perfil`), la foto de perfil, el cambio de contraseña y, para el Cliente, sus datos de contacto. La cuenta editada sale siempre de la sesión y se vuelve a leer de la base, de modo que un envío inválido no deja cambiado el nombre que se muestra arriba.
+- **`save_identity(user, form)`**: Guarda nombre, apellido y correo de la propia cuenta (solo los campos que cambiaron) y lo deja en la auditoría como «Datos de perfil actualizados»; devuelve si algo cambió.
 - **`profile_photo(request, user_id)`**: Entrega la foto de perfil de un usuario a cualquier persona con la sesión iniciada.
 - **`set_page_size(request)`**: Guarda en la sesión cuántas filas por página quiere ver la persona y la devuelve a donde estaba.
   
-  Es un dato temporal de la sesión: no es un dato permanente (no va a la base de datos), vale para todos los listados y se olvida al cerrar sesión. Después de guardar, el aviso de éxito (messages) se muestra en la página a la que se redirige.
+  Es un dato temporal de la sesión: no es un dato permanente (no va a la base de datos) y se olvida al cerrar sesión. Desde la v35, si el formulario trae `modulo` (el slug del listado, que los botones de filas por página incluyen), el tamaño vale solo para ese módulo y lo manda a su página 1; sin `modulo`, o con uno desconocido o que la persona no puede ver, vale para todos los listados como antes. Después de guardar, el aviso de éxito (messages) se muestra en la página a la que se redirige.
 - **`context_label(delegation)`**: «DEL01 · Delegación Norte», o «Todas las delegaciones» si no hay una delegación.
 - **`context_return_url(request)`**: A dónde volver después de cambiar de delegación.
   
@@ -2584,7 +2611,7 @@ Plantillas de Django. Las de `templates/` son el marco general, los errores y la
 | `templates/registration/recovery_email.txt` | Correo con el enlace de recuperación (versión texto). |
 | `core/templates/core/dashboard.html` | Dashboard: saludo, metas del período del funcionario, semáforo, pendientes, accesos directos, atenciones recientes y compromisos próximos. |
 | `core/templates/core/atencion.html` | Pantalla de Atención: listado de actividades con buscador, filtros, tabla, filas por página y paginación. |
-| `core/templates/core/profile.html` | Mi perfil: datos de la cuenta, foto, delegación y cambio de contraseña. |
+| `core/templates/core/profile.html` | Mi perfil: nombre y correo editables, foto, delegación y cambio de contraseña. |
 | `core/templates/core/administration.html` | Administración: período vigente y accesos a los mantenedores de organización, planificación y catálogos. |
 | `core/templates/core/delegation_board.html` | Tablero de delegación: promedio, semáforo, resultado de cada funcionario y tarjetas de pendientes. |
 | `core/templates/core/commitment_summary.html` | Resumen colectivo: compromisos por funcionario y estado, con % realizado y % por realizar, filtros de delegación y período y actualización en vivo. |
@@ -2611,7 +2638,7 @@ Plantillas de Django. Las de `templates/` son el marco general, los errores y la
 | `core/templates/core/partials/meter.html` | Barra de cumplimiento con sus marcas de umbral. |
 | `core/templates/core/partials/mini_table.html` | Listado corto con la primera celda enlazada a la ficha. |
 | `core/templates/core/partials/pace_panel.html` | Cuadro «Ritmo del período»: meta esperada al día, % diario, avance logrado y estado frente a lo esperado. |
-| `core/templates/core/partials/page_size.html` | Selector de filas por página (se guarda en la sesión). |
+| `core/templates/core/partials/page_size.html` | Selector de filas por página (se guarda en la sesión, por módulo). |
 | `core/templates/core/partials/pagination.html` | Paginación con páginas anterior, siguiente y saltos. |
 | `core/templates/core/partials/public_head.html` | Cabecera simple de las páginas sin sesión. |
 | `core/templates/core/partials/sidebar.html` | Barra lateral: marca, delegación con su color, perfiles y menú. |

@@ -2,6 +2,7 @@
 <form method="post" action="{% url 'core:page_size' %}" class="page-size">
   {% csrf_token %}
   <input type="hidden" name="next" value="{{ page_size_next }}">
+  <input type="hidden" name="modulo" value="{{ crud.slug }}">
   <span class="page-size-label" id="filas-titulo">Filas por página</span>
   <span class="btn-group btn-group-sm" role="group" aria-labelledby="filas-titulo">
     {% for size in page_sizes %}

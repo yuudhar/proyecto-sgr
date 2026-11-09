@@ -784,6 +784,7 @@ class UserDelegationsFormTests(ContextTestCase):
         for index in range(8):
             user = self.make_user(f"extra{index}", ["Funcionario", "Verificador"])
             sync_extra_delegations(user, [self.south, self.center])
+        self.client.get(reverse("core:usuarios_list"))  # la primera visita guarda el estado del listado en la sesión (v35)
         with self.assertNumQueries(self.count_queries(reverse("core:usuarios_list"))):
             self.client.get(reverse("core:usuarios_list"))
         first = self.count_queries(reverse("core:usuarios_list"), {"q": "extra0"})

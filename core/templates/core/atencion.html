@@ -43,7 +43,7 @@
       {% endfor %}
       {% if archived %}<input type="hidden" name="archivados" value="1">{% endif %}
       {% if sort %}<input type="hidden" name="orden" value="{{ sort }}"><input type="hidden" name="dir" value="{{ direction }}">{% endif %}
-      {% if has_filters %}<a class="btn btn-outline-secondary align-self-end" href="{{ request.path }}">Limpiar</a>{% endif %}
+      {% if can_reset %}<a class="btn btn-outline-secondary align-self-end" href="{{ reset_url }}">Limpiar</a>{% endif %}
     </div>
     {% endif %}
     <div class="invalid-feedback" id="atencion-q_error"></div>

@@ -54,7 +54,7 @@ ESPERADO = {
     },
     "ClientProfileTests": {
         "the_profile_has_the_client_panel_and_no_delegation_panel": "El perfil del Cliente trae «Mis datos» y no el panel de delegación.",
-        "the_client_edits_the_own_contact_data": "El Cliente edita su correo, teléfono y dirección, y queda en la auditoría.",
+        "the_client_edits_the_own_contact_data": "El Cliente edita su teléfono y dirección, y queda en la auditoría.",
         "the_edit_never_touches_the_other_client": "Aunque mande identificadores ajenos, la edición nunca toca al otro cliente.",
         "the_client_cannot_change_the_name_the_rut_the_role_or_the_owner": "El Cliente no puede cambiar su nombre, RUT, perfil, permisos ni el dueño de la cuenta.",
         "a_bad_phone_is_rejected_and_nothing_is_saved": "Un teléfono inválido se rechaza y no se guarda nada.",

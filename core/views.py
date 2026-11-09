@@ -6,6 +6,7 @@ from urllib.parse import urlsplit
 from django.contrib import messages
 from django.contrib.auth import update_session_auth_hash, views as auth_views
 from django.contrib.auth.decorators import login_required, permission_required
+from django.contrib.auth.models import User
 from django.core.exceptions import PermissionDenied
 from django.db import transaction
 from django.db.models import Count, Prefetch, Q
@@ -31,8 +32,8 @@ from core.activity_stats import delegation_recent, recent_activity
 from core.audit import log_event, log_export
 from core.clients import client_beneficiary, is_client
 from core.commitments import DUE_SOON_DAYS, STATUS_ORDER, collective_summary, deadline_counts, status_label
-from core.crud import CODE_COLUMN, PAGE_SIZES, SESSION_PAGE_SIZE, Col, Column, CrudListView, conflict_message, query_string, registry, version_of
-from core.forms import ClientDataForm, PortalAuthenticationForm, PortalPasswordChangeForm, ProfilePhotoForm, ValidationForm
+from core.crud import CODE_COLUMN, PAGE_SIZES, SESSION_PAGE_SIZE, Col, Column, CrudListView, conflict_message, query_string, read_list_state, registry, save_list_state, version_of
+from core.forms import ClientDataForm, PortalAuthenticationForm, PortalPasswordChangeForm, ProfileDataForm, ProfilePhotoForm, ValidationForm
 from core.results import current_period, goals_of, light_of, mean, officer_summary, rounded, team_goals
 from core.rules import rut_with_wrong_digit
 from evidence.models import Evidence, Validation
@@ -65,27 +66,41 @@ class PortalLogoutView(auth_views.LogoutView):
         return response
 
 
-def save_client_data(user, beneficiary, data):
-    """Guarda lo que el Cliente cambió de sí mismo: su correo y el teléfono y dirección de su ficha.
+def save_identity(user, form):
+    """Guarda el nombre y el correo de la propia cuenta y lo deja en la auditoría. Devuelve si algo cambió.
 
-    La cuenta y la ficha salen del usuario autenticado, nunca de un dato del formulario; así nadie cambia datos ajenos.
+    Se guardan solo los campos de la lista blanca del formulario y solo si cambiaron.
+    """
+    labels = {"first_name": "nombre", "last_name": "apellido", "email": "correo"}
+    changed = [name for name in labels if getattr(user, name) != form.cleaned_data[name]]
+    if not changed:
+        return False
+    before = "; ".join(f"{labels[name]}: {getattr(user, name) or '(vacío)'}" for name in changed)
+    after = "; ".join(f"{labels[name]}: {form.cleaned_data[name] or '(vacío)'}" for name in changed)
+    with transaction.atomic():
+        for name in changed:
+            setattr(user, name, form.cleaned_data[name])
+        user.save(update_fields=changed)
+        log_event(user, "Datos de perfil actualizados", user, previous=before, new=after)
+    return True
+
+
+def save_client_data(user, beneficiary, data):
+    """Guarda lo que el Cliente cambió de su ficha: el teléfono y la dirección.
+
+    La ficha sale del usuario autenticado, nunca de un dato del formulario; así nadie cambia datos ajenos.
     """
     with transaction.atomic():
-        before = f"correo: {user.email or '(vacío)'}"
-        if user.email != data["email"]:
-            user.email = data["email"]
-            user.save(update_fields=["email"])
-        if beneficiary is not None:
-            before += f"; teléfono: {beneficiary.phone or '(vacío)'}; dirección: {beneficiary.address or '(vacía)'}"
-            beneficiary.phone = data["phone"] or None
-            beneficiary.address = data["address"]
-            beneficiary.save(update_fields=["phone", "address", "updated_at"])
+        before = f"teléfono: {beneficiary.phone or '(vacío)'}; dirección: {beneficiary.address or '(vacía)'}"
+        beneficiary.phone = data["phone"] or None
+        beneficiary.address = data["address"]
+        beneficiary.save(update_fields=["phone", "address", "updated_at"])
         log_event(
             user,
             "Datos de cliente actualizados",
-            beneficiary if beneficiary is not None else user,
+            beneficiary,
             previous=before,
-            new=f"correo: {data['email'] or '(vacío)'}; teléfono: {data['phone'] or '(vacío)'}; dirección: {data['address'] or '(vacía)'}",
+            new=f"teléfono: {data['phone'] or '(vacío)'}; dirección: {data['address'] or '(vacía)'}",
         )
 
 
@@ -94,23 +109,32 @@ def profile(request):
     action = request.POST.get("accion", "") if request.method == "POST" else ""
     form = PortalPasswordChangeForm(request.user, request.POST if action == "" and request.method == "POST" else None)
     photo_form = ProfilePhotoForm(request.POST if action == "foto" else None, request.FILES if action == "foto" else None)
+    # La cuenta que se edita sale siempre de la sesión (nunca de un campo de la petición). Se lee de nuevo de la base
+    # para que un envío inválido no deje cambiado en memoria el nombre que se muestra arriba.
+    identity_form = ProfileDataForm(request.POST if action == "perfil" else None, instance=User.objects.get(pk=request.user.pk))
     beneficiary = client_beneficiary(request.user)
     client_form = None
     if is_client(request.user):
         client_form = ClientDataForm(
             request.POST if action == "datos" else None,
             initial={
-                "email": request.user.email,
                 "phone": beneficiary.phone if beneficiary else "",
                 "address": beneficiary.address if beneficiary else "",
             },
         )
     if request.method == "POST":
+        if action == "perfil" and identity_form.is_valid():
+            if save_identity(request.user, identity_form):
+                messages.success(request, "Listo: actualizaste tu nombre y tu correo.")
+            else:
+                messages.info(request, "No hiciste cambios en tu nombre ni en tu correo.")
+            return redirect("core:profile")
         if action == "datos":
             if client_form is None:
                 raise PermissionDenied("Solo las cuentas del perfil Cliente cambian sus datos de contacto aquí.")
             if client_form.is_valid():
-                save_client_data(request.user, beneficiary, client_form.cleaned_data)
+                if beneficiary is not None:
+                    save_client_data(request.user, beneficiary, client_form.cleaned_data)
                 messages.success(request, "Listo: actualizaste tus datos.")
                 return redirect("core:profile")
         if action == "foto" and photo_form.is_valid():
@@ -145,6 +169,7 @@ def profile(request):
         {
             "form": form,
             "photo_form": photo_form,
+            "identity_form": identity_form,
             "client_form": client_form,
             "beneficiary": beneficiary,
             "breadcrumbs": [("Inicio", reverse("core:portal_home" if client_form else "core:dashboard")), ("Mi perfil", None)],
@@ -176,12 +201,19 @@ def set_page_size(request):
     if size not in PAGE_SIZES:
         messages.error(request, "Esa cantidad de filas no está disponible.")
     else:
-        request.session[SESSION_PAGE_SIZE] = size
-        messages.success(
-            request,
-            f"Listo: los listados muestran {size} filas por página mientras dure tu sesión.",
-            extra_tags="toast",
-        )
+        crud = registry.find(request.POST.get("modulo", ""))
+        if crud is not None and not crud.has_perm(request.user, "view"):
+            crud = None
+        if crud is None:
+            request.session[SESSION_PAGE_SIZE] = size
+            text = f"Listo: los listados muestran {size} filas por página mientras dure tu sesión."
+        else:
+            # El tamaño es del módulo desde el que se pidió; cambiarlo vuelve a su página 1.
+            state = read_list_state(request, crud.slug)
+            state.update(size=size, page=1)
+            save_list_state(request, crud.slug, state)
+            text = f"Listo: {crud.list_title} muestra {size} filas por página mientras dure tu sesión."
+        messages.success(request, text, extra_tags="toast")
     target = request.POST.get("next", "")
     if not url_has_allowed_host_and_scheme(target, allowed_hosts={request.get_host()}, require_https=request.is_secure()):
         target = reverse("core:dashboard")

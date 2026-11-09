@@ -1247,19 +1247,75 @@ class ProfilePhotoForm(BootstrapFormMixin, forms.Form):
         return uploads.square_photo(checked, settings.PHOTO_SIDE_PX)
 
 
-class ClientDataForm(BootstrapFormMixin, forms.Form):
-    """Los datos que el Cliente puede cambiar de sí mismo. El nombre, el RUT, el perfil y el dueño de la cuenta no."""
+class ProfileDataForm(BootstrapFormMixin, forms.ModelForm):
+    """Nombre y correo de la propia cuenta, para todos los perfiles (v35).
 
+    Lista blanca de tres campos (nunca __all__): permisos, perfiles, delegación, funcionario, beneficiario, estado
+    y usuario no existen en este formulario, así que enviarlos no cambia nada. La vista pasa siempre la cuenta de
+    quien tiene la sesión, nunca un identificador que venga en la petición.
+    """
+
+    first_name = forms.CharField(label="Nombre", required=False, max_length=150)
+    last_name = forms.CharField(label="Apellido", required=False, max_length=150)
     email = forms.CharField(label="Correo", required=False, max_length=254)
-    phone = forms.CharField(label="Teléfono", required=False, max_length=20)
-    address = forms.CharField(label="Dirección", required=False, max_length=200)
 
-    RULES = {"email": "email", "phone": "phone", "address": "label"}
+    RULES = {"first_name": "person_name", "last_name": "person_name", "email": "email"}
+
+    class Meta:
+        model = User
+        fields = ("first_name", "last_name", "email")
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.fields["email"].widget = forms.EmailInput()
-        self.fields["email"].help_text = "Opcional. Sirve para recuperar tu contraseña."
+        self.fields["first_name"].help_text = "Es el nombre que ves en el sistema. No cambia tu ficha oficial."
+        self.fields["email"].help_text = "Sirve para recuperar tu contraseña."
+        for name, rule_name in self.RULES.items():
+            self.fields[name].widget.attrs.update(get_rule(rule_name).attrs())
+        # No se puede vaciar lo que ya existe: sin nombre la cuenta se vería como su usuario, y sin correo no
+        # podría recuperar la contraseña. Quien aún no tiene correo puede dejarlo en blanco.
+        self.fields["first_name"].required = bool(self.instance.first_name)
+        self.fields["email"].required = bool(self.instance.email)
+        self.fields["first_name"].error_messages["required"] = "Escribe tu nombre."
+        self.fields["email"].error_messages["required"] = "Escribe tu correo: sirve para recuperar tu contraseña."
+        self.style_fields()
+
+    def clean(self):
+        cleaned = super().clean()
+        for name, rule_name in self.RULES.items():
+            value = cleaned.get(name)
+            if not value or not isinstance(value, str):
+                continue
+            fixed, error = get_rule(rule_name).apply(value)
+            if error:
+                self.add_error(name, error)
+            else:
+                cleaned[name] = fixed
+        email = cleaned.get("email")
+        if email and not self.has_error("email") and email.lower() != (self.instance.email or "").lower():
+            if User.objects.filter(email__iexact=email).exclude(pk=self.instance.pk).exists():
+                self.add_error(
+                    "email",
+                    "Ese correo ya lo usa otro usuario. Cada cuenta necesita uno distinto "
+                    "para poder recuperar su contraseña.",
+                )
+        return cleaned
+
+
+class ClientDataForm(BootstrapFormMixin, forms.Form):
+    """Los datos de contacto que el Cliente puede cambiar de su ficha. El RUT, el perfil y el dueño de la cuenta no.
+
+    Su nombre y su correo (los de la cuenta) se editan en ProfileDataForm, igual que los demás perfiles; el nombre de
+    la ficha del beneficiario es el dato oficial y queda de solo lectura.
+    """
+
+    phone = forms.CharField(label="Teléfono", required=False, max_length=20)
+    address = forms.CharField(label="Dirección", required=False, max_length=200)
+
+    RULES = {"phone": "phone", "address": "label"}
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
         self.fields["phone"].help_text = "Con 8 a 14 números; puede partir con +."
         self.fields["address"].help_text = "Calle y número de tu vivienda (ej.: Los Aromos 1234)."
         for name, rule_name in self.RULES.items():
