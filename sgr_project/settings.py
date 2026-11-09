@@ -153,6 +153,7 @@ EMAIL_HOST_USER = os.environ.get("EMAIL_HOST_USER", "")
 EMAIL_HOST_PASSWORD = os.environ.get("EMAIL_HOST_PASSWORD", "")
 EMAIL_USE_SSL = (os.environ.get("EMAIL_USE_SSL") or "False").strip().lower() == "true"
 EMAIL_USE_TLS = (os.environ.get("EMAIL_USE_TLS") or "True").strip().lower() == "true" and not EMAIL_USE_SSL
+EMAIL_FILE_PATH = os.environ.get("EMAIL_FILE_PATH") or None
 EMAIL_TIMEOUT = 10
 DEFAULT_FROM_EMAIL = os.environ.get("DEFAULT_FROM_EMAIL") or "noreply@proyecto.local"
 
