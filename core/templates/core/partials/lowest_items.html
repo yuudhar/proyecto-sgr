@@ -1,0 +1,9 @@
+{% load core_ui %}{% if sheet.lowest %}
+<div class="lowest-items" role="note" aria-label="Ítems con menor puntaje">
+  <p class="lowest-title"><i class="bi bi-bullseye" aria-hidden="true"></i> Ítems con menor puntaje: conviene poner el esfuerzo aquí</p>
+  <ul class="lowest-list">
+    {% for line in sheet.lowest %}<li><strong>{{ line.item }}</strong>: {{ line.compliance|fnumber }} % de cumplimiento (avance {{ line.progress }} de {{ line.target }} {{ line.unit }}).</li>{% endfor %}
+  </ul>
+  <p class="lowest-note">Cuando un ítem llega al tope ({{ period.weighted_cap|fnumber }} %), las gestiones adicionales no suben el puntaje.</p>
+</div>
+{% endif %}

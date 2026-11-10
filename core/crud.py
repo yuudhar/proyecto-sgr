@@ -6,11 +6,12 @@ from django.contrib import messages
 from django.contrib.auth.mixins import LoginRequiredMixin
 from django.core.exceptions import FieldDoesNotExist, ObjectDoesNotExist, PermissionDenied
 from django.core.paginator import Paginator
-from django.db import models, transaction
+from django.db import IntegrityError, models, transaction
 from django.forms import modelform_factory
 from django.http import HttpResponse, JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import path, reverse
+from django.utils.http import urlencode
 from django.utils import timezone
 from django.views import View
 from django.views.generic import RedirectView
@@ -20,18 +21,25 @@ from core.audit import changed_fields, log_event, log_export
 from core.access import active_delegation, delegation_id_of, request_delegation
 from core.colors import HEX_COLOR
 from core.forms import CrudForm
-from core.models import BaseModel
+from core.models import AuditLog, BaseModel
 from core.search import word_pattern
+from websocket.services import notify_crud_change
 
-PAGE_SIZE = 20
-PAGE_SIZES = (10, 20, 50)
+PAGE_SIZE = 15
+PAGE_SIZES = (5, 15, 30)
 SESSION_PAGE_SIZE = "page_size"
+# Estado de cada listado en la sesión, por módulo: la clave es "list_state:<slug>" (ver ListState más abajo).
+SESSION_LIST_STATE = "list_state:"
+LIST_RESET = "limpiar"
+# Cabecera que manda live-updates.js en sus consultas de fondo: esas consultas ni restauran ni guardan el estado.
+LIVE_REFRESH_HEADER = "X-Live-Refresh"
 RELATED_LIMIT = 25
 SEARCH_WORDS = 10
 CODE_COLUMN = "__code__"
 STATE_FILTER = "estado"
 STATE_ACTIVE = "activo"
 STATE_INACTIVE = "inactivo"
+ONLY_ARCHIVED = "solo"
 MAX_CODE_NUMBER_DIGITS = 9
 
 
@@ -49,6 +57,48 @@ def number_in_code(word, prefix):
 def version_of(obj):
     stamp = getattr(obj, "updated_at", None)
     return stamp.isoformat() if stamp else ""
+
+
+class StaleRecord(Exception):
+    """El registro cambió mientras se editaba (RF-034, RNF-003)."""
+
+
+CONFLICT_TEXT = (
+    "Otra persona modificó este registro mientras lo editabas{who}. "
+    "Revisa los datos y, si quieres conservar los tuyos, vuelve a guardar."
+)
+DUPLICATE_TEXT = (
+    "Otra persona acaba de guardar un dato que choca con el tuyo (por ejemplo, el mismo código o un nombre repetido). "
+    "Revisa los datos y vuelve a guardar."
+)
+MAX_CHANGE_TEXT = 300
+
+
+def last_change_text(obj):
+    """Quién y cuándo hizo el último cambio de un registro, y qué cambió, según la auditoría."""
+    entry = (
+        AuditLog.objects.filter(affected_entity=obj.__class__.__name__, record_id=obj.pk, deleted_at__isnull=True)
+        .select_related("user")
+        .order_by("-date", "-pk")
+        .first()
+    )
+    if entry is None:
+        return ""
+    who = entry.user.get_full_name() or entry.user.get_username()
+    text = f": {who} hizo «{entry.event}» el {ui.fmt_datetime(entry.date)}"
+    if entry.event == "Registro modificado" and entry.previous_value and entry.new_value:
+        before = entry.previous_value.split("; ")
+        after = entry.new_value.split("; ")
+        pairs = [f"{b.split(': ', 1)[0]}: {b.split(': ', 1)[-1]} → {a.split(': ', 1)[-1]}" for b, a in zip(before, after)]
+        detail = "; ".join(pairs)
+        if len(detail) > MAX_CHANGE_TEXT:
+            detail = detail[: MAX_CHANGE_TEXT - 3] + "..."
+        text += f" ({detail})"
+    return text
+
+
+def conflict_message(obj):
+    return CONFLICT_TEXT.format(who=last_change_text(obj))
 
 
 @dataclass
@@ -224,6 +274,12 @@ class Crud:
     allow_change = True
     archivable = True
     deletable = False
+    # Dónde vive la marca de «archivado». Casi todos los modelos la tienen en su propio campo deleted_at;
+    # los que no heredan de BaseModel (los usuarios de Django) la guardan en otra tabla relacionada.
+    archive_lookup = "deleted_at"
+    archived_label = ""
+    archived_banner = ""
+    archive_note = ""
 
     related = ()
     detail_panel = ""
@@ -234,7 +290,7 @@ class Crud:
         self.title = self.title or ui.initial_capital(meta.verbose_name)
         self.title_plural = self.title_plural or ui.initial_capital(meta.verbose_name_plural)
         self.list_title = self.list_title or self.title_plural
-        self.soft_delete = issubclass(self.model, BaseModel)
+        self.soft_delete = issubclass(self.model, BaseModel) or self.archive_lookup != "deleted_at"
         self.columns = self.resolve_columns(self.list_display)
         self._form_class = None
         self._create_form_class = None
@@ -358,11 +414,31 @@ class Crud:
     def archive_blockers(self, obj):
         return []
 
+    def can_see_archived(self, request):
+        return True
+
+    def archive_guard(self, request, obj):
+        return []
+
+    def archive_problems(self, request, obj):
+        return [*self.archive_blockers(obj), *self.archive_guard(request, obj)]
+
     def restore_blockers(self, obj):
         return []
 
     def delete_blockers(self, obj):
-        return []
+        reasons = []
+        for relation in self.model._meta.related_objects:
+            if relation.many_to_many or relation.on_delete not in (models.PROTECT, models.RESTRICT, models.CASCADE):
+                continue
+            total = relation.related_model._base_manager.filter(**{relation.field.name: obj}).count()
+            if total:
+                meta = relation.related_model._meta
+                name = str(meta.verbose_name if total == 1 else meta.verbose_name_plural).lower()
+                reasons.append(f"Está en uso en {total} {name}.")
+        if reasons:
+            reasons.append("Cámbialos o elimínalos antes de eliminar este registro.")
+        return reasons
 
     def duplicate_message(self, label, archived):
         if archived:
@@ -395,15 +471,22 @@ class Crud:
         if self.prefetch_related:
             qs = qs.prefetch_related(*self.prefetch_related)
         if self.soft_delete and not include_archived:
-            qs = qs.filter(deleted_at__isnull=True)
+            qs = qs.filter(**{f"{self.archive_lookup}__isnull": True})
         if self.delegation_lookup:
             delegation = active_delegation(request)
             if delegation is not None:
                 qs = qs.filter(**{self.delegation_lookup: delegation})
         return qs
 
+    def archived_at(self, obj):
+        return getattr(obj, "deleted_at", None) if self.soft_delete else None
+
+    def set_archived(self, obj, when):
+        obj.deleted_at = when
+        obj.save(update_fields=["deleted_at", "updated_at"])
+
     def is_archived(self, obj):
-        return self.soft_delete and obj.deleted_at is not None
+        return self.archived_at(obj) is not None
 
     def apply_search(self, qs, text):
         words = text.split()[:SEARCH_WORDS]
@@ -425,6 +508,20 @@ class Crud:
         if found is None:
             raise FieldDoesNotExist(f"{self.model.__name__} no tiene el campo «{name}» para filtrar.")
         return found
+
+    def default_ordering(self):
+        """Orden de un listado sin orden elegido: lo más recién creado primero, con el id descendente de desempate.
+
+        Es la fecha de creación (created_at) y no la de última edición (updated_at): editar un registro no lo
+        mueve de lugar. Los modelos sin created_at (roles) declaran su orden en `ordering`.
+        """
+        if self.ordering:
+            return tuple(self.ordering)
+        try:
+            self.model._meta.get_field("created_at")
+        except FieldDoesNotExist:
+            return tuple(self.model._meta.ordering)
+        return ("-created_at", "-pk")
 
     def build_filters(self, request):
         specs = []
@@ -474,7 +571,7 @@ class Crud:
             if not spec.selected:
                 continue
             if spec.name == STATE_FILTER:
-                qs = qs.filter(deleted_at__isnull=spec.selected == STATE_ACTIVE)
+                qs = qs.filter(**{f"{self.archive_lookup}__isnull": spec.selected == STATE_ACTIVE})
                 continue
             model_field = self.filter_field(spec.name)
             value = spec.selected
@@ -567,7 +664,7 @@ class Crud:
                     row.restore_url = self.url("restore", obj.pk)
                 else:
                     row.archive_url = self.url("archive", obj.pk)
-                    row.archive_blocked = " ".join(self.archive_blockers(obj))
+                    row.archive_blocked = " ".join(self.archive_problems(request, obj))
             if self.can_delete_here(request, obj):
                 row.delete_url = self.url("delete", obj.pk)
                 row.delete_blocked = " ".join(self.delete_blockers(obj))
@@ -597,8 +694,8 @@ class Crud:
             f"Creado el {ui.fmt_datetime(obj.created_at)}. "
             f"Última actualización el {ui.fmt_datetime(obj.updated_at)}."
         )
-        if obj.deleted_at:
-            text += f" Archivado el {ui.fmt_datetime(obj.deleted_at)}."
+        if self.archived_at(obj):
+            text += f" Archivado el {ui.fmt_datetime(self.archived_at(obj))}."
         return text
 
 
@@ -695,6 +792,9 @@ class Registry:
 
     def get(self, slug):
         return self._by_slug[slug]
+
+    def find(self, slug):
+        return self._by_slug.get(slug)
 
     def all(self):
         return list(self._by_slug.values())
@@ -807,6 +907,79 @@ def page_size_of(request):
     return size if size in PAGE_SIZES else PAGE_SIZE
 
 
+# --- Estado del listado en la sesión (una sola vez, en el motor: lo heredan todos los módulos) -----------------
+#
+# Regla, fácil de explicar:
+#   1. Si la URL del listado llega con parámetros de listado (q, filtros, orden, página, filas, archivados), se usan
+#      y se guardan en la sesión, en una clave por módulo: "list_state:<slug>".
+#   2. Si llega sin ninguno (menú, "Volver", cancelar, guardar, volver desde otro módulo), se restaura lo último
+#      guardado redirigiendo a la misma URL con esos parámetros. Así la barra de direcciones siempre dice lo que
+#      se está viendo y el WebSocket, la exportación a Excel y los demás enlaces parten de los mismos parámetros.
+#   3. El enlace "Limpiar" (?limpiar=1) borra lo guardado y vuelve al listado sin parámetros.
+#   4. Cambiar la búsqueda, un filtro o el orden no manda la página: se vuelve a la 1. Una página que ya no existe se
+#      ajusta a la última, y un parámetro inválido (page=abc, filas=999, orden no permitido…) se ignora.
+# La consulta de fondo del WebSocket (cabecera X-Live-Refresh) ni restaura ni guarda: así una pestaña vieja no pisa
+# lo que se hizo en otra. La exportación a Excel tampoco guarda (no cambia lo que se está viendo).
+
+LIST_STATE_PARAMS = ("q", "orden", "dir", "page", "filas", STATE_FILTER, "archivados")
+
+
+def blank_list_state(size=None):
+    return {"q": "", "filters": {}, "orden": "", "dir": "", "archivados": "", "page": 1, "size": size}
+
+
+def read_list_state(request, slug):
+    """Estado guardado de un módulo. Se revalida: lo que haya en la sesión nunca debe romper el listado."""
+    raw = request.session.get(SESSION_LIST_STATE + slug)
+    state = blank_list_state()
+    if not isinstance(raw, dict):
+        return state
+    if isinstance(raw.get("q"), str):
+        state["q"] = raw["q"]
+    if isinstance(raw.get("filters"), dict):
+        state["filters"] = {
+            str(name): str(value) for name, value in raw["filters"].items() if isinstance(value, (str, int)) and value != ""
+        }
+    for key in ("orden", "dir", "archivados"):
+        if isinstance(raw.get(key), str):
+            state[key] = raw[key]
+    if isinstance(raw.get("page"), int) and raw["page"] >= 1:
+        state["page"] = raw["page"]
+    if raw.get("size") in PAGE_SIZES:
+        state["size"] = raw["size"]
+    return state
+
+
+def save_list_state(request, slug, state):
+    if request.session.get(SESSION_LIST_STATE + slug) != state:
+        request.session[SESSION_LIST_STATE + slug] = state
+
+
+def list_state_params(state):
+    """Parámetros de URL que reproducen un estado guardado (lo que no es el valor por defecto no se escribe)."""
+    params = {}
+    if state["q"]:
+        params["q"] = state["q"]
+    params.update(state["filters"])
+    if state["orden"]:
+        params["orden"] = state["orden"]
+        params["dir"] = state["dir"] if state["dir"] in ("asc", "desc") else "asc"
+    if state["archivados"]:
+        params["archivados"] = state["archivados"]
+    if state["page"] > 1:
+        params["page"] = str(state["page"])
+    return params
+
+
+def page_number_of(raw, paginator):
+    """Página pedida, siempre válida: un texto o un número menor que 1 es la página 1; uno que ya no existe, la última."""
+    try:
+        number = int(raw)
+    except (TypeError, ValueError):
+        number = 1
+    return min(max(number, 1), paginator.num_pages)
+
+
 class CrudListView(CrudView):
 
     template_name = "core/crud/list.html"
@@ -820,13 +993,46 @@ class CrudListView(CrudView):
     def extra_context(self, request):
         return {}
 
+    def state_params(self):
+        return {*LIST_STATE_PARAMS, *self.crud.list_filters}
+
+    def asked_size(self, request):
+        """Tamaño pedido en la URL (filas=5|15|30); cualquier otro valor se ignora."""
+        try:
+            asked = int(request.GET.get("filas", ""))
+        except ValueError:
+            return None
+        return asked if asked in PAGE_SIZES else None
+
     def get(self, request):
         crud = self.crud
+        saved = read_list_state(request, crud.slug)
+
+        if LIST_RESET in request.GET:
+            save_list_state(request, crud.slug, blank_list_state(saved["size"]))
+            return redirect(request.path)
+
+        background = bool(request.headers.get(LIVE_REFRESH_HEADER))
+        exporting = request.GET.get("formato") == "xlsx"
+        if not background and not any(name in request.GET for name in self.state_params()):
+            params = list_state_params(saved)
+            if params:
+                merged = request.GET.copy()
+                for name, value in params.items():
+                    merged[name] = value
+                return redirect(f"{request.path}?{merged.urlencode()}")
+
         columns = self.get_columns(request)
         filters = crud.build_filters(request)
         state = next((spec.selected for spec in filters if spec.name == STATE_FILTER), "")
-        archived = crud.soft_delete and (request.GET.get("archivados") == "1" or state == STATE_INACTIVE)
+        mode = request.GET.get("archivados", "")
+        if mode not in ("1", ONLY_ARCHIVED) or not crud.soft_delete or not crud.can_see_archived(request):
+            mode = ""
+        archived = crud.soft_delete and (bool(mode) or state == STATE_INACTIVE)
+        only_archived = mode == ONLY_ARCHIVED
         qs = crud.get_queryset(request, include_archived=archived)
+        if only_archived:
+            qs = qs.filter(**{f"{crud.archive_lookup}__isnull": False})
 
         text = request.GET.get("q", "").strip()
         qs = crud.apply_search(qs, text)
@@ -839,14 +1045,33 @@ class CrudListView(CrudView):
             qs = qs.order_by(("-" if direction == "desc" else "") + sort, "pk")
         else:
             sort = ""
-            qs = qs.order_by(*(crud.ordering or crud.model._meta.ordering), "pk")
+            default = list(crud.default_ordering())
+            if not any(name.lstrip("-") in ("pk", "id") for name in default):
+                default.append("pk")
+            qs = qs.order_by(*default)
 
-        if request.GET.get("formato") == "xlsx":
+        if exporting:
             return self.download(request, qs, columns, crud.filter_summary(text, filters, archived))
 
-        page_size = page_size_of(request)
+        asked = self.asked_size(request)
+        page_size = asked or saved["size"] or page_size_of(request)
         paginator = Paginator(qs, page_size)
-        page = paginator.get_page(request.GET.get("page"))
+        page = paginator.page(page_number_of(request.GET.get("page"), paginator))
+
+        if not background:
+            save_list_state(
+                request,
+                crud.slug,
+                {
+                    "q": text,
+                    "filters": {spec.name: spec.selected for spec in filters if spec.selected},
+                    "orden": sort,
+                    "dir": direction if sort else "",
+                    "archivados": mode,
+                    "page": page.number,
+                    "size": asked or saved["size"],
+                },
+            )
 
         shown = []
         for col in columns:
@@ -858,7 +1083,7 @@ class CrudListView(CrudView):
                 else:
                     next_dir = "asc"
                 current.sort_url = query_string(
-                    request, drop=("page",), orden=col.sort_key, dir=next_dir
+                    request, drop=("page", "filas"), orden=col.sort_key, dir=next_dir
                 )
             shown.append(current)
 
@@ -875,20 +1100,26 @@ class CrudListView(CrudView):
                 paginator.get_elided_page_range(page.number, on_each_side=2, on_ends=1)
             ),
             "ellipsis": paginator.ELLIPSIS,
-            "page_query": query_string(request, drop=("page",)),
+            "page_query": query_string(request, drop=("page", "filas")),
             "page_sizes": PAGE_SIZES,
             "page_size": page_size,
-            "page_size_next": request.path + query_string(request, drop=("page",)).rstrip("?"),
+            "page_size_next": request.path + query_string(request, drop=("page", "filas")).rstrip("?"),
             "archived_url": query_string(
-                request, drop=("page",), archivados="" if archived else "1"
+                request, drop=("page", "filas"), archivados="" if archived else "1"
             ),
-            "export_url": query_string(request, drop=("page",), formato="xlsx"),
+            "trash_url": query_string(request, drop=("page", "filas"), archivados="" if only_archived else ONLY_ARCHIVED),
+            "only_archived": only_archived,
+            "archived_mode": mode,
+            "can_see_archived": crud.can_see_archived(request),
+            "export_url": query_string(request, drop=("page", "filas"), formato="xlsx"),
+            "reset_url": f"{request.path}?{LIST_RESET}=1",
             "filters": filters,
             "q": text,
             "sort": sort,
             "direction": direction,
             "archived": archived,
             "has_filters": bool(text or archived or any(f.selected for f in filters)),
+            "can_reset": bool(text or archived or sort or page.number > 1 or any(f.selected for f in filters)),
             "can_add": crud.can_add(request.user),
             "create_url": crud.url("create") if crud.can_add(request.user) else "",
             "breadcrumbs": self.breadcrumbs(),
@@ -940,7 +1171,7 @@ class CrudDetailView(CrudView):
             "archive_url": crud.url("archive", obj.pk) if crud.archivable else "",
             "restore_url": crud.url("restore", obj.pk) if crud.archivable else "",
             "delete_url": crud.url("delete", obj.pk) if crud.deletable else "",
-            "archive_blocked": " ".join(crud.archive_blockers(obj)) if can_archive and not archived else "",
+            "archive_blocked": " ".join(crud.archive_problems(request, obj)) if can_archive and not archived else "",
             "delete_blocked": " ".join(crud.delete_blockers(obj)) if can_delete else "",
             "panel_template": crud.detail_panel,
             "panel": crud.panel_context(request, obj) if crud.detail_panel else {},
@@ -1014,7 +1245,7 @@ class CrudFormView(CrudView):
             "cancel_url": crud.url("list") if creating else crud.url("detail", obj.pk),
             "can_add_another": crud.can_add(request.user) and (crud.create_add_another or not creating),
             "archive_url": crud.url("archive", obj.pk) if can_archive else "",
-            "archive_blocked": " ".join(crud.archive_blockers(obj)) if can_archive else "",
+            "archive_blocked": " ".join(crud.archive_problems(request, obj)) if can_archive else "",
             "delete_url": crud.url("delete", obj.pk) if can_delete else "",
             "delete_blocked": " ".join(crud.delete_blockers(obj)) if can_delete else "",
             "breadcrumbs": self.breadcrumbs(
@@ -1042,14 +1273,21 @@ class CrudFormView(CrudView):
             return redirect(self.crud.url("create"))
         return redirect(self.crud.url("detail", obj.pk))
 
-    def save(self, request, form, creating):
+    def save(self, request, form, creating, opened=""):
         obj = form.save(commit=False)
-        before = None if creating else self.crud.model._default_manager.get(pk=obj.pk)
         self.crud.prepare_object(request, obj, creating, form)
         with transaction.atomic():
+            before = None
+            if not creating:
+                # El registro se bloquea y se vuelve a comparar su versión dentro de la transacción: si dos personas
+                # guardan a la vez, la segunda ve el aviso en vez de pisar el cambio de la primera (RNF-003).
+                before = self.crud.model._default_manager.select_for_update().get(pk=obj.pk)
+                if opened and opened != version_of(before):
+                    raise StaleRecord(before)
             obj.save()
             form.save_m2m()
             self.crud.after_save(request, obj, form, creating)
+            notify_crud_change(self.crud, obj, before)
             if creating:
                 log_event(request.user, "Registro creado", obj, new=str(obj))
             else:
@@ -1076,7 +1314,11 @@ class CrudCreateView(CrudFormView):
     def post(self, request):
         form = self.make_form(request, data=request.POST)
         if form.is_valid():
-            obj = self.save(request, form, creating=True)
+            try:
+                obj = self.save(request, form, creating=True)
+            except IntegrityError:
+                form.add_error(None, DUPLICATE_TEXT)
+                return self.render_form(request, form, None)
             return self.finish(request, obj, self.crud.say("created", obj))
         return self.render_form(request, form, None)
 
@@ -1109,14 +1351,18 @@ class CrudUpdateView(ChangeObjectMixin, CrudFormView):
         opened = request.POST.get("_version", "")
         if opened and opened != version_of(obj):
             form.is_valid()
-            form.add_error(
-                None,
-                "Otra persona modificó este registro mientras lo editabas. "
-                "Revisa los datos y, si quieres conservar los tuyos, vuelve a guardar.",
-            )
+            form.add_error(None, conflict_message(obj))
             return self.render_form(request, form, obj)
         if form.is_valid():
-            obj = self.save(request, form, creating=False)
+            try:
+                obj = self.save(request, form, creating=False, opened=opened)
+            except StaleRecord as stale:
+                current = stale.args[0]
+                form.add_error(None, conflict_message(current))
+                return self.render_form(request, form, current)
+            except IntegrityError:
+                form.add_error(None, DUPLICATE_TEXT)
+                return self.render_form(request, form, obj)
             return self.finish(request, obj, self.crud.say("updated", obj))
         return self.render_form(request, form, obj)
 
@@ -1139,14 +1385,14 @@ class CrudArchiveView(ArchiveObjectMixin, CrudView):
 
     def get(self, request, pk):
         obj = self.load(request, pk)
-        if obj.deleted_at is not None:
+        if self.crud.is_archived(obj):
             messages.info(request, "Este registro ya estaba archivado.")
             return redirect(self.crud.url("detail", obj.pk))
         context = {
             "crud": self.crud,
             "obj": obj,
             "obj_name": ui.humanize_dates(obj),
-            "blockers": self.crud.archive_blockers(obj),
+            "blockers": self.crud.archive_problems(request, obj),
             "cancel_url": self.crud.url("detail", obj.pk),
             "breadcrumbs": self.breadcrumbs(
                 (ui.humanize_dates(obj), self.crud.url("detail", obj.pk)), ("Archivar", None)
@@ -1156,20 +1402,21 @@ class CrudArchiveView(ArchiveObjectMixin, CrudView):
 
     def post(self, request, pk):
         obj = self.load(request, pk)
-        if obj.deleted_at is None:
-            reasons = self.crud.archive_blockers(obj)
+        if not self.crud.is_archived(obj):
+            reasons = self.crud.archive_problems(request, obj)
             if reasons:
                 messages.error(request, self.blocked_text("archivar", obj, reasons))
                 return redirect(self.crud.url("detail", obj.pk))
-            obj.deleted_at = timezone.now()
+            when = timezone.now()
             with transaction.atomic():
-                obj.save(update_fields=["deleted_at", "updated_at"])
+                self.crud.set_archived(obj, when)
+                notify_crud_change(self.crud, obj)
                 log_event(
                     request.user,
                     "Registro archivado",
                     obj,
                     previous="deleted_at=None",
-                    new=f"deleted_at={obj.deleted_at.isoformat()}",
+                    new=f"deleted_at={when.isoformat()}",
                 )
             messages.success(request, self.crud.say("archived", obj))
         return redirect(self.crud.url("list"))
@@ -1181,15 +1428,15 @@ class CrudRestoreView(CrudArchiveView):
 
     def post(self, request, pk):
         obj = self.load(request, pk)
-        if obj.deleted_at is not None:
+        if self.crud.is_archived(obj):
             reasons = self.crud.restore_blockers(obj)
             if reasons:
                 messages.error(request, self.blocked_text("restaurar", obj, reasons))
                 return redirect(self.crud.url("detail", obj.pk))
-            previous = f"deleted_at={obj.deleted_at.isoformat()}"
-            obj.deleted_at = None
+            previous = f"deleted_at={self.crud.archived_at(obj).isoformat()}"
             with transaction.atomic():
-                obj.save(update_fields=["deleted_at", "updated_at"])
+                self.crud.set_archived(obj, None)
+                notify_crud_change(self.crud, obj)
                 log_event(
                     request.user,
                     "Registro restaurado",
@@ -1238,6 +1485,7 @@ class CrudDeleteView(CrudView):
         try:
             with transaction.atomic():
                 log_event(request.user, "Registro eliminado", obj, previous=name)
+                notify_crud_change(self.crud, obj)
                 obj.delete()
         except models.ProtectedError:
             messages.error(

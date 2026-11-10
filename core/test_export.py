@@ -14,7 +14,7 @@ from openpyxl.utils import get_column_letter
 from core import export
 from core.crud import PAGE_SIZE, registry
 from core.models import AuditLog
-from core.testing import PortalTestCase
+from core.testing import PortalTestCase, portal_today
 from organization.models import Beneficiary, Officer
 
 
@@ -110,7 +110,7 @@ class ListExportTests(ExcelTestCase):
         response = self.download("core:atencion")
         self.assertEqual(response["Content-Type"], export.CONTENT_TYPE)
         with timezone.override(ZoneInfo(settings.PORTAL_TIME_ZONE)):
-            today = timezone.localdate().isoformat()
+            today = portal_today().isoformat()
         self.assertEqual(response["Content-Disposition"], f'attachment; filename="atenciones-{today}.xlsx"')
 
     def test_sheet_has_title_author_filters_header_and_rows(self):
@@ -123,7 +123,7 @@ class ListExportTests(ExcelTestCase):
         headers, rows = self.table(sheet)
         self.assertEqual(
             headers,
-            ["Identificador", "Fecha", "Contacto", "RUT", "Tipo de atención", "Sub atención", "Funcionario autor", "Delegación", "Estado"],
+            ["Identificador", "Fecha", "Contacto", "RUT", "Tipo de atención", "Sub atención", "Funcionario autor", "Puntaje", "Delegación", "Estado"],
         )
         self.assertEqual(len(rows), 5)
         self.assertEqual(sheet.auto_filter.ref, f"A5:{get_column_letter(len(headers))}10")
@@ -196,6 +196,7 @@ class ListExportTests(ExcelTestCase):
         self.assertEqual(log.record_id, 0)
         self.assertTrue(log.new_value.startswith("1 fila. "))
         self.assertIn("Búsqueda: «munoz»", log.new_value)
+        self.client.get(reverse("core:atencion"), {"limpiar": 1})  # v35: sin «Limpiar», la exportación sin parámetros usaría la búsqueda guardada
         self.download("core:atencion")
         self.assertIn("5 filas. Sin filtros", AuditLog.objects.order_by("-pk").first().new_value)
 

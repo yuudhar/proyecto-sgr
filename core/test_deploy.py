@@ -1,13 +1,14 @@
+from django.conf import settings
+from django.urls import reverse
+from core.testing import PortalTestCase
 import importlib.util
 import os
 import re
 from pathlib import Path
 from unittest import mock
 
-from django.conf import settings
 from django.core.exceptions import ImproperlyConfigured
 from django.test import SimpleTestCase, TestCase
-from django.urls import reverse
 
 from core.qa.catalogo import CLASES, ESPERADO, REQUISITOS
 from core.qa.pasos import Indice
@@ -284,3 +285,61 @@ class TestRegistryTests(SimpleTestCase):
         self.assertEqual(cuentas["A1-01"][registro.FALLIDA], 1)
         self.assertEqual(cuentas["A3-03"][registro.APROBADA], 1)
 
+
+class DaphneDeployTests(PortalTestCase):
+
+    base = settings.BASE_DIR
+
+    def read(self, *parts):
+        return self.base.joinpath(*parts).read_text(encoding="utf-8")
+
+    def test_the_service_runs_daphne_on_the_asgi_application(self):
+        unit = self.read("deploy", "sgr.service")
+        self.assertIn("/opt/sgr/venv/bin/daphne", unit)
+        self.assertIn("-b 127.0.0.1 -p 8000", unit)
+        self.assertIn("--proxy-headers", unit)
+        self.assertIn("sgr_project.asgi:application", unit)
+        self.assertNotIn("gunicorn", unit)
+
+    def test_apache_passes_the_websocket_before_everything_else(self):
+        for name in ("apache-http.conf", "apache-https.conf"):
+            text = self.read("deploy", "al2023", name)
+            self.assertIn("ProxyPass /ws/ ws://127.0.0.1:8000/ws/", text, name)
+            self.assertLess(text.index("ProxyPass /ws/"), text.index("ProxyPass / http://"), name)
+
+    def test_nginx_passes_the_upgrade_headers_for_the_websocket(self):
+        text = self.read("deploy", "nginx-sgr.conf")
+        block = text[text.index("location /ws/") :]
+        self.assertIn("proxy_set_header Upgrade $http_upgrade;", block)
+        self.assertIn('proxy_set_header Connection "upgrade";', block)
+
+    def test_the_upgrade_script_for_an_existing_server_is_safe_to_repeat(self):
+        script = self.read("deploy", "al2023", "agregar_websocket.sh")
+        self.assertIn("grep -q 'ProxyPass /ws/'", script)
+        self.assertIn("httpd -t", script)
+        self.assertIn("antes-websocket", script)
+        self.assertIn("daemon-reload", script)
+
+    def test_the_requirements_pin_channels_and_daphne(self):
+        requirements = self.read("requirements.txt")
+        self.assertRegex(requirements, r"(?m)^channels==\d+\.\d+\.\d+$")
+        self.assertRegex(requirements, r"(?m)^daphne==\d+\.\d+\.\d+$")
+
+
+class AssetVersionTests(PortalTestCase):
+    """El navegador no reutiliza CSS ni JS de una entrega anterior (se veía el panel «Ritmo del período» sin estilos)."""
+
+    def test_the_styles_and_scripts_carry_the_version_of_the_delivery(self):
+        from core.context_processors import ASSET_VERSION
+
+        self.login_as("admin")
+        page = self.client.get(reverse("core:dashboard"))
+        self.assertIn(settings.BASE_DIR.joinpath("VERSION").read_text(encoding="utf-8").strip(), ASSET_VERSION)
+        self.assertContains(page, f"core/css/sgr.css?v={ASSET_VERSION}")
+        self.assertContains(page, f"core/js/live-updates.js?v={ASSET_VERSION}")
+        self.assertNotContains(page, 'sgr.css"')
+
+    def test_the_vendor_libraries_keep_their_plain_address(self):
+        self.login_as("admin")
+        page = self.client.get(reverse("core:dashboard"))
+        self.assertNotContains(page, "bootstrap.min.css?v=")

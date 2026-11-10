@@ -138,8 +138,10 @@ class PagerTests(PortalTestCase):
         self.assertEqual(len(response.context["rows"]), PAGE_SIZE)
         self.assertEqual(response.context["page"].paginator.count, total)
         self.assertContains(response, f"Mostrando 1–{PAGE_SIZE} de {total}")
-        last = self.client.get(url, {"page": 3})
-        self.assertEqual(len(last.context["rows"]), total - 2 * PAGE_SIZE)
+        pages = response.context["page"].paginator.num_pages
+        self.assertGreater(pages, 2)
+        last = self.client.get(url, {"page": pages})
+        self.assertEqual(len(last.context["rows"]), total - (pages - 1) * PAGE_SIZE)
 
     def test_a_page_out_of_range_shows_the_last_one(self):
         self.login_as("admin")

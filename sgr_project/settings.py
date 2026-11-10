@@ -25,6 +25,8 @@ ALLOWED_HOSTS = [
 
 
 INSTALLED_APPS = [
+    'daphne',  # primero, antes de staticfiles: runserver pasa a ser ASGI/Daphne
+    'channels',
     'django.contrib.admin',
     'django.contrib.auth',
     'django.contrib.contenttypes',
@@ -37,6 +39,7 @@ INSTALLED_APPS = [
     'planning',
     'operations',
     'evidence',
+    'websocket',
 ]
 
 MIDDLEWARE = [
@@ -46,6 +49,7 @@ MIDDLEWARE = [
     'django.middleware.csrf.CsrfViewMiddleware',
     'django.contrib.auth.middleware.AuthenticationMiddleware',
     'django.contrib.messages.middleware.MessageMiddleware',
+    'core.clients.ClientPortalMiddleware',
     'core.middleware.PortalLocaleMiddleware',
     'core.middleware.PortalNoCacheMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
@@ -64,12 +68,18 @@ TEMPLATES = [
                 'django.contrib.auth.context_processors.auth',
                 'django.contrib.messages.context_processors.messages',
                 'core.context_processors.portal',
+                'core.context_processors.assets',
             ],
         },
     },
 ]
 
 WSGI_APPLICATION = 'sgr_project.wsgi.application'
+ASGI_APPLICATION = 'sgr_project.asgi.application'
+
+# Capa de canales en memoria: sirve con un solo proceso (Daphne, o runserver en local). Con varios
+# procesos haría falta una capa compartida (channels_redis).
+CHANNEL_LAYERS = {"default": {"BACKEND": "channels.layers.InMemoryChannelLayer"}}
 
 
 DB_ENGINE = os.environ.get("DB_ENGINE", "sqlite").strip().lower()
@@ -143,12 +153,16 @@ EMAIL_HOST_USER = os.environ.get("EMAIL_HOST_USER", "")
 EMAIL_HOST_PASSWORD = os.environ.get("EMAIL_HOST_PASSWORD", "")
 EMAIL_USE_SSL = (os.environ.get("EMAIL_USE_SSL") or "False").strip().lower() == "true"
 EMAIL_USE_TLS = (os.environ.get("EMAIL_USE_TLS") or "True").strip().lower() == "true" and not EMAIL_USE_SSL
+EMAIL_FILE_PATH = os.environ.get("EMAIL_FILE_PATH") or None
 EMAIL_TIMEOUT = 10
 DEFAULT_FROM_EMAIL = os.environ.get("DEFAULT_FROM_EMAIL") or "noreply@proyecto.local"
 
 
 PORTAL_LANGUAGE = 'es'
 PORTAL_TIME_ZONE = 'America/Santiago'
+
+# Máximo de atenciones que un funcionario puede ingresar con la misma fecha (RF-041).
+DAILY_ENTRY_LIMIT = 7
 
 AUTHENTICATION_BACKENDS = ['accounts.backends.EmailOrUsernameBackend']
 LOGIN_URL = 'core:login'
@@ -157,11 +171,10 @@ LOGOUT_REDIRECT_URL = 'core:login'
 
 SESSION_ENGINE = 'django.contrib.sessions.backends.db'
 
-RECOVERY_CODE_SECONDS = 120
-RECOVERY_MAX_ATTEMPTS = 5
+# Recuperación de contraseña: el enlace del correo vale una hora (Django lo invalida además al cambiar la clave)
+# y a cada cuenta se le mandan como máximo 5 enlaces por hora.
+PASSWORD_RESET_TIMEOUT = 60 * 60
 RECOVERY_MAX_REQUESTS = 5
-RECOVERY_RESEND_SECONDS = 45
-RECOVERY_PASSWORD_SECONDS = 600
 
 
 def _env_bool(name, default=False):
@@ -196,6 +209,7 @@ if sys.argv[1:2] == ["test"]:
     MEDIA_ROOT = Path(tempfile.mkdtemp(prefix="sgr-pruebas-media-"))
 EVIDENCE_MAX_MB = 10
 PHOTO_MAX_MB = 2
+PHOTO_SIDE_PX = 512
 DATA_UPLOAD_MAX_MEMORY_SIZE = 2 * 1024 * 1024
 FILE_UPLOAD_PERMISSIONS = 0o640
 

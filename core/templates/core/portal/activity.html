@@ -1,0 +1,65 @@
+{% extends "base.html" %}
+{% load core_ui %}
+{% block title %}{{ code }}{% endblock %}
+
+{% block content %}
+<section class="page-head">
+  <div>
+    <h1 class="page-title">Atención {{ code }}</h1>
+    <p class="page-sub">Registrada el {{ obj.date|fdate }} · <span class="chip chip-{{ status_tone }}">{{ obj.get_status_display }}</span></p>
+  </div>
+  <div class="page-actions">
+    <a class="btn btn-outline-primary" href="{% url 'core:portal_activities' %}"><i class="bi bi-arrow-left" aria-hidden="true"></i> Volver a mis atenciones</a>
+  </div>
+</section>
+
+<div class="stack">
+  <section class="panel" aria-label="Datos de la atención">
+    <dl class="facts">
+      <div class="facts-row"><dt>Código</dt><dd>{{ code }}</dd></div>
+      <div class="facts-row"><dt>Fecha</dt><dd>{{ obj.date|fdate }}</dd></div>
+      <div class="facts-row"><dt>Estado</dt><dd>{{ obj.get_status_display }}</dd></div>
+      <div class="facts-row"><dt>Tema</dt><dd>{{ obj.item.name|default:"Sin dato" }}</dd></div>
+      <div class="facts-row"><dt>Servicio</dt><dd>{% if obj.service %}{{ obj.service.name }}{% else %}<span class="muted">Sin dato</span>{% endif %}</dd></div>
+      <div class="facts-row"><dt>Lo que pediste</dt><dd>{% if obj.request_description %}{{ obj.request_description|linebreaksbr }}{% else %}<span class="muted">Sin dato</span>{% endif %}</dd></div>
+      <div class="facts-row"><dt>Qué se hizo</dt><dd>{% if obj.action_taken %}{{ obj.action_taken|linebreaksbr }}{% else %}<span class="muted">Aún sin acción registrada</span>{% endif %}</dd></div>
+      <div class="facts-row"><dt>Delegación</dt><dd>{{ obj.delegation.name }}</dd></div>
+      <div class="facts-row"><dt>Te atendió</dt><dd>{{ obj.author_officer.name }}</dd></div>
+    </dl>
+  </section>
+
+  <section class="panel" aria-label="Gestiones de la atención">
+    <div class="panel-head"><h2 class="panel-title">Gestiones</h2></div>
+    {% if followups %}
+    <div class="table-responsive">
+      <table class="table data-table data-table-compact align-middle mb-0">
+        <thead>
+          <tr>
+            <th scope="col">N.º</th>
+            <th scope="col">Fecha</th>
+            <th scope="col">Tipo</th>
+            <th scope="col">Resultado</th>
+            <th scope="col">Visita</th>
+            <th scope="col">Entrega</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for followup in followups %}
+          <tr>
+            <td>{{ followup.sequence_number }}</td>
+            <td class="nowrap">{{ followup.date|fdate }}</td>
+            <td>{{ followup.management_type.name|default:"—" }}</td>
+            <td>{{ followup.result }}</td>
+            <td class="nowrap">{% if followup.visit_date %}Realizada el {{ followup.visit_date|fdate }}{% elif followup.scheduled_visit_date %}Programada para el {{ followup.scheduled_visit_date|fdate }}{% else %}—{% endif %}</td>
+            <td class="nowrap">{% if followup.benefit_delivery_date %}Beneficio el {{ followup.benefit_delivery_date|fdate }}{% elif followup.report_delivery_date %}Informe el {{ followup.report_delivery_date|fdate }}{% else %}—{% endif %}</td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+    {% else %}
+    <p class="panel-body muted mb-0">Esta atención todavía no tiene gestiones.</p>
+    {% endif %}
+  </section>
+</div>
+{% endblock %}

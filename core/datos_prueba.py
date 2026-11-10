@@ -14,8 +14,10 @@ from core import uploads
 from core.models import AuditLog
 from evidence.models import Evidence, Validation
 from operations.models import Activity, Commitment, Followup, ManagementType
+from planning.calculation import suspended
 from organization.models import (
     Beneficiary,
+    CommunityOrganization,
     Delegation,
     Item,
     Officer,
@@ -24,7 +26,8 @@ from organization.models import (
     Service,
     Territory,
 )
-from planning.models import Adjustment, Goal, Indicator, Period
+from planning import feedback as feedback_rules
+from planning.models import Absence, Adjustment, Feedback, Goal, Indicator, Period
 
 ADMIN_USERNAME = "admin"
 ADMIN_PASSWORD = "Hola123!"
@@ -46,6 +49,12 @@ SUPERVISION_PASSWORD = "Hola123!"
 
 CONSULTA_USERNAME = "consulta1"
 CONSULTA_PASSWORD = "Hola123!"
+
+CLIENTE1_USERNAME = "cliente1"
+CLIENTE1_PASSWORD = "Hola123!"
+
+CLIENTE2_USERNAME = "cliente2"
+CLIENTE2_PASSWORD = "Hola123!"
 
 DEMO_EMAIL_DOMAIN = "sgr.example"
 
@@ -111,6 +120,9 @@ class CargaDatosPrueba(BaseCommand):
 
     @transaction.atomic
     def write_demo_files(self):
+        for each in Feedback.objects.all():
+            if each.support.name and not each.support.storage.exists(each.support.name):
+                each.support.storage.save(each.support.name, ContentFile(demo_pdf("Respaldo de demostración")))
         for evidence in Evidence.objects.all():
             name = evidence.file_link.name
             if not name:
@@ -129,6 +141,11 @@ class CargaDatosPrueba(BaseCommand):
                 evidence.save(update_fields=["metadata", "updated_at"])
 
     def handle(self, *args, **options):
+        # El recálculo automático de indicadores queda en pausa: los datos de prueba traen sus propios indicadores.
+        with suspended():
+            return self.cargar(*args, **options)
+
+    def cargar(self, *args, **options):
         self.stdout.write("Cargando roles y catálogo de tipos de gestión...")
         call_command("seed_roles")
         call_command("seed_management_types")
@@ -262,6 +279,17 @@ class CargaDatosPrueba(BaseCommand):
                 beneficiary.address = address
                 beneficiary.save()
             beneficiaries[rut] = beneficiary
+
+        CommunityOrganization.objects.get_or_create(
+            registry_number=1001,
+            defaults={
+                "name": "JUNTA DE VECINOS DEMOSTRACIÓN",
+                "legal_address": "Los Aromos 1234",
+                "territory": territory_north,
+                "territory_text": "TERRITORIO 1",
+                "active_members": 120,
+            },
+        )
 
         officer_north_1, _ = Officer.objects.get_or_create(
             institutional_id="F-1001",
@@ -563,6 +591,31 @@ class CargaDatosPrueba(BaseCommand):
             },
         )
 
+        # Una felicitación de ejemplo al jefe de la Norte, con su respaldo; el ajuste se genera como al registrarla.
+        compliment, _ = Feedback.objects.get_or_create(
+            officer=officer_north_jefatura,
+            kind=Feedback.Kind.COMPLIMENT,
+            contact_name="Rosa Núñez",
+            defaults={
+                "date": today,
+                "channel": Feedback.Channel.EMAIL,
+                "contact": "rosa.nunez@correo.example",
+                "description": "Felicita la orientación recibida en la oficina de la delegación.",
+                "support": "respaldos/demostracion/felicitacion-jefatura-norte.pdf",
+                "period": period,
+                "registered_by": leadership_user,
+            },
+        )
+        feedback_rules.sync(compliment.officer_id, compliment.period_id)
+
+        # Una ausencia de ejemplo del jefe de la Norte (que no tiene metas): no cambia ningún cálculo.
+        Absence.objects.get_or_create(
+            officer=officer_north_jefatura,
+            kind=Absence.Kind.ADMINISTRATIVE,
+            notes="Día administrativo de ejemplo",
+            defaults={"start_date": today - timedelta(days=30), "end_date": today - timedelta(days=30)},
+        )
+
         mt_presencial = ManagementType.objects.get(name="Atención a usuario presencial")
         mt_visit = ManagementType.objects.get(name="Visita a terreno")
         mt_report = ManagementType.objects.get(name="Entrega de informe")
@@ -657,6 +710,26 @@ class CargaDatosPrueba(BaseCommand):
                 "service": service_subsidy,
             },
         )
+
+        # Dos clientes (beneficiarios con cuenta) de la misma delegación: cada uno ve solo lo suyo en el portal.
+        group_client, _ = Group.objects.get_or_create(name="Cliente")
+        for username, password, first, last, rut in (
+            (CLIENTE1_USERNAME, CLIENTE1_PASSWORD, "María", "Pérez", "11111111-1"),
+            (CLIENTE2_USERNAME, CLIENTE2_PASSWORD, "Carla", "Muñoz", "55555555-5"),
+        ):
+            client_user, client_created = User.objects.get_or_create(
+                username=username,
+                defaults={"first_name": first, "last_name": last, "is_staff": False, "is_superuser": False},
+            )
+            if client_created:
+                client_user.set_password(password)
+                client_user.email = f"{username}@{DEMO_EMAIL_DOMAIN}"
+                client_user.save()
+            client_user.groups.add(group_client)
+            UserProfile.objects.get_or_create(
+                user=client_user,
+                defaults={"beneficiary": beneficiaries[rut], "status": UserProfile.Status.ACTIVE},
+            )
 
         activity_north_1.action_taken = (
             "Se coordinó visita domiciliaria y se derivó a Servicio de Ayuda Social."
@@ -766,6 +839,19 @@ class CargaDatosPrueba(BaseCommand):
                 "due_date": today + timedelta(days=10),
                 "status": Commitment.Status.SUBMITTED,
                 "responsible_officer": officer_south_2,
+            },
+        )
+        Commitment.objects.get_or_create(
+            delegation=north,
+            territory=territory_north,
+            requester="Centro de Madres Sector Norte",
+            defaults={
+                "requester_type": Commitment.RequesterType.EXTERNAL,
+                "request_date": today - timedelta(days=12),
+                "description": "Entrega de materiales para taller. Quedó pendiente a la espera de la compra.",
+                "due_date": today + timedelta(days=7),
+                "status": Commitment.Status.PENDING,
+                "responsible_officer": officer_north_2,
             },
         )
         Commitment.objects.get_or_create(
@@ -960,6 +1046,14 @@ class CargaDatosPrueba(BaseCommand):
         self.stdout.write(
             f"  Consulta (solo lectura) Norte   -> "
             f"{CONSULTA_USERNAME} / {CONSULTA_PASSWORD}"
+        )
+        self.stdout.write(
+            f"  Cliente 1 (María Pérez, portal) -> "
+            f"{CLIENTE1_USERNAME} / {CLIENTE1_PASSWORD}"
+        )
+        self.stdout.write(
+            f"  Cliente 2 (Carla Muñoz, portal) -> "
+            f"{CLIENTE2_USERNAME} / {CLIENTE2_PASSWORD}"
         )
         self.stdout.write(
             f"\nCada cuenta tiene el correo <usuario>@{DEMO_EMAIL_DOMAIN} (por ejemplo "

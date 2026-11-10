@@ -1,0 +1,28 @@
+{% load core_ui %}
+{% if pace_summary %}
+{% with pace=pace_summary.pace %}
+<section class="panel mb-4" aria-labelledby="titulo-ritmo">
+  <div class="panel-head">
+    <h2 class="panel-title" id="titulo-ritmo">Ritmo del período</h2>
+    <span class="chip chip-{% if pace.stage == 'running' %}info{% else %}neutral{% endif %}">{{ pace.stage_label }}</span>
+  </div>
+  <dl class="pace-grid">
+    <div><dt>Hoy</dt><dd>{{ pace.today|fdate }}</dd></div>
+    <div><dt>Inicio de la medición</dt><dd>{{ pace.start|fdate }}</dd></div>
+    <div><dt>Término de la medición</dt><dd>{{ pace.end|fdate }}</dd></div>
+    <div><dt>Días computables totales</dt><dd>{{ pace.total_days }}</dd></div>
+    <div><dt>Días de avance</dt><dd>{{ pace.elapsed_days }}</dd></div>
+    <div><dt>% diario esperado</dt><dd>{{ pace.daily_percent|fnumber }} %</dd></div>
+    <div><dt>Meta esperada al día</dt><dd class="pace-strong">{{ pace.expected_percent|fnumber }} %</dd></div>
+    <div><dt>% de avance logrado</dt><dd class="pace-strong">{% if pace_summary.has_achieved %}{{ pace_summary.achieved|fnumber }} %{% else %}<span class="muted">Sin indicadores</span>{% endif %}</dd></div>
+  </dl>
+  {% if pace_summary.has_achieved %}
+  <p class="pace-verdict">
+    <span class="chip chip-{{ pace_summary.standing|tone }}"><i class="bi {{ pace_summary.standing|tone_icon }}" aria-hidden="true"></i>{{ pace_summary.standing_label }}</span>
+    <span class="muted">Diferencia con lo esperado: {% if pace_summary.difference > 0 %}+{% endif %}{{ pace_summary.difference|fnumber }} puntos porcentuales.</span>
+  </p>
+  {% endif %}
+  <p class="meter-legend">Meta esperada al día = días computables transcurridos ÷ días computables totales × 100 (lunes a viernes; hoy ya cuenta como transcurrido). El avance logrado es el cumplimiento promedio de las metas.</p>
+</section>
+{% endwith %}
+{% endif %}

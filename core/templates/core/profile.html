@@ -1,12 +1,17 @@
 {% extends "base.html" %}
-{% load core_ui %}
+{% load core_ui static %}
 {% block title %}Mi perfil{% endblock %}
+
+{% block extra_head %}
+{% vendor_url "core/vendor/croppr/croppr.min.css" as croppr_css %}
+{% if croppr_css %}<link rel="stylesheet" href="{{ croppr_css }}">{% endif %}
+{% endblock %}
 
 {% block content %}
 <section class="page-head">
   <div>
     <h1 class="page-title"><i class="bi bi-person-circle" aria-hidden="true"></i>Mi perfil</h1>
-    <p class="page-sub">Tus datos en el sistema, tu delegación, tus perfiles y el cambio de contraseña.</p>
+    <p class="page-sub">{% if is_client %}Tu nombre, tu correo, tus datos de contacto, tu foto y el cambio de contraseña.{% else %}Tu nombre y correo, tu delegación, tus perfiles y el cambio de contraseña.{% endif %}</p>
   </div>
 </section>
 
@@ -16,12 +21,24 @@
       <div class="panel-head"><h2 class="panel-title">Cuenta</h2></div>
       <div class="profile-photo">
         {% if me_photo_url %}<img class="avatar avatar-lg" src="{{ me_photo_url }}" alt="Tu foto de perfil">{% else %}<span class="avatar avatar-lg avatar-empty" aria-hidden="true"><i class="bi bi-person-fill"></i></span>{% endif %}
-        <form method="post" enctype="multipart/form-data" class="profile-photo-form" data-once data-validate>
+        <form method="post" enctype="multipart/form-data" class="profile-photo-form" data-once data-validate data-photo-crop data-crop-max-source-mb="15">
           {% csrf_token %}
           <input type="hidden" name="accion" value="foto">
           <div class="row">{% with field=photo_form.photo wide=True %}{% include "core/partials/field.html" %}{% endwith %}</div>
           <div class="d-flex flex-wrap gap-2 mt-2">
-            <button type="submit" class="btn btn-primary btn-sm"><i class="bi bi-camera" aria-hidden="true"></i> {% if me_photo_url %}Cambiar foto{% else %}Subir foto{% endif %}</button>
+            <button type="submit" class="btn btn-primary btn-sm" data-crop-normal><i class="bi bi-camera" aria-hidden="true"></i> {% if me_photo_url %}Cambiar foto{% else %}Subir foto{% endif %}</button>
+          </div>
+          <p class="text-danger mt-2 mb-0" role="alert" data-crop-message hidden></p>
+          <div class="crop-panel" data-crop-panel hidden aria-label="Recortar la foto">
+            <p class="mb-0">Mueve y ajusta el cuadro para elegir cómo se verá tu foto. Se guarda solo la parte seleccionada.</p>
+            <div class="crop-stage"><img alt="Imagen elegida, con el cuadro de recorte encima" data-crop-image></div>
+            <div class="crop-side">
+              <canvas class="crop-preview" width="160" height="160" data-crop-preview role="img" aria-label="Vista previa de tu foto"></canvas>
+              <div class="d-flex flex-wrap gap-2">
+                <button type="button" class="btn btn-primary btn-sm" data-crop-save><i class="bi bi-check-lg" aria-hidden="true"></i> Guardar foto</button>
+                <button type="button" class="btn btn-outline-secondary btn-sm" data-crop-cancel><i class="bi bi-x-lg" aria-hidden="true"></i> Cancelar</button>
+              </div>
+            </div>
           </div>
         </form>
         {% if me_photo_url %}
@@ -33,13 +50,54 @@
         {% endif %}
       </div>
       <dl class="facts">
-        <div class="facts-row"><dt>Nombre</dt><dd>{{ me_name }}</dd></div>
         <div class="facts-row"><dt>Usuario</dt><dd>{{ me.get_username }}</dd></div>
-        <div class="facts-row"><dt>Correo</dt><dd>{% if me.email %}{{ me.email }}{% else %}<span class="muted">Sin correo</span>{% endif %}</dd></div>
         <div class="facts-row"><dt>Ingreso actual</dt><dd>{{ me.last_login|fdatetime }}</dd></div>
       </dl>
+      <form method="post" class="panel-body" aria-label="Mi nombre y mi correo" data-once data-validate data-unsaved-guard{% if identity_form.is_bound %}="dirty"{% endif %}>
+        {% csrf_token %}
+        <input type="hidden" name="accion" value="perfil">
+        {% if identity_form.errors %}
+        <div class="alert alert-danger d-flex gap-2" role="alert">
+          <i class="bi bi-x-octagon-fill" aria-hidden="true"></i>
+          <div><strong>No se guardaron tu nombre ni tu correo.</strong> Revisa los campos marcados en rojo.</div>
+        </div>
+        {% endif %}
+        <div class="row g-3">
+          {% for field in identity_form %}{% include "core/partials/field.html" with wide=True %}{% endfor %}
+        </div>
+        <div class="form-actions form-actions-flush">
+          <button type="submit" class="btn btn-primary"><i class="bi bi-check-lg" aria-hidden="true"></i> Guardar nombre y correo</button>
+        </div>
+      </form>
     </section>
 
+    {% if client_form %}
+    <section class="panel" aria-label="Mis datos de contacto">
+      <div class="panel-head"><h2 class="panel-title">Mis datos</h2></div>
+      {% if beneficiary %}
+      <dl class="facts">
+        <div class="facts-row"><dt>Nombre en tu ficha</dt><dd>{{ beneficiary.name }} <span class="muted">(dato oficial: si está mal, pide que lo corrijan)</span></dd></div>
+        <div class="facts-row"><dt>RUT</dt><dd>{{ beneficiary.rut }}</dd></div>
+      </dl>
+      {% endif %}
+      <form method="post" class="panel-body" data-once data-validate data-unsaved-guard{% if client_form.is_bound %}="dirty"{% endif %}>
+        {% csrf_token %}
+        <input type="hidden" name="accion" value="datos">
+        {% if client_form.errors %}
+        <div class="alert alert-danger d-flex gap-2" role="alert">
+          <i class="bi bi-x-octagon-fill" aria-hidden="true"></i>
+          <div><strong>No se guardaron tus datos.</strong> Revisa los campos marcados en rojo.</div>
+        </div>
+        {% endif %}
+        <div class="row g-3">
+          {% for field in client_form %}{% if field.name != "phone" and field.name != "address" or beneficiary %}{% include "core/partials/field.html" with wide=True %}{% endif %}{% endfor %}
+        </div>
+        <div class="form-actions form-actions-flush">
+          <button type="submit" class="btn btn-primary"><i class="bi bi-check-lg" aria-hidden="true"></i> Guardar mis datos</button>
+        </div>
+      </form>
+    </section>
+    {% else %}
     <section class="panel" aria-label="Delegación y funcionario">
       <div class="panel-head"><h2 class="panel-title">Delegación</h2></div>
       <dl class="facts">
@@ -63,6 +121,7 @@
         {% endif %}
       </dl>
     </section>
+    {% endif %}
 
     <section class="panel" aria-label="Perfiles">
       <div class="panel-head"><h2 class="panel-title">{% if me_roles|length == 1 %}Perfil{% else %}Perfiles{% endif %}</h2></div>
@@ -106,4 +165,10 @@
     </form>
   </section>
 </div>
+{% endblock %}
+
+{% block extra_js %}
+{% vendor_url "core/vendor/croppr/croppr.min.js" as croppr_js %}
+{% if croppr_js %}<script src="{{ croppr_js }}"></script>{% endif %}
+<script type="module" src="{% static 'core/js/photo-crop.js' %}?v={{ asset_version|urlencode }}"></script>
 {% endblock %}

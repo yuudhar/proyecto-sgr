@@ -1,5 +1,5 @@
 [Unit]
-Description=SGR (Django + gunicorn)
+Description=SGR (Django + Daphne: HTTP y WebSocket)
 After=network.target
 
 [Service]
@@ -7,8 +7,7 @@ User=sgr
 Group=sgr
 WorkingDirectory=/opt/sgr/app
 EnvironmentFile=/etc/sgr/sgr.env
-ExecStart=/opt/sgr/venv/bin/gunicorn -c deploy/gunicorn.conf.py sgr_project.wsgi:application
-ExecReload=/bin/kill -s HUP $MAINPID
+ExecStart=/opt/sgr/venv/bin/daphne -b 127.0.0.1 -p 8000 --proxy-headers --access-log - sgr_project.asgi:application
 Restart=on-failure
 RestartSec=3
 NoNewPrivileges=true

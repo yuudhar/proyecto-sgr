@@ -57,6 +57,7 @@ function dayText(iso) {
 const plural = (count, one, many) => (count === 1 ? one : many);
 
 function fileProblem(field) {
+  if (field.hasAttribute("data-crop-pending")) return ""; // la imagen original se recorta antes de enviarse (photo-crop.js)
   const file = field.files && field.files[0];
   if (!file) return field.required ? "Elige un archivo." : "";
   const allowed = (field.accept || "").split(",").map((part) => part.trim().toLowerCase()).filter(Boolean);

@@ -9,13 +9,13 @@ pip install playwright && playwright install chromium        # en tu equipo, no 
 python tools/evidencias/capturar.py --url https://<tu-url-aws>
 ```
 
-El script entra con las cuentas de demostración, hace el recorrido, deja las capturas en `docs/evidencias/capturas/`, la matriz de menús por rol en `docs/evidencias/matriz_menus_por_rol.md` y el resultado de cada comprobación en `docs/pruebas/resultados/navegador.json` (alimenta la hoja «Navegador» del registro). En AWS con correo real, el paso del código de recuperación se hace a mano (ver evidencia 1).
+El script entra con las cuentas de demostración, hace el recorrido, deja las capturas en `docs/evidencias/capturas/`, la matriz de menús por rol en `docs/evidencias/matriz_menus_por_rol.md` y el resultado de cada comprobación en `docs/pruebas/resultados/navegador.json` (alimenta la hoja «Navegador» del registro). En AWS con correo real, el paso de abrir el enlace de recuperación se hace a mano (ver evidencia 1).
 
 ## Lista de verificación
 
 | N.º | Evidencia requerida | Dónde está | Qué mostrar |
 |---|---|---|---|
-| 1 | Login y flujo completo de recuperación | `capturas/EV1_*` | Ingreso correcto e incorrecto; solicitar código (mensaje genérico, también con un correo inexistente); código de seis casillas (incluido pegado); nueva contraseña con confirmación; la clave anterior ya no sirve. |
+| 1 | Login y flujo completo de recuperación | `capturas/EV1_*` | Ingreso correcto e incorrecto; solicitar el enlace (mensaje genérico, también con un correo inexistente); abrir el enlace del correo; nueva contraseña con confirmación; el enlace usado ya no sirve; la clave anterior ya no sirve. |
 | 2 | Seis CRUD | `capturas/EV2_*` | Formulario y listado de Delegaciones, Roles (con matriz de permisos), Usuarios, Ítems y metas, Tipo de Atención y Sub Atención, con el registro nuevo en la tabla. |
 | 3 | Ingreso de atención con dependencias y contexto | `capturas/EV3_*` | Pantalla de Atención; Tipo y Sub Atención dependientes; cancelar sin crear nada; confirmación con identificador; delegación del contexto. |
 | 4 | Tabla, paginador, búsqueda y Exportar a Excel | `capturas/EV4_*` | Tabla con paginador y buscador; búsqueda parcial sin mayúsculas ni tildes; página 2; archivo `EV4_04_exportacion_delegaciones.xlsx`. |

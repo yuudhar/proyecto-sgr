@@ -4,6 +4,8 @@ SUPERUSER_ROLE = "Super Usuario"
 
 GLOBAL_ROLE = "Coordinación"
 
+CLIENT_ROLE = "Cliente"
+
 ROLES = {
     SUPERUSER_ROLE: (
         "bi-shield-lock",
@@ -28,6 +30,10 @@ ROLES = {
     "Consulta": (
         "bi-eye",
         "Solo consulta la información de su delegación.",
+    ),
+    CLIENT_ROLE: (
+        "bi-person-lines-fill",
+        "Usuario final (beneficiario): ve solo su perfil y sus propias atenciones.",
     ),
 }
 
@@ -60,6 +66,7 @@ PERMISSION_MODULES = (
             ("Agenda colectiva", "operations.commitment"),
             ("Evidencias", "evidence.evidence"),
             ("Validaciones", "evidence.validation"),
+            ("Felicitaciones y reclamos", "planning.feedback"),
         ),
     ),
     (
@@ -69,6 +76,7 @@ PERMISSION_MODULES = (
             ("Metas", "planning.goal"),
             ("Indicadores", "planning.indicator"),
             ("Ajustes", "planning.adjustment"),
+            ("Ausencias", "planning.absence"),
         ),
     ),
     (
@@ -88,6 +96,7 @@ PERMISSION_MODULES = (
             ("Servicios", "organization.service"),
             ("Tipos de gestión", "operations.managementtype"),
             ("Beneficiarios", "organization.beneficiary"),
+            ("Organizaciones", "organization.communityorganization"),
         ),
     ),
     (

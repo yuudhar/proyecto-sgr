@@ -26,9 +26,16 @@ TONES = {
     "EXTERNAL": ("info", "bi-people-fill"),
     "quantitative": ("info", "bi-123"),
     "qualitative": ("neutral", "bi-chat-square-text"),
+    "overdue": ("bad", "bi-exclamation-octagon-fill"),
+    "due_soon": ("warn", "bi-hourglass-split"),
+    "on_time": ("neutral", "bi-calendar-check"),
+    "done_on_time": ("ok", "bi-check-circle-fill"),
+    "done_late": ("warn", "bi-check-circle"),
     "green": ("ok", "bi-check-circle-fill"),
     "amber": ("warn", "bi-exclamation-triangle-fill"),
     "red": ("bad", "bi-x-octagon-fill"),
+    "scores": ("ok", "bi-check-circle-fill"),
+    "no_score": ("warn", "bi-slash-circle"),
 }
 
 LIGHT_LABELS = {"green": "Verde", "amber": "Ámbar", "red": "Rojo"}

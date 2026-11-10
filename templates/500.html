@@ -1,21 +1,42 @@
-<!doctype html>
+{% load static %}<!doctype html>
 <html lang="es">
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Error del servidor · SGR</title>
+  <meta name="theme-color" content="#920000">
+  <title>Problema temporal · SGR</title>
+  <link rel="stylesheet" href="{% static 'core/vendor/bootstrap/bootstrap.min.css' %}">
+  <link rel="stylesheet" href="{% static 'core/vendor/bootstrap-icons/bootstrap-icons.min.css' %}">
+  <link rel="stylesheet" href="{% static 'core/css/sgr.css' %}">
   <style>
+    /* Respaldo: si los estilos del portal no cargan, la página sigue siendo legible. */
     body { margin: 0; font-family: Arial, "Liberation Sans", Helvetica, sans-serif; color: #26221f; background: #f3f2ef; }
-    main { max-width: 38rem; margin: 4rem auto; padding: 0 1.5rem; text-align: center; }
-    h1 { font-family: Arial, "Liberation Sans", Helvetica, sans-serif; color: #920000; }
     a { color: #920000; font-weight: 600; }
-</style>
+  </style>
 </head>
 <body>
-  <main>
-    <h1>Algo salió mal</h1>
-    <p>Hubo un error en el servidor y no pudimos completar la acción. Intenta de nuevo en unos minutos.</p>
-    <p><a href="/">Volver al inicio</a></p>
+  <header class="public-head">
+    <div class="content public-head-inner">
+      <div class="public-head-brand">
+        <a class="brand" href="/">
+          <img class="brand-mark" src="{% static 'core/img/sgr-mark.svg' %}" alt="" width="46" height="46">
+          <span class="brand-text">
+            <span class="brand-name">SGR</span>
+            <span class="brand-sub">Sistema de Gestión de Resultados</span>
+          </span>
+        </a>
+      </div>
+    </div>
+  </header>
+  <main id="contenido" class="page" tabindex="-1">
+    <div class="content">
+      <div class="error-page">
+        <p class="error-code">500</p>
+        <h1 class="page-title mb-3">Tuvimos un problema temporal</h1>
+        <p class="muted">No fue algo que hiciste tú: el sistema no pudo completar la acción. Espera unos minutos e inténtalo de nuevo.</p>
+        <p class="mt-4"><a class="btn btn-primary" href="/"><i class="bi bi-house-door" aria-hidden="true"></i> Volver al inicio</a></p>
+      </div>
+    </div>
   </main>
 </body>
 </html>

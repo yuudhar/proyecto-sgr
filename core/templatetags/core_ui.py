@@ -4,7 +4,7 @@ from django import template
 from django.contrib.staticfiles import finders
 from django.templatetags.static import static
 
-from core import ui
+from core import charts, ui
 
 register = template.Library()
 
@@ -17,6 +17,12 @@ def escudo_url():
         if finders.find(name):
             return static(name)
     return ""
+
+
+@register.simple_tag
+def vendor_url(name):
+    """Dirección de un archivo de core/static si existe, o texto vacío (sirve para librerías que se agregan aparte)."""
+    return static(name) if finders.find(name) else ""
 
 
 @register.filter
@@ -79,3 +85,37 @@ def meter(value, light="", collective=None, amber=None, label="Cumplimiento", co
         "label": label,
         "compact": compact,
     }
+
+
+@register.inclusion_tag("core/partials/chart_donut.html")
+def donut_chart(items, title, center="en total"):
+    """{% donut_chart items "Título" "texto del centro" %} con items = [{label, value, tone}]."""
+    return charts.donut(items, title, center)
+
+
+@register.inclusion_tag("core/partials/chart_bars.html")
+def bar_chart(items, title, unit="", maximum=None):
+    """{% bar_chart items "Título" " %" 100 %} con items = [{label, value, tone}]."""
+    return charts.bars(items, title, unit, maximum)
+
+
+@register.inclusion_tag("core/partials/chart_columns.html")
+def column_chart(items, title, unit=""):
+    """{% column_chart items "Título" %} con items = [{label, value}]."""
+    return charts.columns(items, title, unit)
+
+
+# Versiones que reciben el gráfico ya armado en la vista (core.charts.donut / bars / columns).
+@register.inclusion_tag("core/partials/chart_donut.html")
+def show_donut(chart):
+    return chart
+
+
+@register.inclusion_tag("core/partials/chart_bars.html")
+def show_bars(chart):
+    return chart
+
+
+@register.inclusion_tag("core/partials/chart_columns.html")
+def show_columns(chart):
+    return chart

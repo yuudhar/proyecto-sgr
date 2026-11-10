@@ -1,0 +1,59 @@
+{% extends "base.html" %}
+{% load core_ui %}
+{% block title %}Mi portal{% endblock %}
+
+{% block content %}
+<section class="page-head">
+  <div>
+    <h1 class="page-title"><i class="bi bi-house-heart" aria-hidden="true"></i>Mi portal</h1>
+    <p class="page-sub">Hola, {{ me_name }}. Aquí ves tus datos y el estado de las atenciones que la Municipalidad ha registrado para ti.</p>
+  </div>
+  <div class="page-actions">
+    <a class="btn btn-outline-primary" href="{% url 'core:profile' %}"><i class="bi bi-person-gear" aria-hidden="true"></i> Editar mis datos y mi foto</a>
+  </div>
+</section>
+
+{% if not beneficiary %}
+<div class="alert alert-warning d-flex gap-2" role="status">
+  <i class="bi bi-exclamation-triangle-fill" aria-hidden="true"></i>
+  <div>Tu cuenta todavía no está vinculada a tus datos de atención. Pide a la Municipalidad que la vincule para ver tus atenciones aquí.</div>
+</div>
+{% endif %}
+
+<div class="stack">
+  <section class="panel" aria-label="Mis datos">
+    <div class="panel-head"><h2 class="panel-title">Mis datos</h2></div>
+    <div class="profile-photo">
+      {% if me_photo_url %}<img class="avatar avatar-lg" src="{{ me_photo_url }}" alt="Tu foto de perfil">{% else %}<span class="avatar avatar-lg avatar-empty" aria-hidden="true"><i class="bi bi-person-fill"></i></span>{% endif %}
+    </div>
+    <dl class="facts">
+      <div class="facts-row"><dt>Nombre</dt><dd>{% if beneficiary %}{{ beneficiary.name }}{% else %}{{ me_name }}{% endif %}</dd></div>
+      {% if beneficiary %}
+      <div class="facts-row"><dt>RUT</dt><dd>{{ beneficiary.rut }}</dd></div>
+      <div class="facts-row"><dt>Teléfono</dt><dd>{% if beneficiary.phone %}{{ beneficiary.phone }}{% else %}<span class="muted">Sin dato</span>{% endif %}</dd></div>
+      <div class="facts-row"><dt>Dirección</dt><dd>{% if beneficiary.address %}{{ beneficiary.address }}{% else %}<span class="muted">Sin dato</span>{% endif %}</dd></div>
+      {% endif %}
+      <div class="facts-row"><dt>Correo</dt><dd>{% if me.email %}{{ me.email }}{% else %}<span class="muted">Sin correo</span>{% endif %}</dd></div>
+    </dl>
+  </section>
+
+  <div class="stat-strip" aria-label="Resumen de mis atenciones">
+    <div class="stat"><span class="stat-label">Atenciones en total</span><span class="stat-value">{{ total }}</span></div>
+    {% for count in counts %}
+    <div class="stat"><span class="stat-label">{{ count.label }}</span><span class="stat-value">{{ count.total }}</span></div>
+    {% endfor %}
+  </div>
+
+  <section class="panel" aria-label="Mis últimas atenciones">
+    <div class="panel-head">
+      <h2 class="panel-title">Mis últimas atenciones</h2>
+      <a class="btn btn-outline-primary btn-sm" href="{% url 'core:portal_activities' %}">Ver todas</a>
+    </div>
+    {% if latest %}
+    {% with rows=latest %}{% include "core/portal/_rows.html" %}{% endwith %}
+    {% else %}
+    <div class="empty"><i class="bi bi-inbox" aria-hidden="true"></i><p>Aún no hay atenciones registradas a tu nombre.</p></div>
+    {% endif %}
+  </section>
+</div>
+{% endblock %}

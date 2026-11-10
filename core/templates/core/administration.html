@@ -3,9 +3,10 @@
 {% block title %}Administración{% endblock %}
 
 {% block content %}
+<div data-live-page data-live-region>
 <section class="page-head">
   <div>
-    <h1 class="page-title"><i class="bi bi-sliders" aria-hidden="true"></i>Administración</h1>
+    <h1 class="page-title"><i class="bi bi-sliders" aria-hidden="true"></i>Administración {% include "core/partials/live_chip.html" %}</h1>
     <p class="page-sub">Organización, planificación y catálogos del sistema. Solo aparece lo que tu cuenta tiene permiso de abrir.</p>
   </div>
 </section>
@@ -37,4 +38,5 @@
   {% endfor %}
 </div>
 {% endfor %}
+</div>
 {% endblock %}

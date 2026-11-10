@@ -25,10 +25,13 @@ document.addEventListener("click", async (event) => {
   const name = link.dataset.delete;
   const subject = name ? `«${name}»` : "El registro";
 
+  const archiving = link.dataset.deleteLabel === "archive";
+  const verb = archiving ? "archivar" : "eliminar";
+
   if (link.dataset.blocked) {
     await alerta.fire({
       icon: "info",
-      title: "No se puede eliminar",
+      title: `No se puede ${verb}`,
       text: `${subject}: ${link.dataset.blocked}`,
       confirmButtonText: "Entendido",
     });
@@ -36,21 +39,28 @@ document.addEventListener("click", async (event) => {
   }
 
   const remove = link.dataset.deleteKind === "remove";
+  let title = "¿Eliminar registro?";
+  let text = `${subject} deja de aparecer en los listados y queda inactivo. No se borra: se puede restaurar cuando haga falta.`;
+  if (remove) {
+    title = "¿Eliminar definitivamente?";
+    text = `${subject} se elimina para siempre. Esta acción no se puede deshacer.`;
+  } else if (archiving) {
+    title = "¿Archivar registro?";
+    text = `${subject} deja de aparecer en los listados y queda inactivo. No se borra: se puede restaurar cuando haga falta.`;
+  }
   const answer = await alerta.fire({
     icon: "warning",
-    title: remove ? "¿Eliminar definitivamente?" : "¿Eliminar registro?",
-    text: remove
-      ? `${subject} se elimina para siempre. Esta acción no se puede deshacer.`
-      : `${subject} deja de aparecer en los listados y queda inactivo. No se borra: se puede restaurar cuando haga falta.`,
+    title,
+    text,
     showCancelButton: true,
-    confirmButtonText: "Sí, eliminar",
+    confirmButtonText: `Sí, ${verb}`,
     cancelButtonText: "Cancelar",
     focusCancel: true,
   });
   if (answer.isConfirmed) {
     post(link.href);
   } else {
-    aviso.fire({ icon: "info", title: "Eliminación cancelada", text: "No se hizo ningún cambio." });
+    aviso.fire({ icon: "info", title: archiving ? "Archivado cancelado" : "Eliminación cancelada", text: "No se hizo ningún cambio." });
   }
 });
 
