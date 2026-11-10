@@ -38,7 +38,7 @@ unset SGR_REVISION_PASSWORD
 - El resultado de cada comprobación sale como `OK`, `FALLÓ` o `MANUAL`, y el código de salida es 1 si algo falló.
 - **Deja rastro, marcado:** crea registros cuyo nombre dice «ENSAYO» y los archiva al terminar. Quedan unas pocas atenciones y beneficiarios archivados con esa marca; no aparecen en los listados normales y se pueden dejar. Los datos de la revisión no se tocan.
 - **Recuperación de contraseña:** el paso 8 pide enlaces de recuperación y la aplicación limita a 5 por hora (se cuentan en el registro de auditoría). Si repites el ensayo varias veces seguidas, espera una hora entre corridas o el paso 8 se detiene por ese límite, que es el comportamiento correcto. El paso 8 devuelve la contraseña de `lector_b` a la original.
-- **Correo:** `--bandeja <carpeta>` solo sirve cuando el servidor escribe los correos en archivos (EMAIL_BACKEND de archivos, como en el ensayo local). En AWS el correo es real: la herramienta pide el enlace y deja como `MANUAL` el abrir la bandeja, que haces tú con la casilla de `lector_b`.
+- **Correo:** `--bandeja <carpeta>` solo sirve cuando el servidor escribe los correos en archivos (`EMAIL_BACKEND=django.core.mail.backends.filebased.EmailBackend` y `EMAIL_FILE_PATH=<carpeta>` en el entorno, como en el ensayo local). En AWS el correo es real: la herramienta pide el enlace y deja como `MANUAL` el abrir la bandeja, que haces tú con la casilla de `lector_b`.
 - Los pasos 9 y 10 incluyen puntos que no se pueden hacer desde el navegador (ramas y Pull Requests, página 500): quedan como `MANUAL` y están explicados más abajo.
 
 ## Los diez pasos
