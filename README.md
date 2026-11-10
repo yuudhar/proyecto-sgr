@@ -268,7 +268,7 @@ Comandos de datos (`python manage.py <comando>`):
 |---|---|
 | `seed_roles` | Crea los roles Coordinación, Jefatura, Funcionario, Verificador y Consulta con sus permisos |
 | `seed_management_types` | Crea los tipos de gestión |
-| `cargar_datos_revision` | Carga reproducible para la revisión: más de 3.000 registros ficticios en dos ámbitos y las seis cuentas de prueba; ejecuta antes `seed_roles` y `seed_management_types`, y no duplica al repetirse (ver [Datos y cuentas para la revisión en AWS](#datos-y-cuentas-para-la-revisión-en-aws)) |
+| `cargar_datos_revision` | Carga reproducible para la revisión: más de 3.100 registros ficticios en dos ámbitos y las seis cuentas de prueba; ejecuta antes `seed_roles` y `seed_management_types`, y no duplica al repetirse (ver [Datos y cuentas para la revisión en AWS](#datos-y-cuentas-para-la-revisión-en-aws)) |
 | `cargar_volumen_estres` | Carga un volumen grande de registros marcados como prueba (`--limpiar` los borra); necesita funcionarios e ítems ya creados |
 | `exportar_registro_pruebas` | Genera `docs/pruebas/registro_pruebas_funcionales.csv` y `.xlsx` |
 
