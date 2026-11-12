@@ -1,6 +1,6 @@
 import inspect
 import re
-from dataclasses import dataclass, replace
+from dataclasses import dataclass, field, replace
 
 from django.contrib import messages
 from django.contrib.auth.mixins import LoginRequiredMixin
@@ -170,6 +170,30 @@ class RelatedBlock:
     add_label: str = ""
 
 
+@dataclass
+class Canvas:
+    """Vista de tarjetas (canvas) de un listado: una columna por cada valor de `group_by` y, arriba, indicadores.
+
+    Las tarjetas salen de los mismos registros que la tabla (misma búsqueda, filtros y alcance por delegación).
+    `title` y `code` reciben el registro; `lines` es una lista de (rótulo, función del registro); `kpis` recibe
+    todo el conjunto filtrado (no solo la página) y devuelve los indicadores. Si `movable` está activo, cada tarjeta
+    ofrece botones para pasar el registro a otro estado (`moves(registro)` dice a cuáles).
+    """
+
+    group_by: str
+    title: object
+    code: object = None
+    lines: tuple = ()
+    badge: object = None
+    kpis: object = None
+    tones: dict = field(default_factory=dict)
+    movable: bool = False
+    moves: object = None
+    move_labels: dict = field(default_factory=dict)
+    page_size: int = 100
+    empty: str = "Sin registros"
+
+
 class Col:
 
     def __init__(self, path, label=None, sort=None, kind=None, link=False):
@@ -284,6 +308,9 @@ class Crud:
     related = ()
     detail_panel = ""
     list_redirect = ""
+    canvas = None
+    # Filtro fijo del listado cuando dos pantallas comparten un mismo modelo (por ejemplo Agenda y Compromisos).
+    queryset_filter = {}
 
     def __init__(self):
         meta = self.model._meta
@@ -640,6 +667,42 @@ class Crud:
             return Cell(text=raw)
         return Cell(text=ui.humanize_dates(raw))
 
+    def canvas_board(self, rows, queryset):
+        """Columnas de tarjetas e indicadores de la vista canvas (ver `Canvas`)."""
+        spec = self.canvas
+        model_field = self.model._meta.get_field(spec.group_by)
+        columns = {
+            value: {"value": value, "label": label, "tone": spec.tones.get(value, "neutral"), "cards": []}
+            for value, label in model_field.choices
+        }
+        for row in rows:
+            obj = row.obj
+            raw = getattr(obj, spec.group_by)
+            column = columns.get(raw)
+            if column is None:
+                continue
+            moves = []
+            if spec.movable and row.edit_url and spec.moves:
+                moves = [
+                    (value, spec.move_labels.get(value) or f"A {label}")
+                    for value, label in spec.moves(obj)
+                    if value != raw
+                ]
+            column["cards"].append(
+                {
+                    "row": row,
+                    "code": spec.code(obj) if spec.code else self.code_of(obj),
+                    "title": spec.title(obj),
+                    "lines": [(label, text) for label, fn in spec.lines if (text := fn(obj))],
+                    "badge": spec.badge(obj) if spec.badge else None,
+                    "moves": moves,
+                    "move_url": self.url("move", obj.pk) if moves else "",
+                    "archived": row.archived,
+                }
+            )
+        kpis = spec.kpis(queryset) if spec.kpis else []
+        return {"columns": list(columns.values()), "kpis": kpis, "movable": spec.movable}
+
     def make_row(self, request, obj, columns=None, actions=True):
         columns = columns or self.columns
         cells = [self.make_cell(obj, c) for c in columns]
@@ -757,6 +820,9 @@ class Crud:
             if delegation is not None:
                 obj.delegation = delegation
 
+    def after_move(self, request, obj, previous):
+        """Después de pasar una tarjeta del canvas a otro estado (`previous` es el valor anterior)."""
+
     def after_save(self, request, obj, form, creating):
         pass
 
@@ -838,6 +904,14 @@ class Registry:
                         name=crud.route_name("update"),
                     )
                 )
+            if crud.canvas and crud.canvas.movable and crud.allow_change:
+                patterns.append(
+                    path(
+                        f"{slug}/<int:pk>/estado/",
+                        CrudMoveView.as_view(crud=crud),
+                        name=crud.route_name("move"),
+                    )
+                )
             if crud.archivable:
                 patterns.append(
                     path(
@@ -878,6 +952,7 @@ class CrudView(LoginRequiredMixin, View):
         return super().dispatch(request, *args, **kwargs)
 
     def get_object(self, request, pk):
+        # El filtro fijo (`queryset_filter`) solo parte los listados; una ficha se abre desde cualquiera de las dos pantallas.
         queryset = self.crud.get_queryset(request, include_archived=True)
         return get_object_or_404(queryset, pk=pk)
 
@@ -1031,6 +1106,8 @@ class CrudListView(CrudView):
         archived = crud.soft_delete and (bool(mode) or state == STATE_INACTIVE)
         only_archived = mode == ONLY_ARCHIVED
         qs = crud.get_queryset(request, include_archived=archived)
+        if crud.queryset_filter:
+            qs = qs.filter(**crud.queryset_filter)
         if only_archived:
             qs = qs.filter(**{f"{crud.archive_lookup}__isnull": False})
 
@@ -1055,7 +1132,7 @@ class CrudListView(CrudView):
 
         asked = self.asked_size(request)
         page_size = asked or saved["size"] or page_size_of(request)
-        paginator = Paginator(qs, page_size)
+        paginator = Paginator(qs, crud.canvas.page_size if crud.canvas else page_size)
         page = paginator.page(page_number_of(request.GET.get("page"), paginator))
 
         if not background:
@@ -1124,6 +1201,8 @@ class CrudListView(CrudView):
             "create_url": crud.url("create") if crud.can_add(request.user) else "",
             "breadcrumbs": self.breadcrumbs(),
         }
+        if crud.canvas:
+            context["board"] = crud.canvas_board(rows, qs)
         context.update(self.extra_context(request))
         return render(request, self.template_name, context)
 
@@ -1192,6 +1271,8 @@ class CrudDetailView(CrudView):
                 qs = related_crud.get_queryset(request).filter(**{rel.field: obj})
             except PermissionDenied:
                 continue
+            if related_crud.queryset_filter:
+                qs = qs.filter(**related_crud.queryset_filter)
             total = qs.count()
             paths = rel.columns or [c.path for c in related_crud.columns if c.path != rel.field]
             columns = [c for c in related_crud.columns if c.path in paths]
@@ -1365,6 +1446,43 @@ class CrudUpdateView(ChangeObjectMixin, CrudFormView):
                 return self.render_form(request, form, obj)
             return self.finish(request, obj, self.crud.say("updated", obj))
         return self.render_form(request, form, obj)
+
+
+class CrudMoveView(ChangeObjectMixin, CrudView):
+    """Pasa una tarjeta del canvas a otro estado con un clic (solo los cambios que el modelo permite)."""
+
+    def post(self, request, pk):
+        crud = self.crud
+        spec = crud.canvas
+        obj = self.load(request, pk)
+        if crud.is_archived(obj):
+            raise PermissionDenied
+        new = request.POST.get("estado", "")
+        current = getattr(obj, spec.group_by)
+        if new == current or new not in {value for value, _ in spec.moves(obj)}:
+            messages.error(request, "Ese cambio de estado no está permitido.")
+            return redirect(crud.url("list"))
+        with transaction.atomic():
+            before = crud.model._default_manager.select_for_update().get(pk=obj.pk)
+            if getattr(before, spec.group_by) != current:
+                messages.warning(request, "Otra persona cambió este registro hace un momento. Revisa su estado actual.")
+                return redirect(crud.url("list"))
+            setattr(obj, spec.group_by, new)
+            obj.save()
+            crud.after_move(request, obj, current)
+            notify_crud_change(crud, obj, before)
+            changes = changed_fields(before, obj)
+            if changes:
+                log_event(
+                    request.user,
+                    "Registro modificado",
+                    obj,
+                    previous="; ".join(f"{label}: {old}" for label, old, _ in changes),
+                    new="; ".join(f"{label}: {value}" for label, _, value in changes),
+                )
+        label = dict(crud.model._meta.get_field(spec.group_by).choices).get(new, new)
+        messages.success(request, f"{crud.title} pasó a «{label}».")
+        return redirect(crud.url("list"))
 
 
 class ArchiveObjectMixin:

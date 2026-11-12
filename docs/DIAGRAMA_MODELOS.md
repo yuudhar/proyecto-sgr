@@ -129,6 +129,7 @@ erDiagram
         string support
         string status
         text notes
+        bool physical
         int responsible_officer_id FK
         int delegation_id FK
     }

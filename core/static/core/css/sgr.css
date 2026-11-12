@@ -2846,3 +2846,214 @@ textarea.form-control {
   border: 1px solid var(--line);
   background: var(--line-soft);
 }
+
+
+/* Vista canvas: tarjetas por columna con indicadores arriba. */
+.canvas-kpis {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(13rem, 1fr));
+  gap: 0.75rem;
+  margin: 0.25rem 0 1rem;
+}
+
+.canvas-kpi {
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+  padding: 0.75rem 1rem;
+  background: #fff;
+  border: 1px solid var(--line);
+  border-left: 4px solid var(--neutral-line);
+  border-radius: var(--radius);
+}
+
+.canvas-kpi-ok { border-left-color: var(--ok-fg); }
+.canvas-kpi-warn { border-left-color: #c58a12; }
+.canvas-kpi-bad { border-left-color: var(--wine); }
+.canvas-kpi-info { border-left-color: var(--info-fg); }
+
+.canvas-kpi-label {
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--ink-soft);
+}
+
+.canvas-kpi-value {
+  font-size: 1.9rem;
+  font-weight: 700;
+  line-height: 1.15;
+  color: var(--ink);
+}
+
+.canvas-kpi-ok .canvas-kpi-value { color: var(--ok-fg); }
+.canvas-kpi-warn .canvas-kpi-value { color: var(--warn-fg); }
+.canvas-kpi-bad .canvas-kpi-value { color: var(--wine); }
+.canvas-kpi-info .canvas-kpi-value { color: var(--info-fg); }
+
+.canvas-kpi-hint {
+  font-size: 0.85rem;
+  color: var(--ink-soft);
+}
+
+.canvas-board {
+  display: grid;
+  grid-template-columns: repeat(var(--canvas-columns, 4), minmax(15rem, 1fr));
+  gap: 0.75rem;
+  align-items: start;
+  overflow-x: auto;
+  padding-bottom: 0.5rem;
+}
+
+.canvas-column {
+  background: var(--wine-tint);
+  border: 1px solid var(--line-soft);
+  border-radius: var(--radius);
+  padding: 0.6rem;
+  min-width: 15rem;
+}
+
+.canvas-column-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  padding: 0.15rem 0.2rem 0.55rem;
+  margin-bottom: 0.6rem;
+  border-bottom: 2px solid var(--line);
+}
+
+.canvas-column-title {
+  margin: 0;
+  font-size: 0.9rem;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: var(--ink-soft);
+}
+
+.canvas-column-ok .canvas-column-title { color: var(--ok-fg); }
+.canvas-column-warn .canvas-column-title { color: var(--warn-fg); }
+.canvas-column-bad .canvas-column-title { color: var(--wine); }
+.canvas-column-info .canvas-column-title { color: var(--info-fg); }
+
+.canvas-count {
+  min-width: 1.6rem;
+  padding: 0.05rem 0.45rem;
+  text-align: center;
+  font-size: 0.8rem;
+  font-weight: 700;
+  background: #fff;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+}
+
+.canvas-cards {
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+}
+
+.canvas-card {
+  background: #fff;
+  border: 1px solid var(--line);
+  border-left: 4px solid var(--neutral-line);
+  border-radius: var(--radius);
+  padding: 0.7rem 0.8rem;
+}
+
+.canvas-column-ok .canvas-card { border-left-color: var(--ok-fg); }
+.canvas-column-warn .canvas-card { border-left-color: #c58a12; }
+.canvas-column-bad .canvas-card { border-left-color: var(--wine); }
+.canvas-column-info .canvas-card { border-left-color: var(--info-fg); }
+
+.canvas-card.is-archived { opacity: 0.65; }
+
+.canvas-card-top {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.4rem;
+  margin-bottom: 0.3rem;
+}
+
+.canvas-code {
+  font-family: ui-monospace, "Liberation Mono", Menlo, monospace;
+  font-size: 0.78rem;
+  font-weight: 700;
+  color: var(--ink-soft);
+}
+
+.canvas-card-title {
+  margin: 0 0 0.4rem;
+  font-size: 1rem;
+  line-height: 1.3;
+}
+
+.canvas-card-title a {
+  color: var(--ink);
+  text-decoration: none;
+}
+
+.canvas-card-title a:hover,
+.canvas-card-title a:focus-visible {
+  color: var(--wine);
+  text-decoration: underline;
+}
+
+.canvas-lines {
+  display: grid;
+  gap: 0.15rem;
+  margin: 0 0 0.5rem;
+  font-size: 0.88rem;
+}
+
+.canvas-lines dt,
+.canvas-lines dd {
+  display: inline;
+}
+
+.canvas-lines dt {
+  font-weight: 700;
+  color: var(--ink);
+}
+
+.canvas-lines dt::after { content: ": "; }
+
+.canvas-lines dd {
+  margin: 0;
+  color: var(--ink-soft);
+}
+
+.canvas-card-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.35rem 0.6rem;
+  padding-top: 0.45rem;
+  border-top: 1px dashed var(--line);
+}
+
+.canvas-move {
+  padding: 0.1rem 0.55rem;
+  font-size: 0.82rem;
+  font-weight: 700;
+  color: var(--warn-fg);
+  background: var(--warn-bg);
+  border: 1px solid var(--warn-line);
+  border-radius: var(--radius);
+  cursor: pointer;
+}
+
+.canvas-move:hover,
+.canvas-move:focus-visible {
+  background: #fbe3a6;
+}
+
+.canvas-empty {
+  margin: 0.25rem 0.1rem;
+  font-size: 0.88rem;
+  color: var(--ink-soft);
+}

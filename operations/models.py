@@ -304,6 +304,15 @@ class Commitment(BaseModel):
         verbose_name="estado",
     )
     notes = models.TextField(blank=True, null=True, verbose_name="observación")
+    physical = models.BooleanField(
+        default=False,
+        db_index=True,
+        verbose_name="de terreno",
+        help_text=(
+            "Un compromiso físico (visita a terreno) aparece en la sección Compromisos; "
+            "los demás, en la agenda colectiva. Lo define el sistema según la atención."
+        ),
+    )
     responsible_officer = models.ForeignKey(
         Officer, on_delete=models.PROTECT, related_name="responsible_commitments",
         verbose_name="funcionario responsable",

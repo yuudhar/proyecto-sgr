@@ -12,7 +12,7 @@ from core.access import active_delegation, default_delegation, request_delegatio
 from core import ui, uploads
 from core.audit import log_event
 from core.commitments import DEADLINE_LABELS, deadline_of, deadline_text, history_of, record_status
-from core.crud import CODE_COLUMN, Cell, Col, Crud, Related, is_id, registry
+from core.crud import CODE_COLUMN, Canvas, Cell, Col, Crud, Related, is_id, registry
 from core.forms import (
     ActivityEditForm,
     ActivityIntakeForm,
@@ -203,6 +203,7 @@ class ActivityCrud(Crud):
     create_save_label = "Registrar atención"
     full_width = ("requester", "request_description", "action_taken")
     help_texts = {
+        "requires_visit": "Si es algo físico (visita a terreno), la atención pasa sola a Compromisos: se pide la fecha comprometida y el territorio.",
         "added_to_pipeline": "Marca la atención para seguirla en el tubo de trabajo: se pide la fecha comprometida y el territorio.",
     }
     rules = {"phone": "phone", "requester": "label", "contact_name": "label"}
@@ -230,15 +231,17 @@ class ActivityCrud(Crud):
         return super().say(kind, obj)
 
     def after_save(self, request, obj, form, creating):
-        # Tubo de trabajo: la atención marcada «ingresa al tubo» crea su compromiso en la agenda colectiva.
+        # Una atención que requiere visita (algo físico) crea su compromiso en Compromisos; la que solo ingresa al
+        # tubo de trabajo, en la agenda colectiva.
         if not form.wants_pipeline():
             return
         commitment = pipeline.create_commitment(obj, form.cleaned_data["due_date"], form.cleaned_data["territory"])
         record_status(request.user, commitment, None, commitment.status)
         log_event(request.user, "Registro creado", commitment, new=str(commitment))
+        section = "Compromisos" if commitment.physical else "la Agenda colectiva"
         messages.info(
             request,
-            f"Se creó el compromiso en la Agenda colectiva para el {ui.fmt_date(commitment.due_date)} "
+            f"Se creó el compromiso en {section} para el {ui.fmt_date(commitment.due_date)} "
             f"({commitment.territory}).",
         )
 
@@ -294,6 +297,7 @@ class CommitmentCrud(Crud):
     title_plural = "Compromisos"
     list_title = "Agenda colectiva"
     description = "Compromisos con vecinos, organizaciones y la propia municipalidad."
+    queryset_filter = {"physical": False}
     list_display = (
         Col("requester", "Solicitante", link=True),
         "territory",
@@ -352,6 +356,84 @@ class CommitmentCrud(Crud):
         if delegation is not None:
             initial["delegation"] = delegation.pk
         return initial
+
+
+def compromisos_title(commitment):
+    text = (commitment.description or "").strip()
+    if not text:
+        return f"Compromiso de {commitment.requester}"
+    return text if len(text) <= 90 else text[:87].rstrip() + "…"
+
+
+def compromisos_kpis(queryset):
+    """Indicadores de la vista canvas de Compromisos, sobre el conjunto ya filtrado."""
+    total = queryset.count()
+    counts = {row["status"]: row["total"] for row in queryset.order_by().values("status").annotate(total=Count("pk"))}
+    done = counts.get(Commitment.Status.FULFILLED.value, 0)
+    rate = f"{round(done * 100 / total, 1):.1f}".replace(".", ",") if total else "0,0"
+    return [
+        {"label": "Compromisos", "value": total, "hint": "De atenciones con visita a terreno", "tone": "bad"},
+        {"label": "Realizados", "value": done, "hint": f"Tasa de resolución: {rate} %", "tone": "ok"},
+        {
+            "label": "En proceso activo",
+            "value": counts.get(Commitment.Status.IN_PROGRESS.value, 0),
+            "hint": "En ejecución con su responsable",
+            "tone": "warn",
+        },
+        {
+            "label": "Pendientes / alerta",
+            "value": counts.get(Commitment.Status.PENDING.value, 0),
+            "hint": "Esperando gestión",
+            "tone": "bad",
+        },
+    ]
+
+
+def compromisos_plazo(commitment):
+    state = deadline_of(commitment)
+    return f"{ui.fmt_date(commitment.due_date)} · {DEADLINE_LABELS[state]}"
+
+
+@registry.register
+class FieldCommitmentCrud(CommitmentCrud):
+    """Compromisos de terreno: lo físico (visitas) que nace de una atención. Comparte modelo y permisos con la agenda."""
+
+    slug = "compromisos"
+    icon = "bi-geo-alt"
+    code_prefix = "COM"
+    code_digits = 5
+    list_title = "Compromisos"
+    description = (
+        "Lo físico: las atenciones que requieren visita a terreno llegan solas aquí y se siguen por estado."
+    )
+    queryset_filter = {"physical": True}
+    related = ()
+    canvas = Canvas(
+        group_by="status",
+        title=compromisos_title,
+        lines=(
+            ("Solicitante", lambda c: c.requester),
+            ("Apoyo", lambda c: c.support or ""),
+            ("Territorio", lambda c: str(c.territory)),
+            ("Responsable", lambda c: c.responsible_officer.name),
+            ("Plazo", compromisos_plazo),
+            ("Origen", lambda c: c.source or ""),
+        ),
+        tones={"submitted": "neutral", "pending": "bad", "in_progress": "warn", "fulfilled": "ok"},
+        movable=True,
+        moves=lambda c: [(value, label) for value, label in Commitment.next_choices(c.status)],
+        move_labels={"pending": "A Pendiente", "in_progress": "A Proceso", "fulfilled": "Realizar"},
+        kpis=compromisos_kpis,
+        empty="Sin compromisos",
+    )
+
+    def prepare_object(self, request, obj, creating, form):
+        super().prepare_object(request, obj, creating, form)
+        if creating:
+            obj.physical = True
+
+    def after_move(self, request, obj, previous):
+        record_status(request.user, obj, previous, obj.status)
 
 
 @registry.register
@@ -670,15 +752,48 @@ def feedback_alert(feedback):
     return feedback_rules.hr_alert(feedback)
 
 
+def cartas_kpis(queryset):
+    """Indicadores de la vista canvas de Cartas, sobre el conjunto ya filtrado."""
+    total = queryset.count()
+    compliments = queryset.filter(kind=Feedback.Kind.COMPLIMENT).count()
+    complaints = total - compliments
+
+    def share(part):
+        return f"{round(part * 100 / total)} % del total" if total else "Sin cartas"
+
+    return [
+        {"label": "Cartas", "value": total, "hint": "Felicitaciones y reclamos", "tone": "neutral"},
+        {"label": "Felicitaciones", "value": compliments, "hint": share(compliments), "tone": "ok"},
+        {"label": "Reclamos", "value": complaints, "hint": share(complaints), "tone": "bad"},
+    ]
+
+
 @registry.register
 class FeedbackCrud(Crud):
     model = Feedback
-    slug = "felicitaciones-y-reclamos"
-    icon = "bi-chat-heart"
+    slug = "cartas"
+    icon = "bi-envelope-paper"
     gender = "f"
+    code_prefix = "CAR"
+    code_digits = 5
     description = (
-        "Felicitaciones (suman) y reclamos (restan) formales contra un funcionario, con su respaldo. "
-        "Solo el delegado los registra y el ajuste se genera solo."
+        "Cartas de felicitación (suman) y de reclamo (restan) contra un funcionario, con su respaldo. "
+        "Solo el delegado las registra y el ajuste se genera solo."
+    )
+    canvas = Canvas(
+        group_by="kind",
+        title=lambda letter: str(letter.officer),
+        lines=(
+            ("Fecha", lambda letter: ui.fmt_date(letter.date)),
+            ("Escribe", lambda letter: letter.contact_name),
+            ("Medio", lambda letter: letter.get_channel_display()),
+            ("Efecto", lambda letter: feedback_effect(letter)),
+            ("Aviso", lambda letter: feedback_alert(letter)),
+            ("Respaldo", lambda letter: "Con archivo" if letter.support else ""),
+        ),
+        tones={"compliment": "ok", "complaint": "bad"},
+        kpis=lambda qs: cartas_kpis(qs),
+        empty="Sin cartas",
     )
     delegation_lookup = "officer__delegation"
     list_display = (
@@ -839,7 +954,10 @@ class TerritoryCrud(Crud):
     rules = {"name": "label"}
     unique_names = (("name", "delegation"),)
     delegation_lookup = "delegation"
-    related = (Related("agenda", "territory", "Compromisos"),)
+    related = (
+        Related("agenda", "territory", "Agenda colectiva"),
+        Related("compromisos", "territory", "Compromisos"),
+    )
 
 
 def officer_access_text(officer):

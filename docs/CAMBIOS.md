@@ -17,6 +17,56 @@ Nombres que cambiaron en la v27 (los textos antiguos los mencionan con el nombre
 | `core/qa/esperado_vNN.py` | `core/qa/esperado_<tema>.py` (mismo tema que su archivo de pruebas) |
 | `sql/*.sql` (todos) | `sql/sgr_django.sql` (estructura vigente) |
 
+## Versión 38
+
+Dos cambios que pidió la clienta, ambos con la vista de tarjetas (canvas) de su modelo «Tubo»: **Cartas** (antes *Felicitaciones y reclamos*) y una sección nueva, **Compromisos**, para lo físico.
+
+### Vista canvas
+
+- Pieza común del motor de listados (`Canvas` en `core/crud.py`, plantilla `core/templates/core/partials/canvas.html`, estilos al final de `sgr.css`). Muestra los indicadores arriba y una columna por valor de un campo; cada tarjeta lleva código, título, datos clave, «Ver» y «Editar».
+- Es el mismo listado de siempre: la búsqueda, los filtros, «Incluir archivados», el Excel, el alcance por delegación y la actualización en vivo por WebSocket funcionan igual. Solo cambia cómo se dibujan los resultados.
+- Si un módulo lo permite (`movable`), cada tarjeta trae botones para pasar el registro al estado siguiente, con un solo clic (`CrudMoveView`, `POST /<módulo>/<id>/estado/`). El servidor valida el cambio con las reglas del modelo, deja el historial y la auditoría y avisa por WebSocket; un lector recibe 403 y una tarjeta de otra delegación, 404.
+
+### Cartas
+
+- *Felicitaciones y reclamos* pasa a llamarse **Cartas** en el menú, la matriz de permisos de Roles, la pantalla y la tabla. La dirección cambia de `/felicitaciones-y-reclamos/` a **`/cartas/`** (la antigua ya no existe).
+- Se ve en canvas con dos columnas, **Felicitación** y **Reclamo**, y tres indicadores (cartas, felicitaciones y reclamos con su porcentaje). Cada tarjeta muestra a quién involucra, la fecha, quién escribe, el medio, el efecto sobre el funcionario y si tiene respaldo. Los códigos son `CAR00001`…
+- No cambian las reglas: solo el delegado las registra, el ajuste (suma o resta) se genera solo y cada delegación ve lo suyo.
+- El módulo «Tubo de cartas» que se había armado aparte para esta versión se descartó: *Cartas* es este.
+
+### Compromisos
+
+- Sección nueva en *Operación*, junto a *Agenda colectiva*. Es **lo físico**: cuando una atención **requiere visita a terreno**, al registrarla se piden la fecha comprometida y el territorio, y el compromiso se crea solo en Compromisos (estado inicial «Ingresado», con su historial). Si la atención solo marca «ingresa al tubo de trabajo», sigue yendo a la Agenda colectiva. Con las dos casillas marcadas se crea un solo compromiso, de terreno.
+- Se ve en canvas con las cuatro columnas **Ingresado, Pendiente, En proceso y Realizado**, cuatro indicadores (compromisos, realizados con la tasa de resolución, en proceso activo, pendientes) y los botones para pasar cada tarjeta de estado (*A Pendiente*, *A Proceso*, *Realizar*). Los códigos son `COM00001`…
+- Comparte la tabla de la Agenda colectiva: `operations_commitment` tiene una columna nueva, `physical` (de terreno). La Agenda lista los que no son de terreno y Compromisos los que sí; la ficha abre desde cualquiera de las dos. El **resumen colectivo**, el dashboard y el tablero siguen contando todos.
+- También se puede crear un compromiso a mano desde Compromisos; queda marcado como de terreno.
+- Los permisos son los de la Agenda (`operations.*_commitment`); en la matriz de Roles la fila se llama «Agenda colectiva y compromisos».
+
+### Base de datos
+
+- Migración `operations/0006_compromisos_de_terreno_v38`: columna `physical` en `operations_commitment`, con índice.
+- Migración `planning/0006_cartas_v38`: solo cambia los nombres de la tabla de felicitaciones y reclamos (opciones del modelo); no toca datos.
+- `sql/sgr_django.sql` y `docs/DIAGRAMA_MODELOS.md` quedan al día.
+
+### Datos de la revisión
+
+- `cargar_datos_revision` carga además 55 compromisos de terreno por delegación (lo último que carga, así que el resto sale igual que en la v37; repetirlo no duplica). Total sobre una base recién migrada: 3.330 registros. Las 110 cartas son las mismas felicitaciones y reclamos de antes.
+- `datos_prueba` (datos de demostración locales) deja un compromiso de terreno por delegación.
+
+### Pruebas
+
+- Nuevo `core/test_cartas_y_compromisos.py` (27 pruebas, registradas en el catálogo QA como V38-01 y V38-02): cartas en canvas, compromisos en canvas, cambio de estado desde la tarjeta (permitido, rechazado, lector, otra delegación), atención con visita y resumen que cuenta todo.
+- Se ajustaron pruebas existentes al cambio: nombre y dirección de Cartas, la fila de la matriz de Roles, el listado de la Agenda (ya no trae los de terreno), los módulos que se pueden eliminar y la casilla que muestra la fecha y el territorio.
+
+### ❓ Para confirmar con la clienta o el grupo
+
+- **Cartas en canvas:** hoy las columnas son por tipo (Felicitación y Reclamo). ¿Se esperan columnas por estado de seguimiento, como en el Tubo de compromisos?
+- **Qué es «físico»:** hoy lo define la casilla «requiere visita» de la atención. ¿Hay otros casos?
+- **Atenciones marcadas «requiere visita» de antes** no tienen compromiso: al editarlas, la fecha y el territorio son opcionales (igual que con el tubo de trabajo).
+- **Permisos de Compromisos:** comparte los de la Agenda colectiva. ¿Se necesita separarlos?
+- **Resumen colectivo:** cuenta los compromisos de terreno junto con los de la agenda. ¿Debe separarlos?
+- **Pendiente de la lista de la clienta** (para versiones siguientes): organizaciones comunitarias con presidente, tesorero y secretario (nombre, RUT, correo), persona natural u organización en la atención, y el cambio de trimestre con aprobación.
+
 ## Versión 37
 
 Ensayo de los diez pasos de la revisión de la Evaluación Sumativa III y revisión final antes del Pull Request. No cambia la aplicación ni la base de datos: agrega pruebas, una herramienta de ensayo con navegador y la guía para repetirlo en AWS.

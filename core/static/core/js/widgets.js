@@ -219,9 +219,13 @@ function setUpPasswordToggle(input) {
 }
 
 function setUpShowWhen(field, root) {
-  const box = root.querySelector(`#${field.dataset.showWhen}`);
+  // `data-show-when` puede nombrar varias casillas separadas por coma: el campo se muestra si alguna está marcada.
+  const boxes = field.dataset.showWhen
+    .split(",")
+    .map((id) => root.querySelector(`#${id.trim()}`))
+    .filter(Boolean);
   const wrapper = field.closest("[class*='col-']");
-  if (!box || !wrapper || field.dataset.showReady) return;
+  if (!boxes.length || !wrapper || field.dataset.showReady) return;
   field.dataset.showReady = "1";
   const label = wrapper.querySelector("label.form-label");
   const needed = field.dataset.requiredWhenShown === "1";
@@ -234,7 +238,7 @@ function setUpShowWhen(field, root) {
   }
 
   function update() {
-    const on = box.checked;
+    const on = boxes.some((box) => box.checked);
     wrapper.classList.toggle("d-none", !on);
     field.disabled = !on;
     field.required = on && needed;
@@ -244,7 +248,7 @@ function setUpShowWhen(field, root) {
     }
   }
 
-  box.addEventListener("change", update);
+  boxes.forEach((box) => box.addEventListener("change", update));
   update();
 }
 

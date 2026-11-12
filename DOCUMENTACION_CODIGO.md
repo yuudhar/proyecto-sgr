@@ -88,7 +88,7 @@ Cada rol tiene una ficha (`RoleProfile`) con descripción, alcance (su delegaci�
 
 ## 7. Mantenedores registrados
 
-`core/registry.py` declara un `Crud` por cada una de estas pantallas (`slug` = parte de la dirección): `actividades`, `gestiones`, `agenda`, `evidencias`, `validaciones`, `periodos`, `metas`, `indicadores`, `ajustes`, `delegaciones`, `territorios`, `funcionarios`, `cargos`, `items-de-cargo`, `servicios`, `items`, `tipos-de-atencion`, `sub-atenciones`, `tipos-de-gestion`, `beneficiarios`, `felicitaciones-y-reclamos`, `organizaciones`, `usuarios`, `roles` y `auditoria`.
+`core/registry.py` declara un `Crud` por cada una de estas pantallas (`slug` = parte de la dirección): `actividades`, `gestiones`, `agenda`, `evidencias`, `validaciones`, `periodos`, `metas`, `indicadores`, `ajustes`, `delegaciones`, `territorios`, `funcionarios`, `cargos`, `items-de-cargo`, `servicios`, `items`, `tipos-de-atencion`, `sub-atenciones`, `tipos-de-gestion`, `beneficiarios`, `cartas`, `compromisos`, `organizaciones`, `usuarios`, `roles` y `auditoria`.
 
 ## 8. Cómo leer el resto del documento
 
@@ -732,6 +732,10 @@ kind puede ser text, badge, bool, date, datetime, number, percent, color o code;
 
 - **`__init__(path, label, sort, kind, link)`**: Guarda la ruta del dato, el título, si se puede ordenar, el tipo de celda y si la celda enlaza al detalle.
 
+##### `Canvas`
+
+Vista de tarjetas (canvas, v38) de un listado: una columna por cada valor del campo `group_by`, indicadores arriba (`kpis`, que recibe todo el conjunto filtrado) y tarjetas con código, título y líneas de datos. Con `movable`, cada tarjeta ofrece botones para pasar el registro a otro estado (`moves(registro)` dice a cuáles). Un `Crud` la activa con su atributo `canvas`; el listado sigue siendo el mismo (búsqueda, filtros, Excel, alcance y avisos en vivo).
+
 ##### `Crud`
 
 Describe las pantallas de un modelo. Se subclasea en core/registry.py.
@@ -971,9 +975,13 @@ Atributos principales: `model` = `Followup`; `slug` = `'gestiones'`; `icon` = `'
 
 - **`initial_values(request)`**: Valores de partida de una gestión nueva: la fecha de hoy y, si viene una actividad visible para la persona, el primer número de gestión (1, 2 o 3) que aún no se usa.
 
+##### `FieldCommitmentCrud` — hereda de `CommitmentCrud`
+
+Sección **Compromisos** (v38): los compromisos de terreno (`physical=True`) en vista canvas con las cuatro columnas de estado. Comparte modelo y permisos con la agenda (`queryset_filter = {"physical": True}`); `prepare_object` marca como de terreno lo que se crea a mano y `after_move` deja el cambio de estado en el historial. Los indicadores salen de `compromisos_kpis`.
+
 ##### `CommitmentCrud` — hereda de `Crud`
 
-CRUD de compromisos de la agenda colectiva.
+CRUD de compromisos de la agenda colectiva (los que no son de terreno: `queryset_filter = {"physical": False}`).
 
 Atributos principales: `model` = `Commitment`; `slug` = `'agenda'`; `icon` = `'bi-calendar-check'`; `title` = `'Compromiso'`; `title_plural` = `'Compromisos'`; `description` = `'Compromisos con vecinos, organizaciones y la propia municipalidad.'`; `list_display` = `requester, territory, responsible_officer, due_date, status, requester_type`; `search_fields` = `requester, territory__name, description`; `form_fields` = `requester, requester_type, source, request_date, description, territory, due_date, support, status, notes, responsible_officer, delegation`.
 
@@ -2367,6 +2375,8 @@ Opciones de `Status`: `submitted` (Ingresado), `pending` (Pendiente), `in_progre
 #### `operations/pipeline.py` (tubo de trabajo, v32)
 
 Una atención marcada «ingresa al tubo» crea su compromiso en la agenda colectiva con lo que ya dice la atención (solicitante, descripción, fecha, delegación y funcionario responsable) más la fecha comprometida y el territorio que se piden en el formulario. El compromiso nace «Ingresado» y su origen dice «Atención ATN00012».
+
+Desde la v38, una atención que **requiere visita** (algo físico) también pide la fecha comprometida y el territorio y crea su compromiso con `physical=True`: va a la sección Compromisos y no a la agenda. Con las dos casillas marcadas se crea uno solo, de terreno. `PipelineForm` pide los dos datos con cualquiera de las dos casillas (`PIPELINE_BOXES`) y `widgets.js` los muestra si alguna está marcada (`data-show-when` acepta varias casillas separadas por coma).
 
 - **`origin_label(activity)`**: el texto del origen, con el identificador que la atención muestra en su listado.
 - **`create_commitment(activity, due_date, territory)`**: crea el compromiso y lo enlaza en `Activity.commitment`; si la atención ya tiene uno, no crea otro y lo devuelve.

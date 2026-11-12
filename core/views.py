@@ -696,8 +696,8 @@ def evidence_file(request, pk):
 
 @login_required
 def feedback_file(request, pk):
-    """Respaldo de una felicitación o un reclamo: solo lo abre quien ve ese registro (y su delegación)."""
-    crud = registry.get("felicitaciones-y-reclamos")
+    """Respaldo de una carta (felicitación o reclamo): solo lo abre quien ve ese registro (y su delegación)."""
+    crud = registry.get("cartas")
     if not crud.has_perm(request.user, "view"):
         raise PermissionDenied
     feedback = get_object_or_404(crud.get_queryset(request, include_archived=True), pk=pk)

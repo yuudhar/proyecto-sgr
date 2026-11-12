@@ -338,13 +338,13 @@ class FeedbackScreensTests(PortalTestCase):
     def create(self, **changes):
         self.client.post(reverse("core:set_context"), {"delegacion": self.north.pk, "next": "/"})
         with self.captureOnCommitCallbacks(execute=True):
-            return self.client.post(reverse("core:felicitaciones_y_reclamos_create"), self.data(**changes))
+            return self.client.post(reverse("core:cartas_create"), self.data(**changes))
 
     def test_the_delegate_registers_a_compliment_and_the_adjustment_appears(self):
         self.login_as("jefatura1")
         response = self.create()
         feedback = Feedback.objects.get(contact_name="Rosa Núñez", officer=self.cavieres)
-        self.assertRedirects(response, reverse("core:felicitaciones_y_reclamos_detail", args=[feedback.pk]))
+        self.assertRedirects(response, reverse("core:cartas_detail", args=[feedback.pk]))
         self.assertEqual(feedback.registered_by.username, "jefatura1")
         self.assertEqual(feedback.adjustment.percentage_value, Decimal("10"))
         self.assertTrue(feedback.support.name.startswith("respaldos/"))
@@ -404,21 +404,21 @@ class FeedbackScreensTests(PortalTestCase):
     def test_an_officer_gets_403_to_open_or_send_the_form(self):
         self.login_as("matias.cavieres")
         before = Feedback.objects.count()
-        self.assertEqual(self.client.get(reverse("core:felicitaciones_y_reclamos_create")).status_code, 403)
+        self.assertEqual(self.client.get(reverse("core:cartas_create")).status_code, 403)
         self.assertEqual(
-            self.client.post(reverse("core:felicitaciones_y_reclamos_create"), self.data()).status_code, 403
+            self.client.post(reverse("core:cartas_create"), self.data()).status_code, 403
         )
-        self.assertEqual(self.client.get(reverse("core:felicitaciones_y_reclamos_list")).status_code, 403)
+        self.assertEqual(self.client.get(reverse("core:cartas_list")).status_code, 403)
         self.assertEqual(Feedback.objects.count(), before)
 
     def test_the_reader_cannot_open_the_module(self):
         self.login_as("consulta1")
-        self.assertEqual(self.client.get(reverse("core:felicitaciones_y_reclamos_list")).status_code, 403)
+        self.assertEqual(self.client.get(reverse("core:cartas_list")).status_code, 403)
 
     def test_coordination_can_see_but_not_register(self):
         self.login_as("coordinacion1")
-        self.assertEqual(self.client.get(reverse("core:felicitaciones_y_reclamos_list")).status_code, 200)
-        self.assertEqual(self.client.get(reverse("core:felicitaciones_y_reclamos_create")).status_code, 403)
+        self.assertEqual(self.client.get(reverse("core:cartas_list")).status_code, 200)
+        self.assertEqual(self.client.get(reverse("core:cartas_create")).status_code, 403)
 
     def test_the_list_shows_the_effect_and_only_the_own_delegation(self):
         south = Feedback.objects.create(
@@ -427,11 +427,11 @@ class FeedbackScreensTests(PortalTestCase):
             registered_by=User_of("admin"),
         )
         self.login_as("jefatura1")
-        response = self.client.get(reverse("core:felicitaciones_y_reclamos_list"))
+        response = self.client.get(reverse("core:cartas_list"))
         self.assertContains(response, "Suma 10 %")
         self.assertNotContains(response, "Vecina Sur")
         self.assertEqual(
-            self.client.get(reverse("core:felicitaciones_y_reclamos_detail", args=[south.pk])).status_code, 404
+            self.client.get(reverse("core:cartas_detail", args=[south.pk])).status_code, 404
         )
 
     def test_the_support_opens_only_for_the_own_delegation(self):
@@ -456,9 +456,9 @@ class FeedbackScreensTests(PortalTestCase):
 
     def test_the_menu_lists_the_module_only_for_the_roles_that_see_it(self):
         self.login_as("jefatura1")
-        self.assertIn("Felicitaciones y reclamos", self.menu_labels(self.client.get(reverse("core:dashboard"))))
+        self.assertIn("Cartas", self.menu_labels(self.client.get(reverse("core:dashboard"))))
         self.login_as("matias.cavieres")
-        self.assertNotIn("Felicitaciones y reclamos", self.menu_labels(self.client.get(reverse("core:dashboard"))))
+        self.assertNotIn("Cartas", self.menu_labels(self.client.get(reverse("core:dashboard"))))
 
     def test_the_period_form_asks_for_the_new_values(self):
         self.login_as("coordinacion1")

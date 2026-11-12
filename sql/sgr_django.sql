@@ -201,6 +201,7 @@ CREATE TABLE `operations_commitment` (
   `support` varchar(100) DEFAULT NULL,
   `status` varchar(30) NOT NULL,
   `notes` longtext DEFAULT NULL,
+  `physical` tinyint(1) NOT NULL,
   `delegation_id` bigint(20) NOT NULL,
   `responsible_officer_id` bigint(20) NOT NULL,
   `territory_id` bigint(20) NOT NULL
@@ -520,7 +521,8 @@ ALTER TABLE `operations_commitment`
   ADD PRIMARY KEY (`id`),
   ADD KEY `operations_commitmen_delegation_id_40bdfd9e_fk_organizat` (`delegation_id`),
   ADD KEY `operations_commitmen_responsible_officer__28e13bc7_fk_organizat` (`responsible_officer_id`),
-  ADD KEY `operations_commitmen_territory_id_cf446f34_fk_organizat` (`territory_id`);
+  ADD KEY `operations_commitmen_territory_id_cf446f34_fk_organizat` (`territory_id`),
+  ADD KEY `operations_commitment_physical_b140b38a` (`physical`);
 
 ALTER TABLE `operations_followup`
   ADD PRIMARY KEY (`id`),

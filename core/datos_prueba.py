@@ -885,6 +885,38 @@ class CargaDatosPrueba(BaseCommand):
             },
         )
 
+        Commitment.objects.get_or_create(
+            delegation=north,
+            territory=territory_north,
+            requester="Marta Henríquez",
+            defaults={
+                "requester_type": Commitment.RequesterType.EXTERNAL,
+                "request_date": today - timedelta(days=4),
+                "description": "Revisión de luminarias en pasaje del sector, visita a terreno.",
+                "due_date": today + timedelta(days=9),
+                "status": Commitment.Status.SUBMITTED,
+                "responsible_officer": officer_north_2,
+                "source": "Atención con visita a terreno",
+                "physical": True,
+            },
+        )
+        Commitment.objects.get_or_create(
+            delegation=south,
+            territory=territory_south,
+            requester="Junta de Vecinos Sector Sur",
+            defaults={
+                "requester_type": Commitment.RequesterType.EXTERNAL,
+                "request_date": today - timedelta(days=7),
+                "description": "Poda de árboles en la plaza, con la cuadrilla de áreas verdes.",
+                "due_date": today + timedelta(days=5),
+                "status": Commitment.Status.IN_PROGRESS,
+                "responsible_officer": officer_south_2,
+                "source": "Atención con visita a terreno",
+                "support": "Parques y Jardines",
+                "physical": True,
+            },
+        )
+
         evidence_north, _ = Evidence.objects.get_or_create(
             unique_code="EVD-NORTE-0001",
             defaults={

@@ -107,6 +107,7 @@ class ReviewDataVolumeTests(RevisionTestCase):
         for slug in carga.CRUDS_EVALUADOS:
             crud = registry.get(slug)
             activos = crud.model._base_manager.filter(deleted_at__isnull=True)
+            activos = activos.filter(**crud.queryset_filter)
             self.assertGreaterEqual(activos.count(), carga.MINIMO_POR_CRUD, slug)
             if crud.delegation_lookup:
                 for nombre, delegacion in self.ambitos.items():
@@ -122,6 +123,7 @@ class ReviewDataVolumeTests(RevisionTestCase):
             if not crud.delegation_lookup or not hasattr(crud.model, "deleted_at"):
                 continue
             activos = crud.model._base_manager.filter(deleted_at__isnull=True)
+            activos = activos.filter(**crud.queryset_filter)
             for nombre, delegacion in self.ambitos.items():
                 cuantos = activos.filter(**{crud.delegation_lookup: delegacion}).count()
                 self.assertGreaterEqual(cuantos, carga.MINIMO_POR_CRUD, f"{crud.slug} · {nombre}")

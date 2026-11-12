@@ -16,6 +16,7 @@ from core.qa.esperado_reglas_puntaje import ESPERADO as _REGLAS_PUNTAJE
 from core.qa.esperado_cierre_y_ausencias import ESPERADO as _CIERRE_Y_AUSENCIAS
 from core.qa.esperado_felicitaciones_equipo_y_jjvv import ESPERADO as _FELICITACIONES_EQUIPO_Y_JJVV
 from core.qa.esperado_tubo_de_trabajo import ESPERADO as _TUBO_DE_TRABAJO
+from core.qa.esperado_cartas_y_compromisos import ESPERADO as _CARTAS_Y_COMPROMISOS
 from core.qa.esperado_cliente_y_recorte import ESPERADO as _CLIENTE_Y_RECORTE
 from core.qa.esperado_listado_y_perfil import ESPERADO as _LISTADO_Y_PERFIL
 from core.qa.esperado_carga_revision import ESPERADO as _CARGA_REVISION
@@ -99,6 +100,8 @@ REQUISITOS = {
     "V37-01": ("Versión 37", "Ensayo de los diez pasos de la revisión con las seis cuentas y los datos de la carga: una prueba automática reproducible por paso (aplicación y datos, CRUD con modal, datos inválidos y archivos, listados y Excel, lector sin permisos, aislamiento, WebSocket, recuperación, recorte y clientes, ramas y evento, navegación y errores)"),
     "V37-02": ("Versión 37", "Herramienta con navegador real (tools/ensayo/ensayo_revision.py) que recorre los diez pasos contra el servidor local o AWS, con una sesión por cuenta, contraseñas solo del entorno, datos de prueba marcados y archivados al terminar, e informe de lo que falló o queda manual"),
     "V37-03": ("Versión 37", "Guía del ensayo (docs/ENSAYO_REVISION.md): cuenta, qué mostrar y resultado esperado en cada paso, recorrido del evento en vivo, cómo repetirlo en AWS y qué falta decidir con el equipo; README y registro de pruebas al día"),
+    "V38-01": ("Versión 38", "Cartas (antes Felicitaciones y reclamos) en vista canvas: columnas por tipo, indicadores arriba, filtros y alcance por delegación; nueva dirección /cartas/ y matriz de permisos con el nombre nuevo"),
+    "V38-02": ("Versión 38", "Compromisos, sección nueva en canvas para lo físico: una atención con visita a terreno crea sola su compromiso, con cuatro columnas por estado, indicadores, botones de cambio de estado con historial y el mismo alcance y permisos de la agenda"),
     "V29-04": ("Versión 29", "Números de pocas opciones (por ejemplo 1 a 3) se eligen de una lista y no se pueden escribir mal"),
     "T11-04": ("Clase 11", "Dashboard, tablero y validar en vivo: el cambio de una persona se ve en la pantalla abierta de otra de la misma delegación, sin F5"),
     "RF-018": ("Informe SGR", "Gestionar estados de compromisos: Ingresado, Pendiente, En proceso y Realizado, con transiciones válidas e historial"),
@@ -338,9 +341,14 @@ CLASES = {
     "EnsayoPaso9RamasYEventoTests": (["V37-01", "V37-03"], "Ensayo, paso 9: recorrido del evento y ramas en la guía", _SIN_BD),
     "EnsayoPaso10NavegacionYErroresTests": (["V37-01"], "Ensayo, paso 10: menú de las seis cuentas, páginas 403, 404, 400 y 500", "Base de datos vacía y una ejecución de cargar_datos_revision"),
     "EnsayoHerramientaYGuiaTests": (["V37-02", "V37-03"], "Herramienta y guía del ensayo", _SIN_BD),
+    "CartasBoardTests": (["V38-01"], "Cartas en canvas", _SEMILLA + "; sesión de Jefatura (Norte); cartas creadas en la prueba"),
+    "CompromisosBoardTests": (["V38-02"], "Compromisos en canvas", _SEMILLA + "; sesión de Matías Cavieres (Norte)"),
+    "CompromisosMoveTests": (["V38-02"], "Cambio de estado desde la tarjeta", _SEMILLA + "; sesiones de Matías Cavieres y Consulta; compromisos de Norte y Sur creados en la prueba"),
+    "AttentionWithVisitTests": (["V38-02"], "Atención con visita crea su compromiso de terreno", _SEMILLA + "; sesión de Matías Cavieres (Norte)"),
+    "ReportsCountEverythingTests": (["V38-02"], "El resumen colectivo cuenta todos los compromisos", _SEMILLA + "; sesión de Jefatura (Norte)"),
 }
 
 ESPERADO = {}
-for _grupo in (_ACCESO, _MANTENEDORES, _INGRESO, _LISTADOS, _DESPLIEGUE, _VALIDACIONES, _ARCHIVOS_Y_FOTO, _ELIMINAR_Y_LISTADOS, _USUARIOS_ELIMINADOS, _TIEMPO_REAL, _RITMO_Y_COMPROMISOS, _RESULTADOS_Y_CALCULO, _CODES_SEARCH_AND_CHARTS, _REGLAS_PUNTAJE, _CIERRE_Y_AUSENCIAS, _FELICITACIONES_EQUIPO_Y_JJVV, _TUBO_DE_TRABAJO, _CLIENTE_Y_RECORTE, _ERRORES, _LISTADO_Y_PERFIL, _CARGA_REVISION, _ENSAYO_REVISION, ):
+for _grupo in (_ACCESO, _MANTENEDORES, _INGRESO, _LISTADOS, _DESPLIEGUE, _VALIDACIONES, _ARCHIVOS_Y_FOTO, _ELIMINAR_Y_LISTADOS, _USUARIOS_ELIMINADOS, _TIEMPO_REAL, _RITMO_Y_COMPROMISOS, _RESULTADOS_Y_CALCULO, _CODES_SEARCH_AND_CHARTS, _REGLAS_PUNTAJE, _CIERRE_Y_AUSENCIAS, _FELICITACIONES_EQUIPO_Y_JJVV, _TUBO_DE_TRABAJO, _CLIENTE_Y_RECORTE, _ERRORES, _LISTADO_Y_PERFIL, _CARGA_REVISION, _ENSAYO_REVISION, _CARTAS_Y_COMPROMISOS, ):
     for _clase, _metodos in _grupo.items():
         ESPERADO.setdefault(_clase, {}).update(_metodos)
