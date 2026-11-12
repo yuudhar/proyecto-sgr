@@ -141,7 +141,10 @@ function setUpPermissions(box) {
 
 function setUpDependent(select, root) {
   const parent = root.querySelector(`#${CSS.escape(select.dataset.dependsOn)}`);
-  if (!parent) return;
+  // Una sola vez por lista: este archivo puede cargarse dos veces (desde la página y desde crud-modal.js) y la
+  // segunda preparación, al no encontrar ya las opciones, dejaría la lista vacía.
+  if (!parent || select.dataset.dependentReady) return;
+  select.dataset.dependentReady = "1";
   const options = [...select.options].filter((option) => option.value !== "");
   const placeholder = select.querySelector('option[value=""]') || new Option("", "");
   const choose = placeholder.textContent;
@@ -252,6 +255,68 @@ function setUpShowWhen(field, root) {
   update();
 }
 
+function setUpShowIf(field, root) {
+  // `data-show-if="id_selector:valor1,valor2"`: el campo se muestra solo cuando el selector tiene uno de esos valores.
+  const [selectorId, values = ""] = field.dataset.showIf.split(":");
+  const selector = root.querySelector(`#${CSS.escape(selectorId.trim())}`);
+  const wrapper = field.closest("[class*='col-']");
+  if (!selector || !wrapper || field.dataset.showReady) return;
+  field.dataset.showReady = "1";
+  const wanted = values.split(",").map((value) => value.trim());
+  const label = wrapper.querySelector("label.form-label");
+  const needed = field.dataset.requiredWhenShown === "1";
+  let mark = null;
+  if (needed && label && !label.querySelector(".required-mark")) {
+    mark = document.createElement("span");
+    mark.className = "required-mark";
+    mark.setAttribute("aria-hidden", "true");
+    mark.textContent = " *";
+  }
+
+  function update() {
+    const on = wanted.includes(selector.value);
+    wrapper.classList.toggle("d-none", !on);
+    field.disabled = !on;
+    field.required = on && needed;
+    if (mark) {
+      if (on) label.append(mark);
+      else mark.remove();
+    }
+  }
+
+  selector.addEventListener("change", update);
+  update();
+}
+
+function setUpRequiredIf(field, root) {
+  // `data-required-if="id_selector:valor1,valor2"`: el campo siempre se ve, pero se exige solo con esos valores.
+  const [selectorId, values = ""] = field.dataset.requiredIf.split(":");
+  const selector = root.querySelector(`#${CSS.escape(selectorId.trim())}`);
+  if (!selector || field.dataset.requiredReady) return;
+  field.dataset.requiredReady = "1";
+  const wanted = values.split(",").map((value) => value.trim());
+  const label = (field.closest("[class*='col-']") || document).querySelector("label.form-label");
+  let mark = null;
+  if (label && !label.querySelector(".required-mark")) {
+    mark = document.createElement("span");
+    mark.className = "required-mark";
+    mark.setAttribute("aria-hidden", "true");
+    mark.textContent = " *";
+  }
+
+  function update() {
+    const on = wanted.includes(selector.value);
+    field.required = on;
+    if (mark) {
+      if (on) label.append(mark);
+      else mark.remove();
+    }
+  }
+
+  selector.addEventListener("change", update);
+  update();
+}
+
 export function initWidgets(root = document) {
   root.querySelectorAll("input[type=password]").forEach(setUpPasswordToggle);
   root.querySelectorAll("[data-color-field]").forEach(setUpColor);
@@ -259,6 +324,8 @@ export function initWidgets(root = document) {
   root.querySelectorAll("select[data-depends-on]").forEach((select) => setUpDependent(select, root));
   initSearchable(root);
   root.querySelectorAll("[data-show-when]").forEach((field) => setUpShowWhen(field, root));
+  root.querySelectorAll("[data-show-if]").forEach((field) => setUpShowIf(field, root));
+  root.querySelectorAll("[data-required-if]").forEach((field) => setUpRequiredIf(field, root));
   if (dialog.available) root.querySelectorAll("[data-lookup-field]").forEach((box) => setUpLookup(box, root));
 }
 

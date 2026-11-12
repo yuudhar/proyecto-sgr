@@ -155,6 +155,7 @@ MENU = [
                     crud_entry("tipos-de-gestion"),
                     crud_entry("beneficiarios"),
                     crud_entry("organizaciones"),
+                    crud_entry("directivas"),
                 ],
             ),
             (

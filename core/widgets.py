@@ -112,6 +112,7 @@ class DependentSelect(forms.Select):
         choices=(),
         depends_on="",
         parent_attr="parent_item_id",
+        name_attr="name",
         empty_parent="",
         empty_children="",
         cleared_message="",
@@ -120,6 +121,7 @@ class DependentSelect(forms.Select):
         super().__init__(attrs, choices)
         self.depends_on = depends_on
         self.parent_attr = parent_attr
+        self.name_attr = name_attr
         self.choose_if_options = choose_if_options
         self.empty_parent = empty_parent
         self.empty_children = empty_children
@@ -146,5 +148,5 @@ class DependentSelect(forms.Select):
         if instance is not None:
             parent = getattr(instance, self.parent_attr, None)
             option["attrs"]["data-parent"] = "" if parent is None else str(parent)
-            option["attrs"]["data-name"] = str(getattr(instance, "name", ""))
+            option["attrs"]["data-name"] = str(getattr(instance, self.name_attr, ""))
         return option

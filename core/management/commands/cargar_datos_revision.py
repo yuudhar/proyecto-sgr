@@ -54,6 +54,7 @@ from organization.models import (
     Delegation,
     Item,
     Officer,
+    OrganizationLeader,
     Position,
     PositionItem,
     Service,
@@ -91,6 +92,7 @@ AUSENCIAS = 55
 BENEFICIARIOS = 400  # compartidos entre delegaciones
 ORGANIZACIONES = 80  # compartidas entre delegaciones
 ATENCIONES_CON_COMPROMISO = 40
+DIRECTIVOS_MAXIMO = 3  # directivos (además de presidente, secretario y tesorero) por organización
 
 # --- Ámbitos -----------------------------------------------------------------------------------------------------
 AMBITOS = (
@@ -193,6 +195,7 @@ MODULOS_OPERACION = (
     "planning.absence",
     "organization.beneficiary",
     "organization.communityorganization",
+    "organization.organizationleader",
     "organization.territory",
     "organization.officer",
 )
@@ -202,8 +205,12 @@ PERMISOS_EXTRA = {
     "administrador": [f"{modulo}:{accion}" for modulo in MODULOS_OPERACION for accion in ACCIONES]
     + ["auth.user:view", "auth.user:add", "auth.user:change"],
     "editor": [f"organization.beneficiary:{accion}" for accion in ("view", "add", "change")]
-    + ["organization.communityorganization:view"],
-    "lector": ["organization.beneficiary:view", "organization.communityorganization:view"],
+    + ["organization.communityorganization:view", "organization.organizationleader:view"],
+    "lector": [
+        "organization.beneficiary:view",
+        "organization.communityorganization:view",
+        "organization.organizationleader:view",
+    ],
     "cliente": [],
 }
 
@@ -312,6 +319,7 @@ DESCRIPCIONES_RECLAMO = [
     "Reclama porque no le devolvieron el llamado que pidió.",
 ]
 NOTAS_AUSENCIA = ["Licencia médica", "Vacaciones", "Trámite personal", "Emergencia familiar", "Día compensatorio"]
+CARGOS_OTROS = ["Delegado de calle", "Director suplente", "Encargado de actividades", "Delegado de seguridad"]
 TIPOS_ORGANIZACION = ["Junta de Vecinos", "Club de Adulto Mayor", "Comité de Vivienda", "Centro de Madres", "Club Deportivo"]
 
 
@@ -427,6 +435,7 @@ class Command(BaseCommand):
             self.ausencias()
             self.metas()
             self.compromisos_de_terreno()
+            self.directivas_y_solicitantes()
         creados = calculation.recalculate_period(self.periodo)
         self.stdout.write(f"Indicadores nuevos calculados: {creados}.")
 
@@ -877,6 +886,9 @@ class Command(BaseCommand):
                     phone=fono,
                     beneficiary=persona,
                     organization=organizacion,
+                    requester_kind=(
+                        Activity.RequesterKind.ORGANIZATION if organizacion is not None else Activity.RequesterKind.NATURAL
+                    ),
                     status=estado,
                     requires_visit=azar.random() < 0.25,
                     requester_is_delegate=azar.random() < 0.04,
@@ -929,6 +941,65 @@ class Command(BaseCommand):
     # ------------------------------------------------------------------------------------------------------------
     # Gestiones de seguimiento
     # ------------------------------------------------------------------------------------------------------------
+    # ------------------------------------------------------------------------------------------------------------
+    # Directiva de las organizaciones y quién viene en las atenciones de organización
+    # ------------------------------------------------------------------------------------------------------------
+    def directivas_y_solicitantes(self):
+        # Azar propio: así no cambia nada de lo que generan los demás cargadores.
+        azar = random.Random(SEMILLA + 39)
+        organizaciones = sorted(
+            (o for lista in self.organizaciones.values() for o in lista), key=lambda o: o.registry_number
+        )
+        filas = []
+        contador = 0
+        for organizacion in organizaciones:
+            cargos = [(OrganizationLeader.Role.PRESIDENT, "")]
+            for cargo in (OrganizationLeader.Role.SECRETARY, OrganizationLeader.Role.TREASURER):
+                if azar.random() < 0.9:
+                    cargos.append((cargo, ""))
+            cargos += [(OrganizationLeader.Role.DIRECTOR, "")] * azar.randint(0, DIRECTIVOS_MAXIMO)
+            if azar.random() < 0.15:
+                cargos.append((OrganizationLeader.Role.OTHER, azar.choice(CARGOS_OTROS)))
+            for cargo, detalle in cargos:
+                contador += 1
+                nombre = nombre_persona(azar)
+                correo = f"{slugify(nombre).replace('-', '.')}.{contador}@{DOMINIO_CORREO}" if azar.random() < 0.7 else ""
+                filas.append(
+                    OrganizationLeader(
+                        organization=organizacion,
+                        role=cargo,
+                        role_detail=detalle,
+                        name=nombre,
+                        rut=rut_de(18_000_000 + contador * 11),
+                        email=correo,
+                    )
+                )
+        existentes = set(
+            OrganizationLeader._base_manager.filter(organization__in=organizaciones).values_list("organization_id", "rut")
+        )
+        OrganizationLeader.objects.bulk_create(
+            [f for f in filas if (f.organization_id, f.rut) not in existentes], batch_size=500
+        )
+
+        # Las atenciones de organización del cargador dicen quién de la directiva vino (el presidente primero).
+        por_organizacion = {}
+        for persona in OrganizationLeader.objects.filter(organization__in=organizaciones).order_by("pk"):
+            por_organizacion.setdefault(persona.organization_id, []).append(persona)
+        for lista in por_organizacion.values():
+            lista.sort(key=lambda p: [r.value for r in OrganizationLeader.Role].index(p.role))
+        propias = [f.pk for f in self.especificaciones if f.organization_id is not None]
+        cambiadas = []
+        for actividad in Activity._base_manager.filter(pk__in=propias, organization_leader__isnull=True):
+            lista = por_organizacion.get(actividad.organization_id)
+            if not lista:
+                continue
+            actividad.organization_leader = lista[actividad.pk % len(lista)]
+            if actividad.contact_name:
+                actividad.contact_name = actividad.organization_leader.name[:100]
+            cambiadas.append(actividad)
+        Activity._base_manager.bulk_update(cambiadas, ["organization_leader", "contact_name"], batch_size=500)
+        self.stdout.write(f"Directivas: {len(filas)} integrantes; atenciones de organización con su directivo: {len(cambiadas)}.")
+
     def gestiones(self):
         azar = self.azar
         filas = []

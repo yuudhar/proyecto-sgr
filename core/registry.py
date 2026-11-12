@@ -26,6 +26,7 @@ from core.forms import (
     GoalForm,
     IndicatorForm,
     ItemForm,
+    LeaderForm,
     OfficerForm,
     PeriodForm,
     PositionForm,
@@ -57,6 +58,7 @@ from organization.models import (
     Delegation,
     Item,
     Officer,
+    OrganizationLeader,
     Position,
     PositionItem,
     Service,
@@ -159,15 +161,29 @@ class ActivityCrud(Crud):
         "beneficiary__name",
         "beneficiary__rut",
         "organization__name",
+        "organization_leader__name",
     )
-    list_filters = ("delegation", "status", "counts_for_score", "requires_visit", "added_to_pipeline", "item", "author_officer")
-    select_related = ("delegation", "item", "item__parent_item", "author_officer", "beneficiary", "service")
+    list_filters = (
+        "delegation",
+        "status",
+        "requester_kind",
+        "counts_for_score",
+        "requires_visit",
+        "added_to_pipeline",
+        "item",
+        "author_officer",
+    )
+    select_related = (
+        "delegation", "item", "item__parent_item", "author_officer", "beneficiary", "service", "organization_leader",
+    )
     form_fields = (
         "date",
         "item",
         "service",
+        "requester_kind",
         "beneficiary",
         "organization",
+        "organization_leader",
         "contact_name",
         "phone",
         "request_description",
@@ -183,12 +199,14 @@ class ActivityCrud(Crud):
     )
     create_form_base = ActivityIntakeForm
     create_fields = (
+        "requester_kind",
         "requester",
+        "organization",
+        "organization_leader",
         "phone",
         "attention_type",
         "item",
         "service",
-        "organization",
         "request_description",
         "action_taken",
         "requires_visit",
@@ -1366,6 +1384,74 @@ class CommunityOrganizationCrud(Crud):
     full_width = ("name", "legal_address")
     rules = {"name": "label", "legal_address": "label"}
     bounds = {"active_members": {"min": "0"}, "registry_number": {"min": "1"}, "directory_number": {"min": "0"}}
+    related = (Related("directivas", "organization", "Directiva"),)
+
+
+def leader_role_text(leader):
+    return leader.role_text()
+
+
+@registry.register
+class OrganizationLeaderCrud(Crud):
+    model = OrganizationLeader
+    slug = "directivas"
+    icon = "bi-person-badge"
+    deletable = True
+    state_filter = True
+    description = (
+        "Presidente, secretario, tesorero y demás integrantes de la directiva de cada organización. "
+        "Son registros propios: no se crean como beneficiarios."
+    )
+    list_display = (
+        Col("name", "Nombre", link=True),
+        "rut",
+        Col("role_text", "Cargo", sort=False),
+        "organization",
+        "email",
+    )
+    computed = {"role_text": leader_role_text}
+    search_fields = ("name", "rut", "email", "organization__name")
+    list_filters = ("role", "organization")
+    select_related = ("organization",)
+    form_base = LeaderForm
+    form_fields = ("organization", "role", "role_detail", "name", "rut", "email")
+    rules = {"name": "person_name", "rut": "rut", "email": "email", "role_detail": "label"}
+    help_texts = {"rut": "Con o sin puntos; se guarda como 12345678-5."}
+
+    def restore_blockers(self, obj):
+        if obj.organization.deleted_at is not None:
+            return [f"Su organización «{obj.organization.name}» está archivada: restáurala primero."]
+        others = OrganizationLeader.objects.filter(organization=obj.organization, deleted_at__isnull=True).exclude(pk=obj.pk)
+        reasons = []
+        if others.filter(rut=obj.rut).exists():
+            reasons.append("Esa persona ya está en la directiva de la organización con otro registro.")
+        if obj.role in OrganizationLeader.SINGLE_ROLES and others.filter(role=obj.role).exists():
+            reasons.append(f"La organización ya tiene {OrganizationLeader.Role(obj.role).label.lower()}.")
+        return reasons
+
+    def validate_form(self, form, cleaned):
+        role = cleaned.get("role")
+        if role != OrganizationLeader.Role.OTHER:
+            cleaned["role_detail"] = ""
+        elif "role_detail" in form.fields and not form.has_error("role_detail") and not cleaned.get("role_detail"):
+            form.add_error("role_detail", "Escribe cuál es el cargo.")
+        organization = cleaned.get("organization")
+        if organization is None or form.has_error("organization"):
+            return
+        others = OrganizationLeader.objects.filter(organization=organization, deleted_at__isnull=True)
+        if form.instance.pk:
+            others = others.exclude(pk=form.instance.pk)
+        rut = cleaned.get("rut")
+        if rut and not form.has_error("rut") and others.filter(rut=rut).exists():
+            form.add_error("rut", "Esa persona ya está en la directiva de esta organización.")
+        if role in OrganizationLeader.SINGLE_ROLES and not form.has_error("role"):
+            holder = others.filter(role=role).first()
+            if holder is not None:
+                label = OrganizationLeader.Role(role).label.lower()
+                form.add_error(
+                    "role",
+                    f"Esta organización ya tiene {label}: {holder.name}. Cámbiale el cargo o archívalo antes.",
+                )
 
 
 @registry.register

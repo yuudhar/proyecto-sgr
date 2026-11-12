@@ -97,6 +97,7 @@ PERMISSION_MODULES = (
             ("Tipos de gestión", "operations.managementtype"),
             ("Beneficiarios", "organization.beneficiary"),
             ("Organizaciones", "organization.communityorganization"),
+            ("Directivas de organizaciones", "organization.organizationleader"),
         ),
     ),
     (

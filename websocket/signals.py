@@ -41,6 +41,7 @@ LIVE_MODELS = {
     "organization.Territory": None,
     "organization.Beneficiary": None,
     "organization.CommunityOrganization": None,
+    "organization.OrganizationLeader": None,
     "accounts.UserProfile": None,
     "accounts.RoleProfile": None,
 }

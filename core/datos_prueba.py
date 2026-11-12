@@ -21,6 +21,7 @@ from organization.models import (
     Delegation,
     Item,
     Officer,
+    OrganizationLeader,
     Position,
     PositionItem,
     Service,
@@ -280,7 +281,7 @@ class CargaDatosPrueba(BaseCommand):
                 beneficiary.save()
             beneficiaries[rut] = beneficiary
 
-        CommunityOrganization.objects.get_or_create(
+        demo_organization, _ = CommunityOrganization.objects.get_or_create(
             registry_number=1001,
             defaults={
                 "name": "JUNTA DE VECINOS DEMOSTRACIÓN",
@@ -290,6 +291,17 @@ class CargaDatosPrueba(BaseCommand):
                 "active_members": 120,
             },
         )
+        for role, rut, name, email in [
+            ("president", "12345678-5", "Gloria Tapia Soto", "gloria.tapia@ejemplo.cl"),
+            ("secretary", "13579246-2", "Héctor Vega Rojas", "hector.vega@ejemplo.cl"),
+            ("treasurer", "14725836-4", "Marta Silva Araya", ""),
+            ("director", "16482937-5", "Pablo Rivera Díaz", ""),
+        ]:
+            OrganizationLeader.objects.get_or_create(
+                organization=demo_organization,
+                rut=rut,
+                defaults={"role": role, "name": name, "email": email},
+            )
 
         officer_north_1, _ = Officer.objects.get_or_create(
             institutional_id="F-1001",
