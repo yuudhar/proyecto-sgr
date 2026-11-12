@@ -276,12 +276,14 @@ class FixedProfileTests(IntakeCase):
         self.assertEqual(
             list(form.fields),
             [
+                "requester_kind",
                 "requester",
+                "organization",
+                "organization_leader",
                 "phone",
                 "attention_type",
                 "item",
                 "service",
-                "organization",
                 "request_description",
                 "action_taken",
                 "requires_visit",

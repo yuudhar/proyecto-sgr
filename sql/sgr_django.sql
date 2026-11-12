@@ -184,7 +184,9 @@ CREATE TABLE `operations_activity` (
   `no_score_reason` varchar(120) NOT NULL,
   `requester_is_delegate` tinyint(1) NOT NULL,
   `organization_id` bigint(20) DEFAULT NULL,
-  `commitment_id` bigint(20) DEFAULT NULL
+  `commitment_id` bigint(20) DEFAULT NULL,
+  `organization_leader_id` bigint(20) DEFAULT NULL,
+  `requester_kind` varchar(20) NOT NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 CREATE TABLE `operations_commitment` (
@@ -295,6 +297,19 @@ CREATE TABLE `organization_officer` (
   `status` varchar(20) NOT NULL,
   `delegation_id` bigint(20) NOT NULL,
   `position_id` bigint(20) NOT NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE `organization_organizationleader` (
+  `id` bigint(20) NOT NULL,
+  `created_at` datetime(6) NOT NULL,
+  `updated_at` datetime(6) NOT NULL,
+  `deleted_at` datetime(6) DEFAULT NULL,
+  `role` varchar(20) NOT NULL,
+  `role_detail` varchar(100) NOT NULL,
+  `name` varchar(150) NOT NULL,
+  `rut` varchar(12) NOT NULL,
+  `email` varchar(254) NOT NULL,
+  `organization_id` bigint(20) NOT NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 CREATE TABLE `organization_position` (
@@ -515,6 +530,7 @@ ALTER TABLE `operations_activity`
   ADD KEY `operations_activity_service_id_5569328a_fk_organizat` (`service_id`),
   ADD KEY `operations_activity_organization_id_3910018f_fk_organizat` (`organization_id`),
   ADD UNIQUE KEY `commitment_id` (`commitment_id`),
+  ADD KEY `operations_activity_organization_leader__02268d07_fk_organizat` (`organization_leader_id`),
   ADD KEY `operations_activity_counts_for_score_574a0dbc` (`counts_for_score`);
 
 ALTER TABLE `operations_commitment`
@@ -555,6 +571,10 @@ ALTER TABLE `organization_officer`
   ADD UNIQUE KEY `institutional_id` (`institutional_id`),
   ADD KEY `organization_officer_delegation_id_ff127796_fk_organizat` (`delegation_id`),
   ADD KEY `organization_officer_position_id_d6fa7362_fk_organizat` (`position_id`);
+
+ALTER TABLE `organization_organizationleader`
+  ADD PRIMARY KEY (`id`),
+  ADD KEY `organization_organiz_organization_id_4325541f_fk_organizat` (`organization_id`);
 
 ALTER TABLE `organization_position`
   ADD PRIMARY KEY (`id`);
@@ -677,6 +697,9 @@ ALTER TABLE `organization_item`
 ALTER TABLE `organization_officer`
   MODIFY `id` bigint(20) NOT NULL AUTO_INCREMENT;
 
+ALTER TABLE `organization_organizationleader`
+  MODIFY `id` bigint(20) NOT NULL AUTO_INCREMENT;
+
 ALTER TABLE `organization_position`
   MODIFY `id` bigint(20) NOT NULL AUTO_INCREMENT;
 
@@ -757,7 +780,8 @@ ALTER TABLE `operations_activity`
   ADD CONSTRAINT `operations_activity_item_id_bc7fb032_fk_organization_item_id` FOREIGN KEY (`item_id`) REFERENCES `organization_item` (`id`),
   ADD CONSTRAINT `operations_activity_service_id_5569328a_fk_organizat` FOREIGN KEY (`service_id`) REFERENCES `organization_service` (`id`),
   ADD CONSTRAINT `operations_activity_organization_id_3910018f_fk_organizat` FOREIGN KEY (`organization_id`) REFERENCES `organization_communityorganization` (`id`),
-  ADD CONSTRAINT `operations_activity_commitment_id_4d8063dc_fk_operation` FOREIGN KEY (`commitment_id`) REFERENCES `operations_commitment` (`id`);
+  ADD CONSTRAINT `operations_activity_commitment_id_4d8063dc_fk_operation` FOREIGN KEY (`commitment_id`) REFERENCES `operations_commitment` (`id`),
+  ADD CONSTRAINT `operations_activity_organization_leader__02268d07_fk_organizat` FOREIGN KEY (`organization_leader_id`) REFERENCES `organization_organizationleader` (`id`);
 
 ALTER TABLE `operations_commitment`
   ADD CONSTRAINT `operations_commitmen_delegation_id_40bdfd9e_fk_organizat` FOREIGN KEY (`delegation_id`) REFERENCES `organization_delegation` (`id`),
@@ -777,6 +801,9 @@ ALTER TABLE `organization_item`
 ALTER TABLE `organization_officer`
   ADD CONSTRAINT `organization_officer_delegation_id_ff127796_fk_organizat` FOREIGN KEY (`delegation_id`) REFERENCES `organization_delegation` (`id`),
   ADD CONSTRAINT `organization_officer_position_id_d6fa7362_fk_organizat` FOREIGN KEY (`position_id`) REFERENCES `organization_position` (`id`);
+
+ALTER TABLE `organization_organizationleader`
+  ADD CONSTRAINT `organization_organiz_organization_id_4325541f_fk_organizat` FOREIGN KEY (`organization_id`) REFERENCES `organization_communityorganization` (`id`);
 
 ALTER TABLE `organization_positionitem`
   ADD CONSTRAINT `organization_positio_item_id_2590b223_fk_organizat` FOREIGN KEY (`item_id`) REFERENCES `organization_item` (`id`),

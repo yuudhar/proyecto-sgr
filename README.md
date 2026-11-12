@@ -36,7 +36,7 @@ El SGR reemplaza las planillas sueltas de las delegaciones municipales por un si
 
 - **Atención:** buscar a una persona por RUT o nombre e ingresar una atención con su tipo y sub atención. La delegación, el responsable y la fecha se completan solos.
 - **Dashboard, tablero de delegación e informes:** indicadores del período, semáforo de metas y exportación a Excel.
-- **Mantenedores:** delegaciones, funcionarios, cargos, territorios, beneficiarios, catálogo de servicios, períodos, metas, ítems, tipos de atención y sub atención.
+- **Mantenedores:** delegaciones, funcionarios, cargos, territorios, beneficiarios, organizaciones comunitarias con su directiva (presidente, secretario, tesorero y demás), catálogo de servicios, períodos, metas, ítems, tipos de atención y sub atención.
 - **Operación y evidencias:** la pantalla *Atención* reúne las atenciones (actividades) con su búsqueda, filtros y exportación; además gestiones, agenda colectiva, **Compromisos** (lo físico: las atenciones con visita a terreno llegan solas, en vista de tarjetas por estado), **Cartas** (felicitaciones y reclamos, en vista de tarjetas) y evidencias con archivo real (PDF, imagen, Word o Excel de hasta 10 MB) y su validación.
 - **Usuarios y permisos:** roles con permisos por módulo, delegaciones autorizadas por usuario y recuperación de contraseña con un enlace de un solo uso enviado por correo.
 - **Auditoría:** cada alta, edición, archivo, exportación y recuperación queda registrada con quién, cuándo y qué valor tenía antes y después.
@@ -395,6 +395,7 @@ Registros vigentes por módulo (los archivados no se cuentan):
 | Funcionarios | 55 | 55 | 110 |
 | Beneficiarios (compartido) | — | — | 402 |
 | Organizaciones comunitarias (compartido) | — | — | 80 |
+| Directivas de organizaciones (compartido) | — | — | 375 |
 | Metas, indicadores y ajustes | — | — | 107, 160 y 110 |
 
 Los datos son variados para probar búsqueda, filtros, orden y paginación (con 30 filas por página, las atenciones de cada delegación ocupan más de diez páginas): tres estados de atención, cinco ítems (tipos de atención y sub atenciones), cuatro servicios, fechas repartidas en los 240 días anteriores a la fecha base (solo días hábiles), atenciones con y sin puntaje, compromisos en los cuatro estados, evidencias pendientes, aprobadas y rechazadas, y una fracción archivada (6 % de las atenciones y 7 % de los compromisos) para probar «Archivados» y restaurar.
@@ -413,6 +414,7 @@ Resultado de ejecutar el comando sobre una base recién migrada (la misma tabla 
 | `organization.Beneficiary` | 402 | 402 | 0 |
 | `organization.Territory` | 110 | 110 | 0 |
 | `organization.CommunityOrganization` | 80 | 80 | 0 |
+| `organization.OrganizationLeader` | 375 | 375 | 0 |
 | `organization.Officer` | 110 | 110 | 0 |
 | `organization.PositionItem` | 4 | 4 | 0 |
 | `operations.ManagementType` | 6 | 6 | 0 |
@@ -430,7 +432,7 @@ Resultado de ejecutar el comando sobre una base recién migrada (la misma tabla 
 | `accounts.UserProfile` | 6 | 6 | 0 |
 | `accounts.RoleProfile` | 6 | 6 | 0 |
 | `accounts.UserRoleDelegation` | 0 | 0 | 0 |
-| **Total** | **3330** | **3278** | **52** |
+| **Total** | **3705** | **3653** | **52** |
 
 Si la base ya tenía otros datos (por ejemplo los de una prueba anterior), los totales de la base completa son mayores: el comando solo agrega lo suyo.
 
@@ -469,7 +471,8 @@ Todos los módulos leen y escriben en la base de datos real, con permisos por ro
 |---|---|---|---|
 | Ingreso, login y sesión | Pantalla de ingreso | Operativo | Usuario o correo; rechaza cuentas inactivas sin decir qué dato falló |
 | Recuperar contraseña | Pantalla de ingreso | Operativo | Enlace firmado de 1 hora y un solo uso; correo real por SMTP |
-| Atención (ingreso y listado) | Atención | Operativo | Tipo y sub atención dependientes; identificador `ATN00001`…; el listado de actividades es esta misma pantalla, con filtros y Excel |
+| Atención (ingreso y listado) | Atención | Operativo | Tipo y sub atención dependientes; solicitante persona natural (RUT o nombre) u organización con quién de su directiva viene; identificador `ATN00001`…; el listado de actividades es esta misma pantalla, con filtros y Excel |
+| Directivas de organizaciones | Administración › Catálogos | Operativo | Presidente, secretario, tesorero, directivos y otros cargos de cada organización, con nombre, RUT y correo; registro propio (no es beneficiario); se ve y se agrega desde la ficha de la organización |
 | Dashboard | Dashboard | Operativo | Promedios y semáforo con las metas guardadas |
 | Gestiones, Agenda colectiva | Operación | Operativo | Ligadas a la atención y a la delegación de quien las crea (las actividades se ven en Atención) |
 | Compromisos | Operación | Operativo | Vista de tarjetas con cuatro columnas por estado e indicadores; una atención que requiere visita crea sola su compromiso; botones para cambiar de estado con historial; mismos permisos y alcance que la agenda |

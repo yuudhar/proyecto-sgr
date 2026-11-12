@@ -17,6 +17,7 @@ from core.qa.esperado_cierre_y_ausencias import ESPERADO as _CIERRE_Y_AUSENCIAS
 from core.qa.esperado_felicitaciones_equipo_y_jjvv import ESPERADO as _FELICITACIONES_EQUIPO_Y_JJVV
 from core.qa.esperado_tubo_de_trabajo import ESPERADO as _TUBO_DE_TRABAJO
 from core.qa.esperado_cartas_y_compromisos import ESPERADO as _CARTAS_Y_COMPROMISOS
+from core.qa.esperado_directiva_y_solicitante import ESPERADO as _DIRECTIVA_Y_SOLICITANTE
 from core.qa.esperado_cliente_y_recorte import ESPERADO as _CLIENTE_Y_RECORTE
 from core.qa.esperado_listado_y_perfil import ESPERADO as _LISTADO_Y_PERFIL
 from core.qa.esperado_carga_revision import ESPERADO as _CARGA_REVISION
@@ -102,6 +103,8 @@ REQUISITOS = {
     "V37-03": ("Versión 37", "Guía del ensayo (docs/ENSAYO_REVISION.md): cuenta, qué mostrar y resultado esperado en cada paso, recorrido del evento en vivo, cómo repetirlo en AWS y qué falta decidir con el equipo; README y registro de pruebas al día"),
     "V38-01": ("Versión 38", "Cartas (antes Felicitaciones y reclamos) en vista canvas: columnas por tipo, indicadores arriba, filtros y alcance por delegación; nueva dirección /cartas/ y matriz de permisos con el nombre nuevo"),
     "V38-02": ("Versión 38", "Compromisos, sección nueva en canvas para lo físico: una atención con visita a terreno crea sola su compromiso, con cuatro columnas por estado, indicadores, botones de cambio de estado con historial y el mismo alcance y permisos de la agenda"),
+    "V39-01": ("Versión 39", "Directiva de las organizaciones: registro propio (no beneficiario) con cargo, nombre, RUT y correo; un presidente, secretario y tesorero por organización, sin repetir RUT, con «Otro cargo» detallado, archivable y visible en la ficha de la organización"),
+    "V39-02": ("Versión 39", "Tipo de solicitante en la atención: persona natural (RUT o nombre, como antes) u organización con la persona de su directiva que viene; cada grupo de campos aparece según el tipo, el servidor lo revisa y editar una atención puede cambiarlo"),
     "V29-04": ("Versión 29", "Números de pocas opciones (por ejemplo 1 a 3) se eligen de una lista y no se pueden escribir mal"),
     "T11-04": ("Clase 11", "Dashboard, tablero y validar en vivo: el cambio de una persona se ve en la pantalla abierta de otra de la misma delegación, sin F5"),
     "RF-018": ("Informe SGR", "Gestionar estados de compromisos: Ingresado, Pendiente, En proceso y Realizado, con transiciones válidas e historial"),
@@ -346,9 +349,11 @@ CLASES = {
     "CompromisosMoveTests": (["V38-02"], "Cambio de estado desde la tarjeta", _SEMILLA + "; sesiones de Matías Cavieres y Consulta; compromisos de Norte y Sur creados en la prueba"),
     "AttentionWithVisitTests": (["V38-02"], "Atención con visita crea su compromiso de terreno", _SEMILLA + "; sesión de Matías Cavieres (Norte)"),
     "ReportsCountEverythingTests": (["V38-02"], "El resumen colectivo cuenta todos los compromisos", _SEMILLA + "; sesión de Jefatura (Norte)"),
+    "DirectivaTests": (["V39-01"], "Directiva de las organizaciones", _SEMILLA + "; sesiones de Administración y Consulta; organizaciones creadas en la prueba"),
+    "SolicitanteTests": (["V39-02"], "Tipo de solicitante en la atención", _SEMILLA + "; sesión de Matías Cavieres (Norte); organización con su directiva"),
 }
 
 ESPERADO = {}
-for _grupo in (_ACCESO, _MANTENEDORES, _INGRESO, _LISTADOS, _DESPLIEGUE, _VALIDACIONES, _ARCHIVOS_Y_FOTO, _ELIMINAR_Y_LISTADOS, _USUARIOS_ELIMINADOS, _TIEMPO_REAL, _RITMO_Y_COMPROMISOS, _RESULTADOS_Y_CALCULO, _CODES_SEARCH_AND_CHARTS, _REGLAS_PUNTAJE, _CIERRE_Y_AUSENCIAS, _FELICITACIONES_EQUIPO_Y_JJVV, _TUBO_DE_TRABAJO, _CLIENTE_Y_RECORTE, _ERRORES, _LISTADO_Y_PERFIL, _CARGA_REVISION, _ENSAYO_REVISION, _CARTAS_Y_COMPROMISOS, ):
+for _grupo in (_ACCESO, _MANTENEDORES, _INGRESO, _LISTADOS, _DESPLIEGUE, _VALIDACIONES, _ARCHIVOS_Y_FOTO, _ELIMINAR_Y_LISTADOS, _USUARIOS_ELIMINADOS, _TIEMPO_REAL, _RITMO_Y_COMPROMISOS, _RESULTADOS_Y_CALCULO, _CODES_SEARCH_AND_CHARTS, _REGLAS_PUNTAJE, _CIERRE_Y_AUSENCIAS, _FELICITACIONES_EQUIPO_Y_JJVV, _TUBO_DE_TRABAJO, _CLIENTE_Y_RECORTE, _ERRORES, _LISTADO_Y_PERFIL, _CARGA_REVISION, _ENSAYO_REVISION, _CARTAS_Y_COMPROMISOS, _DIRECTIVA_Y_SOLICITANTE, ):
     for _clase, _metodos in _grupo.items():
         ESPERADO.setdefault(_clase, {}).update(_metodos)

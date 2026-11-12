@@ -27,7 +27,15 @@ from core.search import plain_letter, word_pattern
 from core.widgets import ColorWidget, DelegationsWidget, DependentSelect, LookupWidget, PermissionMatrixWidget, RolesWidget
 from evidence.models import Validation
 from operations.models import Commitment, Followup
-from organization.models import Beneficiary, Delegation, Item, Officer, Territory
+from organization.models import (
+    Beneficiary,
+    CommunityOrganization,
+    Delegation,
+    Item,
+    Officer,
+    OrganizationLeader,
+    Territory,
+)
 from planning.models import Feedback, Goal, Period
 
 
@@ -713,9 +721,82 @@ class PipelineForm(CrudForm):
             self.add_error("territory", self.TERRITORY_OTHER)
 
 
-class ActivityIntakeForm(PipelineForm):
+class RequesterKindMixin:
+    """Tipo de solicitante de una atención: persona natural (RUT o nombre) u organización con alguien de su directiva.
 
-    requester = forms.CharField(label="Solicitante (RUT o nombre)", max_length=100)
+    Cada grupo de campos solo aparece, y se pide, cuando corresponde (`data-show-if`); el servidor revisa lo mismo.
+    """
+
+    ORGANIZATION_KIND = "organization"
+    NATURAL_KIND = "natural"
+
+    def set_up_requester_kind(self):
+        from operations.models import Activity
+
+        self.ORGANIZATION_KIND = Activity.RequesterKind.ORGANIZATION.value
+        self.NATURAL_KIND = Activity.RequesterKind.NATURAL.value
+        organization = self.fields["organization"]
+        organization.required = False
+        organization.empty_label = "Selecciona una organización"
+        organization.label = "Organización"
+        organization.queryset = CommunityOrganization.objects.filter(deleted_at__isnull=True).order_by("name")
+        organization.help_text = (
+            "Obligatoria si solicita una organización. Con una persona natural es opcional: la junta de vecinos "
+            "con la que se relaciona la atención."
+        )
+        leader = self.fields["organization_leader"]
+        leader.required = False
+        leader.label = "Quién de la directiva viene"
+        leader.empty_label = "Selecciona a la persona"
+        leader.help_text = "Presidente, tesorero, secretario u otro integrante. Se ofrecen los de la organización elegida."
+        leader.label_from_instance = lambda person: person.choice_label
+        leader.widget = DependentSelect(
+            depends_on="id_organization",
+            parent_attr="organization_id",
+            name_attr="choice_label",
+            empty_parent="Primero elige la organización",
+            empty_children="Esta organización no tiene directiva registrada",
+            cleared_message="Se limpió la persona de la directiva porque no es de la organización elegida.",
+        )
+        leader.queryset = (  # después del widget: el queryset le entrega sus opciones
+            OrganizationLeader.objects.filter(deleted_at__isnull=True)
+            .select_related("organization")
+            .order_by("organization__name", "name")
+        )
+        self.fields["requester_kind"].required = False  # sin dato se entiende «persona natural», como antes
+        self.fields["requester_kind"].help_text = ""
+
+    def requester_kind_bounds(self, natural=(), natural_required=()):
+        """Atributos del navegador: lo de la persona natural solo se ve con ese tipo, la persona de la directiva solo
+        con una organización, y la organización se exige (pero se ve siempre) cuando solicita una organización."""
+        found = {}
+        for name in natural:
+            found[name] = {"data-show-if": f"id_requester_kind:{self.NATURAL_KIND}"}
+        for name in natural_required:
+            found[name]["data-required-when-shown"] = "1"
+        found["organization_leader"] = {"data-show-if": f"id_requester_kind:{self.ORGANIZATION_KIND}"}
+        found["organization"] = {"data-required-if": f"id_requester_kind:{self.ORGANIZATION_KIND}"}
+        return found
+
+    def normalize_requester_kind(self, cleaned):
+        """Deja coherentes los datos según el tipo de solicitante; el modelo revisa lo que falta (`Activity.clean`)."""
+        kind = cleaned.get("requester_kind") or self.NATURAL_KIND
+        cleaned["requester_kind"] = kind
+        if kind == self.ORGANIZATION_KIND:
+            if "beneficiary" in self.fields:
+                cleaned["beneficiary"] = None
+            self.instance.beneficiary = None
+            organization, leader = cleaned.get("organization"), cleaned.get("organization_leader")
+            name = leader.name if leader is not None else (organization.name if organization is not None else "")
+            max_length = self._meta.model._meta.get_field("contact_name").max_length
+            cleaned["contact_name"] = self.instance.contact_name = name[:max_length]
+        else:
+            cleaned["organization_leader"] = None
+
+
+class ActivityIntakeForm(RequesterKindMixin, PipelineForm):
+
+    requester = forms.CharField(label="Solicitante (RUT o nombre)", max_length=100, required=False)
     attention_type = forms.ModelChoiceField(label="Tipo de atención", queryset=Item.objects.none())
 
     def customize_fields(self):
@@ -728,10 +809,16 @@ class ActivityIntakeForm(PipelineForm):
             "la atención queda vinculada a ella."
         )
         self.set_up_requester()
+        self.set_up_requester_kind()
         self.set_up_sub_attention()
         self.set_up_description()
         self.set_up_profile()
         self.set_up_pipeline()
+
+    def bounds(self):
+        merged = super().bounds()
+        merged.update(self.requester_kind_bounds(natural=("requester",), natural_required=("requester",)))
+        return merged
 
     def set_up_description(self):
         field = self.fields["request_description"]
@@ -805,14 +892,19 @@ class ActivityIntakeForm(PipelineForm):
 
     def clean(self):
         cleaned = super().clean()
-        self.check_requester(cleaned)
+        self.normalize_requester_kind(cleaned)
+        if cleaned.get("requester_kind") != self.ORGANIZATION_KIND:
+            self.check_requester(cleaned)
         self.check_attention(cleaned)
         self.check_pipeline(cleaned, self.instance.date)
         return cleaned
 
     def check_requester(self, cleaned):
         text = cleaned.get("requester")
-        if not text or self.has_error("requester"):
+        if self.has_error("requester"):
+            return
+        if not text:
+            self.add_error("requester", "Este campo es obligatorio.")
             return
         person, error = find_beneficiary(text)
         if error:
@@ -1106,6 +1198,14 @@ class UserForm(CrudForm):
             if self.instance.is_superuser and "is_superuser" in cleaned and not cleaned["is_superuser"]:
                 self.add_error("is_superuser", "No puedes quitarte a ti mismo el perfil de Super Usuario.")
         return cleaned
+
+
+class LeaderForm(CrudForm):
+    """Directiva de una organización: el detalle del cargo solo aparece cuando el cargo es «Otro cargo»."""
+
+    def bounds(self):
+        attrs = {"data-show-if": f"id_role:{OrganizationLeader.Role.OTHER.value}", "data-required-when-shown": "1"}
+        return {"role_detail": attrs}
 
 
 class OfficerForm(CrudForm):
@@ -1528,15 +1628,18 @@ class FeedbackForm(CrudForm):
         return cleaned
 
 
-class ActivityEditForm(PipelineForm):
+class ActivityEditForm(RequesterKindMixin, PipelineForm):
 
     DATE_MESSAGE = "La fecha de la atención no puede ser futura."
 
     def customize_fields(self):
+        self.set_up_requester_kind()
         self.set_up_pipeline()
 
     def bounds(self):
         merged = super().bounds()
+        for name, attrs in self.requester_kind_bounds(natural=("beneficiary", "contact_name")).items():
+            merged.setdefault(name, {}).update(attrs)
         merged["date"] = self.until_today(self.DATE_MESSAGE)
         if "due_date" in merged:
             message = "La fecha comprometida no puede ser anterior a la fecha de la atención."
@@ -1546,6 +1649,7 @@ class ActivityEditForm(PipelineForm):
 
     def clean(self):
         cleaned = super().clean()
+        self.normalize_requester_kind(cleaned)
         self.check_not_future(cleaned, "date", self.DATE_MESSAGE)
         self.check_pipeline(cleaned, cleaned.get("date") or self.instance.date)
         return cleaned

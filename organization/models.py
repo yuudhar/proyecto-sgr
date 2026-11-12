@@ -226,6 +226,57 @@ class CommunityOrganization(BaseModel):
         return self.name
 
 
+class OrganizationLeader(BaseModel):
+    """Integrante de la directiva de una organización comunitaria (registro propio, no es un Beneficiario)."""
+
+    class Role(models.TextChoices):
+        PRESIDENT = "president", "Presidente"
+        SECRETARY = "secretary", "Secretario"
+        TREASURER = "treasurer", "Tesorero"
+        DIRECTOR = "director", "Directivo"
+        OTHER = "other", "Otro cargo"
+
+    # Los cargos que solo puede ocupar una persona por organización.
+    SINGLE_ROLES = (Role.PRESIDENT, Role.SECRETARY, Role.TREASURER)
+
+    organization = models.ForeignKey(
+        CommunityOrganization,
+        on_delete=models.PROTECT,
+        related_name="leaders",
+        verbose_name="organización",
+    )
+    role = models.CharField(
+        max_length=20, choices=Role.choices, default=Role.DIRECTOR, verbose_name="cargo en la directiva"
+    )
+    role_detail = models.CharField(
+        max_length=100,
+        blank=True,
+        default="",
+        verbose_name="detalle del cargo",
+        help_text="Solo para «Otro cargo»: por ejemplo, Director suplente o Delegado de calle.",
+    )
+    name = models.CharField(max_length=150, verbose_name="nombre")
+    rut = models.CharField(max_length=12, verbose_name="RUT")
+    email = models.CharField(max_length=254, blank=True, default="", verbose_name="correo")
+
+    class Meta:
+        ordering = ("organization__name", "name")
+        verbose_name = "Integrante de directiva"
+        verbose_name_plural = "Directivas de organizaciones"
+
+    def __str__(self):
+        return f"{self.name} · {self.role_text()}"
+
+    @property
+    def choice_label(self):
+        return f"{self.name} · {self.role_text()}"
+
+    def role_text(self):
+        if self.role == self.Role.OTHER and self.role_detail:
+            return self.role_detail
+        return self.get_role_display()
+
+
 class Officer(BaseModel):
 
     class Status(models.TextChoices):

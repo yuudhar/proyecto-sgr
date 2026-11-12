@@ -52,7 +52,7 @@ Cada app tiene `models.py` (tablas), `admin.py` (Django Admin), `apps.py` y `mig
 | App | Tablas del proyecto |
 |---|---|
 | `core` | `AuditLog` (auditoría) |
-| `organization` | `Delegation`, `Position`, `Item`, `Service`, `Beneficiary`, `Territory`, `Officer`, `PositionItem` |
+| `organization` | `Delegation`, `Position`, `Item`, `Service`, `Beneficiary`, `Territory`, `Officer`, `PositionItem`, `CommunityOrganization`, `OrganizationLeader` |
 | `accounts` | `UserProfile`, `RoleProfile`, `UserRoleDelegation` |
 | `planning` | `Period`, `Goal`, `Indicator`, `Adjustment` |
 | `operations` | `ManagementType`, `Activity`, `Followup`, `Commitment` |
@@ -88,7 +88,7 @@ Cada rol tiene una ficha (`RoleProfile`) con descripción, alcance (su delegaci�
 
 ## 7. Mantenedores registrados
 
-`core/registry.py` declara un `Crud` por cada una de estas pantallas (`slug` = parte de la dirección): `actividades`, `gestiones`, `agenda`, `evidencias`, `validaciones`, `periodos`, `metas`, `indicadores`, `ajustes`, `delegaciones`, `territorios`, `funcionarios`, `cargos`, `items-de-cargo`, `servicios`, `items`, `tipos-de-atencion`, `sub-atenciones`, `tipos-de-gestion`, `beneficiarios`, `cartas`, `compromisos`, `organizaciones`, `usuarios`, `roles` y `auditoria`.
+`core/registry.py` declara un `Crud` por cada una de estas pantallas (`slug` = parte de la dirección): `actividades`, `gestiones`, `agenda`, `evidencias`, `validaciones`, `periodos`, `metas`, `indicadores`, `ajustes`, `delegaciones`, `territorios`, `funcionarios`, `cargos`, `items-de-cargo`, `servicios`, `items`, `tipos-de-atencion`, `sub-atenciones`, `tipos-de-gestion`, `beneficiarios`, `cartas`, `compromisos`, `organizaciones`, `directivas`, `usuarios`, `roles` y `auditoria`.
 
 ## 8. Cómo leer el resto del documento
 
@@ -470,6 +470,14 @@ Base de los formularios de atención con la casilla «ingresa al tubo de trabajo
 - **`bounds()`**: pone los atributos del navegador en los dos campos (van aquí porque `apply_bounds` corre después de que el formulario cambia los widgets de fecha).
 - **`check_pipeline(cleaned, day)`**: con la casilla marcada exige la fecha y el territorio, rechaza una fecha anterior a la de la atención y un territorio de otra delegación; si la casilla no está marcada ignora lo que traigan los dos campos.
 - **`wants_pipeline()`**: al guardar, dice si hay que crear el compromiso (casilla marcada y los dos datos entregados).
+
+##### `RequesterKindMixin`
+
+Tipo de solicitante de una atención (v39), compartido por `ActivityIntakeForm` y `ActivityEditForm`. Con **persona natural** el formulario pide el RUT o el nombre como siempre (en la edición, el beneficiario y el contacto); con **organización** exige la organización (siempre visible: con persona natural sigue siendo opcional, como antes) y pide, en una lista que depende de ella (`DependentSelect` con `name_attr="choice_label"`), quién de su directiva viene. Lo propio de cada tipo se muestra con `data-show-if="id_requester_kind:<valor>"` y la organización se exige con `data-required-if`. `normalize_requester_kind` deja coherentes los datos: con organización quita el beneficiario y pone como contacto el nombre de la persona de la directiva (o el de la organización); con persona natural descarta el integrante de la directiva. El tipo es opcional en el envío y se entiende «persona natural».
+
+##### `LeaderForm` — hereda de `CrudForm`
+
+Formulario de la directiva: el detalle del cargo solo aparece (`data-show-if="id_role:other"`) y se pide cuando el cargo es «Otro cargo».
 
 ##### `ActivityIntakeForm` — hereda de `PipelineForm`
 
@@ -1956,6 +1964,10 @@ Opciones del modelo (`Meta`): `ordering` = `('name',)`; `verbose_name` = `'Benef
 
 Organización comunitaria (junta de vecinos) de la base importada (v31, RF-049): nombre, domicilio legal, territorio (enlazado y, aparte, el texto original), socios activos, fecha de constitución, N.º de registro (único), fecha de inscripción, N.º de directorio y la marca `verified` (por defecto falso). Las atenciones pueden asociarse a una organización (`Activity.organization`, opcional).
 
+##### `OrganizationLeader` — hereda de `BaseModel`
+
+Integrante de la directiva de una organización comunitaria (v39). Es un registro propio: no se crea como `Beneficiary`. Campos: `organization` (PROTECT, inverso `leaders`), `role` (`Role`: presidente, secretario, tesorero, directivo u otro cargo), `role_detail` (solo para «Otro cargo»), `name`, `rut` y `email` (opcional). Cada organización tiene a lo más un presidente, un secretario y un tesorero vigentes (`SINGLE_ROLES`) y no repite el RUT; lo revisa `OrganizationLeaderCrud.validate_form` entre los registros no archivados (el borrado es lógico, así que no hay una restricción única en la base). `role_text()` devuelve el cargo tal como se muestra («Delegado de calle» si es otro cargo con detalle). `Activity.organization_leader` apunta a esta tabla.
+
 ##### `Territory` — hereda de `BaseModel`
 
 Territorio que pertenece a una delegación.
@@ -2308,6 +2320,8 @@ Atención registrada por un funcionario: fecha, solicitud, acción realizada, da
 | `item` | ítem | ForeignKey | relación con `Item`; nombre inverso `activities`; PROTECT |
 | `service` | servicio | ForeignKey | relación con `Service`; nombre inverso `activities`; PROTECT; admite nulo; opcional |
 | `organization` | organización | ForeignKey | relación con `CommunityOrganization`; nombre inverso `activities`; PROTECT; admite nulo; opcional (v31) |
+| `requester_kind` | tipo de solicitante | CharField | largo 20; con opciones `RequesterKind` (`natural` = persona natural, `organization` = organización); por defecto `natural` (v39) |
+| `organization_leader` | integrante de la directiva | ForeignKey | relación con `OrganizationLeader`; nombre inverso `activities`; PROTECT; admite nulo; opcional; solo con tipo «organización», y tiene que ser de la organización elegida (`Activity.check_requester_kind`) (v39) |
 | `commitment` | compromiso en la agenda | OneToOneField | relación con `Commitment`; nombre inverso `origin_activity`; SET_NULL; admite nulo; no se edita — Lo asigna el sistema al crear el compromiso del tubo de trabajo (v32). |
 | `delegation` | delegación | ForeignKey | relación con `Delegation`; nombre inverso `activities`; PROTECT |
 | `author_officer` | funcionario autor | ForeignKey | relación con `Officer`; nombre inverso `authored_activities`; PROTECT |
@@ -2922,6 +2936,8 @@ Funciones:
 - **`checks()`**
 - **`setUpDependent(select, root)`**: Lista que depende de otra (la Sub Atención depende del Tipo de Atención): solo muestra las opciones del valor elegido en la primera y, si la opción elegida deja de ser válida al cambiar la primera, la limpia y lo avisa. Sin JavaScript se ven todas las opciones, cada una con el nombre de su padre.
 - **`refresh(announce)`**
+- **`setUpShowIf(field, root)`**: Muestra un campo solo cuando un selector tiene uno de los valores indicados en `data-show-if="id_selector:valor1,valor2"`. Oculto, el campo queda deshabilitado (no se envía ni se exige); a la vista, se exige si trae `data-required-when-shown`.
+- **`setUpRequiredIf(field, root)`**: Exige un campo solo cuando un selector tiene uno de los valores de `data-required-if="id_selector:valor1,valor2"`; el campo se ve siempre y el asterisco aparece y desaparece con el valor.
 - **`setUpPasswordToggle(input)`**: Contraseña: un botón con un ojo para ver lo escrito y volver a ocultarlo. La contraseña vuelve a ocultarse sola al enviar el formulario y al salir de la página, para que no quede a la vista en el historial de la pestaña. Sin JavaScript el campo es una contraseña normal. Un campo con data-no-reveal no lleva el botón.
 - **`show(visible)`**
 - **`initWidgets(root = document)`**: Prepara los campos especiales que hay dentro de root (la página entera o un formulario recién cargado).

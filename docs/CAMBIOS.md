@@ -17,6 +17,53 @@ Nombres que cambiaron en la v27 (los textos antiguos los mencionan con el nombre
 | `core/qa/esperado_vNN.py` | `core/qa/esperado_<tema>.py` (mismo tema que su archivo de pruebas) |
 | `sql/*.sql` (todos) | `sql/sgr_django.sql` (estructura vigente) |
 
+## Versión 39
+
+Dos cambios que pidió la clienta: la **directiva de las organizaciones** y el **tipo de solicitante** (persona natural u organización) en la atención. Se arma sobre la v38.
+
+### Directiva de las organizaciones
+
+- Registro propio, **no es un beneficiario**: cada integrante de la directiva pertenece a una organización y lleva **cargo** (presidente, secretario, tesorero, directivo u otro cargo), **nombre**, **RUT** y **correo** (opcional). Con «Otro cargo» se escribe cuál (por ejemplo, *Delegado de calle*).
+- Reglas: una organización tiene a lo más **un presidente, un secretario y un tesorero** vigentes, puede tener varios directivos y no repite el RUT; la misma persona sí puede estar en la directiva de dos organizaciones. Archivar a alguien libera su cargo; no se puede restaurar mientras otra persona lo ocupe.
+- Pantalla nueva **Directivas** en *Administración › Catálogos* (`/directivas/`), con búsqueda, filtros por cargo y organización, archivo y Excel como los demás catálogos. Es un catálogo compartido entre delegaciones, como las organizaciones.
+- En la **ficha de cada organización** aparece el bloque **Directiva**, con el enlace para agregar a alguien con la organización ya elegida.
+- Permisos: fila nueva «Directivas de organizaciones» en la matriz de Roles (`organization.*_organizationleader`). Las cuentas de revisión: administrador A todo; editor A y lectores, solo ver.
+
+### Tipo de solicitante en la atención
+
+- La atención lleva un selector **Tipo de solicitante**: **Persona natural** (como hasta ahora: RUT o nombre, con búsqueda en Beneficiarios) u **Organización**.
+- Con **Organización** se elige la organización y **quién de su directiva viene** (la lista ofrece solo a los de esa organización, con su cargo). El contacto de la atención queda con el nombre de esa persona (si no se elige a nadie, con el de la organización) y no se pide RUT ni nombre del solicitante.
+- Cada grupo de campos aparece solo para su tipo (`data-show-if` y `data-required-if`, piezas nuevas de `widgets.js`) y el servidor revisa lo mismo: la organización es obligatoria para ese tipo y la persona tiene que ser de su directiva. Con persona natural la organización sigue siendo opcional, como antes (la junta con la que se relaciona la atención), y se descarta el integrante de la directiva.
+- Al **editar** una atención se puede pasar de un tipo a otro.
+- El listado de Atención filtra por tipo de solicitante y la ficha muestra el tipo y a la persona de la directiva. El puntaje no cambia: sigue exigiendo nombre y teléfono del contacto.
+
+### Corrección de un fallo que ya existía
+
+- `widgets.js` se cargaba dos veces (desde la página y desde `crud-modal.js`, que lo importa sin el `?v=` de la versión) y la segunda preparación de las listas que dependen de otra las dejaba vacías: en el navegador, **Sub atención** mostraba «Este tipo no tiene sub atenciones» aunque el tipo las tuviera. Ahora cada lista se prepara una sola vez (`dataset.dependentReady`). La misma corrección hace funcionar la lista «quién de la directiva viene».
+
+### Base de datos
+
+- Migración `organization/0006_directiva_organizaciones_v39`: tabla nueva `organization_organizationleader`.
+- Migración `operations/0007_tipo_de_solicitante_v39`: columnas `requester_kind` (por defecto «persona natural») y `organization_leader` en `operations_activity`. Las atenciones que ya estaban a nombre de una organización y sin persona quedan como «Organización».
+- `sql/sgr_django.sql` y `docs/DIAGRAMA_MODELOS.md` quedan al día.
+
+### Datos de la revisión
+
+- `cargar_datos_revision` carga además la directiva de las 80 organizaciones (375 integrantes: siempre un presidente, y con secretario, tesorero, directivos y otros cargos variados; con su propio azar para que el resto de los datos salga igual que en la v38) y deja a cada atención de organización con quién de la directiva vino. Las atenciones de organización nuevas nacen con el tipo «Organización». Total sobre una base recién migrada: 3.705 registros; repetirlo no duplica.
+- `datos_prueba` (datos de demostración locales) agrega cuatro integrantes a la junta de vecinos de demostración.
+
+### Pruebas
+
+- Nuevo `core/test_directiva_y_solicitante.py` (38 pruebas, registradas en el catálogo QA como V39-01 y V39-02): directiva (alta, cargos únicos, RUT repetido, otro cargo, archivar y restaurar, permisos, ficha de la organización) y tipo de solicitante (persona natural como antes, organización con su directivo, validaciones, edición, listado, puntaje y migración de los datos antiguos).
+
+### ❓ Para confirmar con la clienta o el grupo
+
+- **Correo de la directiva:** hoy es opcional. ¿Debe ser obligatorio?
+- **Cargos:** presidente, secretario, tesorero, directivo y «otro cargo» con detalle. ¿Falta alguno fijo (por ejemplo, vicepresidente)?
+- **Quién viene:** al elegir una organización, elegir a la persona de la directiva es opcional (si no se elige, el contacto es la organización). ¿Debe ser obligatorio cuando la organización ya tiene directiva?
+- **Teléfono de la organización:** la atención de una organización pide el teléfono de contacto escrito en la atención; la directiva todavía no guarda teléfono. ¿Se agrega?
+- **Pendiente de la lista de la clienta** (v40): el cambio de trimestre de una atención (por ejemplo, una actividad de diciembre que pasa a enero), pedido por el funcionario y aprobado o rechazado por la jefatura.
+
 ## Versión 38
 
 Dos cambios que pidió la clienta, ambos con la vista de tarjetas (canvas) de su modelo «Tubo»: **Cartas** (antes *Felicitaciones y reclamos*) y una sección nueva, **Compromisos**, para lo físico.

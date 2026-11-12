@@ -7,6 +7,7 @@ from .models import (
     Delegation,
     Item,
     Officer,
+    OrganizationLeader,
     Position,
     PositionItem,
     Service,
@@ -103,3 +104,12 @@ class OfficerAdmin(DelegationScopedAdminMixin, admin.ModelAdmin):
     list_filter = ("delegation", "position", "status")
     list_select_related = ("delegation", "position")
     ordering = ("delegation__name", "name")
+
+
+@admin.register(OrganizationLeader)
+class OrganizationLeaderAdmin(SoftDeleteAdminMixin, admin.ModelAdmin):
+    list_display = ("name", "rut", "role", "organization", "email")
+    search_fields = ("name", "rut", "organization__name")
+    list_filter = ("role",)
+    list_select_related = ("organization",)
+    ordering = ("organization__name", "name")

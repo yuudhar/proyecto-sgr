@@ -10,6 +10,7 @@ from organization.models import (
     Delegation,
     Item,
     Officer,
+    OrganizationLeader,
     Service,
     Territory,
 )
@@ -33,6 +34,10 @@ class Activity(BaseModel):
         REGISTERED = "registered", "Registrada"
         IN_PROGRESS = "in_progress", "En proceso"
         CLOSED = "closed", "Cerrada"
+
+    class RequesterKind(models.TextChoices):
+        NATURAL = "natural", "Persona natural"
+        ORGANIZATION = "organization", "Organización"
 
     date = models.DateField(verbose_name="fecha")
     request_description = models.TextField(
@@ -59,6 +64,22 @@ class Activity(BaseModel):
         related_name="activities",
         verbose_name="organización",
         help_text="Opcional: la junta de vecinos u organización con la que se relaciona la atención.",
+    )
+    requester_kind = models.CharField(
+        max_length=20,
+        choices=RequesterKind.choices,
+        default=RequesterKind.NATURAL,
+        verbose_name="tipo de solicitante",
+        help_text="Si la atención la pide una persona natural o una organización (junta de vecinos u otra).",
+    )
+    organization_leader = models.ForeignKey(
+        OrganizationLeader,
+        on_delete=models.PROTECT,
+        null=True,
+        blank=True,
+        related_name="activities",
+        verbose_name="integrante de la directiva",
+        help_text="Cuando viene una organización: quién de su directiva (presidente, tesorero…) hace la solicitud.",
     )
     status = models.CharField(
         max_length=30, choices=Status.choices, default=Status.REGISTERED,
@@ -170,8 +191,24 @@ class Activity(BaseModel):
                     )
                 }
             )
+        self.check_requester_kind()
         self.check_week_open()
         self.check_daily_limit()
+
+    def check_requester_kind(self):
+        """Una atención de organización nombra la organización; si dice quién de la directiva viene, tiene que ser de ella."""
+        if self.requester_kind == self.RequesterKind.ORGANIZATION:
+            if not self.organization_id:
+                raise ValidationError({"organization": "Elige la organización que hace la solicitud."})
+            leader = self.organization_leader if self.organization_leader_id else None
+            if leader is not None and leader.organization_id != self.organization_id:
+                raise ValidationError(
+                    {"organization_leader": "Esa persona no es de la directiva de la organización elegida."}
+                )
+        elif self.organization_leader_id:
+            raise ValidationError(
+                {"organization_leader": "Solo una atención de organización lleva integrante de la directiva."}
+            )
 
     def check_daily_limit(self):
         """RF-041: un funcionario no puede ingresar más de DAILY_ENTRY_LIMIT atenciones con la misma fecha."""
