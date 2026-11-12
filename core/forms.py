@@ -606,20 +606,22 @@ class EvidenceForm(CrudForm):
 
 
 class PipelineForm(CrudForm):
-    """Atención con casilla «ingresa al tubo de trabajo»: al marcarla se piden la fecha comprometida y el territorio.
+    """Atención con casilla «requiere visita» o «ingresa al tubo de trabajo»: al marcar cualquiera de las dos se piden
+    la fecha comprometida y el territorio.
 
-    Con la casilla marcada los dos datos son obligatorios y, al guardar, se crea el compromiso en la agenda colectiva.
-    Una atención que ya tiene su compromiso no los vuelve a pedir. Si una atención quedó marcada de antes, sin
-    compromiso, los datos son opcionales: se completan solo si se quiere crearlo ahora.
+    Con una casilla marcada los dos datos son obligatorios y, al guardar, se crea el compromiso: en Compromisos si la
+    atención requiere visita (es algo físico) y en la agenda colectiva si solo ingresa al tubo. Una atención que ya
+    tiene su compromiso no los vuelve a pedir. Si una atención quedó marcada de antes, sin compromiso, los datos son
+    opcionales: se completan solo si se quiere crearlo ahora.
     """
 
-    PIPELINE_BOX = "added_to_pipeline"
+    PIPELINE_BOXES = ("requires_visit", "added_to_pipeline")
     after_checks = ("due_date", "territory")
     DUE_BEFORE = "La fecha comprometida no puede ser anterior a la fecha de la atención ({day})."
     TERRITORY_OTHER = "El territorio debe pertenecer a la delegación de la atención."
     PAIR_MESSAGE = "Para crear el compromiso completa la fecha comprometida y el territorio."
-    DUE_REQUIRED = "Indica la fecha comprometida: es obligatoria cuando la atención ingresa al tubo de trabajo."
-    TERRITORY_REQUIRED = "Elige el territorio: es obligatorio cuando la atención ingresa al tubo de trabajo."
+    DUE_REQUIRED = "Indica la fecha comprometida: es obligatoria cuando la atención requiere visita o ingresa al tubo de trabajo."
+    TERRITORY_REQUIRED = "Elige el territorio: es obligatorio cuando la atención requiere visita o ingresa al tubo de trabajo."
 
     due_date = forms.DateField(
         label="Fecha comprometida",
@@ -638,7 +640,7 @@ class PipelineForm(CrudForm):
             for name in ("due_date", "territory"):
                 self.fields.pop(name, None)
             return
-        self.pipeline_stale = bool(self.instance.pk and getattr(self.instance, self.PIPELINE_BOX))
+        self.pipeline_stale = bool(self.instance.pk and any(getattr(self.instance, box) for box in self.PIPELINE_BOXES))
         # Solo existen cuando la casilla está marcada: el navegador los muestra, los pide y los envía en ese caso
         # (`data-show-when`); el servidor revisa lo mismo en `check_pipeline`.
         for name in ("due_date", "territory"):
@@ -654,7 +656,7 @@ class PipelineForm(CrudForm):
         # Los atributos van aquí porque `apply_bounds` corre después de que el formulario cambia los widgets de fecha.
         if not getattr(self, "pipeline_open", False):
             return {}
-        attrs = {"data-show-when": f"id_{self.PIPELINE_BOX}"}
+        attrs = {"data-show-when": ",".join(f"id_{box}" for box in self.PIPELINE_BOXES)}
         if not self.pipeline_stale:
             attrs["data-required-when-shown"] = "1"
         merged = {"due_date": dict(attrs), "territory": dict(attrs)}
@@ -677,7 +679,7 @@ class PipelineForm(CrudForm):
         data = getattr(self, "cleaned_data", {})
         return bool(
             self.pipeline_open
-            and data.get(self.PIPELINE_BOX)
+            and any(data.get(box) for box in self.PIPELINE_BOXES)
             and data.get("due_date")
             and data.get("territory")
         )
@@ -685,7 +687,7 @@ class PipelineForm(CrudForm):
     def check_pipeline(self, cleaned, day):
         if not self.pipeline_open:
             return
-        if not cleaned.get(self.PIPELINE_BOX):
+        if not any(cleaned.get(box) for box in self.PIPELINE_BOXES):
             # Sin la casilla marcada los dos datos no se usan: lo que traigan no puede impedir guardar.
             for name in ("due_date", "territory"):
                 self._errors.pop(name, None)

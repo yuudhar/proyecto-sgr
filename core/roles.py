@@ -63,10 +63,10 @@ PERMISSION_MODULES = (
         (
             ("Actividades y atenciones", "operations.activity"),
             ("Gestiones de atención", "operations.followup"),
-            ("Agenda colectiva", "operations.commitment"),
+            ("Agenda colectiva y compromisos", "operations.commitment"),
             ("Evidencias", "evidence.evidence"),
             ("Validaciones", "evidence.validation"),
-            ("Felicitaciones y reclamos", "planning.feedback"),
+            ("Cartas", "planning.feedback"),
         ),
     ),
     (

@@ -1,0 +1,52 @@
+{% load core_ui %}
+{% if board.kpis %}
+<div class="canvas-kpis" role="list" aria-label="Indicadores">
+  {% for kpi in board.kpis %}
+  <div class="canvas-kpi canvas-kpi-{{ kpi.tone }}" role="listitem">
+    <span class="canvas-kpi-label">{{ kpi.label }}</span>
+    <span class="canvas-kpi-value">{{ kpi.value }}</span>
+    <span class="canvas-kpi-hint">{{ kpi.hint }}</span>
+  </div>
+  {% endfor %}
+</div>
+{% endif %}
+<div class="canvas-board" style="--canvas-columns: {{ board.columns|length }}">
+  {% for column in board.columns %}
+  <section class="canvas-column canvas-column-{{ column.tone }}" aria-label="{{ column.label }}">
+    <header class="canvas-column-head">
+      <h2 class="canvas-column-title">{{ forloop.counter }}. {{ column.label }}</h2>
+      <span class="canvas-count" aria-label="{{ column.cards|length }} tarjeta{{ column.cards|length|pluralize }}">{{ column.cards|length }}</span>
+    </header>
+    <div class="canvas-cards">
+      {% for card in column.cards %}
+      <article class="canvas-card{% if card.archived %} is-archived{% endif %}">
+        <div class="canvas-card-top">
+          <span class="canvas-code">{{ card.code }}</span>
+          {% if card.badge %}<span class="chip chip-{{ card.badge.1 }}">{{ card.badge.0 }}</span>{% endif %}
+          {% if card.archived %}<span class="chip chip-neutral"><i class="bi bi-archive" aria-hidden="true"></i>Archivado</span>{% endif %}
+        </div>
+        <h3 class="canvas-card-title"><a href="{{ card.row.detail_url }}">{{ card.title }}</a></h3>
+        {% if card.lines %}
+        <dl class="canvas-lines">
+          {% for label, text in card.lines %}<div><dt>{{ label }}</dt><dd>{{ text }}</dd></div>{% endfor %}
+        </dl>
+        {% endif %}
+        <div class="canvas-card-actions">
+          <a class="act" href="{{ card.row.detail_url }}" aria-label="Ver {{ card.row.obj|hd }}"><i class="bi bi-eye" aria-hidden="true"></i> Ver</a>
+          {% if card.row.edit_url %}<a class="act" href="{{ card.row.edit_url }}" data-modal-form aria-label="Editar {{ card.row.obj|hd }}"><i class="bi bi-pencil-square" aria-hidden="true"></i> Editar</a>{% endif %}
+          {% for value, label in card.moves %}
+          <form method="post" action="{{ card.move_url }}" class="d-inline">
+            {% csrf_token %}
+            <input type="hidden" name="estado" value="{{ value }}">
+            <button type="submit" class="canvas-move" aria-label="{{ label }}: {{ card.row.obj|hd }}">{{ label }}</button>
+          </form>
+          {% endfor %}
+        </div>
+      </article>
+      {% empty %}
+      <p class="canvas-empty">{{ crud.canvas.empty }}</p>
+      {% endfor %}
+    </div>
+  </section>
+  {% endfor %}
+</div>

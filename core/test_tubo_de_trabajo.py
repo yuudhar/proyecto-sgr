@@ -157,7 +157,7 @@ class PipelineFormTests(PipelineBase):
         form = self.client.get(reverse("core:actividades_create")).context["form"]
         for name in ("due_date", "territory"):
             attrs = form.fields[name].widget.attrs
-            self.assertEqual(attrs["data-show-when"], "id_added_to_pipeline")
+            self.assertEqual(attrs["data-show-when"], "id_requires_visit,id_added_to_pipeline")
             self.assertEqual(attrs["data-required-when-shown"], "1")
 
     def test_the_page_shows_the_labels_of_the_two_fields(self):

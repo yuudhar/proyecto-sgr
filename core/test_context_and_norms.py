@@ -369,8 +369,11 @@ class ContextFollowsEverywhereTests(ContextTestCase):
                 everything = {row.obj.pk for row in self.client.get(reverse(name)).context["rows"]}
                 self.switch(self.south.pk)
                 south = {row.obj.pk for row in self.client.get(reverse(name)).context["rows"]}
-                crud_model = self.client.get(reverse(name)).context["crud"].model
-                expected = set(crud_model.objects.filter(**{lookup: self.south}, deleted_at__isnull=True).values_list("pk", flat=True))
+                crud = self.client.get(reverse(name)).context["crud"]
+                expected = set(
+                    crud.model.objects.filter(**{lookup: self.south}, **crud.queryset_filter, deleted_at__isnull=True)
+                    .values_list("pk", flat=True)
+                )
                 self.assertEqual(south, expected)
                 self.assertLessEqual(south, everything)
 

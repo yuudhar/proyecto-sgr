@@ -37,7 +37,7 @@ El SGR reemplaza las planillas sueltas de las delegaciones municipales por un si
 - **Atención:** buscar a una persona por RUT o nombre e ingresar una atención con su tipo y sub atención. La delegación, el responsable y la fecha se completan solos.
 - **Dashboard, tablero de delegación e informes:** indicadores del período, semáforo de metas y exportación a Excel.
 - **Mantenedores:** delegaciones, funcionarios, cargos, territorios, beneficiarios, catálogo de servicios, períodos, metas, ítems, tipos de atención y sub atención.
-- **Operación y evidencias:** la pantalla *Atención* reúne las atenciones (actividades) con su búsqueda, filtros y exportación; además gestiones (compromisos), agenda colectiva y evidencias con archivo real (PDF, imagen, Word o Excel de hasta 10 MB) y su validación.
+- **Operación y evidencias:** la pantalla *Atención* reúne las atenciones (actividades) con su búsqueda, filtros y exportación; además gestiones, agenda colectiva, **Compromisos** (lo físico: las atenciones con visita a terreno llegan solas, en vista de tarjetas por estado), **Cartas** (felicitaciones y reclamos, en vista de tarjetas) y evidencias con archivo real (PDF, imagen, Word o Excel de hasta 10 MB) y su validación.
 - **Usuarios y permisos:** roles con permisos por módulo, delegaciones autorizadas por usuario y recuperación de contraseña con un enlace de un solo uso enviado por correo.
 - **Auditoría:** cada alta, edición, archivo, exportación y recuperación queda registrada con quién, cuándo y qué valor tenía antes y después.
 
@@ -385,10 +385,11 @@ Registros vigentes por módulo (los archivados no se cuentan):
 |---|---|---|---|
 | Atenciones (`actividades`) | 334 | 333 | 667 |
 | Gestiones | 335 | 326 | 661 |
-| Agenda colectiva (compromisos) | 58 | 54 | 112 |
+| Agenda colectiva | 58 | 54 | 112 |
+| Compromisos (de terreno) | 53 | 54 | 107 |
 | Evidencias | 112 | 111 | 223 |
 | Validaciones | 80 | 84 | 164 |
-| Felicitaciones y reclamos | 55 | 55 | 110 |
+| Cartas (felicitaciones y reclamos) | 55 | 55 | 110 |
 | Ausencias | 55 | 55 | 110 |
 | Territorios | 55 | 55 | 110 |
 | Funcionarios | 55 | 55 | 110 |
@@ -417,7 +418,7 @@ Resultado de ejecutar el comando sobre una base recién migrada (la misma tabla 
 | `operations.ManagementType` | 6 | 6 | 0 |
 | `operations.Activity` | 708 | 667 | 41 |
 | `operations.Followup` | 661 | 661 | 0 |
-| `operations.Commitment` | 120 | 112 | 8 |
+| `operations.Commitment` | 230 | 219 | 11 |
 | `evidence.Evidence` | 223 | 223 | 0 |
 | `evidence.Validation` | 164 | 164 | 0 |
 | `planning.Period` | 2 | 2 | 0 |
@@ -429,7 +430,7 @@ Resultado de ejecutar el comando sobre una base recién migrada (la misma tabla 
 | `accounts.UserProfile` | 6 | 6 | 0 |
 | `accounts.RoleProfile` | 6 | 6 | 0 |
 | `accounts.UserRoleDelegation` | 0 | 0 | 0 |
-| **Total** | **3220** | **3171** | **49** |
+| **Total** | **3330** | **3278** | **52** |
 
 Si la base ya tenía otros datos (por ejemplo los de una prueba anterior), los totales de la base completa son mayores: el comando solo agrega lo suyo.
 
@@ -471,6 +472,8 @@ Todos los módulos leen y escriben en la base de datos real, con permisos por ro
 | Atención (ingreso y listado) | Atención | Operativo | Tipo y sub atención dependientes; identificador `ATN00001`…; el listado de actividades es esta misma pantalla, con filtros y Excel |
 | Dashboard | Dashboard | Operativo | Promedios y semáforo con las metas guardadas |
 | Gestiones, Agenda colectiva | Operación | Operativo | Ligadas a la atención y a la delegación de quien las crea (las actividades se ven en Atención) |
+| Compromisos | Operación | Operativo | Vista de tarjetas con cuatro columnas por estado e indicadores; una atención que requiere visita crea sola su compromiso; botones para cambiar de estado con historial; mismos permisos y alcance que la agenda |
+| Cartas (antes Felicitaciones y reclamos) | Operación | Operativo | Vista de tarjetas por tipo (felicitación o reclamo); solo el delegado las registra y el ajuste se genera solo |
 | Evidencias y validación | Operación | Operativo | Se sube el archivo; el verificador (su propio funcionario, sin elegirlo) aprueba, rechaza u observa, y vuelve a la evidencia revisada. Nadie valida la evidencia que subió |
 | Tablero de delegación, Informes, Indicadores | Resultados | Operativo | Informes en CSV y Excel |
 | Delegaciones, Funcionarios, Territorios, Cargos, Ítems de cargo | Administración › Organización | Operativo | Ver, crear, editar y archivar en ventana modal |

@@ -83,9 +83,10 @@ class CommitmentAdmin(DelegationScopedAdminMixin, admin.ModelAdmin):
         "responsible_officer",
         "due_date",
         "status",
+        "physical",
     )
     search_fields = ("requester", "territory__name", "description")
-    list_filter = ("delegation", "status", "requester_type")
+    list_filter = ("delegation", "status", "requester_type", "physical")
     list_select_related = ("territory", "delegation", "responsible_officer")
     ordering = ("-due_date",)
     date_hierarchy = "due_date"

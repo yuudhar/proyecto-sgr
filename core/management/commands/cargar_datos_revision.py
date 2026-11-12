@@ -84,6 +84,7 @@ TERRITORIOS = 55
 ATENCIONES = 330
 ATENCIONES_CLIENTE = 24  # por cada cliente final
 COMPROMISOS = 60
+COMPROMISOS_DE_TERRENO = 55  # por delegación: los que nacen de una atención con visita a terreno
 EVIDENCIAS = 130  # máximo por delegación: se toma una de cada tres atenciones vigentes
 FELICITACIONES_Y_RECLAMOS = 55
 AUSENCIAS = 55
@@ -276,6 +277,19 @@ ORIGENES_COMPROMISO = [
     "Oficio municipal",
 ]
 APOYOS_COMPROMISO = ["Municipalidad", "Dirección de obras", "Aseo y ornato", "Dirección de desarrollo comunitario", "Salud"]
+ORIGENES_TERRENO = ["Atención con visita a terreno", "Atención con visita (derivada de la oficina)", "Visita pedida por la junta de vecinos"]
+DESCRIPCIONES_TERRENO = [
+    "Salida a terreno y catastro con dirigentes del sector.",
+    "Revisión de luminarias en el pasaje y registro de las que no funcionan.",
+    "Visita para evaluar la instalación de reductores de velocidad.",
+    "Inspección de un sitio eriazo con acumulación de basura.",
+    "Evaluación social en el domicilio y derivación de la familia.",
+    "Poda de árboles en la plaza junto con la cuadrilla de áreas verdes.",
+    "Visita a la sede social para revisar su estado y los arreglos pendientes.",
+    "Verificación en terreno de una denuncia por ruidos molestos.",
+    "Entrega de ayuda comprometida en el domicilio de la solicitante.",
+    "Reunión en terreno con vecinos por el mejoramiento de la multicancha.",
+]
 DESCRIPCIONES_COMPROMISO = [
     "Reparar la luminaria de la plaza del sector.",
     "Entregar la ayuda social comprometida a las familias afectadas.",
@@ -412,6 +426,7 @@ class Command(BaseCommand):
             self.felicitaciones_y_reclamos()
             self.ausencias()
             self.metas()
+            self.compromisos_de_terreno()
         creados = calculation.recalculate_period(self.periodo)
         self.stdout.write(f"Indicadores nuevos calculados: {creados}.")
 
@@ -742,6 +757,68 @@ class Command(BaseCommand):
                 sellos.append(objeto)
             Commitment.objects.bulk_update(sellos, ["created_at", "deleted_at"], batch_size=500)
             self.compromisos_por_ambito[letra] = [guardadas[clave(f)] for f in filas]
+
+    # ------------------------------------------------------------------------------------------------------------
+    # Compromisos de terreno (sección Compromisos)
+    # ------------------------------------------------------------------------------------------------------------
+    def compromisos_de_terreno(self):
+        """Se carga al final para que el resto de los datos salga exactamente igual que antes de existir esta sección."""
+        azar = self.azar
+        for ambito in AMBITOS:
+            letra = ambito["letra"]
+            delegacion = self.delegacion[letra]
+            usados, filas = set(), []
+            for i in range(COMPROMISOS_DE_TERRENO):
+                while True:
+                    solicitante = nombre_persona(azar) if i % 4 else f"{azar.choice(TIPOS_ORGANIZACION)} {azar.choice(LUGARES)}"
+                    vence = FECHA_BASE + timedelta(days=azar.randint(-120, 60))
+                    if (solicitante, vence) not in usados:
+                        usados.add((solicitante, vence))
+                        break
+                estado = elegir_con_peso(
+                    azar,
+                    [
+                        (Commitment.Status.SUBMITTED, 3),
+                        (Commitment.Status.PENDING, 2),
+                        (Commitment.Status.IN_PROGRESS, 2),
+                        (Commitment.Status.FULFILLED, 4),
+                    ],
+                )
+                fila = Commitment(
+                    source=azar.choice(ORIGENES_TERRENO),
+                    request_date=vence - timedelta(days=azar.randint(5, 40)),
+                    description=azar.choice(DESCRIPCIONES_TERRENO),
+                    requester=solicitante,
+                    requester_type=Commitment.RequesterType.EXTERNAL,
+                    territory=azar.choice(self.territorios[letra]),
+                    due_date=vence,
+                    support=azar.choice(APOYOS_COMPROMISO),
+                    status=estado,
+                    notes="" if azar.random() < 0.6 else "Se coordinó la visita con la dirigente del sector.",
+                    physical=True,
+                    responsible_officer=azar.choice(self.de_terreno(letra)),
+                    delegation=delegacion,
+                )
+                fila._archivado = azar.random() < 0.05
+                fila._sello = momento(fila.request_date, i)
+                filas.append(fila)
+            clave = lambda c: (c.delegation_id, c.requester, c.due_date)  # noqa: E731
+            existentes = set(
+                Commitment._base_manager.filter(delegation=delegacion, physical=True).values_list(
+                    "delegation_id", "requester", "due_date"
+                )
+            )
+            nuevas = [f for f in filas if clave(f) not in existentes]
+            Commitment.objects.bulk_create(nuevas, batch_size=500)
+            guardadas = {clave(c): c for c in Commitment._base_manager.filter(delegation=delegacion, physical=True)}
+            sellos = []
+            for fila in nuevas:
+                objeto = guardadas[clave(fila)]
+                objeto.created_at = fila._sello
+                if fila._archivado:
+                    objeto.deleted_at = fila._sello + timedelta(days=3)
+                sellos.append(objeto)
+            Commitment.objects.bulk_update(sellos, ["created_at", "deleted_at"], batch_size=500)
 
     # ------------------------------------------------------------------------------------------------------------
     # Atenciones
@@ -1077,6 +1154,8 @@ class Command(BaseCommand):
             if crud.model._meta.app_label in ("auth", "core") or crud.model is Item:
                 continue
             activos = crud.model._base_manager.filter(deleted_at__isnull=True) if hasattr(crud.model, "deleted_at") else crud.model._base_manager.all()
+            if crud.queryset_filter:
+                activos = activos.filter(**crud.queryset_filter)
             cifras = [None, None]
             if crud.delegation_lookup:
                 cifras = [
