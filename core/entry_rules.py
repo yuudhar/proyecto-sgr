@@ -6,7 +6,8 @@
 * La fecha de hoy es la de la zona del portal (Santiago), la misma que usa el sistema dentro de una petición.
 * El límite diario (`settings.DAILY_ENTRY_LIMIT`, 7) se cuenta por la fecha de la atención.
 """
-from datetime import timedelta
+import calendar
+from datetime import date, timedelta
 from zoneinfo import ZoneInfo
 
 from django.conf import settings
@@ -18,6 +19,18 @@ from core import ui
 def portal_today():
     """La fecha de hoy en la zona del portal (Santiago)."""
     return timezone.localtime(timezone.now(), ZoneInfo(settings.PORTAL_TIME_ZONE)).date()
+
+
+def months_back(day, months):
+    """El mismo día de hace `months` meses (el último del mes si ese día no existe: 29 de febrero, 31, etc.)."""
+    year, month = divmod(day.year * 12 + day.month - 1 - months, 12)
+    month += 1
+    return date(year, month, min(day.day, calendar.monthrange(year, month)[1]))
+
+
+def earliest_date(today=None):
+    """La fecha más antigua que se acepta al ingresar compromisos, gestiones, cartas y ausencias (`BACKDATE_MONTHS`)."""
+    return months_back(today or portal_today(), settings.BACKDATE_MONTHS)
 
 
 def week_start(day):

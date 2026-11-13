@@ -332,6 +332,34 @@ class CrudForm(BootstrapFormMixin, forms.ModelForm):
         if value and value > timezone.localdate():
             self.add_error(name, message)
 
+    def too_old_message(self, label):
+        return (
+            f"{label} no puede ser de hace más de {settings.BACKDATE_MONTHS} meses: "
+            f"la más antigua que se acepta es el {ui.fmt_date(self.earliest_day())}."
+        )
+
+    @staticmethod
+    def earliest_day():
+        return entry_rules.earliest_date(timezone.localdate())
+
+    def since_a_year(self, name, label):
+        """Atributos del navegador: no deja elegir una fecha de hace más de 12 meses. Al editar, si la fecha guardada
+        ya es más antigua no se pone el tope, para que el registro se pueda seguir corrigiendo."""
+        stored = getattr(self.instance, name, None) if self.instance.pk else None
+        if stored and stored < self.earliest_day():
+            return {}
+        return {"min": self.earliest_day().isoformat(), "data-min-message": self.too_old_message(label)}
+
+    def check_not_too_old(self, cleaned, name, label):
+        """Rechaza una fecha de hace más de 12 meses. Al editar solo cuenta si la fecha cambió: lo que ya estaba
+        guardado no se toca."""
+        value = cleaned.get(name)
+        if not value or self.has_error(name) or value >= self.earliest_day():
+            return
+        if self.instance.pk and value == getattr(self.instance, name, None):
+            return
+        self.add_error(name, self.too_old_message(label))
+
     def check_not_before_day(self, cleaned, name, day, label):
         value = cleaned.get(name)
         if value and day and value < day:
@@ -1582,8 +1610,14 @@ class AdjustmentForm(CrudForm):
 class AbsenceForm(CrudForm):
     """RF-047: la fecha «hasta» no puede ser anterior a «desde» y las ausencias de una persona no se traslapan (lo revisa el modelo)."""
 
+    START_LABEL = "La fecha «desde»"
+
+    def bounds(self):
+        return {"start_date": self.since_a_year("start_date", self.START_LABEL)}
+
     def clean(self):
         cleaned = super().clean()
+        self.check_not_too_old(cleaned, "start_date", self.START_LABEL)
         start, end = cleaned.get("start_date"), cleaned.get("end_date")
         if start and end and end < start and not self.has_error("end_date"):
             self.add_error("end_date", "La fecha «hasta» no puede ser anterior a la fecha «desde».")
@@ -1596,7 +1630,7 @@ class FeedbackForm(CrudForm):
     DATE_MESSAGE = "La fecha no puede ser futura."
 
     def bounds(self):
-        return {"date": self.until_today(self.DATE_MESSAGE)}
+        return {"date": {**self.until_today(self.DATE_MESSAGE), **self.since_a_year("date", "La fecha")}}
 
     def customize_fields(self):
         field = self.fields["support"]
@@ -1625,6 +1659,7 @@ class FeedbackForm(CrudForm):
     def clean(self):
         cleaned = super().clean()
         self.check_not_future(cleaned, "date", self.DATE_MESSAGE)
+        self.check_not_too_old(cleaned, "date", "La fecha")
         return cleaned
 
 
@@ -1658,6 +1693,7 @@ class ActivityEditForm(RequesterKindMixin, PipelineForm):
 class CommitmentForm(CrudForm):
 
     REQUEST_MESSAGE = "La fecha de solicitud no puede ser futura."
+    REQUEST_LABEL = "La fecha de solicitud"
     DUE_MESSAGE = "La fecha comprometida no puede ser anterior a la fecha de solicitud."
 
     def customize_fields(self):
@@ -1676,13 +1712,14 @@ class CommitmentForm(CrudForm):
 
     def bounds(self):
         return {
-            "request_date": self.until_today(self.REQUEST_MESSAGE),
+            "request_date": {**self.until_today(self.REQUEST_MESSAGE), **self.since_a_year("request_date", self.REQUEST_LABEL)},
             **self.not_before("due_date", "request_date", self.DUE_MESSAGE),
         }
 
     def clean(self):
         cleaned = super().clean()
         self.check_not_future(cleaned, "request_date", self.REQUEST_MESSAGE)
+        self.check_not_too_old(cleaned, "request_date", self.REQUEST_LABEL)
         self.check_not_before(cleaned, "due_date", "request_date", self.DUE_MESSAGE)
         return cleaned
 
@@ -1720,6 +1757,8 @@ class FollowupForm(CrudForm):
 
     def bounds(self):
         found = {name: self.until_today(message) for name, message in self.TODAY.items()}
+        for name, label in self.LABELS.items():
+            found.setdefault(name, {}).update(self.since_a_year(name, label))
         for name, message in self.AFTER_VISIT.items():
             found[name].update(self.not_before(name, "visit_date", message)[name])
         return found
@@ -1730,6 +1769,8 @@ class FollowupForm(CrudForm):
             self.check_not_future(cleaned, name, message)
         for name, message in self.AFTER_VISIT.items():
             self.check_not_before(cleaned, name, "visit_date", message)
+        for name, label in self.LABELS.items():
+            self.check_not_too_old(cleaned, name, label)
         activity = cleaned.get("activity")
         if activity is not None:
             for name, label in self.LABELS.items():
@@ -1834,6 +1875,7 @@ class QuarterRequestForm(CrudForm):
 
     def bounds(self):
         found = self.until_today(self.DATE_MESSAGE)
+        found.update(self.since_a_year("new_date", "La fecha nueva"))
         found.update({"data-show-if": f"id_mode:{QuarterChangeRequest.Mode.MANUAL.value}", "data-required-when-shown": "1"})
         return {"new_date": found}
 
@@ -1844,6 +1886,8 @@ class QuarterRequestForm(CrudForm):
         if mode == QuarterChangeRequest.Mode.AUTOMATIC.value:
             cleaned["new_date"] = None
             self.instance.new_date = None
+        else:
+            self.check_not_too_old(cleaned, "new_date", "La fecha nueva")
         return cleaned
 
 

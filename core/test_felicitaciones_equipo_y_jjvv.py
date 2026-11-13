@@ -383,7 +383,8 @@ class FeedbackScreensTests(PortalTestCase):
     def test_a_date_outside_every_period_is_refused_in_the_form(self):
         self.login_as("jefatura1")
         before = Feedback.objects.count()
-        response = self.create(date="2001-01-05")
+        Period.objects.update(deleted_at=timezone.now())  # con el límite de 12 meses, una fecha tan antigua ya no llega a esta revisión
+        response = self.create()
         self.assertContains(response, "ningún período")
         self.assertEqual(Feedback.objects.count(), before)
 
