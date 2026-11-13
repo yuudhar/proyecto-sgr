@@ -17,6 +17,33 @@ Nombres que cambiaron en la v27 (los textos antiguos los mencionan con el nombre
 | `core/qa/esperado_vNN.py` | `core/qa/esperado_<tema>.py` (mismo tema que su archivo de pruebas) |
 | `sql/*.sql` (todos) | `sql/sgr_django.sql` (estructura vigente) |
 
+## Versión 42
+
+Los solicitantes externos de la **agenda colectiva** pueden pasar a tener su **cuenta de cliente** sin salir del flujo. Antes el compromiso solo guardaba el nombre (un texto, sin RUT ni vínculo con Beneficiarios) y no había cómo llegar de ahí a crear su usuario. Se arma sobre la v41.
+
+### Qué cambia
+
+- En la ficha de un compromiso de la agenda colectiva con solicitante **externo** aparece el botón **Crear cuenta de cliente**.
+- Lleva a una pantalla que pide el **RUT** (con las mismas reglas de los Beneficiarios) y el teléfono y la dirección; el nombre viene escrito con el del solicitante.
+- Si ya hay un beneficiario con ese RUT, se **reutiliza** sin cambiarle los datos; si ya tiene cuenta, se avisa con qué usuario ingresa. Si no existe, se crea (queda en la auditoría como «Beneficiario creado desde un compromiso»).
+- Después abre **Nuevo usuario** con el perfil **Cliente** y ese beneficiario ya elegidos; falta el usuario, el correo y la contraseña.
+- El botón y la pantalla piden los dos permisos: **crear usuarios** y **crear beneficiarios**. No aparecen para solicitantes internos ni para los compromisos de terreno (la persona de esos ya viene de la atención), y un compromiso de otra delegación no se abre.
+
+### Qué no cambia
+
+- El compromiso no queda ligado al beneficiario: el vínculo es solo el camino para crear la cuenta.
+- No hay tabla ni migración nuevas.
+
+### Pruebas
+
+- Nuevo `core/test_cliente_desde_compromiso.py` (19 pruebas, catálogo QA V42-01): el botón y sus permisos, el RUT nuevo, el que ya existe y el que ya tiene cuenta, los accesos, el arranque de «Nuevo usuario» y el camino completo hasta dejar la cuenta.
+
+### ❓ Para confirmar
+
+- ¿Quién debería poder hacerlo? Hoy solo quien puede crear usuarios (el administrador de la revisión y el Super Usuario); Jefatura no.
+- Si la persona abandona «Nuevo usuario», el beneficiario ya queda creado en el catálogo (sin cuenta). ¿Se acepta o se prefiere crear ambos juntos al final?
+- ¿El compromiso debería quedar ligado al beneficiario (para ver sus compromisos en su portal)?
+
 ## Versión 41
 
 Las fechas que se escriben a mano en los formularios operativos tienen ahora un **límite de 12 meses hacia atrás**. Antes se podía poner, por ejemplo, que un compromiso empezó en 1997. Se arma sobre la v40.

@@ -35,10 +35,11 @@ from core.commitments import DUE_SOON_DAYS, STATUS_ORDER, collective_summary, de
 from core.crud import CODE_COLUMN, PAGE_SIZES, SESSION_PAGE_SIZE, Col, Column, CrudListView, conflict_message, query_string, read_list_state, registry, save_list_state, version_of
 from core.forms import ClientDataForm, PortalAuthenticationForm, PortalPasswordChangeForm, ProfileDataForm, ProfilePhotoForm, ValidationForm
 from core.results import current_period, goals_of, light_of, mean, officer_summary, rounded, team_goals
-from core.rules import rut_with_wrong_digit
+from core.registry import can_create_clients
+from core.rules import normalize_rut, rut_with_wrong_digit
 from evidence.models import Evidence, Validation
 from operations.models import Activity, Commitment
-from organization.models import Delegation, Officer
+from organization.models import Beneficiary, Delegation, Officer
 from planning import feedback as feedback_rules
 from planning.team import team_score
 from planning.absences import absence_map, kind_breakdown
@@ -764,6 +765,68 @@ def validate_list(request):
             "items": items,
             "recent": recent,
             "breadcrumbs": [("Inicio", reverse("core:dashboard")), ("Validar evidencias", None)],
+        },
+    )
+
+
+@login_required
+def client_from_commitment(request, pk):
+    """v42: del solicitante externo de un compromiso de la agenda colectiva a su cuenta de cliente.
+
+    Pide el RUT (el compromiso solo guarda el nombre), deja listo el beneficiario (reutiliza el que ya tenga ese RUT)
+    y sigue a «Nuevo usuario» con el perfil Cliente y el beneficiario elegidos.
+    """
+    if not can_create_clients(request.user):
+        raise PermissionDenied
+    agenda = registry.get("agenda")
+    commitment = get_object_or_404(
+        agenda.get_queryset(request).filter(physical=False, requester_type=Commitment.RequesterType.EXTERNAL), pk=pk
+    )
+    beneficiaries = registry.get("beneficiarios")
+    detail_url = agenda.url("detail", commitment.pk)
+    existing = None
+    if request.method == "POST":
+        typed = normalize_rut(request.POST.get("rut", "").strip())
+        existing = Beneficiary.objects.filter(rut=typed, deleted_at__isnull=True).first() if typed else None
+    if existing is not None:
+        account = UserProfile.objects.filter(beneficiary=existing).select_related("user").first()
+        if account is not None:
+            messages.error(request, f"{existing.name} ya tiene una cuenta de cliente: {account.user.username}.")
+            return redirect(request.path)
+        messages.info(request, f"Ya existía el beneficiario {existing.name} con ese RUT; se usa ese.")
+        return redirect(f"{reverse('core:usuarios_create')}?beneficiary={existing.pk}")
+    form_class = beneficiaries.form_class
+    form = form_class(
+        request.POST or None,
+        initial={"name": commitment.requester},
+        request=request,
+        crud=beneficiaries,
+    )
+    if request.method == "POST" and form.is_valid():
+        with transaction.atomic():
+            beneficiary = form.save()
+            log_event(
+                request.user,
+                "Beneficiario creado desde un compromiso",
+                beneficiary,
+                new=f"{beneficiary}; compromiso {agenda.code_of(commitment)}",
+            )
+        messages.success(request, f"Beneficiario «{beneficiary.name}» creado. Falta crear su usuario.")
+        return redirect(f"{reverse('core:usuarios_create')}?beneficiary={beneficiary.pk}")
+    return render(
+        request,
+        "core/client_from_commitment.html",
+        {
+            "form": form,
+            "crud": beneficiaries,
+            "commitment": commitment,
+            "detail_url": detail_url,
+            "breadcrumbs": [
+                ("Inicio", reverse("core:dashboard")),
+                (agenda.list_title, agenda.url("list")),
+                (ui.humanize_dates(commitment), detail_url),
+                ("Cuenta de cliente", None),
+            ],
         },
     )
 
