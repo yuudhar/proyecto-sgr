@@ -178,7 +178,7 @@ class QuarterRequestTests(QuarterBase):
 
     def test_a_manual_date_without_trimestre_is_refused(self):
         self.client.force_login(self.clerk)
-        response = self.ask(mode=Mode.MANUAL, new_date=(self.today - timedelta(days=400)).isoformat())
+        response = self.ask(mode=Mode.MANUAL, new_date=(self.today - timedelta(days=300)).isoformat())
         self.assertContains(response, "no cae en ningún trimestre")
 
     def test_a_closed_trimestre_cannot_receive_attentions(self):

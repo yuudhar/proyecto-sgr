@@ -145,6 +145,7 @@ Configuración del proyecto. Lee las variables de entorno (archivo `.env` en des
 | `PORTAL_LANGUAGE` | Idioma de las pantallas del portal (`es`). |
 | `PORTAL_TIME_ZONE` | Zona horaria de las pantallas del portal (`America/Santiago`). |
 | `DAILY_ENTRY_LIMIT` | Máximo de atenciones que un funcionario puede registrar con la misma fecha (7, v29). |
+| `BACKDATE_MONTHS` | Hasta cuántos meses hacia atrás se acepta la fecha de un compromiso, una gestión, una carta, una ausencia o un cambio de trimestre (12, v41). |
 | `AUTHENTICATION_BACKENDS` | Forma de autenticar: `EmailOrUsernameBackend` (usuario o correo). |
 | `LOGIN_URL` | Ruta del ingreso. |
 | `LOGIN_REDIRECT_URL` | A dónde se va después de ingresar (el dashboard). |
@@ -406,6 +407,7 @@ Formulario base de los mantenedores (ver core/crud.py).
 - **`check_not_before(cleaned, name, other, message)`**: Servidor: la fecha `name` no puede ser anterior a `other` (si están las dos).
 - **`until_today(message)`** *(método estático)*: Atributos del navegador: la fecha no puede ser posterior a hoy (el día de Chile, que arma el servidor).
 - **`check_not_future(cleaned, name, message)`**: Servidor: la fecha no puede ser posterior a hoy.
+- **`earliest_day()`** *(método estático)*, **`too_old_message(label)`**, **`since_a_year(name, label)`** y **`check_not_too_old(cleaned, name, label)`** (v41): el límite de 12 meses hacia atrás (`BACKDATE_MONTHS`). `since_a_year` entrega los atributos del navegador (`min` y `data-min-message`); al editar un registro cuya fecha guardada ya es más antigua no pone tope, para que se pueda seguir corrigiendo. `check_not_too_old` es la revisión del servidor: rechaza una fecha de hace más de 12 meses, y al editar solo cuenta si la fecha cambió. Lo usan `CommitmentForm` (fecha de solicitud), `FollowupForm` (fecha de la gestión, de la visita programada, de la visita y de las dos entregas), `FeedbackForm` (fecha de la carta), `AbsenceForm` («desde») y `QuarterRequestForm` (fecha nueva). No se aplica a las atenciones (tienen su propia ventana semanal) ni a fechas históricas como la constitución de una organización.
 - **`check_not_before_day(cleaned, name, day, label)`**: Servidor: la fecha `name` no puede ser anterior a un día dado (el de la atención, por ejemplo).
 - **`use_date_inputs()`**: Los campos de fecha usan el selector de fecha del navegador.
 - **`current_value(name)`**: Valor actual (pk) de una clave foránea del registro que se edita.
@@ -1383,6 +1385,7 @@ La semana va de lunes a domingo. Las atenciones de una semana se ingresan hasta 
 - **`portal_today()`**: la fecha de hoy en la zona del portal.
 - **`week_start(day)`**, **`week_end(day)`** y **`last_entry_day(day)`**: el lunes y el domingo de la semana de una fecha, y el lunes siguiente (último día para ingresarla).
 - **`is_week_closed(day, today)`**: verdadero si hoy es posterior al último día para ingresar esa semana.
+- **`months_back(day, months)`** y **`earliest_date(today)`** (v41): el mismo día de hace N meses (el último del mes si el día no existe, como el 29 de febrero) y la fecha más antigua que aceptan los formularios (`settings.BACKDATE_MONTHS`, 12 meses).
 - **`closed_message(day)`**, **`week_text(day)`** y **`week_notice(day)`**: los textos del rechazo y del aviso del formulario.
 - **`entries_on(officer_id, day, exclude_pk)`** y **`daily_state(officer_id, day)`**: atenciones de un funcionario en una fecha (sin archivadas) y «llevadas, máximo» del día.
 

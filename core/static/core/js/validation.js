@@ -118,7 +118,9 @@ function problemOf(field, form) {
     return "Escribe un correo válido, por ejemplo nombre@dominio.cl.";
   }
   if (field.type === "date") {
-    if (field.min && value < field.min) return `La fecha no puede ser anterior al ${dayText(field.min)}.`;
+    if (field.min && value < field.min) {
+      return field.dataset.minMessage || `La fecha no puede ser anterior al ${dayText(field.min)}.`;
+    }
     if (field.max && value > field.max) {
       return field.dataset.maxMessage || `La fecha no puede ser posterior al ${dayText(field.max)}.`;
     }

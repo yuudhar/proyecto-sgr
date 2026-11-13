@@ -164,6 +164,9 @@ PORTAL_TIME_ZONE = 'America/Santiago'
 # Máximo de atenciones que un funcionario puede ingresar con la misma fecha (RF-041).
 DAILY_ENTRY_LIMIT = 7
 
+# Hasta cuántos meses hacia atrás se puede poner la fecha de un compromiso, una gestión, una carta o una ausencia (v41).
+BACKDATE_MONTHS = 12
+
 AUTHENTICATION_BACKENDS = ['accounts.backends.EmailOrUsernameBackend']
 LOGIN_URL = 'core:login'
 LOGIN_REDIRECT_URL = 'core:dashboard'

@@ -17,6 +17,37 @@ Nombres que cambiaron en la v27 (los textos antiguos los mencionan con el nombre
 | `core/qa/esperado_vNN.py` | `core/qa/esperado_<tema>.py` (mismo tema que su archivo de pruebas) |
 | `sql/*.sql` (todos) | `sql/sgr_django.sql` (estructura vigente) |
 
+## Versión 41
+
+Las fechas que se escriben a mano en los formularios operativos tienen ahora un **límite de 12 meses hacia atrás**. Antes se podía poner, por ejemplo, que un compromiso empezó en 1997. Se arma sobre la v40.
+
+### Qué cambia
+
+- **Compromisos**: la fecha de solicitud no puede ser de hace más de 12 meses.
+- **Gestiones** (seguimientos): la fecha de la gestión, la visita programada, la fecha de la visita y las fechas de entrega del informe y del beneficio.
+- **Cartas** (felicitaciones y reclamos): la fecha de la carta.
+- **Ausencias**: la fecha «desde» (el «hasta» no puede ser anterior al «desde», así que queda dentro del límite).
+- **Cambios de trimestre**: la fecha nueva del modo manual.
+- El límite es **el mismo día de hace 12 meses**: hoy 11 de noviembre de 2026, la fecha más antigua es el 11 de noviembre de 2025. Si ese día no existe (por ejemplo, 29 de febrero) se usa el último día de ese mes.
+- El número de meses sale de `settings.BACKDATE_MONTHS` (12). Cambiarlo es cambiar un número.
+
+### Cómo se comporta
+
+- El **selector de fecha del navegador** no deja elegir una fecha anterior, y si se escribe a mano aparece el mensaje: «La fecha de solicitud no puede ser de hace más de 12 meses: la más antigua que se acepta es el 11 de noviembre de 2025.».
+- El **servidor** repite la revisión, así que no se puede saltar desde el navegador.
+- Los registros que ya existen con una fecha antigua **se siguen pudiendo editar** mientras no se toque esa fecha: el navegador no les pone tope y el servidor solo revisa la fecha si cambió.
+- **No se tocan**: las atenciones (ya tienen su propia ventana semanal, hasta el lunes siguiente), las fechas históricas (constitución e inscripción de una organización, vigencias de cargos) y los períodos (trimestres), que se crean con las fechas que corresponden.
+
+### Pruebas
+
+- Nuevo `core/test_limite_de_fechas.py` (20 pruebas, registradas en el catálogo QA como V41-01): el cálculo de la fecha (29 de febrero, día 31, cruce de año, ajuste), y en cada formulario el tope del navegador, el rechazo de 1997, el día del límite aceptado y el anterior rechazado, y la edición de un registro antiguo sin tocar su fecha.
+- En `core/test_cambio_de_trimestre.py` la prueba de una fecha manual sin trimestre usa ahora una de hace 300 días (la de hace 400 ya la rechaza el límite).
+
+### ❓ Para confirmar
+
+- ¿12 meses sirve para todas las pantallas o la ausencia debería permitir más (por ejemplo, una licencia que se registra tarde)?
+- ¿Los **compromisos** deberían además tener una fecha comprometida máxima (hacia adelante)?
+
 ## Versión 40
 
 Lo último pendiente de la lista de la clienta: el **cambio de trimestre de una atención** (por ejemplo, una atención de diciembre que pasa a enero), que **pide el funcionario y aprueba o rechaza la jefatura**. Se arma sobre la v39.
