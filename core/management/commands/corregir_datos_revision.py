@@ -1,10 +1,11 @@
-"""v45: corrige los datos de revisión que ya están cargados para que tengan sentido entre sí.
+"""v45/v46: corrige los datos de revisión que ya están cargados para que tengan sentido entre sí.
 
 Qué corrige (solo toca datos de revisión: se reconocen por sus textos, orígenes y cargos de demostración)
 ----------------------------------------------------------------------------------------------------------
 * cargos: los funcionarios pasan a los cargos del descriptor 2026 (así su ficha muestra las funciones) y los ítems del
   cargo suman 100 %;
-* identificadores: ``REV-N-001`` pasa al formato del sistema, ``F-1001``;
+* identificadores: ``REV-N-001`` pasa al formato del sistema, ``F-1001``; si ese número ya es de otra persona recibe el
+  siguiente libre de su delegación;
 * clasificación: servicio, ítem y «requiere visita» de cada atención salen de lo que dice la solicitud;
 * estados: una atención «Registrada» no tiene acciones ni gestiones, y una «Cerrada» sí tiene acción;
 * compromisos: los del tubo y los de terreno nacen de su atención (mismo solicitante, fecha, funcionario), ninguno se
@@ -12,6 +13,7 @@ Qué corrige (solo toca datos de revisión: se reconocen por sus textos, orígen
 * ausencias: la observación coincide con el tipo, tienen días hábiles y no caen sobre días con atenciones;
 * cambios de trimestre: se piden antes de resolverse y se aprueban después de la fecha nueva; cada delegación usa sus
   propias cuentas (se crean ``editor_b`` y ``admin_b`` si se entrega una contraseña);
+* autoría: las cartas, ausencias y ajustes de Sur quedan registrados por la cuenta de Sur (``admin_b``);
 * metas: la meta de atenciones se acerca a lo que de verdad se puede cumplir y se recalculan los indicadores.
 
 Cómo se usa
@@ -44,7 +46,7 @@ from core.management.commands import cargar_datos_revision as carga
 from operations.models import Activity, Commitment, Followup, QuarterChangeRequest
 from organization.models import Item, Officer, Position, PositionItem, Service, Territory
 from planning import calculation
-from planning.models import Absence, Goal
+from planning.models import Absence, Adjustment, Feedback, Goal
 from planning.pace import weekdays_between
 
 # cargo de demostración -> cargo del descriptor 2026
@@ -83,7 +85,7 @@ NOTA_POR_TIPO = {
     "compensatory": "Día compensatorio",
 }
 
-PASOS = ("cargos", "identificadores", "clasificacion", "estados", "compromisos", "ausencias", "trimestres", "metas")
+PASOS = ("cargos", "identificadores", "clasificacion", "estados", "compromisos", "ausencias", "trimestres", "autoria", "metas")
 
 
 def fila_de(texto):
@@ -196,8 +198,7 @@ class Command(BaseCommand):
                 numero = int(oficial.institutional_id.rsplit("-", 1)[1])
                 nuevo = f"F-{bloque}{numero:03d}"
                 if Officer._base_manager.filter(institutional_id=nuevo).exclude(pk=oficial.pk).exists():
-                    self.aviso(f"{oficial.institutional_id} no pasa a {nuevo} porque ese identificador ya lo usa otra persona.")
-                    continue
+                    nuevo = oficial.next_institutional_id()  # ese número ya es de otra persona: el siguiente libre
                 Officer._base_manager.filter(pk=oficial.pk).update(institutional_id=nuevo)
                 self.hecho("identificadores de funcionario con el formato F-0000")
 
@@ -355,6 +356,10 @@ class Command(BaseCommand):
             if solicitud and solicitud > self.hoy:
                 solicitud = min(solicitud, c.due_date - timedelta(days=15), self.hoy - timedelta(days=7))
                 cambios["request_date"] = solicitud
+            if c.status == "fulfilled" and c.due_date > self.hoy:
+                base = solicitud or c.request_date
+                cambios["due_date"] = min(self.hoy, max(base + timedelta(days=1), self.hoy - timedelta(days=3)))
+                self.hecho("compromisos realizados con fecha comprometida ya cumplida")
             if cambios or c.created_at > self.ahora:
                 creado = carga.momento(solicitud or c.due_date, c.pk)
                 cambios["created_at"] = creado
@@ -417,17 +422,22 @@ class Command(BaseCommand):
     def cuentas_sur(self):
         User = get_user_model()
         usuarios = {}
+        sur = next(a for a in carga.AMBITOS if a["letra"] == "S")
         for username, grupos, posicion, permisos in (
             ("editor_b", ("Funcionario",), 2, "editor"),
             ("admin_b", ("Jefatura", "Funcionario"), 1, "administrador"),
         ):
             usuario = User.objects.filter(username=username).first()
             if usuario is None:
+                # se busca por nombre y delegación: el identificador cambia en el paso «identificadores»
                 oficial = Officer._base_manager.filter(
-                    institutional_id__in=[f"REV-S-{posicion:03d}", f"F-2{posicion:03d}"]
+                    name=carga.FUNCIONARIOS_FIJOS["S"][posicion], delegation__name=sur["delegacion"]
                 ).first()
                 if oficial is None:
                     self.aviso(f"no se creó «{username}»: no se encontró el funcionario {posicion} de la Delegación Sur.")
+                    continue
+                if UserProfile.objects.filter(officer=oficial).exists():
+                    self.aviso(f"no se creó «{username}»: {oficial.name} ya tiene otra cuenta.")
                     continue
                 if not self.password:
                     self.aviso(
@@ -480,6 +490,29 @@ class Command(BaseCommand):
                     self.hecho("cambios de trimestre de Sur resueltos por una cuenta de Sur")
             if cambios:
                 QuarterChangeRequest._base_manager.filter(pk=q.pk).update(**cambios)
+
+    def autoria(self):
+        """Cartas, ausencias y ajustes de Sur registrados por una cuenta de Norte pasan a la cuenta de Sur."""
+        sur = self.cuentas_sur().get("admin_b")
+        if sur is None:
+            return
+        delegacion = next(a["delegacion"] for a in carga.AMBITOS if a["letra"] == "S")
+        de_usuario = {
+            p.user_id: p.officer.delegation_id
+            for p in UserProfile.objects.select_related("officer").filter(officer__isnull=False)
+        }
+        for modelo, campo, nombre in (
+            (Feedback, "registered_by", "cartas de Sur registradas por una cuenta de Sur"),
+            (Absence, "registered_by", "ausencias de Sur registradas por una cuenta de Sur"),
+            (Adjustment, "responsible_user", "ajustes de Sur a cargo de una cuenta de Sur"),
+        ):
+            filas = modelo._base_manager.select_related("officer").filter(officer__delegation__name=delegacion)
+            for fila in filas:
+                usuario_id = getattr(fila, f"{campo}_id")
+                if usuario_id is None or de_usuario.get(usuario_id) == fila.officer.delegation_id:
+                    continue
+                modelo._base_manager.filter(pk=fila.pk).update(**{campo: sur})
+                self.hecho(nombre)
 
     # ------------------------------------------------------------------------------------------------------------
     # 8. Metas
