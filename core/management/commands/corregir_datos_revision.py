@@ -1,0 +1,501 @@
+"""v45: corrige los datos de revisión que ya están cargados para que tengan sentido entre sí.
+
+Qué corrige (solo toca datos de revisión: se reconocen por sus textos, orígenes y cargos de demostración)
+----------------------------------------------------------------------------------------------------------
+* cargos: los funcionarios pasan a los cargos del descriptor 2026 (así su ficha muestra las funciones) y los ítems del
+  cargo suman 100 %;
+* identificadores: ``REV-N-001`` pasa al formato del sistema, ``F-1001``;
+* clasificación: servicio, ítem y «requiere visita» de cada atención salen de lo que dice la solicitud;
+* estados: una atención «Registrada» no tiene acciones ni gestiones, y una «Cerrada» sí tiene acción;
+* compromisos: los del tubo y los de terreno nacen de su atención (mismo solicitante, fecha, funcionario), ninguno se
+  solicita en el futuro y los que vencieron hace más de 30 días ya no quedan «Ingresados» o «Pendientes»;
+* ausencias: la observación coincide con el tipo, tienen días hábiles y no caen sobre días con atenciones;
+* cambios de trimestre: se piden antes de resolverse y se aprueban después de la fecha nueva; cada delegación usa sus
+  propias cuentas (se crean ``editor_b`` y ``admin_b`` si se entrega una contraseña);
+* metas: la meta de atenciones se acerca a lo que de verdad se puede cumplir y se recalculan los indicadores.
+
+Cómo se usa
+-----------
+``python manage.py corregir_datos_revision``            muestra lo que cambiaría, sin guardar nada (simulación);
+``python manage.py corregir_datos_revision --aplicar``  lo guarda.
+Se puede repetir: lo que ya está corregido no se vuelve a tocar. Con ``--solo cargos compromisos`` se eligen pasos.
+Después de corregir, no se debe volver a correr ``cargar_datos_revision`` (volvería a crear los cargos y los
+identificadores de antes).
+"""
+import os
+import statistics
+from collections import defaultdict
+from datetime import timedelta
+from io import StringIO
+
+from django.contrib.auth import get_user_model
+from django.contrib.auth.models import Group
+from django.contrib.auth.password_validation import validate_password
+from django.core.exceptions import ValidationError
+from django.core.management import call_command
+from django.core.management.base import BaseCommand, CommandError
+from django.db import transaction
+from django.utils import timezone
+
+from accounts.models import UserProfile
+from core import entry_rules
+from core.audit import log_event
+from core.management.commands import cargar_datos_revision as carga
+from operations.models import Activity, Commitment, Followup, QuarterChangeRequest
+from organization.models import Item, Officer, Position, PositionItem, Service, Territory
+from planning import calculation
+from planning.models import Absence, Goal
+from planning.pace import weekdays_between
+
+# cargo de demostración -> cargo del descriptor 2026
+CARGOS = {
+    "Jefe de Delegación": "Delegado",
+    "Encargado Social": "Gestor Social",
+    "Coordinador de Terreno": "Coordinador de Servicios Comunitarios",
+    "Analista de Datos": "Gestión y Planificación",
+}
+
+# (inicio de la solicitud, servicio, ítem, requiere visita)
+CLASIFICACION = [
+    ("Solicita certificado de residencia", "Certificado de Residencia", "Atención Social", False),
+    ("Consulta por ayuda social", "Ayuda Social", "Atención Social", False),
+    ("Reclama por luminaria en mal estado", None, "Coordinación Territorial", False),
+    ("Pide visita domiciliaria", None, "Visita Domiciliaria", True),
+    ("Consulta por subsidio de agua potable", "Ayuda Social", "Atención Social", False),
+    ("Solicita orientación sobre trámites municipales", None, "Atención Social", False),
+    ("Pide ayuda para postular al subsidio de vivienda", "Postulación a Subsidio", "Atención Social", False),
+    ("Consulta por entrega de cajas de alimentos", "Ayuda Social", "Entrega de Ayudas Sociales", False),
+    ("Solicita retiro de escombros en la vereda", None, "Coordinación Territorial", True),
+    ("Pregunta cómo actualizar el Registro Social de Hogares", None, "Atención Social", False),
+    ("Pide una silla de ruedas en préstamo", "Ayuda Social", "Entrega de Ayudas Sociales", False),
+    ("Reclama por un árbol que obstruye el cableado", None, "Coordinación Territorial", True),
+    ("Consulta por beca de arriendo para adulto mayor", "Vivienda", "Atención Social", False),
+    ("Solicita apoyo para una emergencia por lluvias", "Ayuda Social", "Entrega de Ayudas Sociales", False),
+    ("Pide orientación para renovar la credencial de discapacidad", None, "Atención Social", False),
+    ("Consulta por talleres comunitarios del barrio", None, "Coordinación Territorial", False),
+]
+
+NOTA_POR_TIPO = {
+    "license": "Licencia médica",
+    "vacation": "Vacaciones",
+    "administrative": "Trámite personal",
+    "emergency": "Emergencia familiar",
+    "compensatory": "Día compensatorio",
+}
+
+PASOS = ("cargos", "identificadores", "clasificacion", "estados", "compromisos", "ausencias", "trimestres", "metas")
+
+
+def fila_de(texto):
+    for fila in CLASIFICACION:
+        if (texto or "").startswith(fila[0]):
+            return fila
+    return None
+
+
+class Command(BaseCommand):
+    help = (
+        "Corrige los datos de revisión ya cargados para que tengan sentido entre sí. Sin --aplicar solo muestra lo "
+        "que cambiaría. Se puede repetir."
+    )
+
+    def add_arguments(self, parser):
+        parser.add_argument("--aplicar", action="store_true", help="Guarda los cambios (sin esto es una simulación).")
+        parser.add_argument("--solo", nargs="+", choices=PASOS, help="Corre solo estos pasos.")
+        parser.add_argument(
+            "--password",
+            help="Contraseña de las cuentas editor_b y admin_b si hay que crearlas (o SGR_REVISION_PASSWORD).",
+        )
+
+    # ------------------------------------------------------------------------------------------------------------
+    def handle(self, *args, **opciones):
+        self.aplicar = opciones["aplicar"]
+        self.password = opciones.get("password") or os.environ.get(carga.PASSWORD_ENV_COMUN, "")
+        self.hoy = entry_rules.portal_today()
+        self.ahora = timezone.now()
+        self.cuenta = defaultdict(int)
+        self.avisos = []
+        self.alineados = set()  # compromisos que esta corrida dejó saliendo de su atención
+        pasos = opciones["solo"] or PASOS
+        with transaction.atomic():
+            for paso in PASOS:
+                if paso in pasos:
+                    getattr(self, paso)()
+            if self.aplicar:
+                admin = get_user_model().objects.filter(username="admin_a").first()
+                if admin is not None and sum(self.cuenta.values()):
+                    resumen = ", ".join(f"{k}={v}" for k, v in sorted(self.cuenta.items()))
+                    log_event(admin, "Corrección de datos de revisión", admin, new=resumen[:2000])
+            else:
+                transaction.set_rollback(True)
+        self.informe()
+
+    def hecho(self, clave, n=1):
+        if n:
+            self.cuenta[clave] += n
+
+    def aviso(self, texto):
+        self.avisos.append(texto)
+
+    def informe(self):
+        titulo = "CAMBIOS GUARDADOS" if self.aplicar else "SIMULACIÓN (no se guardó nada; usa --aplicar para guardar)"
+        self.stdout.write(f"\n{titulo}\n")
+        if not self.cuenta:
+            self.stdout.write("  Nada que corregir: los datos ya tienen sentido.")
+        for clave, n in sorted(self.cuenta.items()):
+            self.stdout.write(f"  {clave:<58}{n:>6}")
+        for texto in self.avisos:
+            self.stdout.write(self.style.WARNING(f"  Aviso: {texto}"))
+        if self.aplicar:
+            self.stdout.write(self.style.SUCCESS("\nListo. Corre la auditoría de datos para confirmarlo."))
+
+    # ------------------------------------------------------------------------------------------------------------
+    # 1. Cargos
+    # ------------------------------------------------------------------------------------------------------------
+    def cargos(self):
+        call_command("cargar_funciones_cargos", stdout=StringIO())  # deja los siete cargos del descriptor
+        ahora = timezone.now()
+        for nombre_viejo, nombre_nuevo in CARGOS.items():
+            viejo = Position._base_manager.filter(name=nombre_viejo, deleted_at__isnull=True).first()
+            nuevo = Position._base_manager.filter(name__iexact=nombre_nuevo, deleted_at__isnull=True).first()
+            if viejo is None or nuevo is None:
+                continue
+            self.hecho(f"funcionarios que pasan a «{nombre_nuevo}»", Officer._base_manager.filter(position=viejo).update(position=nuevo))
+            self.hecho("metas que pasan al cargo nuevo", Goal._base_manager.filter(position=viejo).update(position=nuevo))
+            for item in PositionItem._base_manager.filter(position=viejo):
+                ya = PositionItem._base_manager.filter(position=nuevo, item_id=item.item_id, kind=item.kind).exists()
+                if not ya:
+                    PositionItem._base_manager.filter(pk=item.pk).update(position=nuevo)
+                    self.hecho("ítems de cargo que pasan al cargo nuevo")
+            if not (
+                Officer._base_manager.filter(position=viejo).exists()
+                or Goal._base_manager.filter(position=viejo).exists()
+                or PositionItem._base_manager.filter(position=viejo, deleted_at__isnull=True).exists()
+            ):
+                Position._base_manager.filter(pk=viejo.pk).update(deleted_at=ahora)
+                self.hecho("cargos de demostración archivados")
+        for nombre_nuevo in CARGOS.values():
+            nuevo = Position._base_manager.filter(name__iexact=nombre_nuevo, deleted_at__isnull=True).first()
+            if nuevo is None:
+                continue
+            normales = list(
+                PositionItem._base_manager.filter(
+                    position=nuevo, kind="NORMAL", deleted_at__isnull=True, valid_until__isnull=True
+                )
+            )
+            if len(normales) == 1 and normales[0].weight != 100:
+                PositionItem._base_manager.filter(pk=normales[0].pk).update(weight=100)
+                self.hecho("cargos cuyo ítem normal ahora pesa 100 %")
+
+    # ------------------------------------------------------------------------------------------------------------
+    # 2. Identificadores de funcionario
+    # ------------------------------------------------------------------------------------------------------------
+    def identificadores(self):
+        for letra, bloque in (("N", 1), ("S", 2)):
+            for oficial in Officer._base_manager.filter(institutional_id__startswith=f"REV-{letra}-").order_by("institutional_id"):
+                numero = int(oficial.institutional_id.rsplit("-", 1)[1])
+                nuevo = f"F-{bloque}{numero:03d}"
+                if Officer._base_manager.filter(institutional_id=nuevo).exclude(pk=oficial.pk).exists():
+                    self.aviso(f"{oficial.institutional_id} no pasa a {nuevo} porque ese identificador ya lo usa otra persona.")
+                    continue
+                Officer._base_manager.filter(pk=oficial.pk).update(institutional_id=nuevo)
+                self.hecho("identificadores de funcionario con el formato F-0000")
+
+    # ------------------------------------------------------------------------------------------------------------
+    # 3. Servicio, ítem y visita de cada atención según su solicitud
+    # ------------------------------------------------------------------------------------------------------------
+    def clasificacion(self):
+        servicios = {s.name: s for s in Service._base_manager.filter(deleted_at__isnull=True)}
+        items = {i.name: i for i in Item._base_manager.filter(deleted_at__isnull=True).select_related("parent_item")}
+        for a in Activity._base_manager.select_related("item__parent_item", "beneficiary"):
+            fila = fila_de(a.request_description)
+            if fila is None:
+                continue
+            _texto, servicio, item, visita = fila
+            nuevo_item = items.get(item)
+            if nuevo_item is None:
+                continue
+            nuevo_servicio = servicios.get(servicio) if servicio else None
+            if nuevo_servicio is None and servicio:
+                continue
+            cambios = {}
+            if a.service_id != (nuevo_servicio.pk if nuevo_servicio else None):
+                cambios["service"] = nuevo_servicio
+            if a.item_id != nuevo_item.pk:
+                cambios["item"] = nuevo_item
+            if a.requires_visit != visita:
+                cambios["requires_visit"] = visita
+            if not cambios:
+                continue
+            a.item, a.service, a.requires_visit = nuevo_item, nuevo_servicio, visita
+            a.refresh_scoring()
+            Activity._base_manager.filter(pk=a.pk).update(
+                item=nuevo_item,
+                service=nuevo_servicio,
+                requires_visit=visita,
+                counts_for_score=a.counts_for_score,
+                no_score_reason=a.no_score_reason,
+            )
+            self.hecho("atenciones con servicio, ítem y visita según su solicitud")
+
+    # ------------------------------------------------------------------------------------------------------------
+    # 4. Estado de las atenciones
+    # ------------------------------------------------------------------------------------------------------------
+    def estados(self):
+        gestiones = defaultdict(int)
+        for g in Followup._base_manager.filter(deleted_at__isnull=True):
+            gestiones[g.activity_id] += 1
+        acciones = carga.ACCIONES_TOMADAS
+        for a in Activity._base_manager.all():
+            if fila_de(a.request_description) is None:
+                continue
+            nuevo, accion = a.status, a.action_taken
+            if a.status == "registered" and (a.date < self.hoy - timedelta(days=60)):
+                nuevo = "closed"
+                accion = accion or acciones[a.pk % len(acciones)]
+            elif a.status == "registered" and (accion or gestiones[a.pk]):
+                nuevo = "in_progress"
+            elif a.status == "in_progress" and not accion and not gestiones[a.pk]:
+                accion = acciones[a.pk % len(acciones)]
+            elif a.status == "closed" and not accion:
+                accion = acciones[a.pk % len(acciones)]
+            if nuevo != a.status or accion != a.action_taken:
+                Activity._base_manager.filter(pk=a.pk).update(status=nuevo, action_taken=accion)
+                self.hecho("atenciones con estado y acción coherentes")
+
+    # ------------------------------------------------------------------------------------------------------------
+    # 5. Compromisos
+    # ------------------------------------------------------------------------------------------------------------
+    def alinear(self, c, a, fisico):
+        """Deja el compromiso tal como lo habría creado la atención (operations/pipeline.py)."""
+        creado = carga.momento(a.date, a.pk)
+        campos = {
+            "source": f"Atención ATN{a.pk:05d}"[:100],
+            "request_date": a.date,
+            "description": a.request_description or None,
+            "requester": (a.contact_name or "Sin nombre")[:100],
+            "responsible_officer_id": a.author_officer_id,
+            "delegation_id": a.delegation_id,
+            "physical": fisico,
+            "due_date": c.due_date if c.due_date >= a.date else a.date + timedelta(days=14),
+            "created_at": creado,
+        }
+        if c.deleted_at:
+            campos["deleted_at"] = creado + timedelta(days=3)
+        Commitment._base_manager.filter(pk=c.pk).update(**campos)
+        self.alineados.add(c.pk)
+
+    def estado_por_fecha(self, pk, vence):
+        if vence < self.hoy - timedelta(days=30):
+            return "in_progress" if pk % 3 == 0 else "fulfilled"
+        if vence < self.hoy:
+            return "in_progress"
+        return "pending"
+
+    def compromisos(self):
+        semillas = set(carga.ORIGENES_COMPROMISO) | set(carga.ORIGENES_TERRENO)
+        terreno = set(carga.ORIGENES_TERRENO)
+        compromisos = {c.pk: c for c in Commitment._base_manager.all()}
+        atenciones = list(Activity._base_manager.select_related("author_officer"))
+        enlazados = {a.commitment_id for a in atenciones if a.commitment_id}
+
+        # a) Los compromisos que ya están enlazados a una atención salen de ella
+        for a in atenciones:
+            c = compromisos.get(a.commitment_id) if a.commitment_id else None
+            if c is not None and c.source in semillas:
+                self.alinear(c, a, a.requires_visit)
+                self.hecho("compromisos enlazados que ahora salen de su atención")
+
+        # b) Cada atención con visita tiene su compromiso de terreno (se reutilizan los de terreno sueltos)
+        sueltos = defaultdict(list)
+        for c in sorted(compromisos.values(), key=lambda x: x.pk):
+            if c.physical and c.source in terreno and c.pk not in enlazados:
+                sueltos[c.delegation_id].append(c)
+        territorios = defaultdict(list)
+        for t in Territory._base_manager.filter(deleted_at__isnull=True).order_by("pk"):
+            territorios[t.delegation_id].append(t)
+        for a in atenciones:
+            if not (a.requires_visit and not a.commitment_id and a.deleted_at is None and fila_de(a.request_description)):
+                continue
+            if sueltos[a.delegation_id]:
+                c = sueltos[a.delegation_id].pop(0)
+                self.alinear(c, a, True)
+                Activity._base_manager.filter(pk=a.pk).update(commitment=c, added_to_pipeline=True)
+                self.hecho("atenciones con visita enlazadas a un compromiso de terreno ya existente")
+            elif territorios[a.delegation_id]:
+                lista = territorios[a.delegation_id]
+                vence = a.date + timedelta(days=10)
+                c = Commitment.objects.create(
+                    source=f"Atención ATN{a.pk:05d}"[:100],
+                    request_date=a.date,
+                    description=a.request_description or None,
+                    requester=(a.contact_name or "Sin nombre")[:100],
+                    requester_type="EXTERNAL",
+                    territory=lista[a.pk % len(lista)],
+                    due_date=vence,
+                    status=self.estado_por_fecha(a.pk, vence),
+                    physical=True,
+                    responsible_officer_id=a.author_officer_id,
+                    delegation_id=a.delegation_id,
+                )
+                Commitment._base_manager.filter(pk=c.pk).update(created_at=carga.momento(a.date, a.pk))
+                Activity._base_manager.filter(pk=a.pk).update(commitment=c, added_to_pipeline=True)
+                self.alineados.add(c.pk)
+                self.hecho("compromisos de terreno nuevos para atenciones con visita")
+        sobran = sum(len(v) for v in sueltos.values())
+        if sobran:
+            self.aviso(f"quedan {sobran} compromisos de terreno sin atención de origen (no había más atenciones con visita).")
+
+        # c) Ninguno se solicita en el futuro y los vencidos ya no quedan sin avanzar
+        for c in Commitment._base_manager.all():
+            if not (c.source in semillas or c.pk in self.alineados):
+                continue
+            cambios = {}
+            solicitud = c.request_date
+            if solicitud and solicitud > self.hoy:
+                solicitud = min(solicitud, c.due_date - timedelta(days=15), self.hoy - timedelta(days=7))
+                cambios["request_date"] = solicitud
+            if cambios or c.created_at > self.ahora:
+                creado = carga.momento(solicitud or c.due_date, c.pk)
+                cambios["created_at"] = creado
+                if c.deleted_at:
+                    cambios["deleted_at"] = creado + timedelta(days=3)
+            if c.status in ("submitted", "pending") and c.due_date < self.hoy - timedelta(days=30):
+                cambios["status"] = "in_progress" if c.pk % 3 == 0 else "fulfilled"
+                self.hecho("compromisos vencidos que avanzan de estado")
+            if cambios:
+                Commitment._base_manager.filter(pk=c.pk).update(**cambios)
+                if "request_date" in cambios or "created_at" in cambios:
+                    self.hecho("compromisos con fecha de solicitud que no es futura")
+
+    # ------------------------------------------------------------------------------------------------------------
+    # 6. Ausencias
+    # ------------------------------------------------------------------------------------------------------------
+    def ausencias(self):
+        con_atencion = defaultdict(set)
+        for a in Activity._base_manager.filter(deleted_at__isnull=True):
+            if a.date.weekday() < 5:
+                con_atencion[a.author_officer_id].add(a.date)
+        todas = list(Absence._base_manager.filter(deleted_at__isnull=True))
+        for ausencia in todas:
+            if ausencia.notes not in carga.NOTAS_AUSENCIA:
+                continue
+            inicio, fin = ausencia.start_date, ausencia.end_date
+            largo = (fin - inicio).days
+            if weekdays_between(inicio, fin) == 0:
+                inicio += timedelta(days=(7 - inicio.weekday()) % 7)
+                fin = inicio + timedelta(days=largo)
+
+            def choca(desde, hasta):
+                dias = {desde + timedelta(days=i) for i in range((hasta - desde).days + 1)}
+                if dias & con_atencion[ausencia.officer_id]:
+                    return True
+                return any(
+                    o.pk != ausencia.pk and o.officer_id == ausencia.officer_id and o.start_date <= hasta and o.end_date >= desde
+                    for o in todas
+                )
+
+            intentos = 0
+            while choca(inicio, fin) and intentos < 60:
+                inicio, fin = inicio + timedelta(days=7), fin + timedelta(days=7)
+                intentos += 1
+            cambios = {}
+            if (inicio, fin) != (ausencia.start_date, ausencia.end_date):
+                cambios.update(start_date=inicio, end_date=fin)
+                self.hecho("ausencias movidas a días hábiles sin atenciones")
+            nota = NOTA_POR_TIPO.get(ausencia.kind)
+            if nota and ausencia.notes != nota:
+                cambios["notes"] = nota
+                self.hecho("ausencias cuya observación coincide con el tipo")
+            if cambios:
+                Absence._base_manager.filter(pk=ausencia.pk).update(**cambios)
+                ausencia.start_date, ausencia.end_date = inicio, fin
+
+    # ------------------------------------------------------------------------------------------------------------
+    # 7. Cambios de trimestre y cuentas de cada delegación
+    # ------------------------------------------------------------------------------------------------------------
+    def cuentas_sur(self):
+        User = get_user_model()
+        usuarios = {}
+        for username, grupos, posicion, permisos in (
+            ("editor_b", ("Funcionario",), 2, "editor"),
+            ("admin_b", ("Jefatura", "Funcionario"), 1, "administrador"),
+        ):
+            usuario = User.objects.filter(username=username).first()
+            if usuario is None:
+                oficial = Officer._base_manager.filter(
+                    institutional_id__in=[f"REV-S-{posicion:03d}", f"F-2{posicion:03d}"]
+                ).first()
+                if oficial is None:
+                    self.aviso(f"no se creó «{username}»: no se encontró el funcionario {posicion} de la Delegación Sur.")
+                    continue
+                if not self.password:
+                    self.aviso(
+                        f"no se creó «{username}»: falta la contraseña (usa --password o SGR_REVISION_PASSWORD). "
+                        "Las solicitudes de Sur siguen a nombre de las cuentas de Norte."
+                    )
+                    continue
+                try:
+                    validate_password(self.password)
+                except ValidationError as error:
+                    raise CommandError(f"La contraseña no es válida: {' '.join(error.messages)}")
+                usuario = User.objects.create(
+                    username=username, email=f"{username}@{carga.DOMINIO_CORREO}", is_staff=False, is_superuser=False, is_active=True
+                )
+                usuario.set_password(self.password)
+                usuario.save()
+                usuario.groups.add(*Group.objects.filter(name__in=grupos))
+                usuario.user_permissions.add(*carga.Command().permisos(carga.PERMISOS_EXTRA[permisos]))
+                UserProfile.objects.create(user=usuario, officer=oficial)
+                self.hecho("cuentas creadas para la Delegación Sur")
+            usuarios[username] = usuario
+        return usuarios
+
+    def trimestres(self):
+        letra_de = {a["delegacion"]: a["letra"] for a in carga.AMBITOS}
+        sur = self.cuentas_sur()
+        solicitudes = QuarterChangeRequest._base_manager.select_related("delegation").filter(
+            reason__in=carga.MOTIVOS_TRIMESTRE
+        )
+        for q in solicitudes:
+            cambios = {}
+            if q.resolved_at:
+                resuelto, creado = q.resolved_at, q.created_at
+                if q.status == "approved" and q.new_date and resuelto.date() <= q.new_date:
+                    resuelto = carga.momento(q.new_date + timedelta(days=1), q.pk)
+                if creado >= resuelto:
+                    creado = resuelto - timedelta(days=2)
+                if resuelto != q.resolved_at:
+                    cambios["resolved_at"] = resuelto
+                    self.hecho("cambios de trimestre aprobados después de la fecha nueva")
+                if creado != q.created_at:
+                    cambios["created_at"] = creado
+                    self.hecho("cambios de trimestre pedidos antes de resolverse")
+            if letra_de.get(q.delegation.name) == "S" and "editor_b" in sur and "admin_b" in sur:
+                if q.requested_by_id != sur["editor_b"].pk:
+                    cambios["requested_by"] = sur["editor_b"]
+                    self.hecho("cambios de trimestre de Sur pedidos por una cuenta de Sur")
+                if q.resolved_by_id and q.resolved_by_id != sur["admin_b"].pk:
+                    cambios["resolved_by"] = sur["admin_b"]
+                    self.hecho("cambios de trimestre de Sur resueltos por una cuenta de Sur")
+            if cambios:
+                QuarterChangeRequest._base_manager.filter(pk=q.pk).update(**cambios)
+
+    # ------------------------------------------------------------------------------------------------------------
+    # 8. Metas
+    # ------------------------------------------------------------------------------------------------------------
+    def metas(self):
+        metas = list(
+            Goal._base_manager.filter(deleted_at__isnull=True, unit="atenciones", target_value=36).select_related(
+                "period", "officer", "item"
+            )
+        )
+        propias = [g for g in metas if g.officer_id]
+        if not propias:
+            return
+        conteos = [calculation.valid_activities(g, g.officer).count() for g in propias]
+        objetivo = max(3, int(statistics.median(conteos)) + 1)
+        Goal._base_manager.filter(pk__in=[g.pk for g in propias]).update(target_value=objetivo)
+        self.hecho(f"metas de atenciones con una meta alcanzable ({objetivo})", len(propias))
+        for periodo in {g.period for g in propias}:
+            self.hecho("indicadores nuevos recalculados", calculation.recalculate_period(periodo, force=True))

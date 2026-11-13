@@ -17,6 +17,32 @@ Nombres que cambiaron en la v27 (los textos antiguos los mencionan con el nombre
 | `core/qa/esperado_vNN.py` | `core/qa/esperado_<tema>.py` (mismo tema que su archivo de pruebas) |
 | `sql/*.sql` (todos) | `sql/sgr_django.sql` (estructura vigente) |
 
+## Versión 45
+
+Los **datos de revisión** que ya están cargados pasan a tener sentido entre sí. Se arma sobre la v44 y no cambia ninguna pantalla ni regla: agrega un comando que corrige los datos.
+
+### Qué cambia
+
+- Comando nuevo `python manage.py corregir_datos_revision`. Sin opciones **solo simula**: muestra cuántos registros cambiaría y no guarda nada. Con `--aplicar` guarda los cambios. Se puede repetir (lo ya corregido no se vuelve a tocar) y con `--solo` se eligen los pasos (`cargos`, `identificadores`, `clasificacion`, `estados`, `compromisos`, `ausencias`, `trimestres`, `metas`). Solo toca datos de revisión: los reconoce por sus textos, orígenes y cargos de demostración.
+- **Cargos:** los funcionarios de demostración pasan a los cargos del descriptor 2026 (Jefe de Delegación → Delegado, Encargado Social → Gestor Social, Coordinador de Terreno → Coordinador de Servicios Comunitarios, Analista de Datos → Gestión y Planificación), así su ficha muestra las funciones. Los ítems de cada cargo suman 100 %. Los cargos de demostración quedan archivados.
+- **Identificadores:** `REV-N-001` pasa a `F-1001` (Norte) y `REV-S-001` a `F-2001` (Sur), el formato que usa el sistema.
+- **Atenciones:** el servicio, el ítem y «requiere visita» salen de lo que dice la solicitud; una atención «Registrada» no trae acciones ni gestiones y una «Cerrada» tiene su acción.
+- **Compromisos:** los del tubo y los de terreno salen de su atención (mismo solicitante, fecha, funcionario y delegación); cada atención con visita tiene su compromiso de terreno; ninguno queda solicitado en el futuro; los que vencieron hace más de 30 días ya no están «Ingresados» o «Pendientes».
+- **Ausencias:** la observación coincide con el tipo, tienen días hábiles y no caen sobre días con atenciones del mismo funcionario.
+- **Cambios de trimestre:** se piden antes de resolverse y se aprueban después de la fecha nueva. Con `--password` (o `SGR_REVISION_PASSWORD`) crea las cuentas `editor_b` y `admin_b` de la Delegación Sur, para que sus solicitudes no queden a nombre de cuentas de Norte.
+- **Metas:** la meta de atenciones de cada funcionario (36) se cambia por una alcanzable según las atenciones con evidencia aprobada, y se recalculan los indicadores.
+
+### Cómo se usa
+
+1. `python manage.py corregir_datos_revision` y revisar lo que cambiaría.
+2. `python manage.py corregir_datos_revision --aplicar`.
+3. Después de corregir **no se debe volver a correr `cargar_datos_revision`**: volvería a crear los cargos y los identificadores de antes.
+
+### Lo que no cambia
+
+- Las cartas que apuntan a funcionarios que no atienden público quedan como están (se avisan en la auditoría).
+- No hay migraciones nuevas.
+
 ## Versión 44
 
 Cada cargo guarda ahora sus **funciones según el descriptor de funciones 2026** y la **ficha personal** del funcionario las muestra (RF-050, HU-43). Se arma sobre la v43.
