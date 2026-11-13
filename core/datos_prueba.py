@@ -13,7 +13,7 @@ from accounts.models import UserProfile
 from core import uploads
 from core.models import AuditLog
 from evidence.models import Evidence, Validation
-from operations.models import Activity, Commitment, Followup, ManagementType
+from operations.models import Activity, Commitment, Followup, ManagementType, QuarterChangeRequest
 from planning.calculation import suspended
 from organization.models import (
     Beneficiary,
@@ -720,6 +720,19 @@ class CargaDatosPrueba(BaseCommand):
                 "status": Activity.Status.IN_PROGRESS,
                 "item": item_phone_followup,
                 "service": service_subsidy,
+            },
+        )
+
+        # Una solicitud de cambio de trimestre pendiente de Jefatura, sobre una atención que ya existe.
+        QuarterChangeRequest.objects.get_or_create(
+            activity=activity_north_1,
+            defaults={
+                "delegation": north,
+                "mode": QuarterChangeRequest.Mode.MANUAL,
+                "previous_date": activity_north_1.date,
+                "new_date": date(today.year, 1, 1),
+                "reason": "Datos de demostración: la atención se ingresó con otra fecha y corresponde a enero.",
+                "requested_by": north_user,
             },
         )
 

@@ -47,7 +47,7 @@ Cada app tiene `models.py` (tablas), `admin.py` (Django Admin), `apps.py` y `mig
 
 ## 4. Modelo de datos
 
-32 tablas en la base `sgr_django`: 22 del proyecto, 6 del framework (usuarios, grupos, permisos, tipos de contenido, sesiones y registro del Admin), 3 de unión (usuario–grupo, usuario–permisos, grupo–permisos) y `django_migrations`.
+37 tablas en la base `sgr_django`: 27 del proyecto, 6 del framework (usuarios, grupos, permisos, tipos de contenido, sesiones y registro del Admin), 3 de unión (usuario–grupo, usuario–permisos, grupo–permisos) y `django_migrations`.
 
 | App | Tablas del proyecto |
 |---|---|
@@ -55,7 +55,7 @@ Cada app tiene `models.py` (tablas), `admin.py` (Django Admin), `apps.py` y `mig
 | `organization` | `Delegation`, `Position`, `Item`, `Service`, `Beneficiary`, `Territory`, `Officer`, `PositionItem`, `CommunityOrganization`, `OrganizationLeader` |
 | `accounts` | `UserProfile`, `RoleProfile`, `UserRoleDelegation` |
 | `planning` | `Period`, `Goal`, `Indicator`, `Adjustment` |
-| `operations` | `ManagementType`, `Activity`, `Followup`, `Commitment` |
+| `operations` | `ManagementType`, `Activity`, `Followup`, `Commitment`, `QuarterChangeRequest` |
 | `evidence` | `Evidence`, `Validation` |
 
 Todas las tablas del proyecto heredan de `BaseModel` (`core/models.py`), que agrega `created_at`, `updated_at` y `deleted_at`. **Borrado lógico:** un registro con `deleted_at` lleno está *archivado*: no sale en los listados normales, pero se puede restaurar. Solo se elimina de verdad lo que no está en uso.
@@ -478,6 +478,14 @@ Tipo de solicitante de una atención (v39), compartido por `ActivityIntakeForm` 
 ##### `LeaderForm` — hereda de `CrudForm`
 
 Formulario de la directiva: el detalle del cargo solo aparece (`data-show-if="id_role:other"`) y se pide cuando el cargo es «Otro cargo».
+
+##### `QuarterRequestForm` — hereda de `CrudForm`
+
+Pedir el cambio de trimestre de una atención (v40): la atención, el modo (**automático**: primer día del trimestre siguiente; **manual**: una fecha nueva) y el motivo. La fecha solo se ve y se exige en modo manual (`data-show-if="id_mode:manual"` y `data-required-when-shown`) y el servidor la ignora en modo automático; el máximo del navegador es hoy. Las demás reglas están en `QuarterChangeRequest.check_request`.
+
+##### `QuarterResolveForm` — hereda de `CrudForm`
+
+Resolver la solicitud (v40): la resolución (pendiente, aprobada o rechazada) y la respuesta de Jefatura. Arriba muestra un resumen de lo que se pidió (quién, la atención, las fechas con su trimestre y el motivo). `QuarterChangeRequestCrud.validate_form` exige la respuesta al rechazar.
 
 ##### `ActivityIntakeForm` — hereda de `PipelineForm`
 
@@ -986,6 +994,10 @@ Atributos principales: `model` = `Followup`; `slug` = `'gestiones'`; `icon` = `'
 ##### `FieldCommitmentCrud` — hereda de `CommitmentCrud`
 
 Sección **Compromisos** (v38): los compromisos de terreno (`physical=True`) en vista canvas con las cuatro columnas de estado. Comparte modelo y permisos con la agenda (`queryset_filter = {"physical": True}`); `prepare_object` marca como de terreno lo que se crea a mano y `after_move` deja el cambio de estado en el historial. Los indicadores salen de `compromisos_kpis`.
+
+##### `QuarterChangeRequestCrud` — hereda de `Crud`
+
+Sección **Cambios de trimestre** (v40, `/cambios-trimestre/`): solicitudes para pasar una atención a otro trimestre, en vista canvas con las columnas Pendiente, Aprobada y Rechazada e indicadores arriba (códigos `TRI00001`…). Crear usa `QuarterRequestForm` (`create_fields`) y editar usa `QuarterResolveForm` (`form_fields`): el mismo permiso `change` es el de resolver, por eso el rol Funcionario recibe «crear» y «ver» y Jefatura «ver» y «editar». `can_change_object` solo deja resolver una solicitud pendiente. `prepare_object` anota quién la pide y la delegación de la atención, y quién resolvió y cuándo; `after_save` aplica el cambio (`QuarterChangeRequest.apply`) al aprobar y deja «Cambio de trimestre aprobado» en la auditoría de la atención. No se archiva ni se elimina: queda como registro. La ficha de la atención lista sus solicitudes (`Related`).
 
 ##### `CommitmentCrud` — hereda de `Crud`
 
@@ -2285,7 +2297,7 @@ Configuración de la aplicación `operations`.
 
 #### `operations/models.py`
 
-Modelos de la operación diaria: tipos de gestión, actividades (atenciones), gestiones de seguimiento (hasta tres por actividad) y compromisos de la agenda colectiva.
+Modelos de la operación diaria: tipos de gestión, actividades (atenciones), gestiones de seguimiento (hasta tres por actividad), compromisos de la agenda colectiva y solicitudes de cambio de trimestre.
 
 ##### `ManagementType` — hereda de `BaseModel`
 
@@ -2385,6 +2397,37 @@ Opciones de `Status`: `submitted` (Ingresado), `pending` (Pendiente), `in_progre
 
 - **`clean()`**: Comprueba que el territorio pertenezca a la delegación elegida.
 - **`__str__()`**: Texto con que se muestra el registro.
+
+##### `QuarterChangeRequest` — hereda de `BaseModel`
+
+Solicitud de cambio de trimestre de una atención (v40): la pide un funcionario y la resuelve Jefatura. Un trimestre es un `Period` y una atención pertenece al período que contiene su fecha, así que pasar de trimestre es cambiarle la fecha. Mientras está pendiente la atención conserva su fecha; al aprobar toma la fecha nueva.
+
+| Campo | Nombre visible | Tipo | Detalle |
+|---|---|---|---|
+| `activity` | atención | ForeignKey | relación con `Activity`; nombre inverso `quarter_requests`; PROTECT |
+| `delegation` | delegación | ForeignKey | relación con `Delegation`; nombre inverso `quarter_requests`; PROTECT; la pone el sistema (la de la atención) |
+| `mode` | cómo se cambia | CharField | largo 20; con opciones (`Mode`: automático o manual); por defecto automático |
+| `previous_date` | fecha actual de la atención | DateField | no editable; la copia el sistema al pedir |
+| `new_date` | fecha nueva | DateField | admite nulo; en modo automático la calcula el sistema |
+| `reason` | motivo | TextField |  |
+| `status` | estado | CharField | largo 20; con opciones (`Status`: pendiente, aprobada, rechazada); por defecto pendiente; con índice |
+| `requested_by` | solicitada por | ForeignKey | relación con `User`; nombre inverso `quarter_requests`; PROTECT |
+| `resolved_by` | resuelta por | ForeignKey | relación con `User`; nombre inverso `resolved_quarter_requests`; PROTECT; admite nulo; no editable |
+| `resolved_at` | resuelta el | DateTimeField | admite nulo; no editable |
+| `resolution_comment` | respuesta de Jefatura | TextField | opcional; obligatoria al rechazar (lo exige el CRUD) |
+
+Opciones del modelo (`Meta`): `ordering` = `('-created_at',)`; `verbose_name` = `'Solicitud de cambio de trimestre'`; `verbose_name_plural` = `'Solicitudes de cambio de trimestre'`.
+
+- **`clean()`**: al crear llama a `check_request()`; al aprobar, a `check_approval()`.
+- **`check_request()`**: la atención no está archivada y no tiene otra solicitud pendiente; en modo automático calcula la fecha nueva (primer día del período siguiente: falla si la atención no está en ningún trimestre o no hay uno siguiente); la fecha nueva existe, no es futura (una atención no puede tener fecha futura), cae en un trimestre distinto del de la atención y ese trimestre no está cerrado. El trimestre de origen sí puede estar cerrado: justamente ese caso necesita la aprobación de Jefatura.
+- **`check_approval()`**: se revisa de nuevo al aprobar, porque pasó tiempo: la atención sigue sin archivar y con la misma fecha, el trimestre de destino sigue abierto y el funcionario no supera el máximo de atenciones por día (`DAILY_ENTRY_LIMIT`) en la fecha nueva.
+- **`apply()`**: guarda la fecha nueva en la atención.
+- **`from_period`** y **`to_period`**: el trimestre de la fecha actual y el de la fecha nueva.
+
+#### `operations/quarters.py` (trimestre de una fecha, v40)
+
+- **`period_of(day)`**: el período no archivado que contiene la fecha (el más reciente si hubiera más de uno), o `None`.
+- **`next_period(period)`**: el primer período no archivado que empieza después de que termina el indicado, o `None`.
 
 #### `operations/pipeline.py` (tubo de trabajo, v32)
 
@@ -3007,4 +3050,4 @@ Selector con buscador (v28). Los `<select>` con `data-searchable` y 8 opciones o
 
 | Archivo | Qué hace |
 |---|---|
-| `sql/sgr_django.sql` | Estructura completa de la base `sgr_django` (32 tablas: 22 del proyecto, 6 del framework, 3 de unión y `django_migrations`) para MariaDB 10.11 / MySQL 8, al día con las migraciones (incluye `planning_indicator.officer_id`). |
+| `sql/sgr_django.sql` | Estructura completa de la base `sgr_django` (37 tablas: 27 del proyecto, 6 del framework, 3 de unión y `django_migrations`) para MariaDB 10.11 / MySQL 8, al día con las migraciones (incluye `planning_indicator.officer_id`). |

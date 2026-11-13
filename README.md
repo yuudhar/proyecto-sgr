@@ -272,7 +272,7 @@ Comandos de datos (`python manage.py <comando>`):
 | `cargar_volumen_estres` | Carga un volumen grande de registros marcados como prueba (`--limpiar` los borra); necesita funcionarios e ítems ya creados |
 | `exportar_registro_pruebas` | Genera `docs/pruebas/registro_pruebas_funcionales.csv` y `.xlsx` |
 
-La carpeta `sql/` tiene un solo archivo, **`sgr_django.sql`**: la estructura de la base del servidor (`sgr_django`, 32 tablas, MariaDB/MySQL, sin datos ni contraseñas), al día con las migraciones de Django. Sirve para crear la base a mano en phpMyAdmin; con `python manage.py migrate` se obtiene lo mismo.
+La carpeta `sql/` tiene un solo archivo, **`sgr_django.sql`**: la estructura de la base del servidor (`sgr_django`, 37 tablas, MariaDB/MySQL, sin datos ni contraseñas), al día con las migraciones de Django. Sirve para crear la base a mano en phpMyAdmin; con `python manage.py migrate` se obtiene lo mismo.
 
 **Zonas horarias en MariaDB:** los informes agrupan por fecha en hora de Chile y necesitan las tablas de zonas horarias del motor. Se cargan una vez con:
 
@@ -383,10 +383,11 @@ Registros vigentes por módulo (los archivados no se cuentan):
 
 | Módulo | Norte (A) | Sur (B) | Total |
 |---|---|---|---|
-| Atenciones (`actividades`) | 334 | 333 | 667 |
+| Atenciones (`actividades`) | 389 | 388 | 777 |
 | Gestiones | 335 | 326 | 661 |
 | Agenda colectiva | 58 | 54 | 112 |
 | Compromisos (de terreno) | 53 | 54 | 107 |
+| Cambios de trimestre | 55 | 55 | 110 |
 | Evidencias | 112 | 111 | 223 |
 | Validaciones | 80 | 84 | 164 |
 | Cartas (felicitaciones y reclamos) | 55 | 55 | 110 |
@@ -418,9 +419,10 @@ Resultado de ejecutar el comando sobre una base recién migrada (la misma tabla 
 | `organization.Officer` | 110 | 110 | 0 |
 | `organization.PositionItem` | 4 | 4 | 0 |
 | `operations.ManagementType` | 6 | 6 | 0 |
-| `operations.Activity` | 708 | 667 | 41 |
+| `operations.Activity` | 818 | 777 | 41 |
 | `operations.Followup` | 661 | 661 | 0 |
 | `operations.Commitment` | 230 | 219 | 11 |
+| `operations.QuarterChangeRequest` | 110 | 110 | 0 |
 | `evidence.Evidence` | 223 | 223 | 0 |
 | `evidence.Validation` | 164 | 164 | 0 |
 | `planning.Period` | 2 | 2 | 0 |
@@ -432,7 +434,7 @@ Resultado de ejecutar el comando sobre una base recién migrada (la misma tabla 
 | `accounts.UserProfile` | 6 | 6 | 0 |
 | `accounts.RoleProfile` | 6 | 6 | 0 |
 | `accounts.UserRoleDelegation` | 0 | 0 | 0 |
-| **Total** | **3705** | **3653** | **52** |
+| **Total** | **3925** | **3873** | **52** |
 
 Si la base ya tenía otros datos (por ejemplo los de una prueba anterior), los totales de la base completa son mayores: el comando solo agrega lo suyo.
 
@@ -476,6 +478,7 @@ Todos los módulos leen y escriben en la base de datos real, con permisos por ro
 | Dashboard | Dashboard | Operativo | Promedios y semáforo con las metas guardadas |
 | Gestiones, Agenda colectiva | Operación | Operativo | Ligadas a la atención y a la delegación de quien las crea (las actividades se ven en Atención) |
 | Compromisos | Operación | Operativo | Vista de tarjetas con cuatro columnas por estado e indicadores; una atención que requiere visita crea sola su compromiso; botones para cambiar de estado con historial; mismos permisos y alcance que la agenda |
+| Cambios de trimestre | Operación | Operativo | El funcionario pide pasar una atención a otro trimestre (automático al trimestre siguiente, o manual con una fecha) y Jefatura la aprueba o rechaza con su respuesta; al aprobar, la atención toma la fecha nueva; vista de tarjetas Pendiente, Aprobada y Rechazada; el trimestre de destino tiene que estar abierto y la fecha no puede ser futura |
 | Cartas (antes Felicitaciones y reclamos) | Operación | Operativo | Vista de tarjetas por tipo (felicitación o reclamo); solo el delegado las registra y el ajuste se genera solo |
 | Evidencias y validación | Operación | Operativo | Se sube el archivo; el verificador (su propio funcionario, sin elegirlo) aprueba, rechaza u observa, y vuelve a la evidencia revisada. Nadie valida la evidencia que subió |
 | Tablero de delegación, Informes, Indicadores | Resultados | Operativo | Informes en CSV y Excel |

@@ -3,7 +3,7 @@ from django.core.exceptions import ValidationError
 from django.core.validators import MaxValueValidator, MinValueValidator
 from django.db import models
 
-from core import entry_rules
+from core import entry_rules, ui
 from core.models import BaseModel
 from organization.models import (
     Beneficiary,
@@ -382,3 +382,164 @@ class Commitment(BaseModel):
 
     def __str__(self):
         return f"Compromiso {self.requester} · {self.territory}"
+
+
+class QuarterChangeRequest(BaseModel):
+    """Solicitud para pasar una atención a otro trimestre: la pide un funcionario y la resuelve Jefatura.
+
+    Al aprobarla, la atención toma la fecha nueva (y con ella cae en el otro período). Desde ese momento la solicitud
+    queda como registro y ya no se edita.
+    """
+
+    class Mode(models.TextChoices):
+        AUTOMATIC = "automatic", "Al siguiente trimestre (automático)"
+        MANUAL = "manual", "Elegir la fecha (manual)"
+
+    class Status(models.TextChoices):
+        PENDING = "pending", "Pendiente"
+        APPROVED = "approved", "Aprobada"
+        REJECTED = "rejected", "Rechazada"
+
+    activity = models.ForeignKey(
+        Activity, on_delete=models.PROTECT, related_name="quarter_requests", verbose_name="atención"
+    )
+    delegation = models.ForeignKey(
+        Delegation, on_delete=models.PROTECT, related_name="quarter_requests", verbose_name="delegación"
+    )
+    mode = models.CharField(
+        max_length=20,
+        choices=Mode.choices,
+        default=Mode.AUTOMATIC,
+        verbose_name="cómo se cambia",
+        help_text=(
+            "Automático: la atención pasa al primer día del trimestre siguiente. "
+            "Manual: tú eliges la fecha nueva, que tiene que caer en otro trimestre."
+        ),
+    )
+    previous_date = models.DateField(editable=False, verbose_name="fecha actual de la atención")
+    new_date = models.DateField(null=True, blank=True, verbose_name="fecha nueva")
+    reason = models.TextField(verbose_name="motivo")
+    status = models.CharField(
+        max_length=20, choices=Status.choices, default=Status.PENDING, db_index=True, verbose_name="estado"
+    )
+    requested_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.PROTECT,
+        related_name="quarter_requests",
+        verbose_name="solicitada por",
+    )
+    resolved_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.PROTECT,
+        null=True,
+        blank=True,
+        editable=False,
+        related_name="resolved_quarter_requests",
+        verbose_name="resuelta por",
+    )
+    resolved_at = models.DateTimeField(null=True, blank=True, editable=False, verbose_name="resuelta el")
+    resolution_comment = models.TextField(blank=True, verbose_name="respuesta de Jefatura")
+
+    class Meta:
+        ordering = ("-created_at",)
+        verbose_name = "Solicitud de cambio de trimestre"
+        verbose_name_plural = "Solicitudes de cambio de trimestre"
+
+    def __str__(self):
+        return f"Cambio de trimestre · {self.activity}"
+
+    @property
+    def is_pending(self):
+        return self.status == self.Status.PENDING
+
+    @property
+    def from_period(self):
+        from operations.quarters import period_of
+
+        return period_of(self.previous_date)
+
+    @property
+    def to_period(self):
+        from operations.quarters import period_of
+
+        return period_of(self.new_date)
+
+    def clean(self):
+        super().clean()
+        if not self.activity_id:
+            return
+        if self._state.adding:
+            self.check_request()
+        elif self.status == self.Status.APPROVED:
+            self.check_approval()
+
+    def check_request(self):
+        """Al pedirla: la atención no está archivada, no tiene otra solicitud pendiente y la fecha nueva cae en otro
+        trimestre (abierto) y no es futura, porque una atención no puede tener fecha futura."""
+        from operations.quarters import next_period, period_of
+
+        activity = self.activity
+        self.previous_date = activity.date
+        if activity.deleted_at is not None:
+            raise ValidationError({"activity": "Esa atención está archivada."})
+        pending = QuarterChangeRequest.objects.filter(
+            activity=activity, status=self.Status.PENDING, deleted_at__isnull=True
+        ).exclude(pk=self.pk)
+        if pending.exists():
+            raise ValidationError({"activity": "Esa atención ya tiene una solicitud de cambio de trimestre pendiente."})
+        source = period_of(activity.date)
+        if self.mode == self.Mode.AUTOMATIC:
+            if source is None:
+                raise ValidationError(
+                    {"mode": "La fecha de la atención no cae en ningún trimestre: elige la fecha a mano."}
+                )
+            following = next_period(source)
+            if following is None:
+                raise ValidationError({"mode": "Todavía no hay un trimestre siguiente creado: pídelo cuando exista."})
+            self.new_date = following.start_date
+        if self.new_date is None:
+            raise ValidationError({"new_date": "Elige la fecha nueva de la atención."})
+        if self.new_date > entry_rules.portal_today():
+            raise ValidationError(
+                {
+                    "new_date" if self.mode == self.Mode.MANUAL else "mode": (
+                        "La fecha nueva no puede ser futura "
+                        f"(sería el {ui.fmt_date(self.new_date)}): una atención no puede tener fecha futura."
+                    )
+                }
+            )
+        target = period_of(self.new_date)
+        field = "new_date" if self.mode == self.Mode.MANUAL else "mode"
+        if target is None:
+            raise ValidationError({field: "Esa fecha no cae en ningún trimestre creado."})
+        if source is not None and target.pk == source.pk:
+            raise ValidationError({field: "Esa fecha está en el mismo trimestre de la atención: elige otro trimestre."})
+        if target.status == target.Status.CLOSED:
+            raise ValidationError({field: f"El {ui.humanize_dates(target).lower()} ya está cerrado: no se pueden pasar atenciones a él."})
+
+    def check_approval(self):
+        """Al aprobarla se vuelve a mirar todo: pasó tiempo desde que se pidió."""
+        from operations.quarters import period_of
+
+        activity = self.activity
+        if activity.deleted_at is not None:
+            raise ValidationError("La atención está archivada: no se puede cambiar su trimestre.")
+        if activity.date != self.previous_date:
+            raise ValidationError(
+                "La atención cambió de fecha después de esta solicitud. Recházala y que se pida de nuevo."
+            )
+        target = period_of(self.new_date)
+        if target is None or target.status == target.Status.CLOSED:
+            raise ValidationError("El trimestre de destino ya no está disponible (no existe o está cerrado).")
+        limit = settings.DAILY_ENTRY_LIMIT
+        if entry_rules.entries_on(activity.author_officer_id, self.new_date, exclude_pk=activity.pk) >= limit:
+            raise ValidationError(
+                f"El {ui.fmt_date(self.new_date)} el funcionario ya tiene {limit} atenciones: "
+                f"el máximo es {limit} por día. No se puede aprobar."
+            )
+
+    def apply(self):
+        """Pasa la atención a su fecha nueva (se llama al aprobar, ya revisado)."""
+        activity = self.activity
+        activity.date = self.new_date
+        activity.save(update_fields=["date", "updated_at"])

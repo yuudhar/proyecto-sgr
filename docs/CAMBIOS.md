@@ -17,6 +17,57 @@ Nombres que cambiaron en la v27 (los textos antiguos los mencionan con el nombre
 | `core/qa/esperado_vNN.py` | `core/qa/esperado_<tema>.py` (mismo tema que su archivo de pruebas) |
 | `sql/*.sql` (todos) | `sql/sgr_django.sql` (estructura vigente) |
 
+## Versión 40
+
+Lo último pendiente de la lista de la clienta: el **cambio de trimestre de una atención** (por ejemplo, una atención de diciembre que pasa a enero), que **pide el funcionario y aprueba o rechaza la jefatura**. Se arma sobre la v39.
+
+### Cómo funciona
+
+- Un trimestre es un **período** y una atención pertenece al período que contiene su fecha. Pasarla a otro trimestre es cambiarle la fecha, y para eso hace falta que la jefatura lo apruebe.
+- Pantalla nueva **Cambios de trimestre** en *Operación* (`/cambios-trimestre/`), en vista de tarjetas con tres columnas, **Pendiente**, **Aprobada** y **Rechazada**, indicadores arriba y códigos `TRI00001`…
+- **El funcionario pide** el cambio: elige la atención (solo de su delegación, sin archivadas), el modo y escribe el motivo.
+  - **Automático**: la atención pasa al **primer día del trimestre siguiente**.
+  - **Manual**: elige la fecha nueva, que tiene que caer en otro trimestre. La fecha solo aparece en este modo.
+- **La jefatura resuelve**: abre la solicitud con «Editar», ve un resumen de lo pedido (quién, la atención, fechas con su trimestre y motivo) y elige **Aprobada** o **Rechazada**. Al rechazar tiene que escribir la respuesta; al aprobar es opcional.
+- Mientras está pendiente, la atención **conserva su fecha**. Al aprobar toma la fecha nueva y queda en el otro trimestre; el cambio queda en la auditoría de la atención («Cambio de trimestre aprobado») y en la de la solicitud, y se avisa en vivo a las pantallas abiertas. Una solicitud resuelta ya no se edita: queda como registro.
+- La ficha de la atención lista sus solicitudes de cambio de trimestre.
+
+### Reglas
+
+- La fecha nueva **no puede ser futura** (una atención no puede tener fecha futura): el modo automático solo se puede pedir cuando el trimestre siguiente ya empezó.
+- El trimestre de destino tiene que existir y **no estar cerrado**. El de origen sí puede estar cerrado: ese es justamente el caso que necesita la aprobación.
+- Una atención con una solicitud pendiente no puede tener otra; después de un rechazo se puede pedir de nuevo.
+- Al aprobar se revisa todo otra vez, porque pasó tiempo: la atención sigue sin archivar y con la misma fecha, el trimestre de destino sigue abierto y el funcionario no supera el máximo de 7 atenciones por día en la fecha nueva. Si algo cambió, la solicitud sigue pendiente y se explica por qué.
+- Un archivado no se ofrece y una atención de otra delegación tampoco; la jefatura de otra delegación no ve ni resuelve solicitudes ajenas.
+
+### Permisos
+
+- Fila nueva «Cambios de trimestre» en la matriz de Roles (`operations.*_quarterchangerequest`). **Funcionario** puede ver y crear; **Jefatura** puede ver y editar (editar es resolver). `seed_roles` los entrega a los roles base; las cuentas de revisión los reciben por su rol (`admin_a` es Jefatura y Funcionario; `editor_a`, Funcionario; los lectores no tienen el módulo).
+
+### Base de datos
+
+- Migración `operations/0008_cambio_de_trimestre_v40`: tabla nueva `operations_quarterchangerequest`.
+- `sql/sgr_django.sql` y `docs/DIAGRAMA_MODELOS.md` quedan al día. Se corrige además el número de tablas de los documentos (37 en la base, 27 del proyecto), que seguía en el de versiones anteriores.
+
+### Datos de la revisión
+
+- `cargar_datos_revision` carga además **110 solicitudes** (55 por delegación: 20 pendientes, 25 aprobadas y 10 rechazadas, con automáticas y manuales, respuestas y quién resolvió), cada una con **su propia atención** (110 atenciones más, sin tocar las demás). Los datos de la revisión tienen un solo período por año, así que el cambio posible es el de **fines de 2025 (período cerrado) a enero de 2026**: las pendientes y rechazadas tienen su atención en diciembre y las aprobadas ya la tienen en enero. Con su propio azar, el resto de los datos sale igual que en la v39. Total sobre una base recién migrada: 3.925 registros (3.873 vigentes); repetirlo no duplica.
+- Para probarlo en el servidor: `admin_a` (Jefatura) abre una solicitud pendiente de Norte en *Cambios de trimestre* con «Editar» y la aprueba o la rechaza (con respuesta); la atención aprobada pasa a enero. `editor_a` ve las solicitudes de su delegación y puede pedir un cambio nuevo, pero con estos datos solo hay un trimestre distinto del vigente (el de diciembre de 2025), así que para pedir uno nuevo hay que crear antes otro trimestre en *Períodos*.
+- `datos_prueba` (demostración local) agrega una solicitud pendiente sobre una atención que ya existía (sin atenciones nuevas).
+
+### Pruebas
+
+- Nuevo `core/test_cambio_de_trimestre.py` (41 pruebas, registradas en el catálogo QA como V40-01): trimestre de una fecha y trimestre siguiente, pedir (automático, manual, todas las fechas rechazadas, duplicadas, alcance), resolver (aprobar, rechazar, una sola vez, día lleno, fecha cambiada, destino cerrado, permisos) y pantalla (tarjetas, indicadores, botones, ficha, roles y aviso en vivo).
+
+### ❓ Para confirmar con la clienta o el grupo
+
+- **Quién puede pedir:** hoy cualquier funcionario puede pedirlo para cualquier atención de su delegación. ¿Solo para las atenciones que registró él?
+- **Quién resuelve:** la jefatura de la delegación. ¿También Coordinación, o la jefatura no puede aprobar lo que pidió ella misma?
+- **Fecha futura:** no se permite. ¿Se necesita mover una atención a una fecha que aún no llega (por ejemplo, desde diciembre a una fecha de enero cuando todavía es diciembre)?
+- **Modo automático:** pasa al primer día del trimestre siguiente. ¿Prefiere conservar el día y el mes, o el primer día hábil?
+- **Compromisos de la atención:** el compromiso que nace de una atención con visita conserva su fecha comprometida; no se mueve con la atención. ¿Debería moverse?
+- **Período cerrado:** hoy se puede sacar una atención de un trimestre cerrado con aprobación. ¿La jefatura puede aprobarlo o hace falta Coordinación?
+
 ## Versión 39
 
 Dos cambios que pidió la clienta: la **directiva de las organizaciones** y el **tipo de solicitante** (persona natural u organización) en la atención. Se arma sobre la v38.
