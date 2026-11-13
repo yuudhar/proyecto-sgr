@@ -5,7 +5,7 @@ from django.core.management.base import BaseCommand
 from core.models import Comment
 from evidence.models import Evidence, Validation
 from operations.models import Activity, Commitment, Followup, QuarterChangeRequest
-from organization.models import Item, Officer, Position, PositionItem, Service, Territory
+from organization.models import Item, Officer, Position, PositionFunction, PositionItem, Service, Territory
 from planning.models import Absence, Adjustment, Feedback, Goal, Indicator, Period
 
 
@@ -26,6 +26,7 @@ ROLES = {
         (Comment, ["add_comment", "view_comment"]),
         (Feedback, ["view_feedback"]),
         (Position, ["view_position"]),
+        (PositionFunction, ["view_positionfunction"]),
         (Item, ["view_item"]),
         (Service, ["view_service"]),
         (PositionItem, ["view_positionitem"]),

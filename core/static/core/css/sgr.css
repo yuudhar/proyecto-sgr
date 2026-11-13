@@ -3106,3 +3106,28 @@ textarea.form-control {
   display: flex;
   justify-content: flex-end;
 }
+
+/* Funciones del cargo en la ficha personal */
+.duties-intro {
+  margin: 0 0 0.75rem;
+  color: var(--ink-soft);
+}
+
+.duties-group + .duties-group {
+  margin-top: 0.75rem;
+}
+
+.duties-title {
+  margin: 0 0 0.25rem;
+  font-size: 0.95rem;
+  font-weight: 600;
+}
+
+.duties-list {
+  margin: 0 0 0.5rem;
+  padding-left: 1.5rem;
+}
+
+.duties-list li {
+  margin-bottom: 0.25rem;
+}

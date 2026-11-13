@@ -185,6 +185,13 @@ La configuración se lee desde el archivo `.env`, que se crea a partir de `.env.
 | `MEDIA_ROOT` | carpeta de los archivos subidos (evidencias y fotos); vacío = carpeta `media/` del proyecto |
 | `BACKUP_DIR`, `BACKUP_KEEP_DAYS`, `BACKUP_MAX_AGE_HOURS` | respaldo diario (ver *Respaldo y restauración*): carpeta, días que se guardan (14) y horas tras las cuales `/salud/` lo marca atrasado (36) |
 
+### Funciones de los cargos (descriptor 2026)
+
+Cada cargo tiene una **descripción** y una lista de **funciones**, según el descriptor de funciones 2026 de las Delegaciones Municipales. Se ven en la **ficha personal** del funcionario (sección «Funciones del cargo») y se mantienen en Organización › Cargos y Funciones de cargos.
+
+- `python manage.py cargar_funciones_cargos` carga los siete cargos del descriptor (Delegado, Gestor Social, Apoyo Administrativo, Organizaciones Comunitarias, Gestor de Compras y Proyectos, Gestión y Planificación y Coordinador de Servicios Comunitarios) con sus funciones. Se puede repetir sin duplicar nada y no pisa lo editado a mano.
+- Los cargos de demostración (Encargado Social, Coordinador de Terreno, Jefe de Delegación y Analista de Datos) no traen funciones; se les pueden agregar desde Funciones de cargos.
+
 ### Respaldo y restauración
 
 El respaldo guarda la base de datos y los archivos subidos (evidencias y fotos). Cada respaldo son tres archivos con la misma marca de fecha y hora de Santiago (`sgr-AAAAMMDD-HHMMSS`) en `BACKUP_DIR` (por defecto `respaldos/`, y en AWS `/opt/sgr/respaldos`, que no se sube a git):
@@ -289,7 +296,7 @@ Comandos de datos (`python manage.py <comando>`):
 | `cargar_volumen_estres` | Carga un volumen grande de registros marcados como prueba (`--limpiar` los borra); necesita funcionarios e ítems ya creados |
 | `exportar_registro_pruebas` | Genera `docs/pruebas/registro_pruebas_funcionales.csv` y `.xlsx` |
 
-La carpeta `sql/` tiene un solo archivo, **`sgr_django.sql`**: la estructura de la base del servidor (`sgr_django`, 38 tablas, MariaDB/MySQL, sin datos ni contraseñas), al día con las migraciones de Django. Sirve para crear la base a mano en phpMyAdmin; con `python manage.py migrate` se obtiene lo mismo.
+La carpeta `sql/` tiene un solo archivo, **`sgr_django.sql`**: la estructura de la base del servidor (`sgr_django`, 39 tablas, MariaDB/MySQL, sin datos ni contraseñas), al día con las migraciones de Django. Sirve para crear la base a mano en phpMyAdmin; con `python manage.py migrate` se obtiene lo mismo.
 
 **Zonas horarias en MariaDB:** los informes agrupan por fecha en hora de Chile y necesitan las tablas de zonas horarias del motor. Se cargan una vez con:
 
@@ -428,6 +435,7 @@ Resultado de ejecutar el comando sobre una base recién migrada (la misma tabla 
 | `core.Comment` | 0 | 0 | 0 |
 | `organization.Delegation` | 2 | 2 | 0 |
 | `organization.Position` | 4 | 4 | 0 |
+| `organization.PositionFunction` | 0 | 0 | 0 |
 | `organization.Item` | 5 | 5 | 0 |
 | `organization.Service` | 4 | 4 | 0 |
 | `organization.Beneficiary` | 402 | 402 | 0 |

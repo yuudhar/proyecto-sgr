@@ -134,6 +134,7 @@ MENU = [
                     crud_entry("funcionarios"),
                     crud_entry("territorios"),
                     crud_entry("cargos"),
+                    crud_entry("funciones-de-cargo"),
                     crud_entry("items-de-cargo"),
                 ],
             ),

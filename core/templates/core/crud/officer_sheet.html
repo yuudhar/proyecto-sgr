@@ -61,3 +61,26 @@
   {% endif %}
 </section>
 {% endif %}
+{% if panel.duties %}
+<section class="panel" aria-labelledby="titulo-funciones">
+  <div class="panel-head">
+    <h2 class="panel-title" id="titulo-funciones">Funciones del cargo{% if panel.duties.position %}: {{ panel.duties.position }}{% endif %}</h2>
+  </div>
+  <div class="panel-body">
+    {% if panel.duties.total %}
+    {% if panel.duties.description %}<p class="duties-intro">{{ panel.duties.description }}</p>{% endif %}
+    {% for group in panel.duties.groups %}
+    <div class="duties-group">
+      {% if group.title %}<h3 class="duties-title">{{ group.title }}</h3>{% endif %}
+      <ol class="duties-list">
+        {% for item in group.items %}<li value="{{ item.order }}">{{ item.text }}</li>{% endfor %}
+      </ol>
+    </div>
+    {% endfor %}
+    <p class="meter-legend mb-0">Según el descriptor de funciones 2026 de las Delegaciones Municipales.</p>
+    {% else %}
+    <p class="muted mb-0">{% if panel.duties.position %}El cargo «{{ panel.duties.position }}» aún no tiene funciones registradas.{% else %}Este funcionario no tiene cargo asignado.{% endif %}{% if perms.organization.add_positionfunction and panel.duties.position %} Se agregan desde Funciones de cargo.{% endif %}</p>
+    {% endif %}
+  </div>
+</section>
+{% endif %}

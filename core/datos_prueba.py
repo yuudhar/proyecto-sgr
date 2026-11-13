@@ -23,6 +23,7 @@ from organization.models import (
     Officer,
     OrganizationLeader,
     Position,
+    PositionFunction,
     PositionItem,
     Service,
     Territory,
@@ -175,6 +176,16 @@ class CargaDatosPrueba(BaseCommand):
             name="Analista de Datos",
             defaults={"valid_from": today - timedelta(days=180)},
         )
+
+        for order, text in enumerate(
+            (
+                "Atender a los vecinos que piden apoyo social, en la oficina y en terreno.",
+                "Hacer el seguimiento de cada caso atendido hasta su cierre.",
+                "Derivar a la red municipal los casos que lo requieran.",
+            ),
+            start=1,
+        ):
+            PositionFunction.objects.get_or_create(position=position_social, order=order, defaults={"text": text})
 
         item_social = self.get_item(
             "Atención Social",

@@ -349,7 +349,19 @@ CREATE TABLE `organization_position` (
   `deleted_at` datetime(6) DEFAULT NULL,
   `name` varchar(100) NOT NULL,
   `valid_from` date NOT NULL,
-  `valid_until` date DEFAULT NULL
+  `valid_until` date DEFAULT NULL,
+  `description` longtext NOT NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE `organization_positionfunction` (
+  `id` bigint(20) NOT NULL,
+  `created_at` datetime(6) NOT NULL,
+  `updated_at` datetime(6) NOT NULL,
+  `deleted_at` datetime(6) DEFAULT NULL,
+  `group` varchar(100) NOT NULL,
+  `order` smallint(5) UNSIGNED NOT NULL CHECK (`order` >= 0),
+  `text` longtext NOT NULL,
+  `position_id` bigint(20) NOT NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 CREATE TABLE `organization_positionitem` (
@@ -623,6 +635,10 @@ ALTER TABLE `organization_organizationleader`
 ALTER TABLE `organization_position`
   ADD PRIMARY KEY (`id`);
 
+ALTER TABLE `organization_positionfunction`
+  ADD PRIMARY KEY (`id`),
+  ADD KEY `organization_positio_position_id_5c1e0b6e_fk_organizat` (`position_id`);
+
 ALTER TABLE `organization_positionitem`
   ADD PRIMARY KEY (`id`),
   ADD KEY `organization_positio_item_id_2590b223_fk_organizat` (`item_id`),
@@ -753,6 +769,9 @@ ALTER TABLE `organization_organizationleader`
 ALTER TABLE `organization_position`
   MODIFY `id` bigint(20) NOT NULL AUTO_INCREMENT;
 
+ALTER TABLE `organization_positionfunction`
+  MODIFY `id` bigint(20) NOT NULL AUTO_INCREMENT;
+
 ALTER TABLE `organization_positionitem`
   MODIFY `id` bigint(20) NOT NULL AUTO_INCREMENT;
 
@@ -864,6 +883,9 @@ ALTER TABLE `organization_officer`
 
 ALTER TABLE `organization_organizationleader`
   ADD CONSTRAINT `organization_organiz_organization_id_4325541f_fk_organizat` FOREIGN KEY (`organization_id`) REFERENCES `organization_communityorganization` (`id`);
+
+ALTER TABLE `organization_positionfunction`
+  ADD CONSTRAINT `organization_positio_position_id_5c1e0b6e_fk_organizat` FOREIGN KEY (`position_id`) REFERENCES `organization_position` (`id`);
 
 ALTER TABLE `organization_positionitem`
   ADD CONSTRAINT `organization_positio_item_id_2590b223_fk_organizat` FOREIGN KEY (`item_id`) REFERENCES `organization_item` (`id`),
