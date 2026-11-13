@@ -17,6 +17,56 @@ Nombres que cambiaron en la v27 (los textos antiguos los mencionan con el nombre
 | `core/qa/esperado_vNN.py` | `core/qa/esperado_<tema>.py` (mismo tema que su archivo de pruebas) |
 | `sql/*.sql` (todos) | `sql/sgr_django.sql` (estructura vigente) |
 
+## Versión 43
+
+Tres pendientes del análisis quedan hechos: el **aviso mientras se edita** (HU-47), los **comentarios con autor y fecha** (HU-45, RF-035) y el **respaldo diario** de la base y de los archivos (HU-46, RNF-010). Se arma sobre la v42.
+
+### Qué cambia
+
+**Aviso mientras se edita (HU-47)**
+
+- Antes, si dos personas editaban el mismo registro, el segundo en guardar recibía el aviso recién al guardar («alguien más lo modificó, revisa los cambios»). Eso sigue igual.
+- Ahora, con el formulario de edición abierto (en ventana o en pantalla completa), aparece **en vivo** un aviso amarillo arriba del formulario apenas otra persona lo guarda: dice **quién** lo cambió y **qué** cambió. Si el registro se archivó o salió del alcance, el aviso es rojo.
+- El WebSocket solo avisa que algo cambió, sin datos (como el resto de las pantallas en vivo); el navegador pregunta a una dirección nueva (`…/<id>/revisar/`), que responde solo con el mensaje. Si el WebSocket no conecta, pregunta cada 20 segundos.
+- El aviso no cierra el formulario ni borra lo escrito.
+
+**Comentarios con autor y fecha (HU-45, RF-035)**
+
+- Las fichas de **Actividades**, **Agenda** y **Compromisos** (terreno) y **Evidencias** tienen una sección **Comentarios**: la lista del más antiguo al más nuevo, con **autor y fecha**, y un formulario para escribir (hasta 1000 caracteres).
+- Permiso propio (**Comentarios** en «Roles y permisos»): Coordinación, Jefatura, Funcionario y Verificador pueden comentar; Consulta solo los lee; Cliente no tiene acceso. Se comenta solo en registros que la persona ya puede ver (misma regla de delegación) y que no estén archivados; en los archivados se siguen viendo.
+- No se editan. Los elimina su **autor** o el **Super Usuario**, y queda en la auditoría («Comentario agregado» / «Comentario eliminado»).
+- Un comentario nuevo avisa en vivo a la delegación (sin el texto) y la actualización en vivo **no borra** lo que otra persona está escribiendo.
+
+**Respaldo diario (HU-46, RNF-010)**
+
+- Comando `python manage.py respaldar`: hace un respaldo de la base y de los archivos subidos (tres archivos con la misma marca de fecha, hora de Santiago: base, archivos y manifiesto con huellas sha256), lo **vuelve a leer** para dar por bueno, borra los de más de 14 días (siempre quedan los últimos 3) y lista lo que hay.
+- Comando `python manage.py restaurar_respaldo <sello>`: sin `--confirmar` solo muestra qué haría; con ella comprueba las huellas, guarda una **copia de seguridad del estado actual** (`sgr-antes-de-restaurar-…`, que no se borra por antigüedad) y restaura la base y los archivos (`--sin-archivos` solo la base).
+- En AWS, `deploy/actualizar.sh` instala un **temporizador de systemd** (`sgr-respaldo.timer`, todos los días a las 03:30 hora del servidor; si estaba apagado, apenas arranca) y, si falta, el cliente de MariaDB (`mysqldump`). La contraseña de la base viaja por variable de entorno, nunca en el comando.
+- `/salud/` muestra el estado del último respaldo (`respaldo`). Es solo informativo: un respaldo atrasado no hace caer el servicio.
+- Configuración nueva en `sgr.env`: `BACKUP_DIR`, `BACKUP_KEEP_DAYS` (14) y `BACKUP_MAX_AGE_HOURS` (36).
+
+### Qué no cambia
+
+- El guardado con revisión de cambios ajenos (bloqueo optimista) sigue igual: el aviso en vivo se suma, no lo reemplaza.
+- Los demás mantenedores no tienen comentarios.
+
+### Base de datos
+
+- Migración `core/0002_comentarios_v43`: tabla nueva `core_comment` (38 tablas en la base, 28 del proyecto).
+- `sql/sgr_django.sql`, `docs/DIAGRAMA_MODELOS.md`, el README y `DOCUMENTACION_CODIGO.md` quedan al día.
+- Los roles ya cargados necesitan correr `seed_roles` (lo hace `cargar_datos_revision`) para recibir el permiso nuevo de Comentarios; `actualizar.sh` no lo ejecuta por sí solo.
+
+### Pruebas
+
+- Nuevo `core/test_aviso_de_edicion.py` (13 pruebas, catálogo QA V43-01), `core/test_comentarios.py` (27 pruebas, V43-02) y `core/test_respaldo.py` (49 pruebas, V43-03). La parte de MySQL del respaldo se prueba con `mysqldump` y `mysql` simulados: **falta probarla una vez en el servidor** (el primer respaldo del despliegue lo hace).
+
+### ❓ Para confirmar
+
+- ¿Los comentarios pueden editarse? Hoy no (solo se eliminan), para que quede el historial tal como se escribió.
+- ¿Quién debería poder eliminar comentarios ajenos? Hoy solo el Super Usuario; Jefatura no.
+- ¿Los respaldos deben copiarse además fuera de la instancia (por ejemplo a S3)? Hoy quedan en el mismo disco del servidor.
+- ¿Les sirve la hora de respaldo de las 03:30 y los 14 días de retención?
+
 ## Versión 42
 
 Los solicitantes externos de la **agenda colectiva** pueden pasar a tener su **cuenta de cliente** sin salir del flujo. Antes el compromiso solo guardaba el nombre (un texto, sin RUT ni vínculo con Beneficiarios) y no había cómo llegar de ahí a crear su usuario. Se arma sobre la v41.

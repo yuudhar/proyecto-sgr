@@ -3057,3 +3057,52 @@ textarea.form-control {
   font-size: 0.88rem;
   color: var(--ink-soft);
 }
+
+/* Comentarios de una ficha */
+.comment-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.comment {
+  padding: 0.75rem 1rem;
+  border-top: 1px solid var(--line, #e5e7eb);
+}
+
+.comment:first-child {
+  border-top: 0;
+}
+
+.comment-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 0.25rem 0.75rem;
+}
+
+.comment-when {
+  color: var(--ink-soft);
+  font-size: 0.85rem;
+}
+
+.comment-delete {
+  margin-left: auto;
+  font-size: 0.85rem;
+}
+
+.comment-text {
+  margin: 0.25rem 0 0;
+  overflow-wrap: anywhere;
+}
+
+.comment-form {
+  padding: 0.75rem 1rem 1rem;
+  border-top: 1px solid var(--line, #e5e7eb);
+}
+
+.comment-form-actions {
+  margin-top: 0.5rem;
+  display: flex;
+  justify-content: flex-end;
+}

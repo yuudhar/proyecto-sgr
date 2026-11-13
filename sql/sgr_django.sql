@@ -104,6 +104,18 @@ CREATE TABLE `core_auditlog` (
   `user_id` int(11) NOT NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
+CREATE TABLE `core_comment` (
+  `id` bigint(20) NOT NULL,
+  `created_at` datetime(6) NOT NULL,
+  `updated_at` datetime(6) NOT NULL,
+  `deleted_at` datetime(6) DEFAULT NULL,
+  `entity` varchar(50) NOT NULL,
+  `record_id` int(10) UNSIGNED NOT NULL CHECK (`record_id` >= 0),
+  `text` longtext NOT NULL,
+  `author_id` int(11) NOT NULL,
+  `delegation_id` bigint(20) DEFAULT NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
 CREATE TABLE `django_admin_log` (
   `id` int(11) NOT NULL,
   `action_time` datetime(6) NOT NULL,
@@ -512,6 +524,12 @@ ALTER TABLE `core_auditlog`
   ADD PRIMARY KEY (`id`),
   ADD KEY `core_auditlog_user_id_3797aaab_fk_auth_user_id` (`user_id`);
 
+ALTER TABLE `core_comment`
+  ADD PRIMARY KEY (`id`),
+  ADD KEY `core_comment_target_idx` (`entity`,`record_id`),
+  ADD KEY `core_comment_author_id_f7066c5e_fk_auth_user_id` (`author_id`),
+  ADD KEY `core_comment_delegation_id_512da360_fk_organizat` (`delegation_id`);
+
 ALTER TABLE `django_admin_log`
   ADD PRIMARY KEY (`id`),
   ADD KEY `django_admin_log_content_type_id_c4bce8eb_fk_django_co` (`content_type_id`),
@@ -681,6 +699,9 @@ ALTER TABLE `auth_user_user_permissions`
 ALTER TABLE `core_auditlog`
   MODIFY `id` bigint(20) NOT NULL AUTO_INCREMENT;
 
+ALTER TABLE `core_comment`
+  MODIFY `id` bigint(20) NOT NULL AUTO_INCREMENT;
+
 ALTER TABLE `django_admin_log`
   MODIFY `id` int(11) NOT NULL AUTO_INCREMENT;
 
@@ -789,6 +810,10 @@ ALTER TABLE `auth_user_user_permissions`
 
 ALTER TABLE `core_auditlog`
   ADD CONSTRAINT `core_auditlog_user_id_3797aaab_fk_auth_user_id` FOREIGN KEY (`user_id`) REFERENCES `auth_user` (`id`);
+
+ALTER TABLE `core_comment`
+  ADD CONSTRAINT `core_comment_author_id_f7066c5e_fk_auth_user_id` FOREIGN KEY (`author_id`) REFERENCES `auth_user` (`id`),
+  ADD CONSTRAINT `core_comment_delegation_id_512da360_fk_organizat` FOREIGN KEY (`delegation_id`) REFERENCES `organization_delegation` (`id`);
 
 ALTER TABLE `django_admin_log`
   ADD CONSTRAINT `django_admin_log_content_type_id_c4bce8eb_fk_django_co` FOREIGN KEY (`content_type_id`) REFERENCES `django_content_type` (`id`),

@@ -68,6 +68,7 @@ PERMISSION_MODULES = (
             ("Validaciones", "evidence.validation"),
             ("Cartas", "planning.feedback"),
             ("Cambios de trimestre", "operations.quarterchangerequest"),
+            ("Comentarios", "core.comment"),
         ),
     ),
     (

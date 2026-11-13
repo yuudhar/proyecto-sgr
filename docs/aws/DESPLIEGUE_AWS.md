@@ -80,6 +80,8 @@ El script baja los cambios, instala dependencias, corre `check --deploy`, `migra
 
 SQLite: detener o usar `sqlite3 db.sqlite3 ".backup '/ruta/copia.db'"` con el servicio en marcha. RDS: instantáneas automáticas.
 
+Desde la v43 el sistema hace su propio respaldo diario de la base y de los archivos subidos: `deploy/actualizar.sh` instala el temporizador `sgr-respaldo.timer` (03:30, hora del servidor) y los guarda en `/opt/sgr/respaldos` durante 14 días (siempre quedan los últimos 3). Se puede hacer uno a mano con `python manage.py respaldar` y restaurar con `python manage.py restaurar_respaldo <sello> --confirmar`; el detalle está en el README, «Respaldo y restauración». Conviene copiar de vez en cuando esa carpeta fuera de la instancia (por ejemplo a un bucket de S3), porque un respaldo en el mismo disco no sirve si se pierde la instancia.
+
 ## 7. Qué falta por hacer (no se pudo hacer desde el entorno de desarrollo)
 
 1. Crear la instancia, aplicar esta guía y anotar la **URL**.

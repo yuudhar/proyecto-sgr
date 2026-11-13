@@ -1,0 +1,34 @@
+{% load core_ui %}
+<section class="panel" id="comentarios" aria-label="Comentarios">
+  <div class="panel-head">
+    <h2 class="panel-title">Comentarios</h2>
+    <span class="panel-note">{{ comments.total }} comentario{{ comments.total|pluralize }}</span>
+  </div>
+  {% if comments.items %}
+  {% if comments.hidden %}<p class="panel-foot mb-0">Se muestran los {{ comments.items|length }} más recientes de {{ comments.total }}.</p>{% endif %}
+  <ul class="comment-list">
+    {% for item in comments.items %}
+    <li class="comment">
+      <div class="comment-head">
+        <strong class="comment-author">{{ item.author }}</strong>
+        <span class="comment-when">{{ item.when }}</span>
+        {% if item.delete_url %}<a class="comment-delete" href="{{ item.delete_url }}" data-delete="este comentario" data-delete-kind="remove" aria-label="Eliminar el comentario de {{ item.author }}"><i class="bi bi-trash3" aria-hidden="true"></i> Eliminar</a>{% endif %}
+      </div>
+      <p class="comment-text">{{ item.text|linebreaksbr }}</p>
+    </li>
+    {% endfor %}
+  </ul>
+  {% else %}
+  <p class="panel-body muted mb-0">Este registro aún no tiene comentarios.</p>
+  {% endif %}
+  {% if comments.can_add %}
+  <form method="post" action="{{ comments.add_url }}" class="comment-form" data-once data-validate>
+    {% csrf_token %}
+    <label class="form-label" for="{{ comments.form.text.id_for_label }}">{{ comments.form.text.label }}</label>
+    {{ comments.form.text }}
+    <div class="comment-form-actions">
+      <button type="submit" class="btn btn-primary btn-sm"><i class="bi bi-send" aria-hidden="true"></i> Comentar</button>
+    </div>
+  </form>
+  {% endif %}
+</section>

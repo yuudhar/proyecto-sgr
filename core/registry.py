@@ -133,6 +133,7 @@ def scoring_state(activity):
 class ActivityCrud(Crud):
     model = Activity
     slug = "actividades"
+    comments = True
     icon = "bi-clipboard-check"
     title = "Atención"
     title_plural = "Atenciones"
@@ -313,6 +314,7 @@ class FollowupCrud(Crud):
 class CommitmentCrud(Crud):
     model = Commitment
     slug = "agenda"
+    comments = True
     icon = "bi-calendar-check"
     deletable = True
     title = "Compromiso"
@@ -602,6 +604,7 @@ class QuarterChangeRequestCrud(Crud):
 class EvidenceCrud(Crud):
     model = Evidence
     slug = "evidencias"
+    comments = True
     icon = "bi-file-earmark-check"
     gender = "f"
     description = "Archivos que respaldan cada actividad y su estado de revisión."

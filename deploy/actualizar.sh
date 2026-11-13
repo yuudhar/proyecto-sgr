@@ -30,6 +30,9 @@ else
 fi
 
 sudo systemctl restart sgr
+
+# Respaldo diario de la base y de los archivos (instala el temporizador y hace un primer respaldo; se puede repetir).
+sudo bash "$APP_DIR/deploy/instalar_respaldo.sh" || echo "Aviso: no se pudo dejar listo el respaldo diario. Revisa: sudo bash $APP_DIR/deploy/instalar_respaldo.sh" >&2
 sleep 2
 curl -fsS http://127.0.0.1:8000/salud/ -H "Host: ${ALLOWED_HOSTS%%,*}" && echo " <- el servicio responde"
 echo "Prueba del WebSocket:"

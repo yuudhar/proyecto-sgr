@@ -7,6 +7,8 @@ from django.http import JsonResponse
 from django.views.decorators.cache import never_cache
 from django.views.decorators.http import require_GET
 
+from core import respaldo
+
 
 def _leer(nombre):
     ruta = Path(settings.BASE_DIR) / nombre
@@ -32,6 +34,10 @@ def salud(request):
             estado["cache"] = "error"
     except Exception:
         estado["cache"] = "error"
+    try:
+        estado["respaldo"] = respaldo.status()  # informativo: un respaldo atrasado no tumba el servicio
+    except Exception:
+        estado["respaldo"] = "error"
     estado["version"] = _leer("VERSION") or "sin definir"
     estado["commit"] = _leer("COMMIT") or "sin definir"
     estado["entorno"] = "desarrollo" if settings.DEBUG else "producción"

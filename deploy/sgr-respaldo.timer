@@ -1,0 +1,11 @@
+[Unit]
+Description=Respaldo diario del SGR
+
+[Timer]
+# Cada día a las 03:30 (hora del servidor). Si el servidor estaba apagado, se hace apenas arranca.
+OnCalendar=*-*-* 03:30:00
+Persistent=true
+RandomizedDelaySec=10min
+
+[Install]
+WantedBy=timers.target

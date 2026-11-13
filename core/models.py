@@ -44,3 +44,41 @@ class AuditLog(BaseModel):
 
     def __str__(self):
         return f"{self.event} · {self.affected_entity}#{self.record_id}"
+
+
+class Comment(BaseModel):
+    """Comentario de coordinación sobre un registro (atención, compromiso o evidencia).
+
+    Igual que la auditoría, apunta al registro por el nombre de su clase y su identificador, así un mismo
+    comentario puede colgar de cualquiera de ellos. No se edita: quien lo escribió (o un Super Usuario) puede archivarlo.
+    """
+
+    MAX_LENGTH = 1000
+
+    entity = models.CharField(max_length=50, verbose_name="entidad comentada")
+    record_id = models.PositiveIntegerField(verbose_name="identificador del registro")
+    delegation = models.ForeignKey(
+        "organization.Delegation",
+        on_delete=models.PROTECT,
+        null=True,
+        blank=True,
+        related_name="comments",
+        verbose_name="delegación",
+        help_text="Delegación del registro comentado; sirve para avisar en vivo solo a quien corresponde.",
+    )
+    author = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.PROTECT,
+        related_name="comments",
+        verbose_name="autor",
+    )
+    text = models.TextField(max_length=MAX_LENGTH, verbose_name="comentario")
+
+    class Meta:
+        verbose_name = "Comentario"
+        verbose_name_plural = "Comentarios"
+        ordering = ("created_at", "id")
+        indexes = [models.Index(fields=["entity", "record_id"], name="core_comment_target_idx")]
+
+    def __str__(self):
+        return f"Comentario sobre {self.entity}#{self.record_id}"
