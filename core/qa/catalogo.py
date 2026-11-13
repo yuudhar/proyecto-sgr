@@ -24,6 +24,7 @@ from core.qa.esperado_cliente_desde_compromiso import ESPERADO as _CLIENTE_DESDE
 from core.qa.esperado_aviso_de_edicion import ESPERADO as _AVISO_DE_EDICION
 from core.qa.esperado_comentarios import ESPERADO as _COMENTARIOS
 from core.qa.esperado_respaldo import ESPERADO as _RESPALDO
+from core.qa.esperado_funciones_de_cargo import ESPERADO as _FUNCIONES_DE_CARGO
 from core.qa.esperado_cliente_y_recorte import ESPERADO as _CLIENTE_Y_RECORTE
 from core.qa.esperado_listado_y_perfil import ESPERADO as _LISTADO_Y_PERFIL
 from core.qa.esperado_carga_revision import ESPERADO as _CARGA_REVISION
@@ -113,6 +114,7 @@ REQUISITOS = {
     "V39-02": ("Versión 39", "Tipo de solicitante en la atención: persona natural (RUT o nombre, como antes) u organización con la persona de su directiva que viene; cada grupo de campos aparece según el tipo, el servidor lo revisa y editar una atención puede cambiarlo"),
     "V40-01": ("Versión 40", "Cambio de trimestre de una atención: el funcionario lo pide (automático al trimestre siguiente o manual con fecha) y Jefatura lo aprueba o rechaza con su respuesta; al aprobar la atención toma la fecha nueva, con revisiones de trimestre abierto, de fecha no futura, de límite diario y de alcance por delegación"),
     "V42-01": ("Versión 42", "Del solicitante externo de la agenda colectiva a su cuenta de cliente: botón en el compromiso, RUT, beneficiario creado o reutilizado y «Nuevo usuario» con el perfil Cliente ya elegido"),
+    "V44-01": ("Versión 44", "Funciones de cada cargo según el descriptor de funciones 2026: mantenedor propio, descripción del cargo, comando que carga los siete cargos del descriptor sin pisar lo editado y sección «Funciones del cargo» en la ficha personal"),
     "V43-01": ("Versión 43", "Aviso mientras se edita: si otra persona guarda o archiva el mismo registro con el formulario abierto, aparece un aviso en vivo (sin enviar los datos) que dice quién cambió qué, y al guardar el servidor sigue pidiendo revisar"),
     "V43-02": ("Versión 43", "Comentarios con autor y fecha en las fichas de actividades, compromisos y evidencias: permiso propio, alcance por delegación, sin editar, eliminación por el autor o el Super Usuario, auditoría y actualización en vivo sin perder lo que se escribe"),
     "V43-03": ("Versión 43", "Respaldo diario de la base de datos y de los archivos subidos: comando respaldar y restaurar, huellas sha256, retención, copia de seguridad antes de restaurar, estado en /salud/ y temporizador del servidor"),
@@ -376,6 +378,12 @@ CLASES = {
     "FeedbackLimitTests": (["V41-01"], "Límite de 12 meses en cartas", _SEMILLA + "; sesión de Jefatura (Norte)"),
     "AbsenceLimitTests": (["V41-01"], "Límite de 12 meses en ausencias", _SEMILLA + "; sesión de Jefatura (Norte); ausencia antigua creada en la prueba"),
     "QuarterRequestLimitTests": (["V41-01"], "Límite de 12 meses en el cambio de trimestre", _SEMILLA + "; sesión de Matías Cavieres (Norte); cuatro períodos creados en la prueba"),
+    "DescriptorDataTests": (["V44-01"], "Texto del descriptor de funciones", _SIN_BD),
+    "DescriptorLoadTests": (["V44-01"], "Comando cargar_funciones_cargos", _SEMILLA + "; cargos del descriptor creados en la prueba"),
+    "DutiesTests": (["V44-01"], "Funciones de un cargo, agrupadas y en orden", _SEMILLA + "; cargo y funciones creados en la prueba"),
+    "SheetTests": (["V44-01"], "Funciones del cargo en la ficha personal", _SEMILLA + "; sesiones de Matías Cavieres (Norte), Jefatura y una cuenta con solo permiso de ver funcionarios"),
+    "FunctionCrudTests": (["V44-01"], "Mantenedor de funciones de cargo", _SEMILLA + "; sesión de Super Usuario; cargo creado en la prueba"),
+    "FunctionPermissionTests": (["V44-01"], "Permisos de las funciones de cargo", _SEMILLA + "; sesiones de Coordinación, Matías Cavieres, Jefatura y Consulta"),
     "FormMarkupTests": (["V43-01"], "Marcas del formulario de edición para el aviso", _SEMILLA + "; sesión de Super Usuario"),
     "CheckTests": (["V43-01"], "Revisión de un registro abierto en edición", _SEMILLA + "; sesiones de Matías Cavieres (Norte) y Consulta; registros modificados en la prueba"),
     "SectionTests": (["V43-02"], "Sección Comentarios en las fichas", _SEMILLA + "; sesión de Matías Cavieres (Norte); comentarios creados en la prueba"),
@@ -395,6 +403,6 @@ CLASES = {
 }
 
 ESPERADO = {}
-for _grupo in (_ACCESO, _MANTENEDORES, _INGRESO, _LISTADOS, _DESPLIEGUE, _VALIDACIONES, _ARCHIVOS_Y_FOTO, _ELIMINAR_Y_LISTADOS, _USUARIOS_ELIMINADOS, _TIEMPO_REAL, _RITMO_Y_COMPROMISOS, _RESULTADOS_Y_CALCULO, _CODES_SEARCH_AND_CHARTS, _REGLAS_PUNTAJE, _CIERRE_Y_AUSENCIAS, _FELICITACIONES_EQUIPO_Y_JJVV, _TUBO_DE_TRABAJO, _CLIENTE_Y_RECORTE, _ERRORES, _LISTADO_Y_PERFIL, _CARGA_REVISION, _ENSAYO_REVISION, _CARTAS_Y_COMPROMISOS, _DIRECTIVA_Y_SOLICITANTE, _CAMBIO_DE_TRIMESTRE, _LIMITE_DE_FECHAS, _CLIENTE_DESDE_COMPROMISO, _AVISO_DE_EDICION, _COMENTARIOS, _RESPALDO, ):
+for _grupo in (_ACCESO, _MANTENEDORES, _INGRESO, _LISTADOS, _DESPLIEGUE, _VALIDACIONES, _ARCHIVOS_Y_FOTO, _ELIMINAR_Y_LISTADOS, _USUARIOS_ELIMINADOS, _TIEMPO_REAL, _RITMO_Y_COMPROMISOS, _RESULTADOS_Y_CALCULO, _CODES_SEARCH_AND_CHARTS, _REGLAS_PUNTAJE, _CIERRE_Y_AUSENCIAS, _FELICITACIONES_EQUIPO_Y_JJVV, _TUBO_DE_TRABAJO, _CLIENTE_Y_RECORTE, _ERRORES, _LISTADO_Y_PERFIL, _CARGA_REVISION, _ENSAYO_REVISION, _CARTAS_Y_COMPROMISOS, _DIRECTIVA_Y_SOLICITANTE, _CAMBIO_DE_TRIMESTRE, _LIMITE_DE_FECHAS, _CLIENTE_DESDE_COMPROMISO, _AVISO_DE_EDICION, _COMENTARIOS, _RESPALDO, _FUNCIONES_DE_CARGO, ):
     for _clase, _metodos in _grupo.items():
         ESPERADO.setdefault(_clase, {}).update(_metodos)

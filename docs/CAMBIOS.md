@@ -17,6 +17,39 @@ Nombres que cambiaron en la v27 (los textos antiguos los mencionan con el nombre
 | `core/qa/esperado_vNN.py` | `core/qa/esperado_<tema>.py` (mismo tema que su archivo de pruebas) |
 | `sql/*.sql` (todos) | `sql/sgr_django.sql` (estructura vigente) |
 
+## Versión 44
+
+Cada cargo guarda ahora sus **funciones según el descriptor de funciones 2026** y la **ficha personal** del funcionario las muestra (RF-050, HU-43). Se arma sobre la v43.
+
+### Qué cambia
+
+- Cada **cargo** tiene una **descripción** (opcional, hasta 500 caracteres) y una lista de **funciones** (hasta 600 caracteres cada una), que pueden ir agrupadas bajo un título (por ejemplo, «Atención de casos» en el Gestor Social) y se numeran en su orden.
+- Mantenedor nuevo **Funciones de cargos**, en Organización junto a Cargos: se crea, edita, archiva y restaura como los demás (no se elimina de verdad: se archiva). No acepta repetir el mismo texto en un cargo ni un orden fuera de 1 a 99. La ficha de un cargo también lista sus funciones, con el enlace para agregar una.
+- La **ficha personal** del funcionario tiene una sección nueva, **Funciones del cargo**: la descripción y las funciones de su cargo, agrupadas y numeradas. Se ve aunque la persona no tenga permiso para ver las metas, y si el cargo no tiene funciones lo dice.
+- Comando `python manage.py cargar_funciones_cargos`: carga los **siete cargos del descriptor** (Delegado, Gestor Social, Apoyo Administrativo, Organizaciones Comunitarias, Gestor de Compras y Proyectos, Gestión y Planificación y Coordinador de Servicios Comunitarios) con su descripción y sus 71 funciones. Se puede repetir: no duplica, no pisa lo que se editó a mano y no toca los demás cargos.
+- Permiso nuevo en «Roles y permisos» (**Funciones de cargo**): Coordinación puede verlas, igual que los cargos. Un cambio avisa en vivo a las pantallas abiertas.
+
+### Qué no cambia
+
+- Los cuatro cargos de demostración (Encargado Social, Coordinador de Terreno, Jefe de Delegación y Analista de Datos), sus ítems, metas y funcionarios siguen igual y **no traen funciones**. Los datos de la revisión no cargan el descriptor.
+- Las funciones no se miden ni puntúan: son informativas.
+
+### Base de datos
+
+- Migración `organization/0007_funciones_de_cargo_v44`: campo nuevo `organization_position.description` y tabla nueva `organization_positionfunction` (39 tablas en la base, 29 del proyecto).
+- `sql/sgr_django.sql`, `docs/DIAGRAMA_MODELOS.md`, el README y `DOCUMENTACION_CODIGO.md` quedan al día.
+- Después de desplegar hay que correr una vez `cargar_funciones_cargos` (y `seed_roles` para el permiso nuevo); `actualizar.sh` no lo hace solo.
+
+### Pruebas
+
+- Nuevo `core/test_funciones_de_cargo.py` (37 pruebas, catálogo QA V44-01): el texto del descriptor, el comando (repetirlo, no pisar lo editado, cargos que ya existen), las funciones agrupadas, la ficha, el mantenedor y los permisos.
+
+### ❓ Para confirmar
+
+- El descriptor trae siete cargos y el sistema, de demostración, cuatro con otros nombres. ¿Se cambian los de demostración por los del descriptor (y sus ítems y metas se reasignan) o conviven? Hoy conviven.
+- ¿Los textos del descriptor se cargaron como corresponden? Se corrigieron tildes y puntuación menores y las descripciones de cada cargo son un resumen de su introducción.
+- ¿Quién debe poder editar las funciones? Hoy solo el Super Usuario; Coordinación las ve.
+
 ## Versión 43
 
 Tres pendientes del análisis quedan hechos: el **aviso mientras se edita** (HU-47), los **comentarios con autor y fecha** (HU-45, RF-035) y el **respaldo diario** de la base y de los archivos (HU-46, RNF-010). Se arma sobre la v42.

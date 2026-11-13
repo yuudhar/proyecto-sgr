@@ -1798,6 +1798,16 @@ class PositionForm(CrudForm):
         return cleaned
 
 
+class PositionFunctionForm(CrudForm):
+
+    def clean(self):
+        cleaned = super().clean()
+        order = cleaned.get("order")
+        if order is not None and not 1 <= order <= 99:
+            self.add_error("order", "El orden va de 1 a 99.")
+        return cleaned
+
+
 class PositionItemForm(PositionForm):
 
     def clean(self):

@@ -62,6 +62,13 @@ class Delegation(BaseModel):
 class Position(BaseModel):
 
     name = models.CharField(max_length=100, verbose_name="nombre")
+    description = models.TextField(
+        max_length=500,
+        blank=True,
+        default="",
+        verbose_name="descripción del cargo",
+        help_text="Qué hace este cargo, tal como lo dice el descriptor de funciones.",
+    )
     valid_from = models.DateField(verbose_name="vigencia desde")
     valid_until = models.DateField(
         null=True, blank=True, verbose_name="vigencia hasta"
@@ -74,6 +81,40 @@ class Position(BaseModel):
 
     def __str__(self):
         return self.name
+
+
+class PositionFunction(BaseModel):
+    """Función de un cargo según el descriptor de funciones (RF-050); se muestra en la ficha personal."""
+
+    MAX_LENGTH = 600
+
+    position = models.ForeignKey(
+        Position,
+        on_delete=models.PROTECT,
+        related_name="functions",
+        verbose_name="cargo",
+    )
+    group = models.CharField(
+        max_length=100,
+        blank=True,
+        default="",
+        verbose_name="agrupación",
+        help_text="Opcional. Título bajo el que se agrupan varias funciones, por ejemplo «Atención de casos».",
+    )
+    order = models.PositiveSmallIntegerField(
+        default=1,
+        verbose_name="orden",
+        help_text="Posición de la función dentro de su cargo (1, 2, 3…).",
+    )
+    text = models.TextField(max_length=MAX_LENGTH, verbose_name="función")
+
+    class Meta:
+        ordering = ("position__name", "order", "id")
+        verbose_name = "Función de cargo"
+        verbose_name_plural = "Funciones de cargos"
+
+    def __str__(self):
+        return f"{self.position} · {self.order}. {self.text[:60]}"
 
 
 class Item(BaseModel):

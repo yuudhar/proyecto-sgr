@@ -47,7 +47,7 @@ Cada app tiene `models.py` (tablas), `admin.py` (Django Admin), `apps.py` y `mig
 
 ## 4. Modelo de datos
 
-38 tablas en la base `sgr_django`: 28 del proyecto, 6 del framework (usuarios, grupos, permisos, tipos de contenido, sesiones y registro del Admin), 3 de unión (usuario–grupo, usuario–permisos, grupo–permisos) y `django_migrations`.
+39 tablas en la base `sgr_django`: 29 del proyecto, 6 del framework (usuarios, grupos, permisos, tipos de contenido, sesiones y registro del Admin), 3 de unión (usuario–grupo, usuario–permisos, grupo–permisos) y `django_migrations`.
 
 | App | Tablas del proyecto |
 |---|---|
@@ -267,6 +267,15 @@ Comentario escrito en la ficha de una actividad, un compromiso o una evidencia. 
 | `text` | comentario | TextField | hasta 1000 caracteres (se valida en el formulario) |
 
 Opciones del modelo (`Meta`): `ordering` = `('created_at', 'id')`; índice `core_comment_target_idx` sobre (`entity`, `record_id`). Un comentario no se edita; al eliminarlo se archiva (`deleted_at`).
+
+#### `core/duties.py` (funciones del cargo en la ficha, v44, RF-050)
+
+- **`duties_of(position)`**: descripción y funciones vigentes de un cargo, agrupadas por su título y en el orden del descriptor. Devuelve `position`, `description`, `groups` (lista de `{"title", "items"}`, con cada función como `{"order", "text"}`) y `total`. Las funciones sin agrupación quedan en un solo grupo sin título; las archivadas no salen. `OfficerCrud.panel_context` la entrega siempre a la ficha, aunque la persona no tenga permiso para ver las metas.
+
+#### `organization/descriptor.py` y `core/management/commands/cargar_funciones_cargos.py` (v44)
+
+- `organization/descriptor.py`: el descriptor de funciones 2026 de las Delegaciones Municipales como datos: siete cargos (Delegado, Gestor Social, Apoyo Administrativo, Organizaciones Comunitarias, Gestor de Compras y Proyectos, Gestión y Planificación y Coordinador de Servicios Comunitarios) con su descripción y sus funciones.
+- `python manage.py cargar_funciones_cargos`: crea los cargos que falten (vigencia desde el 1 de enero de 2026), carga la descripción solo si está vacía y agrega las funciones que no existan con ese texto. Se puede repetir sin duplicar y no pisa lo que se editó a mano ni toca los demás cargos.
 
 #### `core/comments.py` (comentarios con autor y fecha, v43)
 
@@ -1135,7 +1144,11 @@ Atributos principales: `model` = `Officer`; `slug` = `'funcionarios'`; `icon` = 
 
 CRUD de cargos.
 
-Atributos principales: `model` = `Position`; `slug` = `'cargos'`; `icon` = `'bi-person-badge'`; `description` = `'Cargos con su período de vigencia.'`; `list_display` = `name, valid_from, valid_until`; `search_fields` = `name`; `form_fields` = `name, valid_from, valid_until`.
+Atributos principales: `model` = `Position`; `slug` = `'cargos'`; `icon` = `'bi-person-badge'`; `description` = `'Cargos con su descripción, sus funciones según el descriptor y su período de vigencia.'`; `list_display` = `name, valid_from, valid_until`; `search_fields` = `name, description`; `form_fields` = `name, description, valid_from, valid_until`. Desde la v44 la ficha del cargo lista sus **Funciones del cargo** y sus ítems.
+
+##### `PositionFunctionCrud` — hereda de `Crud` (v44)
+
+CRUD de funciones de cargo. `slug` = `'funciones-de-cargo'`; `icon` = `'bi-list-check'`; `form_fields` = `position, order, group, text`; `list_filters` = `position`. `validate_form` rechaza repetir el mismo texto (sin importar mayúsculas) dentro de un cargo; `PositionFunctionForm` exige un orden de 1 a 99. No se restaura una función mientras su cargo siga archivado. En el menú va dentro de Organización, junto a Cargos.
 
 ##### `PositionItemCrud` — hereda de `Crud`
 
@@ -1973,12 +1986,26 @@ Cargo de los funcionarios, con su período de vigencia.
 | Campo | Nombre visible | Tipo | Detalle |
 |---|---|---|---|
 | `name` | nombre | CharField | largo 100 |
+| `description` | descripción del cargo | TextField | hasta 500 caracteres; opcional (v44) |
 | `valid_from` | vigencia desde | DateField |  |
 | `valid_until` | vigencia hasta | DateField | admite nulo; opcional |
 
 Opciones del modelo (`Meta`): `ordering` = `('name',)`; `verbose_name` = `'Cargo'`; `verbose_name_plural` = `'Cargos'`.
 
 - **`__str__()`**: Texto con que se muestra el registro.
+
+##### `PositionFunction` — hereda de `BaseModel` (v44, RF-050)
+
+Función de un cargo según el descriptor de funciones 2026; se muestra en la ficha personal del funcionario.
+
+| Campo | Nombre visible | Tipo | Detalle |
+|---|---|---|---|
+| `position` | cargo | ForeignKey | relación con `Position`; nombre inverso `functions`; PROTECT |
+| `group` | agrupación | CharField | largo 100; opcional (título bajo el que se agrupan varias funciones) |
+| `order` | orden | PositiveSmallIntegerField | de 1 a 99; la numeración parte de 1 en cada agrupación |
+| `text` | función | TextField | hasta 600 caracteres |
+
+Opciones del modelo (`Meta`): `ordering` = `('position__name', 'order', 'id')`; `verbose_name` = `'Función de cargo'`; `verbose_name_plural` = `'Funciones de cargos'`.
 
 ##### `Item` — hereda de `BaseModel`
 
@@ -2723,6 +2750,7 @@ Las migraciones crean y modifican las tablas de cada app.
 - `0002_delegation_color.py`: agrega el campo `delegation.color`.
 - `0003_delegation_address_commune_item_description.py`: agrega el campo `delegation.address`; agrega el campo `delegation.commune`; agrega el campo `item.description`.
 - `0004_reglas_de_puntaje_v29.py`: agrega el campo `item.scores` («Otorga punto»).
+- `0007_funciones_de_cargo_v44.py`: agrega el campo `position.description`; crea la tabla de `PositionFunction` (`organization_positionfunction`).
 
 ### `planning`
 
@@ -3084,6 +3112,7 @@ Selector con buscador (v28). Los `<select>` con `data-searchable` y 8 opciones o
 - **Ventana modal**: formularios y buscador en ventana.
 - **Ventanas de SweetAlert2**: avisos y confirmaciones.
 - **Comentarios** (v43): lista y formulario de la sección Comentarios de las fichas (`.comment-*`).
+- **Funciones del cargo** (v44): descripción y listas numeradas de la ficha personal (`.duties-*`).
 - **Impresión**: estilos al imprimir.
 
 ## 14. Despliegue y configuración
@@ -3116,4 +3145,4 @@ Selector con buscador (v28). Los `<select>` con `data-searchable` y 8 opciones o
 
 | Archivo | Qué hace |
 |---|---|
-| `sql/sgr_django.sql` | Estructura completa de la base `sgr_django` (38 tablas: 28 del proyecto, 6 del framework, 3 de unión y `django_migrations`) para MariaDB 10.11 / MySQL 8, al día con las migraciones (incluye `planning_indicator.officer_id`). |
+| `sql/sgr_django.sql` | Estructura completa de la base `sgr_django` (39 tablas: 29 del proyecto, 6 del framework, 3 de unión y `django_migrations`) para MariaDB 10.11 / MySQL 8, al día con las migraciones (incluye `planning_indicator.officer_id`). |

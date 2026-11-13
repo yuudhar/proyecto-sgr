@@ -78,8 +78,17 @@ erDiagram
         int id PK
         datetime deleted_at "archivado"
         string name
+        text description
         date valid_from
         date valid_until
+    }
+    PositionFunction {
+        int id PK
+        datetime deleted_at "archivado"
+        int position_id FK
+        string group
+        int order
+        text text
     }
     PositionItem {
         int id PK
@@ -378,6 +387,7 @@ erDiagram
     Period ||--o{ Goal : "period"
     Position |o--o{ Goal : "position"
     Position ||--o{ Officer : "position"
+    Position ||--o{ PositionFunction : "position"
     Position ||--o{ PositionItem : "position"
     Service |o--o{ Activity : "service"
     Territory ||--o{ Commitment : "territory"
@@ -441,6 +451,7 @@ La multiplicidad sale del tipo de campo, pero hay reglas que un diagrama no mues
 | `Goal.period` | `Period` | muchos → uno (obligatoria) | — |
 | `Goal.position` | `Position` | muchos → uno (opcional) | Ver Goal.officer: meta del cargo, la reciben todos los funcionarios activos de ese cargo. |
 | `Officer.position` | `Position` | muchos → uno (obligatoria) | — |
+| `PositionFunction.position` | `Position` | muchos → uno (obligatoria) | — |
 | `PositionItem.position` | `Position` | muchos → uno (obligatoria) | PositionItem es la tabla intermedia (con ponderación y vigencia) entre Position e Item: relación muchos a muchos. |
 | `Activity.service` | `Service` | muchos → uno (opcional) | — |
 | `Commitment.territory` | `Territory` | muchos → uno (obligatoria) | El territorio debe pertenecer a la misma delegación del compromiso (validación del modelo). |

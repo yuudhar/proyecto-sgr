@@ -12,6 +12,7 @@ from core.access import active_delegation, default_delegation, request_delegatio
 from core import ui, uploads
 from core.audit import log_event
 from core.commitments import DEADLINE_LABELS, deadline_of, deadline_text, history_of, record_status
+from core.duties import duties_of
 from core.crud import CODE_COLUMN, Canvas, Cell, Col, Crud, Related, is_id, registry
 from core.forms import (
     ActivityEditForm,
@@ -32,6 +33,7 @@ from core.forms import (
     OfficerForm,
     PeriodForm,
     PositionForm,
+    PositionFunctionForm,
     PositionItemForm,
     RoleForm,
     SubAttentionForm,
@@ -63,6 +65,7 @@ from organization.models import (
     Officer,
     OrganizationLeader,
     Position,
+    PositionFunction,
     PositionItem,
     Service,
     Territory,
@@ -1156,23 +1159,28 @@ class OfficerCrud(Crud):
 
     def panel_context(self, request, obj):
         """RF-008: ficha personal con las metas del período, el avance, el cumplimiento y el aporte ponderado."""
+        # RF-050: las funciones del cargo según el descriptor van en la ficha aunque la persona no vea las metas.
+        context = {"duties": duties_of(obj.position)}
         if not request.user.has_perm("planning.view_indicator"):
-            return {}
+            return context
         periods = list(Period.objects.filter(deleted_at__isnull=True).order_by("-start_date"))
         chosen = request.GET.get("periodo", "")
         period = next((each for each in periods if str(each.pk) == chosen), None) or current_period()
         if period is None:
-            return {}
+            return context
         goals = list(Goal.objects.filter(deleted_at__isnull=True, period=period).select_related("item"))
         pace = pace_of(period)
         sheet = officer_summary(obj, period, goals, IndicatorIndex([goal.pk for goal in goals]), pace)
-        return {
-            "sheet": sheet,
-            "period": period,
-            "periods": periods,
-            "pace": sheet["pace"],
-            "recent": recent_activity([obj.pk], period, pace)[obj.pk],
-        }
+        context.update(
+            {
+                "sheet": sheet,
+                "period": period,
+                "periods": periods,
+                "pace": sheet["pace"],
+                "recent": recent_activity([obj.pk], period, pace)[obj.pk],
+            }
+        )
+        return context
 
     def extra_detail(self, obj):
         account = getattr(obj, "user_profile", None)
@@ -1210,14 +1218,56 @@ class PositionCrud(Crud):
     icon = "bi-person-badge"
     deletable = True
     state_filter = True
-    description = "Cargos con su período de vigencia."
+    description = "Cargos con su descripción, sus funciones según el descriptor y su período de vigencia."
     list_display = (Col("name", "Nombre", link=True), "valid_from", "valid_until")
-    search_fields = ("name",)
-    form_fields = ("name", "valid_from", "valid_until")
+    search_fields = ("name", "description")
+    form_fields = ("name", "description", "valid_from", "valid_until")
+    full_width = ("description",)
     rules = {"name": "label"}
     form_base = PositionForm
     unique_names = (("name", "valid_from"),)
-    related = (Related("items-de-cargo", "position", "Ítems del cargo"),)
+    related = (
+        Related("funciones-de-cargo", "position", "Funciones del cargo"),
+        Related("items-de-cargo", "position", "Ítems del cargo"),
+    )
+
+
+@registry.register
+class PositionFunctionCrud(Crud):
+    model = PositionFunction
+    slug = "funciones-de-cargo"
+    icon = "bi-list-check"
+    state_filter = True
+    description = "Funciones de cada cargo según el descriptor de funciones; se muestran en la ficha personal."
+    list_display = (
+        Col("position", "Cargo", link=True),
+        "order",
+        "group",
+        Col("text", "Función", sort=False),
+    )
+    search_fields = ("position__name", "group", "text")
+    list_filters = ("position",)
+    select_related = ("position",)
+    form_fields = ("position", "order", "group", "text")
+    full_width = ("text",)
+    rules = {"group": "label"}
+    form_base = PositionFunctionForm
+    bounds = {"order": {"min": "1", "max": "99"}}
+
+    def restore_blockers(self, obj):
+        if obj.position.deleted_at is not None:
+            return [f"Su cargo «{obj.position.name}» está archivado: restáuralo primero."]
+        return []
+
+    def validate_form(self, form, cleaned):
+        position, text = cleaned.get("position"), cleaned.get("text")
+        if position is None or not text or form.has_error("position") or form.has_error("text"):
+            return
+        same = PositionFunction.objects.filter(position=position, deleted_at__isnull=True, text__iexact=text)
+        if form.instance.pk:
+            same = same.exclude(pk=form.instance.pk)
+        if same.exists():
+            form.add_error("text", "Ese cargo ya tiene una función con ese mismo texto.")
 
 
 @registry.register

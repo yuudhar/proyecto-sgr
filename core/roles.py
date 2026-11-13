@@ -88,6 +88,7 @@ PERMISSION_MODULES = (
             ("Funcionarios", "organization.officer"),
             ("Territorios", "organization.territory"),
             ("Cargos", "organization.position"),
+            ("Funciones de cargo", "organization.positionfunction"),
             ("Ítems de cargo", "organization.positionitem"),
         ),
     ),

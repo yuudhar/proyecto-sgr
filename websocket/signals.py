@@ -37,6 +37,7 @@ LIVE_MODELS = {
     "operations.ManagementType": None,
     "organization.Delegation": None,
     "organization.Position": None,
+    "organization.PositionFunction": None,
     "organization.PositionItem": None,
     "organization.Item": None,
     "organization.Service": None,

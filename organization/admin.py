@@ -9,6 +9,7 @@ from .models import (
     Officer,
     OrganizationLeader,
     Position,
+    PositionFunction,
     PositionItem,
     Service,
     Territory,
@@ -113,3 +114,12 @@ class OrganizationLeaderAdmin(SoftDeleteAdminMixin, admin.ModelAdmin):
     list_filter = ("role",)
     list_select_related = ("organization",)
     ordering = ("organization__name", "name")
+
+
+@admin.register(PositionFunction)
+class PositionFunctionAdmin(SoftDeleteAdminMixin, admin.ModelAdmin):
+    list_display = ("position", "order", "group", "text")
+    search_fields = ("position__name", "group", "text")
+    list_filter = ("position",)
+    list_select_related = ("position",)
+    ordering = ("position__name", "order")
