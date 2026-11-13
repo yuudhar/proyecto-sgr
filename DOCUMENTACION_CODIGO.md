@@ -1008,6 +1008,7 @@ CRUD de compromisos de la agenda colectiva (los que no son de terreno: `queryset
 Atributos principales: `model` = `Commitment`; `slug` = `'agenda'`; `icon` = `'bi-calendar-check'`; `title` = `'Compromiso'`; `title_plural` = `'Compromisos'`; `description` = `'Compromisos con vecinos, organizaciones y la propia municipalidad.'`; `list_display` = `requester, territory, responsible_officer, due_date, status, requester_type`; `search_fields` = `requester, territory__name, description`; `form_fields` = `requester, requester_type, source, request_date, description, territory, due_date, support, status, notes, responsible_officer, delegation`.
 
 - **`initial_values(request)`**: Valores de partida: fecha de solicitud de hoy, el funcionario responsable de la persona y su delegación.
+- **`extra_actions(request, obj)`** (v42): Agrega «Crear cuenta de cliente» en la ficha de un compromiso de la agenda con solicitante externo, no archivado, a quien puede crear usuarios y beneficiarios (`can_create_clients`). Los compromisos de terreno, que heredan de esta clase, no lo muestran porque su persona ya viene de la atención.
 
 ##### `EvidenceCrud` — hereda de `Crud`
 
@@ -1161,6 +1162,7 @@ Control de usuarios: cuentas, perfiles y funcionario. Solo lo ve quien tiene per
 Atributos principales: `model` = `User`; `slug` = `'usuarios'`; `icon` = `'bi-people'`; `title` = `'Usuario'`; `title_plural` = `'Usuarios'`; `description` = `'Cuentas del sistema con su perfil y su delegación.'`; `archivable` = `False`; `ordering` = `-date_joined, -pk`; `list_display` = `username, full_name, email, roles, delegation_name, is_active, last_login`; `search_fields` = `username, first_name, last_name, email, groups__name, profile__officer__name, profile__officer__delegation__name`; `form_fields` = `username, first_name, last_name, email, groups, is_active, is_staff, is_superuser`.
 
 - **`extra_detail(obj)`**: Agrega al detalle los perfiles (roles), el funcionario, su delegación, las delegaciones autorizadas y el cargo.
+- **`initial_values(request)`** (v42): Con `?beneficiary=<id>` (lo manda la pantalla de cuenta de cliente) el formulario parte con el perfil Cliente y ese beneficiario elegidos, siempre que exista, no esté archivado y no tenga ya una cuenta.
 - **`record_meta(obj)`**: Texto con la fecha de creación de la cuenta y su último ingreso (o que todavía no ha ingresado).
 - **`prepare_object(request, obj, creating, form)`**: Al editar, guarda los perfiles, el funcionario y las delegaciones que tenía el usuario para la auditoría. Si se escribió una contraseña, la guarda con el hash de Django.
 - **`after_save(request, obj, form, creating)`**: Crea o actualiza el perfil del usuario (funcionario y estado), guarda las delegaciones adicionales y, al editar, deja en la auditoría los cambios de perfiles o funcionario y el restablecimiento de contraseña.
@@ -1281,6 +1283,7 @@ Es el listado de Actividades con una pantalla pensada para atender: un cuadro de
   Quien revisa solo ve las de la delegación en que trabaja: la que eligió arriba o, si no eligió, la de su funcionario, aunque además sea de Coordinación (así lo hace el formulario de validación del Admin). El superusuario que mira todas las ve todas. Sin delegación se responde 403.
 - **`evidence_file(request, pk)`**: Entrega el archivo de una evidencia. Solo a quien puede ver esa evidencia (permiso y delegación).
 - **`validate_list(request)`**: Lista las evidencias pendientes de revisión que la persona puede revisar (ordenadas por fecha de subida), marca las que ya fueron observadas y muestra las últimas validaciones registradas.
+- **`client_from_commitment(request, pk)`** (v42): del solicitante externo de un compromiso de la agenda colectiva a su cuenta de cliente. Pide los permisos para crear usuarios y beneficiarios (403 si faltan) y abre solo compromisos externos, no de terreno y de la delegación activa (404 si no). El compromiso solo guarda el nombre, así que pide el RUT con el formulario de Beneficiarios (`BeneficiaryCrud.form_class`, con las mismas reglas del RUT y los demás datos). Si el RUT ya es de un beneficiario no archivado lo reutiliza sin tocar sus datos; si ese beneficiario ya tiene cuenta, avisa con qué usuario ingresa; si no, crea el beneficiario y deja el evento «Beneficiario creado desde un compromiso» en la auditoría. Sigue a «Nuevo usuario» con `?beneficiary=<id>`.
 - **`validate_evidence(request, pk)`**: Formulario para revisar una evidencia. Rechaza a quien no tiene funcionario asociado (salvo superusuario) y a quien intenta validar una evidencia que él mismo subió. Al guardar, en una transacción registra la validación, cambia el estado de la evidencia según la decisión y deja el registro de auditoría. Si no, muestra la evidencia, su archivo y el historial de validaciones.
 - **`officer_results(officers, goals, indicators, period)`**: Resultados por funcionario: sus metas, el cumplimiento promedio y el semáforo.
 - **`delegation_board(request)`**: Tablero de una delegación para un período: toma los funcionarios activos de la delegación, calcula el resultado de cada uno con el último indicador de sus metas, el promedio de la delegación con su semáforo, el conteo por semáforo y las tarjetas de evidencias pendientes, compromisos abiertos y actividades del período (según permisos).
@@ -1308,6 +1311,7 @@ Rutas de las pantallas web: ingreso y salida, perfil, Atención, dashboard, fila
 | `/evidencias/<int:pk>/archivo/` | `views.evidence_file` | `evidence_file` |
 | `/evidencias/validar/` | `views.validate_list` | `validate_list` |
 | `/evidencias/<int:pk>/validar/` | `views.validate_evidence` | `validate_evidence` |
+| `/agenda/<int:pk>/cuenta-cliente/` | `views.client_from_commitment` | `client_from_commitment` |
 | `/tablero/delegacion/` | `views.delegation_board` | `delegation_board` |
 | `/informes/` | `views.reports` | `reports` |
 | `/administracion/` | `views.administration` | `administration` |
@@ -2704,6 +2708,7 @@ Plantillas de Django. Las de `templates/` son el marco general, los errores y la
 | `core/templates/core/delegation_board.html` | Tablero de delegación: promedio, semáforo, resultado de cada funcionario y tarjetas de pendientes. |
 | `core/templates/core/commitment_summary.html` | Resumen colectivo: compromisos por funcionario y estado, con % realizado y % por realizar, filtros de delegación y período y actualización en vivo. |
 | `core/templates/core/reports.html` | Informes: filtros de período y delegación, tabla por funcionario y botones para exportar a Excel, CSV o imprimir. |
+| `core/templates/core/client_from_commitment.html` | Cuenta de cliente desde un compromiso (v42): el RUT y los datos del beneficiario, con el nombre del solicitante ya escrito. |
 | `core/templates/core/validate_list.html` | Evidencias por revisar y últimas validaciones. |
 | `core/templates/core/validate_form.html` | Revisión de una evidencia: sus datos, el archivo, el formulario de decisión y las revisiones anteriores. |
 | `core/templates/core/crud/list.html` | Listado de un mantenedor: buscador, filtros, tabla, filas por página y paginación. |

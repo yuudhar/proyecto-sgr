@@ -20,6 +20,7 @@ from core.qa.esperado_cartas_y_compromisos import ESPERADO as _CARTAS_Y_COMPROMI
 from core.qa.esperado_directiva_y_solicitante import ESPERADO as _DIRECTIVA_Y_SOLICITANTE
 from core.qa.esperado_cambio_de_trimestre import ESPERADO as _CAMBIO_DE_TRIMESTRE
 from core.qa.esperado_limite_de_fechas import ESPERADO as _LIMITE_DE_FECHAS
+from core.qa.esperado_cliente_desde_compromiso import ESPERADO as _CLIENTE_DESDE_COMPROMISO
 from core.qa.esperado_cliente_y_recorte import ESPERADO as _CLIENTE_Y_RECORTE
 from core.qa.esperado_listado_y_perfil import ESPERADO as _LISTADO_Y_PERFIL
 from core.qa.esperado_carga_revision import ESPERADO as _CARGA_REVISION
@@ -108,6 +109,7 @@ REQUISITOS = {
     "V39-01": ("Versión 39", "Directiva de las organizaciones: registro propio (no beneficiario) con cargo, nombre, RUT y correo; un presidente, secretario y tesorero por organización, sin repetir RUT, con «Otro cargo» detallado, archivable y visible en la ficha de la organización"),
     "V39-02": ("Versión 39", "Tipo de solicitante en la atención: persona natural (RUT o nombre, como antes) u organización con la persona de su directiva que viene; cada grupo de campos aparece según el tipo, el servidor lo revisa y editar una atención puede cambiarlo"),
     "V40-01": ("Versión 40", "Cambio de trimestre de una atención: el funcionario lo pide (automático al trimestre siguiente o manual con fecha) y Jefatura lo aprueba o rechaza con su respuesta; al aprobar la atención toma la fecha nueva, con revisiones de trimestre abierto, de fecha no futura, de límite diario y de alcance por delegación"),
+    "V42-01": ("Versión 42", "Del solicitante externo de la agenda colectiva a su cuenta de cliente: botón en el compromiso, RUT, beneficiario creado o reutilizado y «Nuevo usuario» con el perfil Cliente ya elegido"),
     "V41-01": ("Versión 41", "Límite de 12 meses hacia atrás para las fechas de compromisos, gestiones, cartas, ausencias y cambios de trimestre: el navegador no deja elegir una fecha más antigua, el servidor la rechaza con un mensaje y los registros antiguos se siguen editando mientras no se cambie su fecha"),
     "V29-04": ("Versión 29", "Números de pocas opciones (por ejemplo 1 a 3) se eligen de una lista y no se pueden escribir mal"),
     "T11-04": ("Clase 11", "Dashboard, tablero y validar en vivo: el cambio de una persona se ve en la pantalla abierta de otra de la misma delegación, sin F5"),
@@ -358,6 +360,10 @@ CLASES = {
     "QuarterRequestTests": (["V40-01"], "Pedir el cambio de trimestre", _SEMILLA + "; sesión de Matías Cavieres (Norte); cuatro períodos creados en la prueba"),
     "QuarterResolutionTests": (["V40-01"], "Aprobar o rechazar el cambio de trimestre", _SEMILLA + "; sesiones de Jefatura Norte y Sur; cuatro períodos creados en la prueba"),
     "QuarterScreenTests": (["V40-01"], "Pantalla y permisos del cambio de trimestre", _SEMILLA + "; sesiones de Matías Cavieres, Jefatura y Consulta; cuatro períodos creados en la prueba"),
+    "ButtonTests": (["V42-01"], "Botón «Crear cuenta de cliente» en la agenda", _SEMILLA + "; sesión de Super Usuario y de Matías Cavieres (Norte); compromisos creados en la prueba"),
+    "CreationTests": (["V42-01"], "Beneficiario creado o reutilizado desde un compromiso", _SEMILLA + "; sesión de Super Usuario; compromiso externo creado en la prueba"),
+    "AccessTests": (["V42-01"], "Permisos y alcance de la pantalla de cuenta de cliente", _SEMILLA + "; sesiones de Matías Cavieres y de un usuario con permisos en Norte"),
+    "NewUserStartTests": (["V42-01"], "«Nuevo usuario» parte como cliente", _SEMILLA + "; sesión de Super Usuario"),
     "DateHelperTests": (["V41-01"], "Cálculo de la fecha más antigua que se acepta", _SIN_BD),
     "CommitmentLimitTests": (["V41-01"], "Límite de 12 meses en compromisos", _SEMILLA + "; sesión de Matías Cavieres (Norte); compromisos antiguos creados en la prueba"),
     "FollowupLimitTests": (["V41-01"], "Límite de 12 meses en gestiones", _SEMILLA + "; sesión de Matías Cavieres (Norte)"),
@@ -368,6 +374,6 @@ CLASES = {
 }
 
 ESPERADO = {}
-for _grupo in (_ACCESO, _MANTENEDORES, _INGRESO, _LISTADOS, _DESPLIEGUE, _VALIDACIONES, _ARCHIVOS_Y_FOTO, _ELIMINAR_Y_LISTADOS, _USUARIOS_ELIMINADOS, _TIEMPO_REAL, _RITMO_Y_COMPROMISOS, _RESULTADOS_Y_CALCULO, _CODES_SEARCH_AND_CHARTS, _REGLAS_PUNTAJE, _CIERRE_Y_AUSENCIAS, _FELICITACIONES_EQUIPO_Y_JJVV, _TUBO_DE_TRABAJO, _CLIENTE_Y_RECORTE, _ERRORES, _LISTADO_Y_PERFIL, _CARGA_REVISION, _ENSAYO_REVISION, _CARTAS_Y_COMPROMISOS, _DIRECTIVA_Y_SOLICITANTE, _CAMBIO_DE_TRIMESTRE, _LIMITE_DE_FECHAS, ):
+for _grupo in (_ACCESO, _MANTENEDORES, _INGRESO, _LISTADOS, _DESPLIEGUE, _VALIDACIONES, _ARCHIVOS_Y_FOTO, _ELIMINAR_Y_LISTADOS, _USUARIOS_ELIMINADOS, _TIEMPO_REAL, _RITMO_Y_COMPROMISOS, _RESULTADOS_Y_CALCULO, _CODES_SEARCH_AND_CHARTS, _REGLAS_PUNTAJE, _CIERRE_Y_AUSENCIAS, _FELICITACIONES_EQUIPO_Y_JJVV, _TUBO_DE_TRABAJO, _CLIENTE_Y_RECORTE, _ERRORES, _LISTADO_Y_PERFIL, _CARGA_REVISION, _ENSAYO_REVISION, _CARTAS_Y_COMPROMISOS, _DIRECTIVA_Y_SOLICITANTE, _CAMBIO_DE_TRIMESTRE, _LIMITE_DE_FECHAS, _CLIENTE_DESDE_COMPROMISO, ):
     for _clase, _metodos in _grupo.items():
         ESPERADO.setdefault(_clase, {}).update(_metodos)

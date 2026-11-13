@@ -30,6 +30,7 @@ urlpatterns = [
     path("evidencias/<int:pk>/validar/", views.validate_evidence, name="validate_evidence"),
     path("tablero/delegacion/", views.delegation_board, name="delegation_board"),
     path("agenda/resumen/", views.commitment_summary, name="commitment_summary"),
+    path("agenda/<int:pk>/cuenta-cliente/", views.client_from_commitment, name="client_from_commitment"),
     path("tablero/recalcular/", views.recalculate_indicators, name="recalculate_indicators"),
     path("resultados/cargos/", views.position_overview, name="position_overview"),
     path("informes/", views.reports, name="reports"),

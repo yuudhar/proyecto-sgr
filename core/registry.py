@@ -44,6 +44,7 @@ from core.results import current_period, officer_summary, weight_problems, weigh
 from core.photos import change_photo, photo_url_of, remove_photo
 from core.roles import (
     ACTIONS,
+    CLIENT_ROLE,
     PERMISSION_MODULES,
     SUPERUSER_ROLE,
     SYSTEM_GROUPS,
@@ -377,6 +378,22 @@ class CommitmentCrud(Crud):
         if delegation is not None:
             initial["delegation"] = delegation.pk
         return initial
+
+    def extra_actions(self, request, obj):
+        """v42: un solicitante externo de la agenda colectiva puede pasar a tener su cuenta de cliente."""
+        if (
+            obj.deleted_at is None
+            and not obj.physical
+            and obj.requester_type == Commitment.RequesterType.EXTERNAL
+            and can_create_clients(request.user)
+        ):
+            return [("Crear cuenta de cliente", reverse("core:client_from_commitment", args=[obj.pk]), "bi-person-plus")]
+        return []
+
+
+def can_create_clients(user):
+    """Crear una cuenta de cliente a partir de un compromiso pide los dos permisos: crear beneficiarios y crear usuarios."""
+    return user.has_perm("auth.add_user") and user.has_perm("organization.add_beneficiary")
 
 
 def compromisos_title(commitment):
@@ -1713,6 +1730,19 @@ class UserCrud(Crud):
         "last_login": "Último ingreso",
         "date_joined": "Cuenta creada el",
     }
+    def initial_values(self, request):
+        """v42: al llegar desde un compromiso, la cuenta parte con el perfil Cliente y el beneficiario ya elegidos."""
+        value = request.GET.get("beneficiary", "")
+        if not is_id(value):
+            return {}
+        free = Beneficiary.objects.filter(pk=value, deleted_at__isnull=True).exclude(
+            pk__in=UserProfile.objects.filter(beneficiary__isnull=False).values("beneficiary_id")
+        )
+        role = Group.objects.filter(name=CLIENT_ROLE).first()
+        if not free.exists() or role is None:
+            return {}
+        return {"beneficiary": int(value), "groups": [role.pk]}
+
     help_texts = {
         "username": "Con este nombre ingresa al sistema. Letras, números y . _ @ + -",
         "email": "Con este correo la persona recupera su contraseña. No puede repetirse entre usuarios.",
