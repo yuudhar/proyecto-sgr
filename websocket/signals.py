@@ -23,6 +23,7 @@ LIVE_MODELS = {
     "operations.Activity": "delegation",
     "operations.Followup": "activity__delegation",
     "operations.Commitment": "delegation",
+    "operations.QuarterChangeRequest": "delegation",
     "evidence.Evidence": "activity__delegation",
     "evidence.Validation": "evidence__activity__delegation",
     "planning.Goal": "officer__delegation",

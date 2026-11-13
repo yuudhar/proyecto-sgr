@@ -233,6 +233,24 @@ CREATE TABLE `operations_managementtype` (
   `name` varchar(80) NOT NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
+CREATE TABLE `operations_quarterchangerequest` (
+  `id` bigint(20) NOT NULL,
+  `created_at` datetime(6) NOT NULL,
+  `updated_at` datetime(6) NOT NULL,
+  `deleted_at` datetime(6) DEFAULT NULL,
+  `mode` varchar(20) NOT NULL,
+  `previous_date` date NOT NULL,
+  `new_date` date DEFAULT NULL,
+  `reason` longtext NOT NULL,
+  `status` varchar(20) NOT NULL,
+  `resolved_at` datetime(6) DEFAULT NULL,
+  `resolution_comment` longtext NOT NULL,
+  `activity_id` bigint(20) NOT NULL,
+  `delegation_id` bigint(20) NOT NULL,
+  `requested_by_id` int(11) NOT NULL,
+  `resolved_by_id` int(11) DEFAULT NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
 CREATE TABLE `organization_beneficiary` (
   `id` bigint(20) NOT NULL,
   `created_at` datetime(6) NOT NULL,
@@ -549,6 +567,14 @@ ALTER TABLE `operations_managementtype`
   ADD PRIMARY KEY (`id`),
   ADD UNIQUE KEY `name` (`name`);
 
+ALTER TABLE `operations_quarterchangerequest`
+  ADD PRIMARY KEY (`id`),
+  ADD KEY `operations_quarterch_activity_id_344e439b_fk_operation` (`activity_id`),
+  ADD KEY `operations_quarterch_delegation_id_f734a566_fk_organizat` (`delegation_id`),
+  ADD KEY `operations_quarterch_requested_by_id_b6b7c0bf_fk_auth_user` (`requested_by_id`),
+  ADD KEY `operations_quarterch_resolved_by_id_19b8fafe_fk_auth_user` (`resolved_by_id`),
+  ADD KEY `operations_quarterchangerequest_status_ec5245c8` (`status`);
+
 ALTER TABLE `organization_beneficiary`
   ADD PRIMARY KEY (`id`),
   ADD UNIQUE KEY `rut` (`rut`);
@@ -682,6 +708,9 @@ ALTER TABLE `operations_followup`
 ALTER TABLE `operations_managementtype`
   MODIFY `id` bigint(20) NOT NULL AUTO_INCREMENT;
 
+ALTER TABLE `operations_quarterchangerequest`
+  MODIFY `id` bigint(20) NOT NULL AUTO_INCREMENT;
+
 ALTER TABLE `organization_beneficiary`
   MODIFY `id` bigint(20) NOT NULL AUTO_INCREMENT;
 
@@ -791,6 +820,12 @@ ALTER TABLE `operations_commitment`
 ALTER TABLE `operations_followup`
   ADD CONSTRAINT `operations_followup_activity_id_0498eb10_fk_operation` FOREIGN KEY (`activity_id`) REFERENCES `operations_activity` (`id`),
   ADD CONSTRAINT `operations_followup_management_type_id_99f8051b_fk_operation` FOREIGN KEY (`management_type_id`) REFERENCES `operations_managementtype` (`id`);
+
+ALTER TABLE `operations_quarterchangerequest`
+  ADD CONSTRAINT `operations_quarterch_activity_id_344e439b_fk_operation` FOREIGN KEY (`activity_id`) REFERENCES `operations_activity` (`id`),
+  ADD CONSTRAINT `operations_quarterch_delegation_id_f734a566_fk_organizat` FOREIGN KEY (`delegation_id`) REFERENCES `organization_delegation` (`id`),
+  ADD CONSTRAINT `operations_quarterch_requested_by_id_b6b7c0bf_fk_auth_user` FOREIGN KEY (`requested_by_id`) REFERENCES `auth_user` (`id`),
+  ADD CONSTRAINT `operations_quarterch_resolved_by_id_19b8fafe_fk_auth_user` FOREIGN KEY (`resolved_by_id`) REFERENCES `auth_user` (`id`);
 
 ALTER TABLE `organization_communityorganization`
   ADD CONSTRAINT `organization_communi_territory_id_524b5f27_fk_organizat` FOREIGN KEY (`territory_id`) REFERENCES `organization_territory` (`id`);

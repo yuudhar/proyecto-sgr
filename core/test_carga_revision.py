@@ -23,7 +23,7 @@ from core.datos_prueba import cargar_datos_prueba
 from core.management.commands import cargar_datos_revision as carga
 from core.models import AuditLog
 from evidence.models import Evidence, Validation
-from operations.models import Activity, Commitment, Followup
+from operations.models import Activity, Commitment, Followup, QuarterChangeRequest
 from organization.models import Beneficiary, Delegation, Item
 from planning import calculation
 from planning.models import Adjustment, Feedback, Indicator, Period
@@ -173,12 +173,14 @@ class ReviewDataVolumeTests(RevisionTestCase):
     def test_the_attentions_respect_the_business_rules(self):
         limite = settings.DAILY_ENTRY_LIMIT
         por_dia = {}
+        con_cambio_de_trimestre = set(QuarterChangeRequest.objects.values_list("activity_id", flat=True))
         for actividad in Activity.objects.select_related("author_officer", "item", "item__parent_item", "beneficiary"):
             self.assertEqual(actividad.delegation_id, actividad.author_officer.delegation_id)
             self.assertEqual(actividad.counts_for_score, actividad.score_reason() == "", actividad.pk)
             clave = (actividad.author_officer_id, actividad.date)
             por_dia[clave] = por_dia.get(clave, 0) + 1
-            self.assertGreaterEqual(actividad.date, carga.FECHA_BASE - timedelta(days=carga.DIAS_ATRAS))
+            if actividad.pk not in con_cambio_de_trimestre:  # esas están en diciembre de 2025 o enero de 2026
+                self.assertGreaterEqual(actividad.date, carga.FECHA_BASE - timedelta(days=carga.DIAS_ATRAS))
             self.assertLessEqual(actividad.date, carga.FECHA_BASE)
             self.assertLess(actividad.date.weekday(), 5)
         self.assertLessEqual(max(por_dia.values()), limite)
@@ -203,6 +205,24 @@ class ReviewDataVolumeTests(RevisionTestCase):
         self.assertEqual(calculation.recalculate_period(periodo), 0)
         self.assertEqual(Adjustment.objects.count(), Feedback.objects.filter(effective=True).count())
         self.assertGreaterEqual(Adjustment.objects.count(), carga.MINIMO_POR_CRUD)
+
+    def test_the_quarter_requests_come_in_the_three_states_with_their_own_attention(self):
+        from operations.quarters import period_of
+
+        estados = {s: QuarterChangeRequest.objects.filter(status=s).count() for s in QuarterChangeRequest.Status.values}
+        self.assertTrue(all(estados.values()), estados)
+        for solicitud in QuarterChangeRequest.objects.select_related("activity"):
+            self.assertEqual(solicitud.delegation_id, solicitud.activity.delegation_id)
+            self.assertEqual(period_of(solicitud.previous_date).status, Period.Status.CLOSED)
+            self.assertEqual(period_of(solicitud.new_date).status, Period.Status.ACTIVE)
+            esperada = solicitud.new_date if solicitud.status == QuarterChangeRequest.Status.APPROVED else solicitud.previous_date
+            self.assertEqual(solicitud.activity.date, esperada)
+            if solicitud.status == QuarterChangeRequest.Status.PENDING:
+                self.assertIsNone(solicitud.resolved_by)
+            else:
+                self.assertIsNotNone(solicitud.resolved_by)
+            if solicitud.status == QuarterChangeRequest.Status.REJECTED:
+                self.assertTrue(solicitud.resolution_comment)
 
     def test_the_command_does_not_depend_on_the_day_it_runs(self):
         fuente = Path(carga.__file__).read_text(encoding="utf-8")

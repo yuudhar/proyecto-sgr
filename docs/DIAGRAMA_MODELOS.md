@@ -163,6 +163,21 @@ erDiagram
         datetime deleted_at "archivado"
         string name UK
     }
+    QuarterChangeRequest {
+        int id PK
+        datetime deleted_at "archivado"
+        int activity_id FK
+        int delegation_id FK
+        string mode
+        date previous_date
+        date new_date
+        text reason
+        string status
+        int requested_by_id FK
+        int resolved_by_id FK "opcional"
+        datetime resolved_at
+        text resolution_comment
+    }
     Evidence {
         int id PK
         datetime deleted_at "archivado"
@@ -314,6 +329,7 @@ erDiagram
 
     Activity ||--o{ Evidence : "activity"
     Activity ||--o{ Followup : "activity"
+    Activity ||--o{ QuarterChangeRequest : "activity"
     Adjustment |o--o| Feedback : "adjustment"
     Beneficiary |o--o{ Activity : "beneficiary"
     Beneficiary |o--o| UserProfile : "beneficiary"
@@ -323,6 +339,7 @@ erDiagram
     Delegation ||--o{ Activity : "delegation"
     Delegation ||--o{ Commitment : "delegation"
     Delegation ||--o{ Officer : "delegation"
+    Delegation ||--o{ QuarterChangeRequest : "delegation"
     Delegation ||--o{ Territory : "delegation"
     Delegation |o--o{ UserRoleDelegation : "delegation"
     Evidence ||--o{ Validation : "evidence"
@@ -359,6 +376,8 @@ erDiagram
     User ||--o{ Adjustment : "responsible_user"
     User ||--o{ AuditLog : "user"
     User ||--o{ Feedback : "registered_by"
+    User ||--o{ QuarterChangeRequest : "requested_by"
+    User |o--o{ QuarterChangeRequest : "resolved_by"
     User ||--o| UserProfile : "user"
     User ||--o{ UserRoleDelegation : "user"
 ```
@@ -371,6 +390,7 @@ La multiplicidad sale del tipo de campo, pero hay reglas que un diagrama no mues
 | --- | --- | --- | --- |
 | `Evidence.activity` | `Activity` | muchos → uno (obligatoria) | — |
 | `Followup.activity` | `Activity` | muchos → uno (obligatoria) | Hasta tres gestiones por atención, numeradas 1, 2 y 3 (restricción única atención + número). |
+| `QuarterChangeRequest.activity` | `Activity` | muchos → uno (obligatoria) | — |
 | `Feedback.adjustment` | `Adjustment` | uno → uno (opcional) | El ajuste (bonificación o penalización) lo genera el sistema al registrar la felicitación o el reclamo. |
 | `Activity.beneficiary` | `Beneficiary` | muchos → uno (opcional) | Una atención es de una persona (beneficiario) o de una organización: al menos una de las dos. |
 | `UserProfile.beneficiary` | `Beneficiary` | uno → uno (opcional) | Solo cuentas del perfil Cliente. Un perfil es de un funcionario o de un beneficiario, nunca de ambos. |
@@ -380,6 +400,7 @@ La multiplicidad sale del tipo de campo, pero hay reglas que un diagrama no mues
 | `Activity.delegation` | `Delegation` | muchos → uno (obligatoria) | Debe ser la misma delegación del funcionario autor (validación del modelo); se guarda para filtrar rápido. |
 | `Commitment.delegation` | `Delegation` | muchos → uno (obligatoria) | — |
 | `Officer.delegation` | `Delegation` | muchos → uno (obligatoria) | Define el ámbito (organización A o B) que ve el funcionario y su cuenta. |
+| `QuarterChangeRequest.delegation` | `Delegation` | muchos → uno (obligatoria) | — |
 | `Territory.delegation` | `Delegation` | muchos → uno (obligatoria) | El nombre del territorio es único dentro de cada delegación (restricción única nombre + delegación). |
 | `UserRoleDelegation.delegation` | `Delegation` | muchos → uno (opcional) | Delegaciones adicionales en las que una cuenta ejerce un rol; sin delegación vale para todas. |
 | `Validation.evidence` | `Evidence` | muchos → uno (obligatoria) | Una evidencia puede revisarse varias veces; la decisión de cada revisión (aprobada, observada o rechazada) actualiza su estado de revisión. |
@@ -416,5 +437,7 @@ La multiplicidad sale del tipo de campo, pero hay reglas que un diagrama no mues
 | `Adjustment.responsible_user` | `User` | muchos → uno (obligatoria) | — |
 | `AuditLog.user` | `User` | muchos → uno (obligatoria) | Quién hizo el cambio; el registro de auditoría no se borra ni se archiva. |
 | `Feedback.registered_by` | `User` | muchos → uno (obligatoria) | — |
+| `QuarterChangeRequest.requested_by` | `User` | muchos → uno (obligatoria) | — |
+| `QuarterChangeRequest.resolved_by` | `User` | muchos → uno (opcional) | — |
 | `UserProfile.user` | `User` | uno → uno (obligatoria) | Cada cuenta tiene un perfil; el perfil enlaza la cuenta con su funcionario o con su beneficiario. |
 | `UserRoleDelegation.user` | `User` | muchos → uno (obligatoria) | Una cuenta puede ejercer el mismo rol en varias delegaciones (restricción única usuario + rol + delegación). |

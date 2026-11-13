@@ -26,7 +26,7 @@ from core.rules import collapse_spaces, get_rule, normalize_lines
 from core.search import plain_letter, word_pattern
 from core.widgets import ColorWidget, DelegationsWidget, DependentSelect, LookupWidget, PermissionMatrixWidget, RolesWidget
 from evidence.models import Validation
-from operations.models import Commitment, Followup
+from operations.models import Commitment, Followup, QuarterChangeRequest
 from organization.models import (
     Beneficiary,
     CommunityOrganization,
@@ -1814,3 +1814,55 @@ class ValidationForm(BootstrapFormMixin, forms.ModelForm):
         if needs_reason and not (cleaned.get("notes") or "").strip():
             self.add_error("notes", "Escribe el motivo para que el funcionario pueda corregirlo.")
         return cleaned
+
+
+class QuarterRequestForm(CrudForm):
+    """Pedir el cambio de trimestre de una atención: automático (al primer día del trimestre siguiente) o manual
+    (con una fecha nueva). La fecha solo se ve y se pide en modo manual."""
+
+    DATE_MESSAGE = "La fecha nueva no puede ser futura."
+
+    def customize_fields(self):
+        self.fields["mode"].required = False
+        self.fields["mode"].initial = QuarterChangeRequest.Mode.AUTOMATIC
+        self.fields["new_date"].help_text = "Tiene que caer en otro trimestre (abierto) y no puede ser futura."
+        self.fields["activity"].empty_label = "Selecciona la atención"
+        self.note = (
+            "Jefatura revisa la solicitud: hasta que la apruebe, la atención conserva su fecha. "
+            "Si se aprueba, la atención pasa al trimestre de la fecha nueva."
+        )
+
+    def bounds(self):
+        found = self.until_today(self.DATE_MESSAGE)
+        found.update({"data-show-if": f"id_mode:{QuarterChangeRequest.Mode.MANUAL.value}", "data-required-when-shown": "1"})
+        return {"new_date": found}
+
+    def clean(self):
+        cleaned = super().clean()
+        mode = cleaned.get("mode") or QuarterChangeRequest.Mode.AUTOMATIC.value
+        cleaned["mode"] = mode
+        if mode == QuarterChangeRequest.Mode.AUTOMATIC.value:
+            cleaned["new_date"] = None
+            self.instance.new_date = None
+        return cleaned
+
+
+class QuarterResolveForm(CrudForm):
+    """Jefatura aprueba o rechaza la solicitud; al rechazar tiene que explicar por qué."""
+
+    def customize_fields(self):
+        request = self.instance
+        if request.pk:
+            source, target = request.from_period, request.to_period
+
+            def trimestre(period):
+                return f"{ui.fmt_date(period.start_date)} al {ui.fmt_date(period.end_date)}" if period else "sin trimestre"
+
+            self.note = (
+                f"{request.requested_by.get_full_name() or request.requested_by.username} pide pasar la atención "
+                f"«{ui.humanize_dates(request.activity)}» del {ui.fmt_date(request.previous_date)} ({trimestre(source)}) al "
+                f"{ui.fmt_date(request.new_date)} ({trimestre(target)}). Motivo: {request.reason}"
+            )
+        self.fields["status"].label = "Resolución"
+        self.fields["resolution_comment"].label = "Respuesta"
+        self.fields["resolution_comment"].help_text = "Obligatoria si se rechaza."

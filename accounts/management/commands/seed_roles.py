@@ -3,7 +3,7 @@ from django.contrib.contenttypes.models import ContentType
 from django.core.management.base import BaseCommand
 
 from evidence.models import Evidence, Validation
-from operations.models import Activity, Commitment, Followup
+from operations.models import Activity, Commitment, Followup, QuarterChangeRequest
 from organization.models import Item, Officer, Position, PositionItem, Service, Territory
 from planning.models import Absence, Adjustment, Feedback, Goal, Indicator, Period
 
@@ -35,6 +35,7 @@ ROLES = {
         (Feedback, ["add_feedback", "change_feedback", "view_feedback"]),
         (Activity, ["view_activity"]),
         (Commitment, ["view_commitment", "change_commitment"]),
+        (QuarterChangeRequest, ["view_quarterchangerequest", "change_quarterchangerequest"]),
         (Followup, ["view_followup"]),
         (Indicator, ["view_indicator"]),
         (Evidence, ["view_evidence"]),
@@ -47,6 +48,7 @@ ROLES = {
         (Followup, ["add_followup", "change_followup", "view_followup"]),
         (Evidence, ["add_evidence", "change_evidence", "view_evidence"]),
         (Commitment, ["add_commitment", "change_commitment", "view_commitment"]),
+        (QuarterChangeRequest, ["add_quarterchangerequest", "view_quarterchangerequest"]),
         (Officer, ["view_officer"]),
         (Territory, ["view_territory"]),
     ],

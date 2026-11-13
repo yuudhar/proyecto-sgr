@@ -32,6 +32,7 @@ from datetime import date, datetime, time, timedelta
 from io import StringIO
 
 from django.apps import apps
+from django.conf import settings
 from django.contrib.auth import get_user_model
 from django.contrib.auth.models import Group, Permission
 from django.contrib.auth.password_validation import validate_password
@@ -47,7 +48,7 @@ from accounts.models import UserProfile
 from core.audit import log_event
 from core.management.commands.cargar_volumen_estres import digito_verificador
 from evidence.models import Evidence, Validation
-from operations.models import Activity, Commitment, Followup, ManagementType
+from operations.models import Activity, Commitment, Followup, ManagementType, QuarterChangeRequest
 from organization.models import (
     Beneficiary,
     CommunityOrganization,
@@ -92,6 +93,7 @@ AUSENCIAS = 55
 BENEFICIARIOS = 400  # compartidos entre delegaciones
 ORGANIZACIONES = 80  # compartidas entre delegaciones
 ATENCIONES_CON_COMPROMISO = 40
+CAMBIOS_DE_TRIMESTRE = (20, 25, 10)  # por delegación: pendientes, aprobadas y rechazadas
 DIRECTIVOS_MAXIMO = 3  # directivos (además de presidente, secretario y tesorero) por organización
 
 # --- Ámbitos -----------------------------------------------------------------------------------------------------
@@ -319,6 +321,19 @@ DESCRIPCIONES_RECLAMO = [
     "Reclama porque no le devolvieron el llamado que pidió.",
 ]
 NOTAS_AUSENCIA = ["Licencia médica", "Vacaciones", "Trámite personal", "Emergencia familiar", "Día compensatorio"]
+MOTIVOS_TRIMESTRE = [
+    "La atención se hizo en Navidad y se ingresó con retraso: corresponde al trimestre de enero.",
+    "Quedó registrada con fecha de fin de año, pero se realizó en la primera semana de enero.",
+    "El usuario solo pudo ser atendido después de las fiestas de fin de año.",
+    "La fecha se ingresó mal al cierre del trimestre y la atención corresponde al siguiente.",
+    "Se atendió a la organización en la primera reunión del año, no en diciembre.",
+    "La visita estaba agendada para diciembre y se realizó en enero por el feriado.",
+]
+RESPUESTAS_TRIMESTRE_RECHAZADO = [
+    "Esa semana ya estaba cerrada y la atención se hizo en diciembre.",
+    "No hay respaldo de que la atención fuera en enero.",
+    "La atención se realizó en la fecha original: no corresponde el cambio.",
+]
 CARGOS_OTROS = ["Delegado de calle", "Director suplente", "Encargado de actividades", "Delegado de seguridad"]
 TIPOS_ORGANIZACION = ["Junta de Vecinos", "Club de Adulto Mayor", "Comité de Vivienda", "Centro de Madres", "Club Deportivo"]
 
@@ -436,6 +451,7 @@ class Command(BaseCommand):
             self.metas()
             self.compromisos_de_terreno()
             self.directivas_y_solicitantes()
+            self.cambios_de_trimestre()
         creados = calculation.recalculate_period(self.periodo)
         self.stdout.write(f"Indicadores nuevos calculados: {creados}.")
 
@@ -999,6 +1015,112 @@ class Command(BaseCommand):
             cambiadas.append(actividad)
         Activity._base_manager.bulk_update(cambiadas, ["organization_leader", "contact_name"], batch_size=500)
         self.stdout.write(f"Directivas: {len(filas)} integrantes; atenciones de organización con su directivo: {len(cambiadas)}.")
+
+    # ------------------------------------------------------------------------------------------------------------
+    # Cambios de trimestre
+    # ------------------------------------------------------------------------------------------------------------
+    def cambios_de_trimestre(self):
+        """Solicitudes de pasar una atención de fines de 2025 (período cerrado) a enero de 2026, en los tres estados.
+
+        Cada solicitud trae su propia atención: las pendientes y las rechazadas siguen en diciembre y las aprobadas ya
+        están en enero. Los datos de la revisión tienen un solo período por año, así que este es el único cambio de
+        período posible. Las atenciones se agregan aparte (sin tocar las del resto del cargador) y, si ya hay
+        solicitudes en la delegación, no se vuelve a crear nada.
+        """
+        azar = random.Random(SEMILLA + 40)  # azar propio: no cambia nada de lo que generan los demás cargadores
+        pendientes, aprobadas, rechazadas = CAMBIOS_DE_TRIMESTRE
+        cuantas = pendientes + aprobadas + rechazadas
+        pide, resuelve = self.usuario["editor_a"], self.usuario["admin_a"]
+        enero = date(2026, 1, 1)
+        total = 0
+        for ambito in AMBITOS:
+            letra = ambito["letra"]
+            delegacion = self.delegacion[letra]
+            terreno = self.de_terreno(letra)
+            existentes = QuarterChangeRequest._base_manager.filter(delegation=delegacion).count()
+            carga = {}  # (funcionario, día) -> atenciones de ese día, para respetar el máximo diario
+            filas = []
+            for i in range(cuantas):
+                funcionario = terreno[i % len(terreno)]
+                persona = azar.choice(self.beneficiarios)
+                estado = (
+                    QuarterChangeRequest.Status.PENDING if i < pendientes
+                    else QuarterChangeRequest.Status.APPROVED if i < pendientes + aprobadas
+                    else QuarterChangeRequest.Status.REJECTED
+                )
+                automatica = azar.random() < 0.6
+                while True:
+                    diciembre = dia_habil(date(2025, 12, 1) + timedelta(days=azar.randint(0, 30)))
+                    if carga.get((funcionario.pk, diciembre), 0) < settings.DAILY_ENTRY_LIMIT:
+                        carga[(funcionario.pk, diciembre)] = carga.get((funcionario.pk, diciembre), 0) + 1
+                        break
+                nueva = enero
+                if not automatica:
+                    while True:
+                        nueva = dia_habil(date(2026, 1, 2) + timedelta(days=azar.randint(0, 28)))
+                        if carga.get((funcionario.pk, nueva), 0) < settings.DAILY_ENTRY_LIMIT:
+                            carga[(funcionario.pk, nueva)] = carga.get((funcionario.pk, nueva), 0) + 1
+                            break
+                aplicada = estado == QuarterChangeRequest.Status.APPROVED
+                atencion = Activity(
+                    date=nueva if aplicada else diciembre,
+                    request_description=azar.choice(SOLICITUDES) + ".",
+                    action_taken=azar.choice(ACCIONES_TOMADAS),
+                    contact_name=persona.name,
+                    phone=persona.phone or "",
+                    beneficiary=persona,
+                    status=Activity.Status.CLOSED,
+                    item=elegir_con_peso(azar, self.items),
+                    service=azar.choice(self.servicios + [None]),
+                    delegation=delegacion,
+                    author_officer=funcionario,
+                )
+                atencion.refresh_scoring()
+                resuelta = estado != QuarterChangeRequest.Status.PENDING
+                filas.append(
+                    (
+                        atencion,
+                        QuarterChangeRequest(
+                            delegation=delegacion,
+                            mode=QuarterChangeRequest.Mode.AUTOMATIC if automatica else QuarterChangeRequest.Mode.MANUAL,
+                            previous_date=diciembre,
+                            new_date=nueva,
+                            reason=azar.choice(MOTIVOS_TRIMESTRE),
+                            status=estado,
+                            requested_by=pide,
+                            resolved_by=resuelve if resuelta else None,
+                            resolved_at=momento(date(2026, 1, 5) + timedelta(days=i % 20), i) if resuelta else None,
+                            resolution_comment=(
+                                azar.choice(RESPUESTAS_TRIMESTRE_RECHAZADO)
+                                if estado == QuarterChangeRequest.Status.REJECTED
+                                else ("De acuerdo." if resuelta and azar.random() < 0.5 else "")
+                            ),
+                        ),
+                    )
+                )
+            if existentes >= cuantas:
+                continue
+            clave = lambda a: (a.author_officer_id, a.date, a.beneficiary_id, a.contact_name)  # noqa: E731
+            ya_estan = set(
+                Activity._base_manager.filter(author_officer__in={a.author_officer for a, _ in filas}, date__lt=date(2026, 2, 1))
+                .values_list("author_officer_id", "date", "beneficiary_id", "contact_name")
+            )
+            nuevas = [(a, q) for a, q in filas if clave(a) not in ya_estan]
+            Activity.objects.bulk_create([a for a, _ in nuevas], batch_size=200)
+            guardadas = {
+                clave(a): a
+                for a in Activity._base_manager.filter(author_officer__in={a.author_officer for a, _ in nuevas}, date__lt=date(2026, 2, 1))
+            }
+            solicitudes = []
+            for atencion, solicitud in nuevas:
+                guardada = guardadas[clave(atencion)]
+                guardada.created_at = momento(solicitud.previous_date, guardada.pk)
+                solicitud.activity = guardada
+                solicitudes.append(solicitud)
+            Activity.objects.bulk_update([guardadas[clave(a)] for a, _ in nuevas], ["created_at"], batch_size=200)
+            QuarterChangeRequest.objects.bulk_create(solicitudes, batch_size=200)
+            total += len(solicitudes)
+        self.stdout.write(f"Cambios de trimestre: {total} solicitudes (pendientes, aprobadas y rechazadas) con su atención.")
 
     def gestiones(self):
         azar = self.azar

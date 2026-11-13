@@ -27,6 +27,8 @@ from core.forms import (
     IndicatorForm,
     ItemForm,
     LeaderForm,
+    QuarterRequestForm,
+    QuarterResolveForm,
     OfficerForm,
     PeriodForm,
     PositionForm,
@@ -51,7 +53,7 @@ from core.roles import (
 )
 from evidence.models import Evidence, Validation
 from operations import pipeline
-from operations.models import Activity, Commitment, Followup, ManagementType
+from operations.models import Activity, Commitment, Followup, ManagementType, QuarterChangeRequest
 from organization.models import (
     Beneficiary,
     CommunityOrganization,
@@ -230,6 +232,7 @@ class ActivityCrud(Crud):
     related = (
         Related("gestiones", "activity", "Gestiones de atención"),
         Related("evidencias", "activity", "Evidencias"),
+        Related("cambios-trimestre", "activity", "Cambios de trimestre"),
     )
 
     @property
@@ -452,6 +455,130 @@ class FieldCommitmentCrud(CommitmentCrud):
 
     def after_move(self, request, obj, previous):
         record_status(request.user, obj, previous, obj.status)
+
+
+def trimestre_text(period):
+    if period is None:
+        return "Sin trimestre"
+    return f"{ui.fmt_date(period.start_date)} al {ui.fmt_date(period.end_date)}"
+
+
+def trimestre_title(request_):
+    activity = request_.activity
+    return f"{activity.item.name} · {activity.contact_name or 'sin contacto'}" if activity.item_id else str(activity)
+
+
+def trimestre_kpis(queryset):
+    counts = {row["status"]: row["total"] for row in queryset.order_by().values("status").annotate(total=Count("pk"))}
+    Status = QuarterChangeRequest.Status
+    return [
+        {"label": "Solicitudes", "value": sum(counts.values()), "hint": "Cambios de trimestre pedidos", "tone": "bad"},
+        {"label": "Pendientes", "value": counts.get(Status.PENDING.value, 0), "hint": "Esperando a Jefatura", "tone": "warn"},
+        {"label": "Aprobadas", "value": counts.get(Status.APPROVED.value, 0), "hint": "La atención ya cambió de fecha", "tone": "ok"},
+        {"label": "Rechazadas", "value": counts.get(Status.REJECTED.value, 0), "hint": "La atención conserva su fecha", "tone": "bad"},
+    ]
+
+
+@registry.register
+class QuarterChangeRequestCrud(Crud):
+    model = QuarterChangeRequest
+    slug = "cambios-trimestre"
+    icon = "bi-calendar2-range"
+    gender = "f"
+    archivable = False
+    code_prefix = "TRI"
+    code_digits = 5
+    title = "Solicitud de cambio de trimestre"
+    title_plural = "Cambios de trimestre"
+    list_title = "Cambios de trimestre"
+    description = (
+        "El funcionario pide pasar una atención a otro trimestre (por ejemplo, una de diciembre a enero) y Jefatura "
+        "la aprueba o la rechaza. Al aprobar, la atención toma la fecha nueva."
+    )
+    canvas = Canvas(
+        group_by="status",
+        title=trimestre_title,
+        lines=(
+            ("Fecha actual", lambda r: f"{ui.fmt_date(r.previous_date)} · {trimestre_text(r.from_period)}"),
+            ("Fecha nueva", lambda r: f"{ui.fmt_date(r.new_date)} · {trimestre_text(r.to_period)}"),
+            ("Cómo", lambda r: r.get_mode_display()),
+            ("Pide", lambda r: r.requested_by.get_full_name() or r.requested_by.username),
+            ("Motivo", lambda r: r.reason if len(r.reason) <= 90 else r.reason[:87].rstrip() + "…"),
+            ("Respuesta", lambda r: r.resolution_comment),
+        ),
+        tones={"pending": "warn", "approved": "ok", "rejected": "bad"},
+        kpis=trimestre_kpis,
+        empty="Sin solicitudes",
+    )
+    delegation_lookup = "delegation"
+    list_display = (
+        Col("activity", "Atención", link=True),
+        "previous_date",
+        "new_date",
+        "mode",
+        "status",
+        Col("requested_by", "Pide"),
+        Col("resolved_by", "Resuelve"),
+    )
+    search_fields = ("activity__contact_name", "activity__item__name", "reason", "requested_by__username")
+    list_filters = ("status", "mode", "delegation")
+    select_related = ("activity", "activity__item", "delegation", "requested_by", "resolved_by")
+    form_base = QuarterResolveForm
+    create_form_base = QuarterRequestForm
+    form_fields = ("status", "resolution_comment")
+    create_fields = ("activity", "mode", "new_date", "reason")
+    create_heading = "Pedir cambio de trimestre"
+    create_save_label = "Enviar solicitud"
+    create_add_another = False
+    full_width = ("reason", "resolution_comment")
+    rules = {"reason": "text", "resolution_comment": "text"}
+    help_texts = {"activity": "Una atención de tu delegación."}
+
+    @property
+    def new_label(self):
+        return "Pedir cambio de trimestre"
+
+    def can_change_object(self, request, obj):
+        # Resolverla es cosa de una sola vez: aprobada o rechazada, la solicitud queda como registro.
+        return super().can_change_object(request, obj) and obj.is_pending
+
+    def validate_form(self, form, cleaned):
+        if "status" not in form.fields:
+            return
+        rejected = cleaned.get("status") == QuarterChangeRequest.Status.REJECTED
+        if rejected and not form.has_error("resolution_comment") and not (cleaned.get("resolution_comment") or "").strip():
+            form.add_error("resolution_comment", "Explica por qué se rechaza la solicitud.")
+
+    def prepare_object(self, request, obj, creating, form):
+        super().prepare_object(request, obj, creating, form)
+        if creating:
+            obj.requested_by = request.user
+            obj.delegation = obj.activity.delegation
+        elif obj.status != QuarterChangeRequest.Status.PENDING and obj.resolved_by_id is None:
+            obj.resolved_by = request.user
+            obj.resolved_at = timezone.now()
+
+    def after_save(self, request, obj, form, creating):
+        if creating or form.initial.get("status") != QuarterChangeRequest.Status.PENDING.value:
+            return
+        if obj.status != QuarterChangeRequest.Status.APPROVED:
+            return
+        activity = obj.activity
+        old = activity.date
+        obj.apply()
+        log_event(
+            request.user,
+            "Cambio de trimestre aprobado",
+            activity,
+            previous=f"Fecha: {ui.fmt_date(old)}",
+            new=f"Fecha: {ui.fmt_date(obj.new_date)}",
+        )
+
+    def extra_detail(self, obj):
+        return [
+            ("Trimestre actual", Cell(text=trimestre_text(obj.from_period))),
+            ("Trimestre de destino", Cell(text=trimestre_text(obj.to_period))),
+        ]
 
 
 @registry.register
