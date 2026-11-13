@@ -192,6 +192,12 @@ Cada cargo tiene una **descripción** y una lista de **funciones**, según el de
 - `python manage.py cargar_funciones_cargos` carga los siete cargos del descriptor (Delegado, Gestor Social, Apoyo Administrativo, Organizaciones Comunitarias, Gestor de Compras y Proyectos, Gestión y Planificación y Coordinador de Servicios Comunitarios) con sus funciones. Se puede repetir sin duplicar nada y no pisa lo editado a mano.
 - Los cargos de demostración (Encargado Social, Coordinador de Terreno, Jefe de Delegación y Analista de Datos) no traen funciones; se les pueden agregar desde Funciones de cargos.
 
+### Corregir los datos de revisión (v45)
+
+- `python manage.py corregir_datos_revision` muestra qué cambiaría en los datos de revisión ya cargados (cargos, identificadores, compromisos, ausencias, cambios de trimestre y metas) para que tengan sentido entre sí. No guarda nada.
+- `python manage.py corregir_datos_revision --aplicar` guarda los cambios. Se puede repetir sin problema. Después de corregir, no se debe volver a correr `cargar_datos_revision`.
+- Para crear las cuentas `editor_b` y `admin_b` de la Delegación Sur se entrega la contraseña con `--password` o con la variable `SGR_REVISION_PASSWORD`.
+
 ### Respaldo y restauración
 
 El respaldo guarda la base de datos y los archivos subidos (evidencias y fotos). Cada respaldo son tres archivos con la misma marca de fecha y hora de Santiago (`sgr-AAAAMMDD-HHMMSS`) en `BACKUP_DIR` (por defecto `respaldos/`, y en AWS `/opt/sgr/respaldos`, que no se sube a git):

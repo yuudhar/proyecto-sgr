@@ -277,6 +277,12 @@ Opciones del modelo (`Meta`): `ordering` = `('created_at', 'id')`; índice `core
 - `organization/descriptor.py`: el descriptor de funciones 2026 de las Delegaciones Municipales como datos: siete cargos (Delegado, Gestor Social, Apoyo Administrativo, Organizaciones Comunitarias, Gestor de Compras y Proyectos, Gestión y Planificación y Coordinador de Servicios Comunitarios) con su descripción y sus funciones.
 - `python manage.py cargar_funciones_cargos`: crea los cargos que falten (vigencia desde el 1 de enero de 2026), carga la descripción solo si está vacía y agrega las funciones que no existan con ese texto. Se puede repetir sin duplicar y no pisa lo que se editó a mano ni toca los demás cargos.
 
+#### `core/management/commands/corregir_datos_revision.py` (v45)
+
+- Comando que deja coherentes los datos de revisión ya cargados. Sin `--aplicar` corre dentro de una transacción que se deshace (simulación) y muestra cuántos registros cambiaría por paso; con `--aplicar` guarda y deja un evento en la auditoría. `--solo` elige pasos y `--password` entrega la clave de `editor_b` y `admin_b`.
+- Pasos, en este orden: `cargos` (cargos de demostración → cargos del descriptor 2026, ítems de cargo al 100 %), `identificadores` (`REV-N-001` → `F-1001`), `clasificacion` (servicio, ítem y visita según la solicitud, con la tabla `CLASIFICACION`), `estados` (estado de la atención según sus acciones y gestiones), `compromisos` (los de tubo y de terreno salen de su atención; sin fechas de solicitud futuras; vencidos que avanzan), `ausencias` (observación según el tipo, días hábiles, sin atenciones encima), `trimestres` (orden de fechas y cuentas de Sur) y `metas` (meta alcanzable y recálculo).
+- Solo toca lo que reconoce como dato de revisión (textos de solicitud, orígenes de compromiso, observaciones de ausencia, motivos de cambio de trimestre, cargos de demostración). Se puede repetir: lo ya corregido no cambia.
+
 #### `core/comments.py` (comentarios con autor y fecha, v43)
 
 - **`CommentForm`**: formulario del comentario (solo el texto, `textarea` de 3 filas con `data-keep-draft` para no perder lo escrito en una actualización en vivo). `clean_text` quita espacios y rechaza el texto vacío.
