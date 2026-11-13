@@ -9,3 +9,4 @@ db.sqlite3
 COMMIT
 staticfiles/
 media/
+respaldos/

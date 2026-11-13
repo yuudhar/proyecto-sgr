@@ -136,7 +136,7 @@ class EnsayoPaso1AplicacionYDatosTests(EnsayoTestCase):
         respuesta = Client(HTTP_HOST="localhost").get("/salud/")
         self.assertEqual(respuesta.status_code, 200)
         datos = respuesta.json()
-        self.assertEqual({"servicio", "base_de_datos", "cache", "version", "commit", "entorno"}, set(datos))
+        self.assertEqual({"servicio", "base_de_datos", "cache", "version", "commit", "entorno", "respaldo"}, set(datos))
         self.assertEqual((datos["servicio"], datos["base_de_datos"], datos["cache"]), ("ok", "ok", "ok"))
         self.assertEqual(datos["entorno"], "desarrollo" if settings.DEBUG else "producción")
         self.assertEqual(datos["version"], (BASE / "VERSION").read_text(encoding="utf-8").strip())

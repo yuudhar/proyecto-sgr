@@ -8,7 +8,7 @@ from django.core.exceptions import FieldDoesNotExist, ObjectDoesNotExist, Permis
 from django.core.paginator import Paginator
 from django.db import IntegrityError, models, transaction
 from django.forms import modelform_factory
-from django.http import HttpResponse, JsonResponse
+from django.http import Http404, HttpResponse, JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import path, reverse
 from django.utils.http import urlencode
@@ -16,12 +16,12 @@ from django.utils import timezone
 from django.views import View
 from django.views.generic import RedirectView
 
-from core import export, ui
+from core import comments, export, ui
 from core.audit import changed_fields, log_event, log_export
 from core.access import active_delegation, delegation_id_of, request_delegation
 from core.colors import HEX_COLOR
 from core.forms import CrudForm
-from core.models import AuditLog, BaseModel
+from core.models import AuditLog, BaseModel, Comment
 from core.search import word_pattern
 from websocket.services import notify_crud_change
 
@@ -72,6 +72,12 @@ DUPLICATE_TEXT = (
     "Revisa los datos y vuelve a guardar."
 )
 MAX_CHANGE_TEXT = 300
+WATCH_TEXT = (
+    "Otra persona modificó este registro mientras lo editas{who}. "
+    "Lo que escribiste sigue aquí. Si guardas, el sistema te pedirá revisar los datos antes de continuar."
+)
+GONE_TEXT = "Este registro ya no está disponible: otra persona lo eliminó o dejó de estar a tu alcance."
+ARCHIVED_TEXT = "Otra persona archivó este registro mientras lo editabas. Ya no se puede guardar."
 
 
 def last_change_text(obj):
@@ -99,6 +105,10 @@ def last_change_text(obj):
 
 def conflict_message(obj):
     return CONFLICT_TEXT.format(who=last_change_text(obj))
+
+
+def watch_message(obj):
+    return WATCH_TEXT.format(who=last_change_text(obj))
 
 
 @dataclass
@@ -307,6 +317,8 @@ class Crud:
 
     related = ()
     detail_panel = ""
+    # La ficha lleva la sección «Comentarios» (atención, compromisos y evidencias).
+    comments = False
     list_redirect = ""
     canvas = None
     # Filtro fijo del listado cuando dos pantallas comparten un mismo modelo (por ejemplo Agenda y Compromisos).
@@ -904,6 +916,29 @@ class Registry:
                         name=crud.route_name("update"),
                     )
                 )
+            if crud.allow_change:
+                patterns.append(
+                    path(
+                        f"{slug}/<int:pk>/revisar/",
+                        CrudCheckView.as_view(crud=crud),
+                        name=crud.route_name("check"),
+                    )
+                )
+            if crud.comments:
+                patterns.append(
+                    path(
+                        f"{slug}/<int:pk>/comentar/",
+                        CrudCommentView.as_view(crud=crud),
+                        name=crud.route_name("comment"),
+                    )
+                )
+                patterns.append(
+                    path(
+                        f"{slug}/<int:pk>/comentarios/<int:comment_pk>/eliminar/",
+                        CrudCommentDeleteView.as_view(crud=crud),
+                        name=crud.route_name("comment_delete"),
+                    )
+                )
             if crud.canvas and crud.canvas.movable and crud.allow_change:
                 patterns.append(
                     path(
@@ -1258,6 +1293,7 @@ class CrudDetailView(CrudView):
             "obj_name": ui.humanize_dates(obj),
             "breadcrumbs": self.breadcrumbs((ui.humanize_dates(obj), None)),
             "extra_actions": crud.extra_actions(request, obj),
+            "comments": comments.panel(request, crud, obj, archived),
         }
         return render(request, "core/crud/detail.html", context)
 
@@ -1323,6 +1359,7 @@ class CrudFormView(CrudView):
             "obj_name": "" if creating else ui.humanize_dates(obj),
             "has_checks": any(f.widget_type == "checkbox" for f in form),
             "version": "" if creating else version_of(obj),
+            "watch_url": crud.url("check", obj.pk) if not creating and crud.allow_change else "",
             "cancel_url": crud.url("list") if creating else crud.url("detail", obj.pk),
             "can_add_another": crud.can_add(request.user) and (crud.create_add_another or not creating),
             "archive_url": crud.url("archive", obj.pk) if can_archive else "",
@@ -1446,6 +1483,84 @@ class CrudUpdateView(ChangeObjectMixin, CrudFormView):
                 return self.render_form(request, form, obj)
             return self.finish(request, obj, self.crud.say("updated", obj))
         return self.render_form(request, form, obj)
+
+
+class CrudCheckView(ChangeObjectMixin, CrudView):
+    """Dice si el registro cambió desde que se abrió el formulario de edición (aviso mientras se edita).
+
+    No envía datos del registro: solo si cambió y, en ese caso, quién y cuándo hizo el último cambio,
+    el mismo texto que ya muestra el aviso al guardar. Se consulta cuando el WebSocket avisa un cambio.
+    """
+
+    def get(self, request, pk):
+        try:
+            obj = self.load(request, pk)
+        except Http404:
+            return JsonResponse({"stale": True, "gone": True, "message": GONE_TEXT})
+        if self.crud.is_archived(obj):
+            return JsonResponse({"stale": True, "gone": True, "message": ARCHIVED_TEXT})
+        opened = request.GET.get("abierta", "")
+        if not opened or opened == version_of(obj):
+            return JsonResponse({"stale": False})
+        return JsonResponse({"stale": True, "gone": False, "message": watch_message(obj)})
+
+
+class CrudCommentView(CrudView):
+    """Agrega un comentario a la ficha de un registro. Basta con poder verlo y tener permiso para comentar."""
+
+    action = "view"
+
+    def post(self, request, pk):
+        crud = self.crud
+        obj = self.get_object(request, pk)
+        if crud.is_archived(obj) or not request.user.has_perm("core.add_comment"):
+            raise PermissionDenied
+        back = crud.url("detail", obj.pk) + "#comentarios"
+        form = comments.CommentForm(request.POST)
+        if not form.is_valid():
+            messages.error(request, " ".join(form.errors["text"]))
+            return redirect(back)
+        with transaction.atomic():
+            comment = form.save(commit=False)
+            comment.entity = obj.__class__.__name__
+            comment.record_id = obj.pk
+            comment.author = request.user
+            comment.delegation_id = delegation_id_of(obj, crud.delegation_lookup) if crud.delegation_lookup else None
+            comment.save()
+            log_event(
+                request.user,
+                "Comentario agregado",
+                comment,
+                new=f"{obj.__class__.__name__}#{obj.pk}: {comments.audit_text(comment.text)}",
+            )
+        messages.success(request, "Comentario agregado.")
+        return redirect(back)
+
+
+class CrudCommentDeleteView(CrudView):
+    """Elimina un comentario: solo quien lo escribió o quien tiene el permiso de eliminar comentarios."""
+
+    action = "view"
+
+    def post(self, request, pk, comment_pk):
+        crud = self.crud
+        obj = self.get_object(request, pk)
+        comment = get_object_or_404(
+            Comment, pk=comment_pk, entity=obj.__class__.__name__, record_id=obj.pk, deleted_at__isnull=True
+        )
+        if not comments.can_delete(request.user, comment):
+            raise PermissionDenied
+        with transaction.atomic():
+            comment.deleted_at = timezone.now()
+            comment.save()
+            log_event(
+                request.user,
+                "Comentario eliminado",
+                comment,
+                previous=f"{obj.__class__.__name__}#{obj.pk}: {comments.audit_text(comment.text)}",
+            )
+        messages.success(request, "Comentario eliminado.")
+        return redirect(crud.url("detail", obj.pk) + "#comentarios")
 
 
 class CrudMoveView(ChangeObjectMixin, CrudView):

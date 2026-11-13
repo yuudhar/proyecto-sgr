@@ -2,6 +2,7 @@ from django.contrib.auth.models import Group, Permission
 from django.contrib.contenttypes.models import ContentType
 from django.core.management.base import BaseCommand
 
+from core.models import Comment
 from evidence.models import Evidence, Validation
 from operations.models import Activity, Commitment, Followup, QuarterChangeRequest
 from organization.models import Item, Officer, Position, PositionItem, Service, Territory
@@ -22,6 +23,7 @@ ROLES = {
         (Indicator, ["view_indicator"]),
         (Adjustment, ["add_adjustment", "change_adjustment", "view_adjustment"]),
         (Absence, ["add_absence", "change_absence", "view_absence"]),
+        (Comment, ["add_comment", "view_comment"]),
         (Feedback, ["view_feedback"]),
         (Position, ["view_position"]),
         (Item, ["view_item"]),
@@ -32,6 +34,7 @@ ROLES = {
     ],
     "Jefatura": [
         (Absence, ["add_absence", "change_absence", "view_absence"]),
+        (Comment, ["add_comment", "view_comment"]),
         (Feedback, ["add_feedback", "change_feedback", "view_feedback"]),
         (Activity, ["view_activity"]),
         (Commitment, ["view_commitment", "change_commitment"]),
@@ -51,11 +54,13 @@ ROLES = {
         (QuarterChangeRequest, ["add_quarterchangerequest", "view_quarterchangerequest"]),
         (Officer, ["view_officer"]),
         (Territory, ["view_territory"]),
+        (Comment, ["add_comment", "view_comment"]),
     ],
     "Verificador": [
         (Evidence, ["view_evidence"]),
         (Activity, ["view_activity"]),
         (Validation, ["add_validation", "change_validation", "view_validation"]),
+        (Comment, ["add_comment", "view_comment"]),
     ],
     "Consulta": [
         (Activity, ["view_activity"]),
@@ -64,6 +69,7 @@ ROLES = {
         (Evidence, ["view_evidence"]),
         (Validation, ["view_validation"]),
         (Followup, ["view_followup"]),
+        (Comment, ["view_comment"]),
     ],
     # El cliente (beneficiario con cuenta) no recibe permisos de módulos: su acceso es el portal, filtrado por usuario.
     "Cliente": [],

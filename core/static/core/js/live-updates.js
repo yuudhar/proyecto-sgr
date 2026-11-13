@@ -23,6 +23,33 @@ function signature(region) {
   return copy.innerHTML;
 }
 
+// Lo que la persona está escribiendo (por ejemplo, un comentario) no se pierde cuando otra persona
+// cambia algo y la región se vuelve a dibujar: se guarda antes y se devuelve después, con el foco.
+function keepDrafts(region) {
+  const active = document.activeElement;
+  return [...region.querySelectorAll("[data-keep-draft]")]
+    .filter((field) => field.id)
+    .map((field) => ({
+      id: field.id,
+      value: field.value,
+      focused: field === active,
+      start: field.selectionStart,
+      end: field.selectionEnd,
+    }));
+}
+
+function restoreDrafts(drafts) {
+  drafts.forEach((draft) => {
+    const field = document.getElementById(draft.id);
+    if (!field) return;
+    if (draft.value) field.value = draft.value;
+    if (draft.focused) {
+      field.focus();
+      if (draft.start !== null) field.setSelectionRange(draft.start, draft.end);
+    }
+  });
+}
+
 function startLive({ sources, selector, message }) {
   let refreshTimer = null;
   let pollTimer = null;
@@ -55,7 +82,9 @@ function startLive({ sources, selector, message }) {
       const next = fresh.querySelector(selector);
       if (!region || !next) return;
       if (signature(region) === signature(next)) return; // nada cambió para esta persona: no se toca la pantalla
+      const drafts = keepDrafts(region);
       region.replaceWith(next);
+      restoreDrafts(drafts);
       setState(current.text, current.tone); // la región nueva trae el indicador oculto: se vuelve a mostrar
       const status = document.querySelector("[data-live-status]");
       if (status) status.textContent = message.status;

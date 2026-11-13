@@ -30,6 +30,7 @@ LIVE_MODELS = {
     "planning.Indicator": "officer__delegation",
     "planning.Adjustment": "officer__delegation",
     "planning.Feedback": "officer__delegation",
+    "core.Comment": "delegation",
     "planning.Period": None,
     "organization.Officer": "delegation",
     # Catálogos y datos generales: avisan a todas las delegaciones (fichas, Atención, informes y listados).

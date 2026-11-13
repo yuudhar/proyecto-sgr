@@ -210,6 +210,12 @@ MEDIA_ROOT = Path(os.environ.get("MEDIA_ROOT") or (BASE_DIR / "media"))
 MEDIA_URL = "media/"
 if sys.argv[1:2] == ["test"]:
     MEDIA_ROOT = Path(tempfile.mkdtemp(prefix="sgr-pruebas-media-"))
+# Respaldos diarios de la base y de los archivos subidos (deploy/instalar_respaldo.sh y comando «respaldar»).
+BACKUP_DIR = Path(os.environ.get("BACKUP_DIR") or (BASE_DIR / "respaldos"))
+if sys.argv[1:2] == ["test"]:
+    BACKUP_DIR = Path(tempfile.mkdtemp(prefix="sgr-pruebas-respaldos-"))
+BACKUP_KEEP_DAYS = _env_int("BACKUP_KEEP_DAYS", 14)
+BACKUP_MAX_AGE_HOURS = _env_int("BACKUP_MAX_AGE_HOURS", 36)
 EVIDENCE_MAX_MB = 10
 PHOTO_MAX_MB = 2
 PHOTO_SIDE_PX = 512

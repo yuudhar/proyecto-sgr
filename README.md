@@ -183,6 +183,23 @@ La configuración se lee desde el archivo `.env`, que se crea a partir de `.env.
 | `CSRF_TRUSTED_ORIGINS`, `HTTPS`, `BEHIND_PROXY` | publicación detrás de Apache o nginx con HTTPS |
 | `CACHE_BACKEND`, `REDIS_URL` | caché compartida (la usa el chequeo de `/salud/`): `locmem`, `redis` o `db` |
 | `MEDIA_ROOT` | carpeta de los archivos subidos (evidencias y fotos); vacío = carpeta `media/` del proyecto |
+| `BACKUP_DIR`, `BACKUP_KEEP_DAYS`, `BACKUP_MAX_AGE_HOURS` | respaldo diario (ver *Respaldo y restauración*): carpeta, días que se guardan (14) y horas tras las cuales `/salud/` lo marca atrasado (36) |
+
+### Respaldo y restauración
+
+El respaldo guarda la base de datos y los archivos subidos (evidencias y fotos). Cada respaldo son tres archivos con la misma marca de fecha y hora de Santiago (`sgr-AAAAMMDD-HHMMSS`) en `BACKUP_DIR` (por defecto `respaldos/`, y en AWS `/opt/sgr/respaldos`, que no se sube a git):
+
+| Archivo | Contenido |
+|---|---|
+| `sgr-AAAAMMDD-HHMMSS-base.sql.gz` | la base de datos (volcado de `mysqldump` en MariaDB/MySQL; en SQLite, una copia de la base) |
+| `sgr-AAAAMMDD-HHMMSS-archivos.tar.gz` | los archivos subidos |
+| `sgr-AAAAMMDD-HHMMSS.json` | el manifiesto: versión del sistema, tamaños y huellas sha256 |
+
+- **A mano:** `python manage.py respaldar` hace un respaldo, borra los de más de 14 días (siempre deja los últimos 3) y lista lo que hay. `--listar` solo lista; `--sin-limpiar` no borra; `--dias N` cambia los días.
+- **Cada día:** en AWS, `deploy/actualizar.sh` instala (con `deploy/instalar_respaldo.sh`) el temporizador `sgr-respaldo.timer`, que corre todos los días a las 03:30 hora del servidor (si estaba apagado, apenas arranca). Se ve con `systemctl list-timers sgr-respaldo.timer` y `journalctl -u sgr-respaldo`. Hace falta `mysqldump` (paquete `mariadb105` en Amazon Linux 2023; el instalador lo agrega).
+- **Restaurar:** `python manage.py restaurar_respaldo sgr-AAAAMMDD-HHMMSS` solo muestra qué se haría; con `--confirmar` restaura. Antes de tocar nada comprueba las huellas y guarda una copia de seguridad del estado actual (`sgr-antes-de-restaurar-…`, que no se borra por antigüedad). `--sin-archivos` restaura solo la base. En el servidor, con el servicio detenido: `sudo systemctl stop sgr`, `sudo bash -c 'set -a; . /etc/sgr/sgr.env; set +a; sudo -E -u sgr /opt/sgr/venv/bin/python /opt/sgr/app/manage.py restaurar_respaldo <sello> --confirmar'` y `sudo systemctl start sgr`.
+- **Estado:** `/salud/` agrega `respaldo` (fecha y edad del último respaldo diario). Es informativo: un respaldo atrasado no hace caer el servicio.
+- La contraseña de la base nunca va en el comando: `mysqldump` y `mysql` la reciben por la variable de entorno `MYSQL_PWD`.
 
 ### Ejemplo de configuración sin secretos
 
@@ -272,7 +289,7 @@ Comandos de datos (`python manage.py <comando>`):
 | `cargar_volumen_estres` | Carga un volumen grande de registros marcados como prueba (`--limpiar` los borra); necesita funcionarios e ítems ya creados |
 | `exportar_registro_pruebas` | Genera `docs/pruebas/registro_pruebas_funcionales.csv` y `.xlsx` |
 
-La carpeta `sql/` tiene un solo archivo, **`sgr_django.sql`**: la estructura de la base del servidor (`sgr_django`, 37 tablas, MariaDB/MySQL, sin datos ni contraseñas), al día con las migraciones de Django. Sirve para crear la base a mano en phpMyAdmin; con `python manage.py migrate` se obtiene lo mismo.
+La carpeta `sql/` tiene un solo archivo, **`sgr_django.sql`**: la estructura de la base del servidor (`sgr_django`, 38 tablas, MariaDB/MySQL, sin datos ni contraseñas), al día con las migraciones de Django. Sirve para crear la base a mano en phpMyAdmin; con `python manage.py migrate` se obtiene lo mismo.
 
 **Zonas horarias en MariaDB:** los informes agrupan por fecha en hora de Chile y necesitan las tablas de zonas horarias del motor. Se cargan una vez con:
 
@@ -408,6 +425,7 @@ Resultado de ejecutar el comando sobre una base recién migrada (la misma tabla 
 | Modelo | Total | Vigentes | Archivados |
 |---|---|---|---|
 | `core.AuditLog` | 6 | 6 | 0 |
+| `core.Comment` | 0 | 0 | 0 |
 | `organization.Delegation` | 2 | 2 | 0 |
 | `organization.Position` | 4 | 4 | 0 |
 | `organization.Item` | 5 | 5 | 0 |

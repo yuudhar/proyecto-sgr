@@ -46,6 +46,8 @@
 
   {% if panel_template %}{% include panel_template %}{% endif %}
 
+  {% if comments %}{% include "core/partials/comments.html" %}{% endif %}
+
   {% for block in blocks %}
   <section class="panel" aria-label="{{ block.title }}">
     <div class="panel-head">

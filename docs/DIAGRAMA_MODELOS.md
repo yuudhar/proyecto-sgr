@@ -310,6 +310,15 @@ erDiagram
         text new_value
         int user_id FK
     }
+    Comment {
+        int id PK
+        datetime deleted_at "archivado"
+        string entity
+        int record_id
+        int delegation_id FK "opcional"
+        int author_id FK
+        text text
+    }
     User {
         int id PK
         datetime last_login
@@ -337,6 +346,7 @@ erDiagram
     CommunityOrganization |o--o{ Activity : "organization"
     CommunityOrganization ||--o{ OrganizationLeader : "organization"
     Delegation ||--o{ Activity : "delegation"
+    Delegation |o--o{ Comment : "delegation"
     Delegation ||--o{ Commitment : "delegation"
     Delegation ||--o{ Officer : "delegation"
     Delegation ||--o{ QuarterChangeRequest : "delegation"
@@ -375,6 +385,7 @@ erDiagram
     User |o--o{ Absence : "registered_by"
     User ||--o{ Adjustment : "responsible_user"
     User ||--o{ AuditLog : "user"
+    User ||--o{ Comment : "author"
     User ||--o{ Feedback : "registered_by"
     User ||--o{ QuarterChangeRequest : "requested_by"
     User |o--o{ QuarterChangeRequest : "resolved_by"
@@ -398,6 +409,7 @@ La multiplicidad sale del tipo de campo, pero hay reglas que un diagrama no mues
 | `Activity.organization` | `CommunityOrganization` | muchos → uno (opcional) | Ver Activity.beneficiary: persona u organización, no es obligatorio tener ambas. |
 | `OrganizationLeader.organization` | `CommunityOrganization` | muchos → uno (obligatoria) | — |
 | `Activity.delegation` | `Delegation` | muchos → uno (obligatoria) | Debe ser la misma delegación del funcionario autor (validación del modelo); se guarda para filtrar rápido. |
+| `Comment.delegation` | `Delegation` | muchos → uno (opcional) | — |
 | `Commitment.delegation` | `Delegation` | muchos → uno (obligatoria) | — |
 | `Officer.delegation` | `Delegation` | muchos → uno (obligatoria) | Define el ámbito (organización A o B) que ve el funcionario y su cuenta. |
 | `QuarterChangeRequest.delegation` | `Delegation` | muchos → uno (obligatoria) | — |
@@ -436,6 +448,7 @@ La multiplicidad sale del tipo de campo, pero hay reglas que un diagrama no mues
 | `Absence.registered_by` | `User` | muchos → uno (opcional) | — |
 | `Adjustment.responsible_user` | `User` | muchos → uno (obligatoria) | — |
 | `AuditLog.user` | `User` | muchos → uno (obligatoria) | Quién hizo el cambio; el registro de auditoría no se borra ni se archiva. |
+| `Comment.author` | `User` | muchos → uno (obligatoria) | — |
 | `Feedback.registered_by` | `User` | muchos → uno (obligatoria) | — |
 | `QuarterChangeRequest.requested_by` | `User` | muchos → uno (obligatoria) | — |
 | `QuarterChangeRequest.resolved_by` | `User` | muchos → uno (opcional) | — |

@@ -47,11 +47,11 @@ Cada app tiene `models.py` (tablas), `admin.py` (Django Admin), `apps.py` y `mig
 
 ## 4. Modelo de datos
 
-37 tablas en la base `sgr_django`: 27 del proyecto, 6 del framework (usuarios, grupos, permisos, tipos de contenido, sesiones y registro del Admin), 3 de unión (usuario–grupo, usuario–permisos, grupo–permisos) y `django_migrations`.
+38 tablas en la base `sgr_django`: 28 del proyecto, 6 del framework (usuarios, grupos, permisos, tipos de contenido, sesiones y registro del Admin), 3 de unión (usuario–grupo, usuario–permisos, grupo–permisos) y `django_migrations`.
 
 | App | Tablas del proyecto |
 |---|---|
-| `core` | `AuditLog` (auditoría) |
+| `core` | `AuditLog` (auditoría), `Comment` (comentarios, v43) |
 | `organization` | `Delegation`, `Position`, `Item`, `Service`, `Beneficiary`, `Territory`, `Officer`, `PositionItem`, `CommunityOrganization`, `OrganizationLeader` |
 | `accounts` | `UserProfile`, `RoleProfile`, `UserRoleDelegation` |
 | `planning` | `Period`, `Goal`, `Indicator`, `Adjustment` |
@@ -253,6 +253,46 @@ Registro de auditoría: guarda qué evento ocurrió, sobre qué entidad y regist
 Opciones del modelo (`Meta`): `verbose_name` = `'Auditoría'`; `verbose_name_plural` = `'Auditorías'`; `ordering` = `('-date',)`.
 
 - **`__str__()`**: Texto del registro: el evento y la entidad con su identificador.
+
+##### `Comment` — hereda de `BaseModel` (v43, HU-45 y RF-035)
+
+Comentario escrito en la ficha de una actividad, un compromiso o una evidencia. Se liga al registro por el nombre de la clase (`entity`) y su identificador (`record_id`), como la auditoría, y guarda la delegación del registro para que el alcance y las actualizaciones en vivo sigan la misma regla.
+
+| Campo | Nombre visible | Tipo | Detalle |
+|---|---|---|---|
+| `entity` | entidad | CharField | largo 50 |
+| `record_id` | identificador del registro | PositiveIntegerField |  |
+| `delegation` | delegación | ForeignKey | relación con `organization.Delegation`; admite nulo; nombre inverso `comments`; PROTECT |
+| `author` | autor | ForeignKey | relación con `settings.AUTH_USER_MODEL`; nombre inverso `comments`; PROTECT |
+| `text` | comentario | TextField | hasta 1000 caracteres (se valida en el formulario) |
+
+Opciones del modelo (`Meta`): `ordering` = `('created_at', 'id')`; índice `core_comment_target_idx` sobre (`entity`, `record_id`). Un comentario no se edita; al eliminarlo se archiva (`deleted_at`).
+
+#### `core/comments.py` (comentarios con autor y fecha, v43)
+
+- **`CommentForm`**: formulario del comentario (solo el texto, `textarea` de 3 filas con `data-keep-draft` para no perder lo escrito en una actualización en vivo). `clean_text` quita espacios y rechaza el texto vacío.
+- **`comments_of(obj)`**: comentarios vigentes del registro, del más antiguo al más nuevo.
+- **`author_name(user)`**: nombre para mostrar del autor (nombre completo o usuario).
+- **`can_delete(user, comment)`**: True si es el autor o tiene el permiso `core.delete_comment` (Super Usuario).
+- **`audit_text(text)`**: texto corto del comentario para la auditoría.
+- **`panel(request, crud, obj, archived)`**: datos de la sección Comentarios de la ficha: los últimos 100, si la persona puede comentar (permiso `core.add_comment` y registro no archivado), la dirección para enviar y el formulario.
+
+#### `core/respaldo.py` (respaldo diario, v43, HU-46 y RNF-010)
+
+Respaldo de la base y de los archivos subidos, en `BACKUP_DIR` (`respaldos/` o `/opt/sgr/respaldos`). Cada respaldo son tres archivos con la misma marca de fecha y hora de Santiago (`sgr-AAAAMMDD-HHMMSS`): la base (`-base.sql.gz`: volcado de `mysqldump` o, en SQLite, la copia en línea de la base), los archivos subidos (`-archivos.tar.gz`) y el manifiesto (`.json` con versión, tamaños y huellas sha256). La contraseña de la base viaja en la variable de entorno `MYSQL_PWD`, nunca en los argumentos del comando.
+
+- **`BackupError`**: error con mensaje legible (falta `mysqldump`, volcado vacío o incompleto, respaldo dañado).
+- **`make_backup(prefix, now)`**: hace el respaldo; si algo falla no deja archivos a medias.
+- **`list_backups()`**: respaldos completos, del más nuevo al más antiguo (un respaldo incompleto no aparece).
+- **`apply_retention(keep_days, minimum, now)`**: borra los de más de `BACKUP_KEEP_DAYS` días (14), pero siempre deja los últimos 3; los de seguridad previos a restaurar no se borran por antigüedad.
+- **`status(now)`**: estado del último respaldo diario para `/salud/` (al día si es más nuevo que `BACKUP_MAX_AGE_HOURS`, 36).
+- **`find_backup(stamp)`** y **`check_files(data)`**: ubican un respaldo y comprueban sus huellas.
+- **`restore_backup(stamp, with_files)`**: verifica el respaldo, guarda antes una copia de seguridad (`sgr-antes-de-restaurar-…`) y restaura la base y, si se pide, los archivos (con extracción segura: rutas fuera de la carpeta no se tocan).
+
+#### `core/management/commands/respaldar.py` y `restaurar_respaldo.py` (v43)
+
+- `python manage.py respaldar [--dias N] [--sin-limpiar] [--listar]`: hace un respaldo, aplica la retención y lista lo que hay. Termina con error si falla (el temporizador lo muestra en `systemctl status`).
+- `python manage.py restaurar_respaldo <sello> [--confirmar] [--sin-archivos]`: sin `--confirmar` solo muestra qué haría; con ella restaura y dice el nombre de la copia de seguridad que dejó.
 
 #### `core/clients.py` (perfil Cliente, v33)
 
@@ -934,6 +974,14 @@ Restaura un registro archivado.
 
 - **`post(request, pk)`**: Quita la fecha de eliminación del registro y deja la auditoría y el aviso; si hay motivos que lo impiden, no lo hace y los informa.
 
+##### `CrudCheckView` — hereda de `ChangeObjectMixin`, `CrudView` (v43, HU-47)
+
+Responde, en JSON y sin datos del registro, si el que se está editando cambió: `{"stale": false}`, o `{"stale": true, "gone": false, "message": …}` con quién y qué cambió; si se archivó o salió del alcance responde `gone`. La llama `edit-watch.js` con la versión con que se abrió el formulario (`?abierta=`). Pide el permiso de editar (403 si no) y sesión.
+
+##### `CrudCommentView` y `CrudCommentDeleteView` — heredan de `CrudView` (v43, HU-45)
+
+Reciben un comentario (POST) o lo eliminan. Comentar pide el permiso `core.add_comment`, que el registro sea visible para la persona y no esté archivado; deja «Comentario agregado» en la auditoría. Eliminar lo puede hacer el autor o quien tenga `core.delete_comment` (archiva el comentario y deja «Comentario eliminado»). Los mantenedores con `comments = True` (actividades, agenda, compromisos de terreno y evidencias) tienen las rutas `comentar/` y `comentarios/<id>/eliminar/`; todos los que se pueden editar tienen `revisar/`.
+
 ##### `CrudDeleteView` — hereda de `CrudView`
 
 Elimina de verdad un registro (solo en los mantenedores con deletable: Roles, Beneficiarios, Territorios, Servicios, Cargos, Tipos de gestión y Agenda). Estos, salvo Roles, también se pueden archivar: el botón de archivar se llama «Archivar» y el de eliminar «Eliminar» (partials/delete_link.html y confirm.js).
@@ -953,6 +1001,7 @@ GET pide la confirmación y POST elimina. Pide el permiso delete del modelo y se
 - **`version_of(obj)`**: Marca de la última modificación de un registro.
   
   El formulario de edición la lleva escondida; si al guardar ya no coincide, alguien más modificó el registro mientras se editaba. Un modelo sin updated_at (los usuarios de Django) no la lleva y no revisa esto.
+- **`watch_message(obj)`** *(v43)*: texto del aviso «alguien más modificó este registro», con quién y qué cambió (de la auditoría).
 - **`field_for_path(model, path_)`**: Último campo de una ruta como "activity__delegation"; None si no es un campo.
 - **`detect_kind(model_field)`**: Decide cómo mostrar un campo según su tipo: sí/no, etiqueta (si tiene opciones), fecha y hora, fecha, número o texto.
 - **`get_raw(obj, path_)`**: Valor de una ruta como "author_officer__name" (None si algún paso es nulo o no existe).
@@ -1504,7 +1553,7 @@ No pide sesión ni muestra secretos: solo dice si el servicio, la base de datos 
 **Funciones**
 
 - **`_leer(nombre)`**: Lee el texto de un archivo de la carpeta del proyecto (por ejemplo `VERSION` o `COMMIT`); devuelve vacío si no existe.
-- **`salud(request)`**: Vista `/salud/`: responde en JSON si el servicio, la base de datos y la caché funcionan, con la versión, el commit y el entorno. Responde 503 si algo falla.
+- **`salud(request)`**: Vista `/salud/`: responde en JSON si el servicio, la base de datos y la caché funcionan, con la versión, el commit y el entorno. Responde 503 si algo falla. Desde la v43 agrega `respaldo` (estado del último respaldo diario); es solo informativo y un respaldo atrasado no hace fallar la revisión.
 
 #### `core/templatetags/core_ui.py`
 
@@ -2654,6 +2703,7 @@ Las migraciones crean y modifican las tablas de cada app.
 ### `core`
 
 - `0001_initial.py`: crea la tabla de `AuditLog`.
+- `0002_comentarios_v43.py`: crea la tabla de `Comment` (`core_comment`) con su índice (`entity`, `record_id`).
 
 ### `evidence`
 
@@ -2722,6 +2772,7 @@ Plantillas de Django. Las de `templates/` son el marco general, los errores y la
 | `core/templates/core/crud/role_permissions.html` | Panel de permisos en la ficha de un rol: una fila por módulo con las acciones que tiene. |
 | `core/templates/core/partials/cell.html` | Dibuja una celda según su tipo: etiqueta, sí/no, archivo con vista previa, color, enlace o texto. |
 | `core/templates/core/partials/check.html` | Casilla de verificación de un formulario. |
+| `core/templates/core/partials/comments.html` | Sección Comentarios de la ficha (v43): la lista con autor y fecha, el botón de eliminar si corresponde y el formulario para comentar. |
 | `core/templates/core/partials/data_table.html` | Tabla de resultados de un listado: columnas con orden, filas y botones de cada fila. |
 | `core/templates/core/partials/delete_link.html` | Enlace «Eliminar» o «Archivar»; con JavaScript abre la confirmación en una ventana. |
 | `core/templates/core/partials/escudo.html` | Escudo de la institución (se muestra si su archivo está en `core/static/core/img/`). |
@@ -2997,6 +3048,10 @@ Funciones:
 
 Pantallas en vivo. Dos modos. Si la página tiene `[data-live-page]` (dashboard, tablero de delegación y validar), se conecta a `ws/live/`, y al llegar `live_changed` vuelve a pedir la misma dirección y reemplaza `[data-live-region]`. Listados en vivo: si la página tiene `[data-live-crud]`, se conecta a `ws/crud/<slug>/`; al llegar `crud_changed` espera 300 ms, vuelve a pedir la misma dirección (conserva filtros y página) y reemplaza solo la región `data-live-target="resultados"`. Muestra el estado («En vivo», «Reconectando…») y reintenta con espera creciente. Desde la v28 tiene respaldo por consulta: si el WebSocket no conecta, la pantalla se revisa sola cada 8 segundos (y cada 60 s como respaldo con WebSocket abierto, solo con la pestaña visible); una revisión que no cambia nada (se ignora el token CSRF y el indicador) no toca la pantalla.
 
+### `core/static/core/js/edit-watch.js` (v43)
+
+Aviso mientras se edita. Busca los formularios con `data-watch-url` (también los que se abren en el modal), se conecta a `/ws/crud/<slug>/` y, cuando llega `crud_changed`, espera 400 ms y pregunta a la dirección de revisión con la versión con que se abrió el formulario. Si el registro cambió, muestra (o actualiza) un aviso amarillo arriba del formulario, o rojo si el registro ya no está disponible. Si el WebSocket no conecta, pregunta cada 20 segundos. Se detiene cuando el formulario sale de la página. No guarda nada: al guardar, el servidor sigue pidiendo revisar.
+
 ### `core/static/core/js/searchable-select.js`
 
 Selector con buscador (v28). Los `<select>` con `data-searchable` y 8 opciones o más (o `data-searchable="always"`) reciben encima una caja de texto con lista desplegable: filtra por todas las palabras escritas, sin importar tildes, mayúsculas ni orden; dibuja como máximo 60 filas y avisa cuántas coincidencias más hay; funciona con teclado (flechas, Enter, Esc, Tab) y roles `combobox`/`listbox`. El `<select>` original sigue guardando el valor (se oculta visualmente), así que validación, búsqueda en vivo y envío no cambian. `CrudForm` marca con `data-searchable` todos los selectores de un solo registro y los filtros de los listados lo llevan en la plantilla.
@@ -3028,6 +3083,7 @@ Selector con buscador (v28). Los `<select>` con `data-searchable` y 8 opciones o
 - **Atención y Mi perfil**: pantallas de atención y de perfil.
 - **Ventana modal**: formularios y buscador en ventana.
 - **Ventanas de SweetAlert2**: avisos y confirmaciones.
+- **Comentarios** (v43): lista y formulario de la sección Comentarios de las fichas (`.comment-*`).
 - **Impresión**: estilos al imprimir.
 
 ## 14. Despliegue y configuración
@@ -3051,6 +3107,8 @@ Selector con buscador (v28). Los `<select>` con `data-searchable` y 8 opciones o
 | `tools/diagrama_modelos.py` | Genera `docs/DIAGRAMA_MODELOS.md` (diagrama entidad-relación en Mermaid `erDiagram`) a partir de `apps.get_models()`: entidades con sus campos (sin `created_at`, `updated_at` ni contraseñas), relaciones con su multiplicidad (obligatoria u opcional según `null`; uno a muchos, uno a uno o muchos a muchos según el campo) y una tabla de revisión manual con las reglas que el diagrama no puede decir (`REVISION_MANUAL`). `--verificar` no escribe y falla si el documento está desactualizado; `--salida` cambia el archivo. Funciones: `preparar_django`, `modelos`, `tipo_de`, `entidad`, `relaciones`, `generar` y `main`. |
 | `tools/ensayo/ensayo_revision.py` | Ensayo de la revisión (v37): recorre los diez pasos de la Evaluación Sumativa III con un navegador real (Playwright; Chrome con `--chromium`) contra una dirección (`--url`), local o AWS. Una sesión de navegador (contexto) por cuenta de `CUENTAS` (`admin_a`, `editor_a`, `lector_a`, `lector_b`, `cliente1`, `cliente2`); las contraseñas salen de `SGR_PASSWORD_<ALIAS>` o `SGR_REVISION_PASSWORD` (`clave_de`) y no se escriben en ningún archivo. Clase `Ensayo`: `paso1` … `paso10` (cada una devuelve el texto de lo comprobado o lanza `Saltar` si el punto queda manual), `comprobar` (corre una comprobación y la anota como OK, FALLÓ o MANUAL), apoyos de navegador (`abrir`, `ingresar`, `ir`, `por_menu`, `swal`, `cerrar_swal`, `guardar_modal`, `registrar_atencion`, `peticion`, `http_crudo`, `apreton_ws`), de datos (`total`, `contar`, `ids_de`, `filas_visibles`, `parametros`, `exportar`, `leer_excel`, `enlace_del_correo`), `limpiar` (archiva lo que creó, marcado «ENSAYO»), `correr` e `informe` (Markdown con `--informe`). Funciones sueltas: `rut_valido`, `png`, `png_dos_colores`. Opciones: `--pasos`, `--chromium`, `--capturas`, `--informe`, `--bandeja`, `--descargas`, `--sin-verificar-tls`, `--depurar`. Termina con código 1 si algo falló. Se importa sin Playwright (solo lo exige `correr`). Guía: `docs/ENSAYO_REVISION.md`; pruebas sin navegador: `core/test_ensayo_revision.py`. |
 | `requirements.txt` | Dependencias de Python: Django 6.1.1, asgiref, sqlparse, python-dotenv, openpyxl (exportar a Excel), Channels y Daphne (tiempo real); `mysqlclient` opcional para MySQL/MariaDB. |
+| `deploy/sgr-respaldo.service` y `deploy/sgr-respaldo.timer` | Servicio de systemd (una pasada) y temporizador que ejecuta `manage.py respaldar` todos los días a las 03:30 (hora del servidor; si estaba apagado, apenas arranca). |
+| `deploy/instalar_respaldo.sh` | Deja listo el respaldo: instala `mariadb105` si falta `mysqldump`, crea la carpeta de respaldos (700), instala y activa el temporizador y hace un primer respaldo. `actualizar.sh` lo corre en cada despliegue. |
 | `VERSION` | Versión del sistema que muestra `/salud/`. |
 | `manage.py` | Punto de entrada de los comandos de Django. |
 
@@ -3058,4 +3116,4 @@ Selector con buscador (v28). Los `<select>` con `data-searchable` y 8 opciones o
 
 | Archivo | Qué hace |
 |---|---|
-| `sql/sgr_django.sql` | Estructura completa de la base `sgr_django` (37 tablas: 27 del proyecto, 6 del framework, 3 de unión y `django_migrations`) para MariaDB 10.11 / MySQL 8, al día con las migraciones (incluye `planning_indicator.officer_id`). |
+| `sql/sgr_django.sql` | Estructura completa de la base `sgr_django` (38 tablas: 28 del proyecto, 6 del framework, 3 de unión y `django_migrations`) para MariaDB 10.11 / MySQL 8, al día con las migraciones (incluye `planning_indicator.officer_id`). |
