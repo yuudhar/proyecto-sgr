@@ -17,6 +17,19 @@ Nombres que cambiaron en la v27 (los textos antiguos los mencionan con el nombre
 | `core/qa/esperado_vNN.py` | `core/qa/esperado_<tema>.py` (mismo tema que su archivo de pruebas) |
 | `sql/*.sql` (todos) | `sql/sgr_django.sql` (estructura vigente) |
 
+## Versión 47
+
+El comando `corregir_datos_revision` gana un paso, `restos`, que repara en el lugar los registros que la auditoría de datos seguía marcando después de la v46: pruebas tempranas hechas a mano que no son datos de revisión. No cambia ninguna pantalla ni regla, no archiva nada y no hay migraciones.
+
+### Qué cambia
+
+- **Atenciones:** una «Registrada» con acciones o gestiones pasa a «En proceso»; una atención que requiere visita o «ingresa al tubo» sin compromiso recibe el suyo (de terreno si requiere visita); una con compromiso queda marcada «ingresa al tubo».
+- **Gestiones:** las de una atención archivada se archivan con ella; la fecha programada no queda antes de la gestión ni la de visita antes de la programada.
+- **Compromisos:** los «Ingresados» o «Pendientes» vencidos hace más de 30 días avanzan de estado y los «Realizados» no quedan con fecha comprometida por venir.
+- **Evidencias:** el autor es el de su atención (si el que la validó pasaría a validar lo suyo, la valida otra jefatura de la delegación), el estado de revisión es el de su última validación y, si el archivo falta en disco, se repone uno de prueba (un PDF que dice «Evidencia de prueba»; en la simulación no se escribe nada en disco).
+- **Funcionarios:** un identificador fuera del formato `F-0000` recibe el siguiente libre de su delegación.
+- El paso se corre solo con `--solo restos`. Se puede repetir.
+
 ## Versión 46
 
 Completa el comando de la v45 con lo que dejó pendiente la simulación sobre los datos reales. No cambia ninguna pantalla ni regla, y no hay migraciones.
@@ -34,7 +47,7 @@ Los **datos de revisión** que ya están cargados pasan a tener sentido entre s�
 
 ### Qué cambia
 
-- Comando nuevo `python manage.py corregir_datos_revision`. Sin opciones **solo simula**: muestra cuántos registros cambiaría y no guarda nada. Con `--aplicar` guarda los cambios. Se puede repetir (lo ya corregido no se vuelve a tocar) y con `--solo` se eligen los pasos (`cargos`, `identificadores`, `clasificacion`, `estados`, `compromisos`, `ausencias`, `trimestres`, `autoria`, `metas`). Solo toca datos de revisión: los reconoce por sus textos, orígenes y cargos de demostración.
+- Comando nuevo `python manage.py corregir_datos_revision`. Sin opciones **solo simula**: muestra cuántos registros cambiaría y no guarda nada. Con `--aplicar` guarda los cambios. Se puede repetir (lo ya corregido no se vuelve a tocar) y con `--solo` se eligen los pasos (`cargos`, `identificadores`, `clasificacion`, `estados`, `compromisos`, `ausencias`, `trimestres`, `autoria`, `restos`, `metas`). Solo toca datos de revisión: los reconoce por sus textos, orígenes y cargos de demostración.
 - **Cargos:** los funcionarios de demostración pasan a los cargos del descriptor 2026 (Jefe de Delegación → Delegado, Encargado Social → Gestor Social, Coordinador de Terreno → Coordinador de Servicios Comunitarios, Analista de Datos → Gestión y Planificación), así su ficha muestra las funciones. Los ítems de cada cargo suman 100 %. Los cargos de demostración quedan archivados.
 - **Identificadores:** `REV-N-001` pasa a `F-1001` (Norte) y `REV-S-001` a `F-2001` (Sur), el formato que usa el sistema.
 - **Atenciones:** el servicio, el ítem y «requiere visita» salen de lo que dice la solicitud; una atención «Registrada» no trae acciones ni gestiones y una «Cerrada» tiene su acción.

@@ -1,4 +1,4 @@
-"""v45/v46: corrige los datos de revisión que ya están cargados para que tengan sentido entre sí.
+"""v45/v46/v47: corrige los datos de revisión que ya están cargados para que tengan sentido entre sí.
 
 Qué corrige (solo toca datos de revisión: se reconocen por sus textos, orígenes y cargos de demostración)
 ----------------------------------------------------------------------------------------------------------
@@ -14,6 +14,11 @@ Qué corrige (solo toca datos de revisión: se reconocen por sus textos, orígen
 * cambios de trimestre: se piden antes de resolverse y se aprueban después de la fecha nueva; cada delegación usa sus
   propias cuentas (se crean ``editor_b`` y ``admin_b`` si se entrega una contraseña);
 * autoría: las cartas, ausencias y ajustes de Sur quedan registrados por la cuenta de Sur (``admin_b``);
+* restos (v47): lo que la auditoría marca en cualquier otro registro, aunque no sea de revisión (pruebas tempranas
+  hechas a mano): atenciones «Registradas» con acciones, visitas y «tubo» sin su compromiso, gestiones de atenciones
+  archivadas o con fechas de visita al revés, compromisos vencidos sin avanzar, evidencias con autor distinto al de la
+  atención, sin archivo en disco o con un estado distinto al de su última validación, e identificadores de
+  funcionario fuera del formato ``F-0000``;
 * metas: la meta de atenciones se acerca a lo que de verdad se puede cumplir y se recalculan los indicadores.
 
 Cómo se usa
@@ -34,6 +39,7 @@ from django.contrib.auth import get_user_model
 from django.contrib.auth.models import Group
 from django.contrib.auth.password_validation import validate_password
 from django.core.exceptions import ValidationError
+from django.core.files.base import ContentFile
 from django.core.management import call_command
 from django.core.management.base import BaseCommand, CommandError
 from django.db import transaction
@@ -43,6 +49,7 @@ from accounts.models import UserProfile
 from core import entry_rules
 from core.audit import log_event
 from core.management.commands import cargar_datos_revision as carga
+from evidence.models import Evidence, Validation
 from operations.models import Activity, Commitment, Followup, QuarterChangeRequest
 from organization.models import Item, Officer, Position, PositionItem, Service, Territory
 from planning import calculation
@@ -85,7 +92,7 @@ NOTA_POR_TIPO = {
     "compensatory": "Día compensatorio",
 }
 
-PASOS = ("cargos", "identificadores", "clasificacion", "estados", "compromisos", "ausencias", "trimestres", "autoria", "metas")
+PASOS = ("cargos", "identificadores", "clasificacion", "estados", "compromisos", "ausencias", "trimestres", "autoria", "restos", "metas")
 
 
 def fila_de(texto):
@@ -515,7 +522,149 @@ class Command(BaseCommand):
                 self.hecho(nombre)
 
     # ------------------------------------------------------------------------------------------------------------
-    # 8. Metas
+    # 8. Restos: lo que la auditoría marca en registros que no son de revisión
+    # ------------------------------------------------------------------------------------------------------------
+    def restos(self):
+        self.restos_atenciones()
+        self.restos_gestiones()
+        self.restos_compromisos()
+        self.restos_evidencias()
+        self.restos_funcionarios()
+
+    def restos_atenciones(self):
+        gestiones = defaultdict(int)
+        for g in Followup._base_manager.filter(deleted_at__isnull=True):
+            gestiones[g.activity_id] += 1
+        territorios = defaultdict(list)
+        for t in Territory._base_manager.filter(deleted_at__isnull=True).order_by("pk"):
+            territorios[t.delegation_id].append(t)
+        for a in Activity._base_manager.filter(deleted_at__isnull=True).select_related("commitment").order_by("pk"):
+            if a.status == "registered" and (a.action_taken or gestiones[a.pk]):
+                Activity._base_manager.filter(pk=a.pk).update(status="in_progress")
+                self.hecho("atenciones «Registradas» con acciones que pasan a «En proceso»")
+            if a.commitment_id is None:
+                if not (a.requires_visit or a.added_to_pipeline):
+                    continue
+                lista = territorios[a.delegation_id]
+                if not lista:
+                    self.aviso(f"la atención {a.pk} necesita un compromiso pero su delegación no tiene territorios.")
+                    continue
+                vence = a.date + timedelta(days=10)
+                c = Commitment.objects.create(
+                    source=f"Atención ATN{a.pk:05d}"[:100],
+                    request_date=a.date,
+                    description=a.request_description or None,
+                    requester=(a.contact_name or "Sin nombre")[:100],
+                    requester_type="EXTERNAL",
+                    territory=lista[a.pk % len(lista)],
+                    due_date=vence,
+                    status=self.estado_por_fecha(a.pk, vence),
+                    physical=a.requires_visit,
+                    responsible_officer_id=a.author_officer_id,
+                    delegation_id=a.delegation_id,
+                )
+                Commitment._base_manager.filter(pk=c.pk).update(created_at=carga.momento(a.date, a.pk))
+                Activity._base_manager.filter(pk=a.pk).update(commitment=c, added_to_pipeline=True)
+                self.alineados.add(c.pk)
+                self.hecho("atenciones sin su compromiso que reciben uno")
+                continue
+            if a.requires_visit and not a.commitment.physical:
+                Commitment._base_manager.filter(pk=a.commitment_id).update(physical=True)
+                self.hecho("compromisos enlazados a una visita que pasan a ser de terreno")
+            if not a.added_to_pipeline:
+                Activity._base_manager.filter(pk=a.pk).update(added_to_pipeline=True)
+                self.hecho("atenciones con compromiso que quedan marcadas «ingresa al tubo»")
+
+    def restos_gestiones(self):
+        for f in Followup._base_manager.filter(deleted_at__isnull=True).select_related("activity").order_by("pk"):
+            if f.activity.deleted_at:
+                Followup._base_manager.filter(pk=f.pk).update(deleted_at=f.activity.deleted_at)
+                self.hecho("gestiones de una atención archivada que se archivan con ella")
+                continue
+            programada, realizada = f.scheduled_visit_date, f.visit_date
+            if programada and programada < f.date:
+                programada = f.date
+            if realizada and programada and realizada < programada:
+                if realizada >= f.date:
+                    programada = realizada
+                else:
+                    realizada = programada if programada <= self.hoy else None
+            if (programada, realizada) != (f.scheduled_visit_date, f.visit_date):
+                Followup._base_manager.filter(pk=f.pk).update(scheduled_visit_date=programada, visit_date=realizada)
+                self.hecho("gestiones con las fechas de visita en orden")
+
+    def restos_compromisos(self):
+        for c in Commitment._base_manager.filter(deleted_at__isnull=True).order_by("pk"):
+            cambios = {}
+            estado = c.status
+            if estado in ("submitted", "pending") and c.due_date < self.hoy - timedelta(days=30):
+                estado = "in_progress" if c.pk % 3 == 0 else "fulfilled"
+                cambios["status"] = estado
+                self.hecho("compromisos vencidos que avanzan de estado")
+            if estado == "fulfilled" and c.due_date > self.hoy:
+                nueva = self.hoy - timedelta(days=3)
+                if c.request_date and nueva < c.request_date:
+                    nueva = min(self.hoy, c.request_date + timedelta(days=1))
+                cambios["due_date"] = nueva
+                self.hecho("compromisos realizados con fecha comprometida ya cumplida")
+            if cambios:
+                Commitment._base_manager.filter(pk=c.pk).update(**cambios)
+
+    def restos_evidencias(self):
+        ultimas = {}
+        for v in Validation._base_manager.filter(deleted_at__isnull=True).order_by("date", "pk"):
+            ultimas[v.evidence_id] = v
+        for e in Evidence._base_manager.filter(deleted_at__isnull=True).select_related("activity").order_by("pk"):
+            cambios = {}
+            v = ultimas.get(e.pk)
+            autor = e.activity.author_officer_id
+            if e.author_officer_id != autor:
+                libre = True
+                if v is not None and v.reviewer_officer_id == autor:
+                    # quien la validó pasaría a validar lo que subió: la valida otra jefatura de la delegación
+                    alterno = (
+                        Officer._base_manager.filter(
+                            delegation_id=e.activity.delegation_id,
+                            status=Officer.Status.ACTIVE,
+                            position__name__in=("Delegado", "Jefe de Delegación"),
+                        )
+                        .exclude(pk=autor)
+                        .order_by("pk")
+                        .first()
+                    )
+                    if alterno is None:
+                        libre = False
+                        self.aviso(f"la evidencia {e.pk} sigue con otro autor: no hay otra jefatura que la valide.")
+                    else:
+                        Validation._base_manager.filter(pk=v.pk).update(reviewer_officer=alterno)
+                if libre:
+                    cambios["author_officer_id"] = autor
+                    self.hecho("evidencias con el autor de su atención")
+            esperado = v.decision if v is not None else Evidence.ReviewStatus.PENDING
+            if e.review_status != esperado:
+                cambios["review_status"] = esperado
+                self.hecho("evidencias con el estado de su última validación")
+            if not e.file_link or not e.file_link.storage.exists(e.file_link.name):
+                self.hecho("evidencias con un archivo de prueba repuesto en disco")
+                if self.aplicar:  # en la simulación no se escribe nada en disco
+                    e.file_link.save(
+                        f"{e.unique_code.lower()}.pdf",
+                        ContentFile(carga.pdf_minimo(f"Evidencia de prueba {e.unique_code}")),
+                        save=False,
+                    )
+                    cambios["file_link"] = e.file_link.name
+            if cambios:
+                Evidence._base_manager.filter(pk=e.pk).update(**cambios)
+
+    def restos_funcionarios(self):
+        for o in Officer._base_manager.all().order_by("pk"):
+            if not Officer.ID_FORMAT.fullmatch(o.institutional_id):
+                nuevo = o.next_institutional_id()
+                Officer._base_manager.filter(pk=o.pk).update(institutional_id=nuevo)
+                self.hecho("identificadores de funcionario con el formato F-0000")
+
+    # ------------------------------------------------------------------------------------------------------------
+    # 9. Metas
     # ------------------------------------------------------------------------------------------------------------
     def metas(self):
         metas = list(
