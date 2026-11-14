@@ -1,4 +1,4 @@
-"""v45/v46/v47: corrige los datos de revisión que ya están cargados para que tengan sentido entre sí.
+"""v45 a v49: corrige los datos de revisión que ya están cargados para que tengan sentido entre sí.
 
 Qué corrige (solo toca datos de revisión: se reconocen por sus textos, orígenes y cargos de demostración)
 ----------------------------------------------------------------------------------------------------------
@@ -19,6 +19,8 @@ Qué corrige (solo toca datos de revisión: se reconocen por sus textos, orígen
   archivadas o con fechas de visita al revés, compromisos vencidos sin avanzar, evidencias con autor distinto al de la
   atención, sin archivo en disco o con un estado distinto al de su última validación, e identificadores de
   funcionario fuera del formato ``F-0000``;
+* periodos (v49): cada período anual pasa a cuatro trimestres (se archiva el anual): las metas, las cartas y los ajustes
+  se reparten en los trimestres y los indicadores se recalculan;
 * metas: la meta de atenciones se acerca a lo que de verdad se puede cumplir y se recalculan los indicadores.
 
 Cómo se usa
@@ -32,7 +34,8 @@ identificadores de antes).
 import os
 import statistics
 from collections import defaultdict
-from datetime import timedelta
+from datetime import date, timedelta
+from decimal import Decimal
 from io import StringIO
 
 from django.contrib.auth import get_user_model
@@ -53,7 +56,8 @@ from evidence.models import Evidence, Validation
 from operations.models import Activity, Commitment, Followup, QuarterChangeRequest
 from organization.models import Item, Officer, Position, PositionItem, Service, Territory
 from planning import calculation
-from planning.models import Absence, Adjustment, Feedback, Goal
+from planning import feedback as feedback_rules
+from planning.models import Absence, Adjustment, Feedback, Goal, Indicator, Period
 from planning.pace import weekdays_between
 
 # cargo de demostración -> cargo del descriptor 2026
@@ -92,7 +96,7 @@ NOTA_POR_TIPO = {
     "compensatory": "Día compensatorio",
 }
 
-PASOS = ("cargos", "identificadores", "clasificacion", "estados", "compromisos", "ausencias", "trimestres", "autoria", "restos", "metas")
+PASOS = ("cargos", "identificadores", "clasificacion", "estados", "compromisos", "ausencias", "trimestres", "autoria", "restos", "periodos", "metas")
 
 
 def fila_de(texto):
@@ -293,6 +297,16 @@ class Command(BaseCommand):
         Commitment._base_manager.filter(pk=c.pk).update(**campos)
         self.alineados.add(c.pk)
 
+    def huerfano_de(self, a):
+        """Compromiso suelto que ya nació de esta atención (se reutiliza en vez de crear un duplicado)."""
+        enlazados = Activity._base_manager.filter(commitment__isnull=False).values("commitment_id")
+        return (
+            Commitment._base_manager.filter(source=f"Atención ATN{a.pk:05d}"[:100], deleted_at__isnull=True)
+            .exclude(pk__in=enlazados)
+            .order_by("pk")
+            .first()
+        )
+
     def estado_por_fecha(self, pk, vence):
         if vence < self.hoy - timedelta(days=30):
             return "in_progress" if pk % 3 == 0 else "fulfilled"
@@ -325,7 +339,12 @@ class Command(BaseCommand):
         for a in atenciones:
             if not (a.requires_visit and not a.commitment_id and a.deleted_at is None and fila_de(a.request_description)):
                 continue
-            if sueltos[a.delegation_id]:
+            propio = self.huerfano_de(a)
+            if propio is not None:
+                self.alinear(propio, a, True)
+                Activity._base_manager.filter(pk=a.pk).update(commitment=propio, added_to_pipeline=True)
+                self.hecho("atenciones que recuperan su propio compromiso suelto")
+            elif sueltos[a.delegation_id]:
                 c = sueltos[a.delegation_id].pop(0)
                 self.alinear(c, a, True)
                 Activity._base_manager.filter(pk=a.pk).update(commitment=c, added_to_pipeline=True)
@@ -538,12 +557,32 @@ class Command(BaseCommand):
         territorios = defaultdict(list)
         for t in Territory._base_manager.filter(deleted_at__isnull=True).order_by("pk"):
             territorios[t.delegation_id].append(t)
-        for a in Activity._base_manager.filter(deleted_at__isnull=True).select_related("commitment").order_by("pk"):
+        atenciones = (
+            Activity._base_manager.filter(deleted_at__isnull=True)
+            .select_related("commitment", "beneficiary", "organization_leader")
+            .order_by("pk")
+        )
+        for a in atenciones:
+            if not (a.contact_name or "").strip():
+                persona = a.organization_leader if a.organization_leader_id else a.beneficiary
+                nombre = (persona.name if persona is not None else "").strip()[:100]
+                if nombre:
+                    Activity._base_manager.filter(pk=a.pk).update(contact_name=nombre)
+                    a.contact_name = nombre
+                    if a.commitment_id:
+                        Commitment._base_manager.filter(pk=a.commitment_id).update(requester=nombre)
+                    self.hecho("atenciones sin nombre de contacto que reciben el de la persona atendida")
             if a.status == "registered" and (a.action_taken or gestiones[a.pk]):
                 Activity._base_manager.filter(pk=a.pk).update(status="in_progress")
                 self.hecho("atenciones «Registradas» con acciones que pasan a «En proceso»")
             if a.commitment_id is None:
                 if not (a.requires_visit or a.added_to_pipeline):
+                    continue
+                propio = self.huerfano_de(a)
+                if propio is not None:
+                    self.alinear(propio, a, a.requires_visit)
+                    Activity._base_manager.filter(pk=a.pk).update(commitment=propio, added_to_pipeline=True)
+                    self.hecho("atenciones que recuperan su propio compromiso suelto")
                     continue
                 lista = territorios[a.delegation_id]
                 if not lista:
@@ -611,6 +650,8 @@ class Command(BaseCommand):
                 Commitment._base_manager.filter(pk=c.pk).update(**cambios)
 
     def restos_evidencias(self):
+        from core.views import STATUS_AFTER_DECISION  # el mismo mapa que usa la pantalla de validar
+
         ultimas = {}
         for v in Validation._base_manager.filter(deleted_at__isnull=True).order_by("date", "pk"):
             ultimas[v.evidence_id] = v
@@ -640,7 +681,8 @@ class Command(BaseCommand):
                 if libre:
                     cambios["author_officer_id"] = autor
                     self.hecho("evidencias con el autor de su atención")
-            esperado = v.decision if v is not None else Evidence.ReviewStatus.PENDING
+            # «Observado» deja la evidencia pendiente (no existe un estado «observada»)
+            esperado = STATUS_AFTER_DECISION[v.decision] if v is not None else Evidence.ReviewStatus.PENDING
             if e.review_status != esperado:
                 cambios["review_status"] = esperado
                 self.hecho("evidencias con el estado de su última validación")
@@ -664,7 +706,144 @@ class Command(BaseCommand):
                 self.hecho("identificadores de funcionario con el formato F-0000")
 
     # ------------------------------------------------------------------------------------------------------------
-    # 9. Metas
+    # 9. Períodos: de anuales a trimestres
+    # ------------------------------------------------------------------------------------------------------------
+    @staticmethod
+    def trimestres_de(inicio, fin):
+        """Los trimestres calendario (ene-mar, abr-jun, jul-sep, oct-dic) que cubren de `inicio` a `fin`."""
+        salida = []
+        dia = inicio
+        while dia <= fin:
+            mes0 = 3 * ((dia.month - 1) // 3)
+            siguiente = date(dia.year + 1, 1, 1) if mes0 == 9 else date(dia.year, mes0 + 4, 1)
+            termina = siguiente - timedelta(days=1)
+            salida.append((dia, min(termina, fin)))
+            dia = termina + timedelta(days=1)
+        return salida
+
+    def periodos(self):
+        """Cada período de más de 100 días (anual) se reparte en trimestres y el anual queda archivado.
+
+        Las metas se copian a cada trimestre (la meta de atenciones se acerca a lo que se logra en un trimestre), las
+        cartas y los ajustes pasan al trimestre de su fecha y los indicadores se recalculan. Los trimestres de años
+        anteriores quedan cerrados; los del año en curso quedan vigentes para poder seguir ingresando cartas y
+        cambios de trimestre.
+        """
+        ahora = timezone.now()
+        anuales = [
+            p
+            for p in Period._base_manager.filter(deleted_at__isnull=True).order_by("start_date")
+            if (p.end_date - p.start_date).days > 100
+        ]
+        if not anuales:
+            return
+        trimestres_de = {}
+        for anual in anuales:
+            habiles_anual = weekdays_between(anual.start_date, anual.end_date) or 1
+            lista = []
+            for inicio, fin in self.trimestres_de(anual.start_date, anual.end_date):
+                if fin < date(self.hoy.year, 1, 1):
+                    estado = Period.Status.CLOSED
+                elif inicio <= self.hoy:
+                    estado = Period.Status.ACTIVE
+                else:
+                    estado = Period.Status.PLANNED
+                trimestre = (
+                    Period._base_manager.filter(start_date=inicio, deleted_at__isnull=True).exclude(pk=anual.pk).first()
+                )
+                if trimestre is None:
+                    habiles = weekdays_between(inicio, fin)
+                    computables = min((fin - inicio).days + 1, max(1, round(habiles * anual.computable_days / habiles_anual)))
+                    trimestre = Period.objects.create(
+                        start_date=inicio,
+                        end_date=fin,
+                        computable_days=computables,
+                        status=estado,
+                        collective_threshold=anual.collective_threshold,
+                        amber_threshold=anual.amber_threshold,
+                        weighted_cap=anual.weighted_cap,
+                        parameters_version=anual.parameters_version,
+                        compliment_value=anual.compliment_value,
+                        complaint_value=anual.complaint_value,
+                        compliment_limit=anual.compliment_limit,
+                    )
+                    self.hecho("trimestres creados a partir de los períodos anuales")
+                lista.append(trimestre)
+            trimestres_de[anual.pk] = lista
+
+        def trimestre_del(anual, dia):
+            lista = trimestres_de[anual.pk]
+            for trimestre in lista:
+                if trimestre.start_date <= dia <= trimestre.end_date:
+                    return trimestre
+            return lista[0] if dia < lista[0].start_date else lista[-1]
+
+        # a) Metas: una copia por trimestre
+        recalcular = []
+        for anual in anuales:
+            trimestres = trimestres_de[anual.pk]
+            metas = list(
+                Goal._base_manager.filter(period=anual, deleted_at__isnull=True).select_related("item", "officer")
+            )
+            if not metas:
+                continue
+            propias = [g for g in metas if g.officer_id and g.unit == "atenciones"]
+            nuevas = []
+            for trimestre in trimestres:
+                conteos = [
+                    calculation.valid_activities(Goal(item_id=g.item_id, period=trimestre), g.officer).count()
+                    for g in propias
+                ]
+                objetivo = max(1, int(statistics.median(conteos)) + 1) if conteos else 1
+                for g in metas:
+                    if g.officer_id and g.unit == "atenciones":
+                        valor = Decimal(objetivo)
+                    else:
+                        valor = max(Decimal(1), (g.target_value / 4).quantize(Decimal(1)))
+                    nuevas.append(
+                        Goal(
+                            target_value=valor,
+                            unit=g.unit,
+                            weight=g.weight,
+                            version=g.version,
+                            item_id=g.item_id,
+                            officer_id=g.officer_id,
+                            position_id=g.position_id,
+                            period=trimestre,
+                        )
+                    )
+            Goal.objects.bulk_create(nuevas, batch_size=200)  # sin señales: el recálculo se hace al final
+            self.hecho("metas copiadas a los trimestres", len(nuevas))
+            ids = [g.pk for g in metas]
+            Indicator._base_manager.filter(goal_id__in=ids).update(deleted_at=ahora)
+            Goal._base_manager.filter(pk__in=ids).update(deleted_at=ahora)
+            recalcular.extend(trimestres)
+
+        # b) Cartas y ajustes pasan al trimestre de su fecha
+        pares = set()
+        for anual in anuales:
+            for f in Feedback._base_manager.filter(period=anual):
+                trimestre = trimestre_del(anual, f.date)
+                Feedback._base_manager.filter(pk=f.pk).update(period=trimestre)
+                if f.deleted_at is None:
+                    pares.add((f.officer_id, trimestre.pk))
+                self.hecho("cartas que pasan al trimestre de su fecha")
+        for funcionario_id, periodo_id in sorted(pares):
+            feedback_rules.sync(funcionario_id, periodo_id)
+        for anual in anuales:
+            for ajuste in Adjustment._base_manager.filter(period=anual):
+                trimestre = trimestre_del(anual, ajuste.created_at.date())
+                Adjustment._base_manager.filter(pk=ajuste.pk).update(period=trimestre)
+                self.hecho("ajustes que pasan al trimestre de su fecha")
+
+        # c) Los anuales se archivan y los indicadores se calculan para los trimestres
+        Period._base_manager.filter(pk__in=[a.pk for a in anuales]).update(deleted_at=ahora)
+        self.hecho("períodos anuales archivados", len(anuales))
+        for trimestre in recalcular:
+            self.hecho("indicadores nuevos recalculados", calculation.recalculate_period(trimestre, force=True))
+
+    # ------------------------------------------------------------------------------------------------------------
+    # 10. Metas
     # ------------------------------------------------------------------------------------------------------------
     def metas(self):
         metas = list(

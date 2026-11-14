@@ -587,13 +587,18 @@ class QuarterChangeRequestCrud(Crud):
             return
         activity = obj.activity
         old = activity.date
-        obj.apply()
+        moved = obj.apply()
+        detail = f"Fecha: {ui.fmt_date(obj.new_date)}"
+        if moved["followups"]:
+            detail += f"; gestiones movidas a esa fecha: {moved['followups']}"
+        if moved["commitment"]:
+            detail += "; compromiso enlazado actualizado"
         log_event(
             request.user,
             "Cambio de trimestre aprobado",
             activity,
             previous=f"Fecha: {ui.fmt_date(old)}",
-            new=f"Fecha: {ui.fmt_date(obj.new_date)}",
+            new=detail,
         )
 
     def extra_detail(self, obj):

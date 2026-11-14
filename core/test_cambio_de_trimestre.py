@@ -7,9 +7,9 @@ from django.utils import timezone
 
 from core.models import AuditLog
 from core.testing import PortalTestCase, portal_today
-from operations.models import Activity, QuarterChangeRequest
+from operations.models import Activity, Commitment, Followup, QuarterChangeRequest
 from operations.quarters import next_period, period_of
-from organization.models import Officer
+from organization.models import Officer, Territory
 from planning.models import Period
 
 Mode = QuarterChangeRequest.Mode
@@ -58,6 +58,18 @@ class QuarterBase(PortalTestCase):
             delegation=delegation or self.north,
             author_officer=officer or self.cavieres,
         )
+
+    def make_commitment(self, **changes):
+        """Compromiso de la Delegación Norte, con su responsable y un territorio de esa misma delegación."""
+        values = {
+            "requester": "Rosa",
+            "territory": Territory.objects.filter(delegation=self.north).first(),
+            "delegation": self.north,
+            "responsible_officer": self.cavieres,
+            "source": "Atención de prueba",
+        }
+        values.update(changes)
+        return Commitment.objects.create(**values)
 
     def ask(self, activity=None, **changes):
         data = {
@@ -245,6 +257,64 @@ class QuarterResolutionTests(QuarterBase):
         self.assertEqual(asked.resolved_by, self.boss)
         self.assertIsNotNone(asked.resolved_at)
         self.assertEqual(asked.resolution_comment, "De acuerdo.")
+
+    def test_approving_moves_the_linked_commitment_with_the_attention(self):
+        old = self.activity_in_first.date
+        commitment = self.make_commitment(request_date=old, due_date=old + timedelta(days=5))
+        Activity.objects.filter(pk=self.activity_in_first.pk).update(commitment=commitment)
+        asked = self.request_for(mode=Mode.AUTOMATIC, new_date=self.second.start_date)
+        self.client.force_login(self.boss)
+        self.resolve(asked, Status.APPROVED)
+        commitment.refresh_from_db()
+        self.assertEqual(commitment.request_date, self.second.start_date)
+        self.assertGreaterEqual(commitment.due_date, commitment.request_date)
+
+    def test_approving_keeps_a_later_commitment_due_date(self):
+        old = self.activity_in_first.date
+        due = self.today + timedelta(days=10)
+        commitment = self.make_commitment(request_date=old, due_date=due)
+        Activity.objects.filter(pk=self.activity_in_first.pk).update(commitment=commitment)
+        asked = self.request_for(mode=Mode.AUTOMATIC, new_date=self.second.start_date)
+        self.client.force_login(self.boss)
+        self.resolve(asked, Status.APPROVED)
+        commitment.refresh_from_db()
+        self.assertEqual(commitment.due_date, due)
+
+    def test_approving_moves_followups_that_would_be_before_the_new_date(self):
+        old = self.activity_in_first.date
+        early = Followup.objects.create(
+            activity=self.activity_in_first, sequence_number=1, date=old + timedelta(days=2), result="Se llamó",
+            scheduled_visit_date=old + timedelta(days=4), visit_date=old + timedelta(days=6),
+        )
+        late = Followup.objects.create(
+            activity=self.activity_in_first, sequence_number=2, date=self.today, result="Se visitó",
+        )
+        asked = self.request_for(mode=Mode.AUTOMATIC, new_date=self.second.start_date)
+        self.client.force_login(self.boss)
+        self.resolve(asked, Status.APPROVED)
+        early.refresh_from_db()
+        late.refresh_from_db()
+        new = self.second.start_date
+        self.assertEqual((early.date, early.scheduled_visit_date, early.visit_date), (new, new, new))
+        self.assertEqual(late.date, self.today)
+
+    def test_approving_tells_in_the_audit_log_what_moved_with_the_attention(self):
+        old = self.activity_in_first.date
+        Followup.objects.create(activity=self.activity_in_first, sequence_number=1, date=old + timedelta(days=2), result="Se llamó")
+        asked = self.request_for(mode=Mode.AUTOMATIC, new_date=self.second.start_date)
+        self.client.force_login(self.boss)
+        self.resolve(asked, Status.APPROVED)
+        trace = AuditLog.objects.filter(event="Cambio de trimestre aprobado", record_id=self.activity_in_first.pk).first()
+        self.assertIn("gestiones movidas", trace.new_value)
+
+    def test_approving_an_attention_without_commitment_or_followups_changes_only_its_date(self):
+        asked = self.request_for(mode=Mode.AUTOMATIC, new_date=self.second.start_date)
+        self.client.force_login(self.boss)
+        self.resolve(asked, Status.APPROVED)
+        self.assertEqual(self.activity_in_first.followups.count(), 0)
+        trace = AuditLog.objects.filter(event="Cambio de trimestre aprobado", record_id=self.activity_in_first.pk).first()
+        self.assertNotIn("gestiones", trace.new_value)
+        self.assertNotIn("compromiso", trace.new_value)
 
     def test_approving_leaves_a_trace_in_the_audit_log(self):
         asked = self.request_for()
