@@ -17,6 +17,35 @@ Nombres que cambiaron en la v27 (los textos antiguos los mencionan con el nombre
 | `core/qa/esperado_vNN.py` | `core/qa/esperado_<tema>.py` (mismo tema que su archivo de pruebas) |
 | `sql/*.sql` (todos) | `sql/sgr_django.sql` (estructura vigente) |
 
+## Versión 49
+
+Cierra lo que dejó la verificación completa de la v48 y pasa los períodos a trimestres. Solo cambia el comando `corregir_datos_revision` y la documentación; no cambia ninguna pantalla ni regla y no hay migraciones.
+
+### Qué cambia
+
+- **Períodos trimestrales (paso nuevo `periodos`):** los períodos de más de 100 días (los anuales 2025 y 2026) se reparten en trimestres calendario (ene-mar, abr-jun, jul-sep, oct-dic) y el anual queda archivado. Cada trimestre hereda los parámetros del anual (umbrales, tope, valor de felicitaciones y reclamos) y sus días computables salen de sus días hábiles. Los de años anteriores quedan cerrados; los del año en curso quedan vigentes para poder seguir ingresando cartas y cambios de trimestre.
+  - **Metas:** cada meta se copia a cada trimestre del período anual; la meta de atenciones se acerca a lo que se logra en un trimestre (mediana de atenciones con evidencia aprobada más una, mínimo 1) y las demás se dividen en cuatro. Los indicadores se recalculan.
+  - **Cartas y ajustes:** pasan al trimestre de su fecha y se vuelve a calcular su efecto (el máximo de felicitaciones es por trimestre).
+  - **Cambios de trimestre:** ahora existe un trimestre siguiente, así que se pueden crear por pantalla; los 110 existentes (de diciembre de 2025 a enero de 2026) siguen siendo válidos.
+- **Evidencias «Observadas»:** el paso `restos` ya no deja una evidencia con el estado inexistente `flagged`. Usa el mismo mapa que la pantalla de validar (`STATUS_AFTER_DECISION`): una validación «Observado» deja la evidencia pendiente.
+- **Nombre de contacto vacío:** una atención sin nombre de contacto recibe el de la persona atendida (el directivo, si lo hay, o el beneficiario) y su compromiso deja de decir «Sin nombre».
+- **README:** los funcionarios de las cuentas de prueba se nombran por su cargo y ya no por identificadores `REV-…` que la corrección cambia; `cliente1` se llama igual en las dos tablas; el mínimo de 50 registros se aclara como exigencia de los CRUD evaluados.
+
+### Lo que se sabe y no cambia
+
+- Un ajuste manual acepta cualquier porcentaje entre 0 y 100; el valor del período se aplica solo a los que nacen de una carta.
+- 19 organizaciones tienen la directiva incompleta (sin secretario o tesorero); la auditoría solo exige presidente.
+- Los mensajes de Django salen en español en todo el portal (el middleware fuerza `PORTAL_LANGUAGE`). Solo salen en inglés en `/admin/`, que se deja fuera a propósito, y al correr formularios fuera de una petición web (por ejemplo desde la consola).
+- El comando `cargar_datos_revision` sigue creando períodos anuales: `corregir_datos_revision` los pasa a trimestres, y por eso se corre después.
+
+## Versión 48
+
+Corrige un detalle del comando `corregir_datos_revision` que apareció al probar la v47 con registros rotos a propósito. No cambia ninguna pantalla ni regla, no agrega pasos y no hay migraciones.
+
+### Qué cambia
+
+- Cuando una atención había perdido su compromiso, el comando le creaba uno nuevo y el que ya era suyo quedaba suelto: la atención terminaba con dos compromisos con el mismo origen. Ahora, antes de crear uno, busca el compromiso suelto que nació de esa atención y lo vuelve a enlazar. Se aplica en los pasos `compromisos` y `restos`.
+
 ## Versión 47
 
 El comando `corregir_datos_revision` gana un paso, `restos`, que repara en el lugar los registros que la auditoría de datos seguía marcando después de la v46: pruebas tempranas hechas a mano que no son datos de revisión. No cambia ninguna pantalla ni regla, no archiva nada y no hay migraciones.
