@@ -538,8 +538,39 @@ class QuarterChangeRequest(BaseModel):
                 f"el máximo es {limit} por día. No se puede aprobar."
             )
 
+    FOLLOWUP_DATES = ("date", "scheduled_visit_date", "visit_date", "report_delivery_date", "benefit_delivery_date")
+
     def apply(self):
-        """Pasa la atención a su fecha nueva (se llama al aprobar, ya revisado)."""
+        """Pasa la atención a su fecha nueva (se llama al aprobar, ya revisado) y mueve con ella lo que cuelga de ella.
+
+        Si la atención ocurrió otro día, su compromiso nace ese día y sus gestiones no pueden ser anteriores:
+        * el compromiso enlazado toma la fecha nueva como fecha de solicitud y su fecha comprometida no queda antes;
+        * cada gestión con una fecha (de la gestión, de visita o de entrega) anterior a la nueva pasa a la fecha nueva.
+        Mover hacia adelante todas las fechas por igual conserva el orden que tenían entre sí.
+        Devuelve lo que se movió: ``{"followups": n, "commitment": bool}``.
+        """
         activity = self.activity
-        activity.date = self.new_date
+        new_date = self.new_date
+        activity.date = new_date
         activity.save(update_fields=["date", "updated_at"])
+        moved = {"followups": 0, "commitment": False}
+        for followup in Followup.objects.filter(activity=activity, deleted_at__isnull=True):
+            changes = {
+                name: new_date
+                for name in self.FOLLOWUP_DATES
+                if getattr(followup, name) is not None and getattr(followup, name) < new_date
+            }
+            if changes:
+                Followup.objects.filter(pk=followup.pk).update(**changes)
+                moved["followups"] += 1
+        commitment = activity.commitment if activity.commitment_id else None
+        if commitment is not None:
+            changes = {}
+            if commitment.request_date != new_date:
+                changes["request_date"] = new_date
+            if commitment.due_date < new_date:
+                changes["due_date"] = new_date
+            if changes:
+                Commitment.objects.filter(pk=commitment.pk).update(**changes)
+                moved["commitment"] = True
+        return moved

@@ -32,13 +32,14 @@ class RecoveryTestCase(PortalTestCase):
 
     def setUp(self):
         self.start = timezone.now().replace(microsecond=0)
+        self.token_start = datetime.now()  # una sola vez: si se pidiera en cada reloj, un cambio de segundo desfasaría 1 s los tokens
 
     def at(self, seconds):
         return mock.patch("django.utils.timezone.now", return_value=self.start + timedelta(seconds=seconds))
 
     def token_clock(self, seconds=0):
         """Adelanta el reloj con el que Django firma y revisa los tokens (no usa timezone.now)."""
-        moment = datetime.now() + timedelta(seconds=seconds)
+        moment = self.token_start + timedelta(seconds=seconds)
         return mock.patch.object(PasswordResetTokenGenerator, "_now", lambda generator: moment)
 
     def ask_for_link(self, email=None, client=None, seconds=0):

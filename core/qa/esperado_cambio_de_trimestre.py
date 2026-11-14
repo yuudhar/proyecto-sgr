@@ -25,6 +25,11 @@ ESPERADO = {
     },
     "QuarterResolutionTests": {
         "approving_moves_the_attention_to_the_new_trimestre": "Aprobar pasa la atención a la fecha nueva y la deja en el otro trimestre, con quien resolvió, cuándo y su respuesta.",
+        "approving_moves_the_linked_commitment_with_the_attention": "Aprobar mueve con la atención su compromiso enlazado: la fecha de solicitud pasa a la fecha nueva y la fecha comprometida no queda antes.",
+        "approving_keeps_a_later_commitment_due_date": "Si la fecha comprometida ya era posterior a la fecha nueva, aprobar no la toca.",
+        "approving_moves_followups_that_would_be_before_the_new_date": "Aprobar mueve a la fecha nueva las gestiones (y sus fechas de visita) que quedarían antes; las posteriores se quedan como están.",
+        "approving_tells_in_the_audit_log_what_moved_with_the_attention": "La auditoría de la aprobación indica cuántas gestiones se movieron junto con la atención.",
+        "approving_an_attention_without_commitment_or_followups_changes_only_its_date": "Una atención sin compromiso ni gestiones solo cambia su fecha, y la auditoría no menciona nada más.",
         "approving_leaves_a_trace_in_the_audit_log": "Aprobar deja registro en la auditoría, tanto en la atención como en la solicitud.",
         "rejecting_needs_a_reason_and_keeps_the_date": "Rechazar exige explicar el motivo y la atención conserva su fecha.",
         "approving_may_go_without_a_comment": "Aprobar puede ir sin respuesta escrita.",
