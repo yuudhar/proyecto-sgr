@@ -384,6 +384,74 @@ class Commitment(BaseModel):
         return f"Compromiso {self.requester} · {self.territory}"
 
 
+class TubeItem(BaseModel):
+    """Tubo de cartas (v51): tablero de seguimiento de actividades con sus cuatro estados.
+
+    Cada atención que se registra deja aquí una actividad en «Ingresado»; también se pueden agregar actividades a mano.
+    «Vencido» no se elige: lo pone el sistema cuando pasa la fecha comprometida y la actividad sigue sin realizarse.
+    """
+
+    class Status(models.TextChoices):
+        SUBMITTED = "submitted", "Ingresado"
+        PENDING = "pending", "Pendiente"
+        FULFILLED = "fulfilled", "Realizado"
+        OVERDUE = "overdue", "Vencido"
+
+    # A qué estado se puede pasar desde cada uno. «Vencido» solo sale hacia «Realizado»: para sacarlo de ahí sin
+    # cumplirlo hay que mover la fecha comprometida (editando la actividad) y vuelve solo a «Pendiente».
+    TRANSITIONS = {
+        "submitted": ("pending", "fulfilled"),
+        "pending": ("submitted", "fulfilled"),
+        "overdue": ("fulfilled",),
+        "fulfilled": ("pending",),
+    }
+
+    @classmethod
+    def can_move(cls, current, new):
+        return current == new or new in cls.TRANSITIONS.get(current, ())
+
+    @classmethod
+    def next_choices(cls, current):
+        return [(value, label) for value, label in cls.Status.choices if cls.can_move(current, value)]
+
+    title = models.CharField(max_length=200, verbose_name="actividad")
+    description = models.TextField(blank=True, default="", verbose_name="descripción")
+    requester = models.CharField(max_length=100, blank=True, default="", verbose_name="solicitante")
+    entered_date = models.DateField(verbose_name="fecha de ingreso")
+    due_date = models.DateField(verbose_name="fecha comprometida")
+    status = models.CharField(
+        max_length=20, choices=Status.choices, default=Status.SUBMITTED, db_index=True, verbose_name="estado"
+    )
+    responsible_officer = models.ForeignKey(
+        Officer, on_delete=models.PROTECT, related_name="tube_items", verbose_name="funcionario responsable"
+    )
+    delegation = models.ForeignKey(
+        Delegation, on_delete=models.PROTECT, related_name="tube_items", verbose_name="delegación"
+    )
+    activity = models.OneToOneField(
+        Activity,
+        on_delete=models.PROTECT,
+        null=True,
+        blank=True,
+        related_name="tube_item",
+        verbose_name="atención de origen",
+        help_text="La atención que dejó esta actividad en el tubo. Vacío si se agregó a mano.",
+    )
+
+    class Meta:
+        ordering = ("due_date", "pk")
+        verbose_name = "Actividad del tubo de cartas"
+        verbose_name_plural = "Tubo de cartas"
+
+    def clean(self):
+        super().clean()
+        if self.entered_date and self.due_date and self.due_date < self.entered_date:
+            raise ValidationError({"due_date": "La fecha comprometida no puede ser anterior a la de ingreso."})
+
+    def __str__(self):
+        return self.title
+
+
 class QuarterChangeRequest(BaseModel):
     """Solicitud para pasar una atención a otro trimestre: la pide un funcionario y la resuelve Jefatura.
 
@@ -456,13 +524,13 @@ class QuarterChangeRequest(BaseModel):
     def from_period(self):
         from operations.quarters import period_of
 
-        return period_of(self.previous_date)
+        return period_of(self.previous_date, self.delegation)
 
     @property
     def to_period(self):
         from operations.quarters import period_of
 
-        return period_of(self.new_date)
+        return period_of(self.new_date, self.delegation)
 
     def clean(self):
         super().clean()
@@ -487,7 +555,7 @@ class QuarterChangeRequest(BaseModel):
         ).exclude(pk=self.pk)
         if pending.exists():
             raise ValidationError({"activity": "Esa atención ya tiene una solicitud de cambio de trimestre pendiente."})
-        source = period_of(activity.date)
+        source = period_of(activity.date, activity.delegation)
         if self.mode == self.Mode.AUTOMATIC:
             if source is None:
                 raise ValidationError(
@@ -508,7 +576,7 @@ class QuarterChangeRequest(BaseModel):
                     )
                 }
             )
-        target = period_of(self.new_date)
+        target = period_of(self.new_date, activity.delegation)
         field = "new_date" if self.mode == self.Mode.MANUAL else "mode"
         if target is None:
             raise ValidationError({field: "Esa fecha no cae en ningún trimestre creado."})
@@ -528,7 +596,7 @@ class QuarterChangeRequest(BaseModel):
             raise ValidationError(
                 "La atención cambió de fecha después de esta solicitud. Recházala y que se pida de nuevo."
             )
-        target = period_of(self.new_date)
+        target = period_of(self.new_date, activity.delegation)
         if target is None or target.status == target.Status.CLOSED:
             raise ValidationError("El trimestre de destino ya no está disponible (no existe o está cerrado).")
         limit = settings.DAILY_ENTRY_LIMIT

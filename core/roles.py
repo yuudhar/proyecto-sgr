@@ -64,6 +64,7 @@ PERMISSION_MODULES = (
             ("Actividades y atenciones", "operations.activity"),
             ("Gestiones de atención", "operations.followup"),
             ("Agenda colectiva y compromisos", "operations.commitment"),
+            ("Tubo de cartas", "operations.tubeitem"),
             ("Evidencias", "evidence.evidence"),
             ("Validaciones", "evidence.validation"),
             ("Cartas", "planning.feedback"),

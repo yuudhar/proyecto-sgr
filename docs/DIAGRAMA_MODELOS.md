@@ -34,6 +34,9 @@ erDiagram
         date registration_date
         int directory_number
         bool verified
+        date start_date
+        date end_date
+        text description
     }
     Delegation {
         int id PK
@@ -187,6 +190,19 @@ erDiagram
         datetime resolved_at
         text resolution_comment
     }
+    TubeItem {
+        int id PK
+        datetime deleted_at "archivado"
+        string title
+        text description
+        string requester
+        date entered_date
+        date due_date
+        string status
+        int responsible_officer_id FK
+        int delegation_id FK
+        int activity_id FK, UK "opcional"
+    }
     Evidence {
         int id PK
         datetime deleted_at "archivado"
@@ -283,6 +299,7 @@ erDiagram
         decimal compliment_value
         decimal complaint_value
         int compliment_limit
+        int delegation_id FK "opcional"
     }
     RoleProfile {
         int id PK
@@ -348,6 +365,7 @@ erDiagram
     Activity ||--o{ Evidence : "activity"
     Activity ||--o{ Followup : "activity"
     Activity ||--o{ QuarterChangeRequest : "activity"
+    Activity |o--o| TubeItem : "activity"
     Adjustment |o--o| Feedback : "adjustment"
     Beneficiary |o--o{ Activity : "beneficiary"
     Beneficiary |o--o| UserProfile : "beneficiary"
@@ -358,8 +376,10 @@ erDiagram
     Delegation |o--o{ Comment : "delegation"
     Delegation ||--o{ Commitment : "delegation"
     Delegation ||--o{ Officer : "delegation"
+    Delegation |o--o{ Period : "delegation"
     Delegation ||--o{ QuarterChangeRequest : "delegation"
     Delegation ||--o{ Territory : "delegation"
+    Delegation ||--o{ TubeItem : "delegation"
     Delegation |o--o{ UserRoleDelegation : "delegation"
     Evidence ||--o{ Validation : "evidence"
     Goal ||--o{ Indicator : "goal"
@@ -379,6 +399,7 @@ erDiagram
     Officer ||--o{ Feedback : "officer"
     Officer |o--o{ Goal : "officer"
     Officer |o--o{ Indicator : "officer"
+    Officer ||--o{ TubeItem : "responsible_officer"
     Officer |o--o| UserProfile : "officer"
     Officer |o--o{ Validation : "reviewer_officer"
     OrganizationLeader |o--o{ Activity : "organization_leader"
@@ -412,6 +433,7 @@ La multiplicidad sale del tipo de campo, pero hay reglas que un diagrama no mues
 | `Evidence.activity` | `Activity` | muchos → uno (obligatoria) | — |
 | `Followup.activity` | `Activity` | muchos → uno (obligatoria) | Hasta tres gestiones por atención, numeradas 1, 2 y 3 (restricción única atención + número). |
 | `QuarterChangeRequest.activity` | `Activity` | muchos → uno (obligatoria) | — |
+| `TubeItem.activity` | `Activity` | uno → uno (opcional) | — |
 | `Feedback.adjustment` | `Adjustment` | uno → uno (opcional) | El ajuste (bonificación o penalización) lo genera el sistema al registrar la felicitación o el reclamo. |
 | `Activity.beneficiary` | `Beneficiary` | muchos → uno (opcional) | Una atención es de una persona (beneficiario) o de una organización: al menos una de las dos. |
 | `UserProfile.beneficiary` | `Beneficiary` | uno → uno (opcional) | Solo cuentas del perfil Cliente. Un perfil es de un funcionario o de un beneficiario, nunca de ambos. |
@@ -422,8 +444,10 @@ La multiplicidad sale del tipo de campo, pero hay reglas que un diagrama no mues
 | `Comment.delegation` | `Delegation` | muchos → uno (opcional) | — |
 | `Commitment.delegation` | `Delegation` | muchos → uno (obligatoria) | — |
 | `Officer.delegation` | `Delegation` | muchos → uno (obligatoria) | Define el ámbito (organización A o B) que ve el funcionario y su cuenta. |
+| `Period.delegation` | `Delegation` | muchos → uno (opcional) | — |
 | `QuarterChangeRequest.delegation` | `Delegation` | muchos → uno (obligatoria) | — |
 | `Territory.delegation` | `Delegation` | muchos → uno (obligatoria) | El nombre del territorio es único dentro de cada delegación (restricción única nombre + delegación). |
+| `TubeItem.delegation` | `Delegation` | muchos → uno (obligatoria) | — |
 | `UserRoleDelegation.delegation` | `Delegation` | muchos → uno (opcional) | Delegaciones adicionales en las que una cuenta ejerce un rol; sin delegación vale para todas. |
 | `Validation.evidence` | `Evidence` | muchos → uno (obligatoria) | Una evidencia puede revisarse varias veces; la decisión de cada revisión (aprobada, observada o rechazada) actualiza su estado de revisión. |
 | `Indicator.goal` | `Goal` | muchos → uno (obligatoria) | — |
@@ -443,6 +467,7 @@ La multiplicidad sale del tipo de campo, pero hay reglas que un diagrama no mues
 | `Feedback.officer` | `Officer` | muchos → uno (obligatoria) | — |
 | `Goal.officer` | `Officer` | muchos → uno (opcional) | Una meta es personal (funcionario) o del cargo (position): una u otra, no ambas. |
 | `Indicator.officer` | `Officer` | muchos → uno (opcional) | El indicador se guarda por meta y por funcionario; cada recálculo que cambia el valor agrega uno nuevo. |
+| `TubeItem.responsible_officer` | `Officer` | muchos → uno (obligatoria) | — |
 | `UserProfile.officer` | `Officer` | uno → uno (opcional) | Cuentas de personal: un funcionario, una cuenta. Vacío en cuentas técnicas y de clientes. |
 | `Validation.reviewer_officer` | `Officer` | muchos → uno (opcional) | Opcional: queda vacío si el revisor ya no existe como funcionario. |
 | `Activity.organization_leader` | `OrganizationLeader` | muchos → uno (opcional) | — |

@@ -29,6 +29,7 @@ from core.qa.esperado_cliente_y_recorte import ESPERADO as _CLIENTE_Y_RECORTE
 from core.qa.esperado_listado_y_perfil import ESPERADO as _LISTADO_Y_PERFIL
 from core.qa.esperado_carga_revision import ESPERADO as _CARGA_REVISION
 from core.qa.esperado_ensayo_revision import ESPERADO as _ENSAYO_REVISION
+from core.qa.esperado_tubo_de_cartas import ESPERADO as _TUBO_DE_CARTAS
 
 REQUISITOS = {
     "A1-01": ("A1", "Login: usuario o correo más contraseña, validación y acceso según perfil"),
@@ -112,6 +113,10 @@ REQUISITOS = {
     "V38-02": ("Versión 38", "Compromisos, sección nueva en canvas para lo físico: una atención con visita a terreno crea sola su compromiso, con cuatro columnas por estado, indicadores, botones de cambio de estado con historial y el mismo alcance y permisos de la agenda"),
     "V39-01": ("Versión 39", "Directiva de las organizaciones: registro propio (no beneficiario) con cargo, nombre, RUT y correo; un presidente, secretario y tesorero por organización, sin repetir RUT, con «Otro cargo» detallado, archivable y visible en la ficha de la organización"),
     "V39-02": ("Versión 39", "Tipo de solicitante en la atención: persona natural (RUT o nombre, como antes) u organización con la persona de su directiva que viene; cada grupo de campos aparece según el tipo, el servidor lo revisa y editar una atención puede cambiarlo"),
+    "V51-01": ("Versión 51", "Tubo de cartas: cada atención registrada deja una actividad en un tablero con Ingresado, Pendiente, Realizado y Vencido; se agregan y se mueven desde el tablero, el vencimiento es automático y el plazo por defecto es el fin del trimestre y los datos salen de la atención (solicitante, funcionario, compromiso enlazado, estado)"),
+    "V51-02": ("Versión 51", "Trimestres por delegación: «Agregar trimestre» crea el trimestre en todas las delegaciones marcadas, con días computables automáticos (lunes a viernes) y meta de cumplimiento; cada delegación rige con su propio período y no se traslapan"),
+    "V51-03": ("Versión 51", "Organizaciones comunitarias con presidente y tesorero (nombre y RUT) en el listado y la ficha, fecha de inicio y de fin para el calendario de actividades y descripción"),
+    "V51-04": ("Versión 51", "Carga de datos: las cuentas del equipo (admin como Super Usuario, matias.cavieres en Norte y matias.quiroz en Sur, ambos Funcionario y Verificador) se cargan con las de revisión, y --reiniciar borra toda la base y la vuelve a cargar desde cero, con confirmación y la corrección de datos al final"),
     "V40-01": ("Versión 40", "Cambio de trimestre de una atención: el funcionario lo pide (automático al trimestre siguiente o manual con fecha) y Jefatura lo aprueba o rechaza con su respuesta; al aprobar la atención toma la fecha nueva, con revisiones de trimestre abierto, de fecha no futura, de límite diario y de alcance por delegación"),
     "V42-01": ("Versión 42", "Del solicitante externo de la agenda colectiva a su cuenta de cliente: botón en el compromiso, RUT, beneficiario creado o reutilizado y «Nuevo usuario» con el perfil Cliente ya elegido"),
     "V44-01": ("Versión 44", "Funciones de cada cargo según el descriptor de funciones 2026: mantenedor propio, descripción del cargo, comando que carga los siete cargos del descriptor sin pisar lo editado y sección «Funciones del cargo» en la ficha personal"),
@@ -344,6 +349,8 @@ CLASES = {
     "ReviewWithDemoDataTests": (["V36-01"], "Carga de datos de revisión sobre los datos de demostración", _SEMILLA + "; luego cargar_datos_revision"),
     "ReviewPasswordsTests": (["V36-01", "V36-02"], "Carga de datos de revisión: contraseñas", "Base de datos vacía; variables de entorno controladas por la prueba"),
     "ReviewAccountsTests": (["V36-02"], "Seis cuentas de prueba: permisos, aislamiento y portal", "Base de datos vacía y una ejecución de cargar_datos_revision"),
+    "TeamAccountsTests": (["V51-04"], "Cuentas del equipo: admin, matias.cavieres y matias.quiroz", "Base de datos vacía y una ejecución de cargar_datos_revision"),
+    "ResetTests": (["V51-04"], "Volver a empezar: cargar_datos_revision --reiniciar", "Base de datos vacía; datos agregados por la prueba"),
     "RoleSeedRequirementTests": (["V36-01", "V36-03"], "Roles y tipos de gestión que prepara la carga", "Base de datos vacía, sin roles"),
     "ReviewReadmeTests": (["V36-02", "V36-03"], "README de la revisión: cuentas, AWS, WebSocket y carga", _SIN_BD),
     "ModelDiagramTests": (["V36-03"], "Diagrama de modelos generado desde los modelos registrados", _SIN_BD),
@@ -399,10 +406,21 @@ CLASES = {
     "CommandTests": (["V43-03"], "Comandos respaldar y restaurar_respaldo", "Base de datos de prueba (SQLite) y carpeta de respaldos temporal"),
     "HealthTests": (["V43-03"], "Respaldo en la revisión de salud /salud/", "Carpeta de respaldos temporal"),
     "DeployFilesTests": (["V43-03"], "Archivos de despliegue del respaldo", _SIN_BD),
+    "TubeRulesTests": (["V51-01"], "Tubo de cartas: alta desde la atención y vencimiento automático", _SEMILLA),
+    "TubeBoardTests": (["V51-01"], "Tubo de cartas: tablero e indicadores", _SEMILLA + "; actividades de Norte y Sur creadas en la prueba"),
+    "TubeMoveTests": (["V51-01"], "Tubo de cartas: mover tarjetas", _SEMILLA + "; sesiones de Coordinación y Consulta"),
+    "TubeCreateTests": (["V51-01"], "Tubo de cartas: agregar y editar actividades", _SEMILLA + "; sesión de Matías Cavieres"),
+    "TubeDefaultTermTests": (["V51-01"], "Tubo de cartas: plazo por defecto al fin del trimestre", _SEMILLA),
+    "TubeCoherenceTests": (["V51-01"], "Tubo de cartas: datos coherentes con la atención", _SEMILLA),
+    "QuarterScopeTests": (["V51-02"], "Trimestres por delegación: qué período rige", _SEMILLA),
+    "QuarterFormTests": (["V51-02"], "Agregar trimestre: fechas de cada trimestre", _SIN_BD),
+    "QuarterAddTests": (["V51-02"], "Agregar trimestre en varias delegaciones", _SEMILLA + "; sesión de Coordinación"),
+    "PeriodListAndFormTests": (["V51-02"], "Listado y formulario de períodos por delegación", _SEMILLA),
+    "OrganizationCalendarTests": (["V51-03"], "Organización comunitaria con directiva, fechas y descripción", _SEMILLA),
     "SolicitanteTests": (["V39-02"], "Tipo de solicitante en la atención", _SEMILLA + "; sesión de Matías Cavieres (Norte); organización con su directiva"),
 }
 
 ESPERADO = {}
-for _grupo in (_ACCESO, _MANTENEDORES, _INGRESO, _LISTADOS, _DESPLIEGUE, _VALIDACIONES, _ARCHIVOS_Y_FOTO, _ELIMINAR_Y_LISTADOS, _USUARIOS_ELIMINADOS, _TIEMPO_REAL, _RITMO_Y_COMPROMISOS, _RESULTADOS_Y_CALCULO, _CODES_SEARCH_AND_CHARTS, _REGLAS_PUNTAJE, _CIERRE_Y_AUSENCIAS, _FELICITACIONES_EQUIPO_Y_JJVV, _TUBO_DE_TRABAJO, _CLIENTE_Y_RECORTE, _ERRORES, _LISTADO_Y_PERFIL, _CARGA_REVISION, _ENSAYO_REVISION, _CARTAS_Y_COMPROMISOS, _DIRECTIVA_Y_SOLICITANTE, _CAMBIO_DE_TRIMESTRE, _LIMITE_DE_FECHAS, _CLIENTE_DESDE_COMPROMISO, _AVISO_DE_EDICION, _COMENTARIOS, _RESPALDO, _FUNCIONES_DE_CARGO, ):
+for _grupo in (_ACCESO, _MANTENEDORES, _INGRESO, _LISTADOS, _DESPLIEGUE, _VALIDACIONES, _ARCHIVOS_Y_FOTO, _ELIMINAR_Y_LISTADOS, _USUARIOS_ELIMINADOS, _TIEMPO_REAL, _RITMO_Y_COMPROMISOS, _RESULTADOS_Y_CALCULO, _CODES_SEARCH_AND_CHARTS, _REGLAS_PUNTAJE, _CIERRE_Y_AUSENCIAS, _FELICITACIONES_EQUIPO_Y_JJVV, _TUBO_DE_TRABAJO, _CLIENTE_Y_RECORTE, _ERRORES, _LISTADO_Y_PERFIL, _CARGA_REVISION, _ENSAYO_REVISION, _CARTAS_Y_COMPROMISOS, _DIRECTIVA_Y_SOLICITANTE, _CAMBIO_DE_TRIMESTRE, _LIMITE_DE_FECHAS, _CLIENTE_DESDE_COMPROMISO, _AVISO_DE_EDICION, _COMENTARIOS, _RESPALDO, _FUNCIONES_DE_CARGO, _TUBO_DE_CARTAS, ):
     for _clase, _metodos in _grupo.items():
         ESPERADO.setdefault(_clase, {}).update(_metodos)

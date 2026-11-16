@@ -95,6 +95,7 @@ MENU = [
                     crud_entry("gestiones"),
                     crud_entry("agenda", "Agenda colectiva"),
                     crud_entry("compromisos"),
+                    crud_entry("tubo-de-cartas"),
                     crud_entry("cartas"),
                     crud_entry("cambios-trimestre"),
                     page_entry("commitment_summary", "Resumen colectivo", "bi-pie-chart", "operations.view_commitment"),

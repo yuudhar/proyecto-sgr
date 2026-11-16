@@ -5,7 +5,7 @@ from django.db import models
 
 from core.models import BaseModel
 from core.uploads import feedback_path
-from organization.models import Item, Position, Officer
+from organization.models import Delegation, Item, Position, Officer
 
 
 class Period(BaseModel):
@@ -45,14 +45,24 @@ class Period(BaseModel):
         default=3, verbose_name="máximo de felicitaciones por persona",
         help_text="Las felicitaciones que pasan de este máximo quedan registradas, pero sin efecto.",
     )
+    delegation = models.ForeignKey(
+        Delegation,
+        on_delete=models.PROTECT,
+        null=True,
+        blank=True,
+        related_name="periods",
+        verbose_name="delegación",
+        help_text="Vacío: el período rige para todas las delegaciones. Con delegación, solo rige para esa.",
+    )
 
     class Meta:
-        ordering = ("-start_date",)
+        ordering = ("-start_date", "delegation__name")
         verbose_name = "Período"
         verbose_name_plural = "Períodos"
 
     def __str__(self):
-        return f"Período {self.start_date} – {self.end_date}"
+        text = f"Período {self.start_date} – {self.end_date}"
+        return f"{text} · {self.delegation.name}" if self.delegation_id else text
 
 
 class Goal(BaseModel):
@@ -306,7 +316,7 @@ class Feedback(BaseModel):
 
         if not self.date:
             return
-        period = feedback.period_for(self.date)
+        period = feedback.period_for(self.date, self.officer.delegation if self.officer_id else None)
         if period is None:
             raise ValidationError({"date": "Esa fecha no está dentro de ningún período."})
         if period.status == Period.Status.CLOSED:
@@ -319,7 +329,7 @@ class Feedback(BaseModel):
         from . import feedback
 
         if self.date and not self.period_id:
-            period = feedback.period_for(self.date)
+            period = feedback.period_for(self.date, self.officer.delegation if self.officer_id else None)
             if period is not None:
                 self.period = period
         super().save(*args, **kwargs)

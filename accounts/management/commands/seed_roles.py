@@ -4,7 +4,7 @@ from django.core.management.base import BaseCommand
 
 from core.models import Comment
 from evidence.models import Evidence, Validation
-from operations.models import Activity, Commitment, Followup, QuarterChangeRequest
+from operations.models import Activity, Commitment, Followup, QuarterChangeRequest, TubeItem
 from organization.models import Item, Officer, Position, PositionFunction, PositionItem, Service, Territory
 from planning.models import Absence, Adjustment, Feedback, Goal, Indicator, Period
 
@@ -39,6 +39,7 @@ ROLES = {
         (Feedback, ["add_feedback", "change_feedback", "view_feedback"]),
         (Activity, ["view_activity"]),
         (Commitment, ["view_commitment", "change_commitment"]),
+        (TubeItem, ["view_tubeitem", "change_tubeitem"]),
         (QuarterChangeRequest, ["view_quarterchangerequest", "change_quarterchangerequest"]),
         (Followup, ["view_followup"]),
         (Indicator, ["view_indicator"]),
@@ -52,6 +53,7 @@ ROLES = {
         (Followup, ["add_followup", "change_followup", "view_followup"]),
         (Evidence, ["add_evidence", "change_evidence", "view_evidence"]),
         (Commitment, ["add_commitment", "change_commitment", "view_commitment"]),
+        (TubeItem, ["add_tubeitem", "change_tubeitem", "view_tubeitem"]),
         (QuarterChangeRequest, ["add_quarterchangerequest", "view_quarterchangerequest"]),
         (Officer, ["view_officer"]),
         (Territory, ["view_territory"]),
@@ -66,6 +68,7 @@ ROLES = {
     "Consulta": [
         (Activity, ["view_activity"]),
         (Commitment, ["view_commitment"]),
+        (TubeItem, ["view_tubeitem"]),
         (Indicator, ["view_indicator"]),
         (Evidence, ["view_evidence"]),
         (Validation, ["view_validation"]),

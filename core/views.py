@@ -33,7 +33,7 @@ from core.audit import log_event, log_export
 from core.clients import client_beneficiary, is_client
 from core.commitments import DUE_SOON_DAYS, STATUS_ORDER, collective_summary, deadline_counts, status_label
 from core.crud import CODE_COLUMN, PAGE_SIZES, SESSION_PAGE_SIZE, Col, Column, CrudListView, conflict_message, query_string, read_list_state, registry, save_list_state, version_of
-from core.forms import ClientDataForm, PortalAuthenticationForm, PortalPasswordChangeForm, ProfileDataForm, ProfilePhotoForm, ValidationForm
+from core.forms import ClientDataForm, PortalAuthenticationForm, QuarterAddForm, PortalPasswordChangeForm, ProfileDataForm, ProfilePhotoForm, ValidationForm
 from core.results import current_period, goals_of, light_of, mean, officer_summary, rounded, team_goals
 from core.registry import can_create_clients
 from core.rules import normalize_rut, rut_with_wrong_digit
@@ -41,6 +41,7 @@ from evidence.models import Evidence, Validation
 from operations.models import Activity, Commitment
 from organization.models import Beneficiary, Delegation, Officer
 from planning import feedback as feedback_rules
+from planning import periods as period_scope
 from planning.team import team_score
 from planning.absences import absence_map, kind_breakdown
 from planning.calculation import IndicatorIndex
@@ -316,12 +317,16 @@ latest_indicators = IndicatorIndex
 
 
 def pick_period(request):
-    periods = list(Period.objects.filter(deleted_at__isnull=True).order_by("-start_date"))
+    try:
+        delegation = active_delegation(request)
+    except PermissionDenied:  # sin delegación asignada: el dashboard solo muestra el aviso
+        delegation = None
+    periods = list(period_scope.visible(delegation).order_by("-start_date", "delegation__name"))
     chosen = request.GET.get("periodo", "")
     for period in periods:
         if str(period.pk) == chosen:
             return period, periods
-    default = current_period()
+    default = current_period(delegation)
     return default, periods
 
 
@@ -770,6 +775,69 @@ def validate_list(request):
 
 
 @login_required
+@permission_required("planning.add_period", raise_exception=True)
+def quarter_add(request):
+    """v51: agregar un trimestre. Las fechas y los días se calculan solos y se crea en cada delegación elegida."""
+    periods = registry.get("periodos")
+    delegations = Delegation.objects.filter(
+        pk__in=[each.pk for each in authorized_delegations(request)], deleted_at__isnull=True
+    ).order_by("name")
+    today = timezone.localdate()
+    form = QuarterAddForm(
+        request.POST or None,
+        delegations=delegations,
+        initial={"year": today.year, "quarter": (today.month - 1) // 3 + 1},
+    )
+    if request.method == "POST" and form.is_valid():
+        data = form.cleaned_data
+        created = []
+        with transaction.atomic():
+            for delegation in data["delegations"]:
+                # Los demás parámetros (valor de felicitaciones y reclamos, tope, versión) se copian del último
+                # trimestre de la delegación o, si no tiene, del general.
+                model = period_scope.scoped(delegation).order_by("-start_date").first()
+                extra = {}
+                if model is not None:
+                    extra = {
+                        name: getattr(model, name)
+                        for name in (
+                            "weighted_cap", "parameters_version", "compliment_value", "complaint_value", "compliment_limit"
+                        )
+                    }
+                period = Period.objects.create(
+                    delegation=delegation,
+                    start_date=data["start_date"],
+                    end_date=data["end_date"],
+                    computable_days=data["computable_days"],
+                    collective_threshold=data["collective_threshold"],
+                    amber_threshold=data["amber_threshold"],
+                    status=data["status"],
+                    **extra,
+                )
+                log_event(request.user, "Registro creado", period, new=str(period))
+                created.append(delegation.name)
+        messages.success(
+            request,
+            f"Trimestre del {ui.fmt_date(data['start_date'])} al {ui.fmt_date(data['end_date'])} creado en "
+            f"{len(created)} delegación{'es' if len(created) != 1 else ''}: {', '.join(created)}.",
+        )
+        return redirect(periods.url("list"))
+    return render(
+        request,
+        "core/period_quarter_add.html",
+        {
+            "form": form,
+            "crud": periods,
+            "breadcrumbs": [
+                ("Inicio", reverse("core:dashboard")),
+                (periods.list_title, periods.url("list")),
+                ("Agregar trimestre", None),
+            ],
+        },
+    )
+
+
+@login_required
 def client_from_commitment(request, pk):
     """v42: del solicitante externo de un compromiso de la agenda colectiva a su cuenta de cliente.
 
@@ -1091,7 +1159,7 @@ def commitment_summary(request):
     """RF-021: compromisos por funcionario y estado, con el porcentaje realizado y el que falta por realizar."""
     crud = registry.get("agenda")
     delegation, delegations, can_pick = pick_delegation(request, allow_all=True)
-    periods = list(Period.objects.filter(deleted_at__isnull=True).order_by("-start_date"))
+    periods = list(period_scope.visible(delegation).order_by("-start_date", "delegation__name"))
     chosen = request.GET.get("periodo", "todos")
     period = next((option for option in periods if str(option.pk) == chosen), None)
 
@@ -1108,7 +1176,7 @@ def commitment_summary(request):
         commitments = commitments.filter(due_date__range=(period.start_date, period.end_date))
 
     rows, total = collective_summary(commitments, list(officers))
-    thresholds = period or current_period()
+    thresholds = period or current_period(delegation)
     for row in [*rows, total]:
         row["light"] = light_of(row["done_percent"], thresholds) if thresholds and row["done_percent"] is not None else ""
 
@@ -1467,7 +1535,7 @@ def administration(request):
         items = [item for item in items if item.url != hub_url]
         if items:
             sections.append((title, items))
-    period = current_period()
+    period = current_period(active_delegation(request))
     show_period = period is not None and registry.get("periodos").has_perm(request.user, "view")
     return render(
         request,

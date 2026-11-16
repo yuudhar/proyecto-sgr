@@ -47,7 +47,7 @@ Cada app tiene `models.py` (tablas), `admin.py` (Django Admin), `apps.py` y `mig
 
 ## 4. Modelo de datos
 
-39 tablas en la base `sgr_django`: 29 del proyecto, 6 del framework (usuarios, grupos, permisos, tipos de contenido, sesiones y registro del Admin), 3 de unión (usuario–grupo, usuario–permisos, grupo–permisos) y `django_migrations`.
+40 tablas en la base `sgr_django`: 30 del proyecto, 6 del framework (usuarios, grupos, permisos, tipos de contenido, sesiones y registro del Admin), 3 de unión (usuario–grupo, usuario–permisos, grupo–permisos) y `django_migrations`.
 
 | App | Tablas del proyecto |
 |---|---|
@@ -55,7 +55,7 @@ Cada app tiene `models.py` (tablas), `admin.py` (Django Admin), `apps.py` y `mig
 | `organization` | `Delegation`, `Position`, `Item`, `Service`, `Beneficiary`, `Territory`, `Officer`, `PositionItem`, `CommunityOrganization`, `OrganizationLeader` |
 | `accounts` | `UserProfile`, `RoleProfile`, `UserRoleDelegation` |
 | `planning` | `Period`, `Goal`, `Indicator`, `Adjustment` |
-| `operations` | `ManagementType`, `Activity`, `Followup`, `Commitment`, `QuarterChangeRequest` |
+| `operations` | `ManagementType`, `Activity`, `Followup`, `Commitment`, `QuarterChangeRequest`, `TubeItem` (tubo de cartas, v51) |
 | `evidence` | `Evidence`, `Validation` |
 
 Todas las tablas del proyecto heredan de `BaseModel` (`core/models.py`), que agrega `created_at`, `updated_at` y `deleted_at`. **Borrado lógico:** un registro con `deleted_at` lleno está *archivado*: no sale en los listados normales, pero se puede restaurar. Solo se elimina de verdad lo que no está en uso.
@@ -88,7 +88,7 @@ Cada rol tiene una ficha (`RoleProfile`) con descripción, alcance (su delegaci�
 
 ## 7. Mantenedores registrados
 
-`core/registry.py` declara un `Crud` por cada una de estas pantallas (`slug` = parte de la dirección): `actividades`, `gestiones`, `agenda`, `evidencias`, `validaciones`, `periodos`, `metas`, `indicadores`, `ajustes`, `delegaciones`, `territorios`, `funcionarios`, `cargos`, `items-de-cargo`, `servicios`, `items`, `tipos-de-atencion`, `sub-atenciones`, `tipos-de-gestion`, `beneficiarios`, `cartas`, `compromisos`, `organizaciones`, `directivas`, `usuarios`, `roles` y `auditoria`.
+`core/registry.py` declara un `Crud` por cada una de estas pantallas (`slug` = parte de la dirección): `actividades`, `tubo-de-cartas`, `gestiones`, `agenda`, `evidencias`, `validaciones`, `periodos`, `metas`, `indicadores`, `ajustes`, `delegaciones`, `territorios`, `funcionarios`, `cargos`, `items-de-cargo`, `servicios`, `items`, `tipos-de-atencion`, `sub-atenciones`, `tipos-de-gestion`, `beneficiarios`, `cartas`, `compromisos`, `organizaciones`, `directivas`, `usuarios`, `roles` y `auditoria`.
 
 ## 8. Cómo leer el resto del documento
 
@@ -2516,8 +2516,23 @@ Opciones del modelo (`Meta`): `ordering` = `('-created_at',)`; `verbose_name` = 
 
 #### `operations/quarters.py` (trimestre de una fecha, v40)
 
-- **`period_of(day)`**: el período no archivado que contiene la fecha (el más reciente si hubiera más de uno), o `None`.
-- **`next_period(period)`**: el primer período no archivado que empieza después de que termina el indicado, o `None`.
+- **`period_of(day, delegation=None)`**: el período no archivado que contiene la fecha, o `None`. Desde la v51 los períodos pueden ser de una delegación: gana el de la delegación sobre el general, y sin delegación solo cuentan los generales. Delega en `planning/periods.py`.
+- **`next_period(period)`**: el primer período no archivado que empieza después de que termina el indicado, en el mismo ámbito (la misma delegación, o general), o `None`.
+
+#### `planning/periods.py` (períodos por delegación, v51)
+
+- **`scoped(delegation)`**, **`containing(day, delegation)`**, **`following(period)`** y **`visible(delegation)`**: qué períodos rigen para una delegación (los suyos y los generales; el suyo gana) y cuál contiene una fecha. Lo usan el cambio de trimestre, las felicitaciones y reclamos, los resultados y los selectores de período.
+
+#### `operations/tube.py` (tubo de cartas, v51)
+
+Cada atención registrada deja su actividad en el tablero del Tubo de cartas (`TubeItem`: Ingresado, Pendiente, Realizado y Vencido). La actividad **sale de la atención**: título (tipo de atención y solicitante), solicitante, descripción, funcionario responsable, delegación y fecha de ingreso; su estado inicial sigue al de la atención y su fecha comprometida es la del compromiso enlazado, o el último día del trimestre de la atención (sin trimestre definido, la fecha de la atención + 15 días).
+
+- **`default_due_date(day, delegation=None)`**: el plazo por defecto, el último día del trimestre que contiene la fecha (el de la delegación gana al general); sin trimestre definido, `DEFAULT_DAYS` (15) días después.
+- **`create_for_activity(activity)`**: crea la actividad del tubo (no duplica).
+- **`status_for(activity)`**, **`due_date_for(activity)`**, **`requester_of(activity)`**, **`title_for(activity)`**: las reglas de arriba.
+- **`follow_activity(activity)`**: cuando la atención se cierra, su actividad pasa a «Realizado».
+- **`sync_overdue(today=None, queryset=None)`**: «Vencido» automático (fecha pasada sin realizarse); si la fecha se mueve hacia adelante, vuelve a «Pendiente». Se llama al abrir el tablero.
+- **`load_sample(delegation, count, today=None)`**: datos de ejemplo coherentes (usa atenciones reales; no repite). Lo usan `cargar_datos_revision`, `cargar_tubo_de_cartas` y los datos de las pruebas.
 
 #### `operations/pipeline.py` (tubo de trabajo, v32)
 
@@ -2750,6 +2765,7 @@ Las migraciones crean y modifican las tablas de cada app.
 - `0001_initial.py`: crea la tabla de `ManagementType`; crea la tabla de `Activity`; crea la tabla de `Commitment`; crea la tabla de `Followup`.
 - `0002_commitment_status_pending.py`: agrega el estado «Pendiente» y cambia «Cumplido» por «Realizado» en las opciones de `commitment.status`; no modifica la estructura de la tabla.
 - `0003_reglas_de_puntaje_v29.py`: agrega el campo `activity.requester_is_delegate`; agrega el campo `activity.counts_for_score` (con índice); agrega el campo `activity.no_score_reason`.
+- `0009_tubo_de_cartas_v51.py`: crea la tabla de `TubeItem` (`operations_tubeitem`).
 
 ### `organization`
 
@@ -2758,6 +2774,7 @@ Las migraciones crean y modifican las tablas de cada app.
 - `0003_delegation_address_commune_item_description.py`: agrega el campo `delegation.address`; agrega el campo `delegation.commune`; agrega el campo `item.description`.
 - `0004_reglas_de_puntaje_v29.py`: agrega el campo `item.scores` («Otorga punto»).
 - `0007_funciones_de_cargo_v44.py`: agrega el campo `position.description`; crea la tabla de `PositionFunction` (`organization_positionfunction`).
+- `0008_organizaciones_calendario_v51.py`: agrega `communityorganization.start_date`, `end_date` y `description`.
 
 ### `planning`
 
@@ -2765,6 +2782,7 @@ Las migraciones crean y modifican las tablas de cada app.
 - `0002_indicator_officer.py`: agrega el campo `indicator.officer`.
 - `0003_reglas_de_puntaje_v29.py`: cambia a 120 el valor por defecto de `period.weighted_cap` y baja a 120 el tope de los períodos que no están cerrados (los cerrados conservan el suyo).
 - `0004_ausencias_v30.py`: crea la tabla de `Absence`.
+- `0007_periodos_por_delegacion_v51.py`: agrega el campo `period.delegation` (vacío = período general).
 
 ## 11. Plantillas
 

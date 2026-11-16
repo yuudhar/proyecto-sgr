@@ -17,6 +17,33 @@ Nombres que cambiaron en la v27 (los textos antiguos los mencionan con el nombre
 | `core/qa/esperado_vNN.py` | `core/qa/esperado_<tema>.py` (mismo tema que su archivo de pruebas) |
 | `sql/*.sql` (todos) | `sql/sgr_django.sql` (estructura vigente) |
 
+## Versión 51
+
+Tubo de cartas como tablero de actividades, trimestres por delegación con «Agregar trimestre» y organizaciones comunitarias con directiva y fechas. Hay 3 migraciones (`operations 0009`, `planning 0007`, `organization 0008`) y hay que correr `seed_roles` al actualizar para dar permisos del módulo nuevo.
+
+### Qué cambia
+
+- **Tubo de cartas** (menú Operación, después de Compromisos): tablero con **Ingresado, Pendiente, Realizado y Vencido**. Cada atención que se registra deja su actividad en «Ingresado»; también se puede **agregar una actividad** a mano y **mover** las tarjetas entre columnas (con auditoría y sin saltarse las reglas: «Vencido» solo ofrece pasar a «Realizado»).
+  - **Los datos vienen de la atención:** título (tipo de atención y solicitante), solicitante, descripción, funcionario y delegación; el estado inicial sigue al de la atención (registrada → Ingresado, en proceso → Pendiente, cerrada → Realizado) y la fecha comprometida es la del compromiso enlazado o, si no hay, el último día del trimestre de la atención (el de su delegación; sin trimestre definido, la fecha de la atención + 15 días). Cuando la atención se cierra, su actividad queda «Realizado».
+  - **«Vencido» es automático:** una actividad Ingresada o Pendiente cuya fecha ya pasó queda vencida; si se le pone una fecha futura, vuelve a «Pendiente». Indicadores: actividades, realizadas (con tasa de cumplimiento), pendientes y vencidas.
+  - Cada delegación ve solo lo suyo; no se elimina (se mueve de estado).
+- **Trimestres por delegación:** `Period` tiene delegación opcional (vacío = general, como los períodos que ya existen). Cada delegación rige con su propio período y el suyo gana sobre el general; no se pueden traslapar dos períodos del mismo ámbito. Nueva pantalla **«Agregar trimestre»** (botón en Períodos): elige año y trimestre, marca las delegaciones y el trimestre se crea **en todas las marcadas**; los **días computables** salen solos (lunes a viernes del trimestre, sin feriados) o se escriben a mano, y la **meta de cumplimiento** (el umbral verde del semáforo) y el umbral ámbar se piden ahí. Si hay un traslape en una sola delegación no se crea en ninguna. Los demás parámetros se copian del último trimestre de la delegación.
+- **Organizaciones comunitarias:** fecha de inicio y de fin (para el calendario de actividades) y descripción; el listado muestra **presidente y tesorero** y la ficha la directiva con nombre y RUT. La descripción se puede buscar.
+- **Datos de revisión:** `cargar_datos_revision` deja 55 actividades del tubo por delegación a partir de atenciones reales; el comando nuevo **`cargar_tubo_de_cartas`** hace lo mismo en una base que ya tenía datos (no duplica) y da a `admin_a` los permisos del módulo.
+- **Cuentas del equipo y volver a empezar:** `cargar_datos_revision` crea también `admin` (Super Usuario), `matias.cavieres` (Norte) y `matias.quiroz` (Sur), y la opción **`--reiniciar`** borra toda la base (usuarios, datos, auditoría y archivos subidos) y la vuelve a cargar desde cero, terminando con `corregir_datos_revision --aplicar`. Pide escribir BORRAR (o `--sin-confirmar`).
+- El plazo por defecto de una actividad nueva (también en «Agregar actividad») es el **fin del trimestre** de su fecha de ingreso, no un número fijo de días.
+- **Arreglos de la prueba local:** la actividad del tubo ahora se crea después del compromiso (antes no alcanzaba a tomar su fecha); las casillas de «Agregar trimestre» usan el mismo selector de delegaciones que Control de usuarios (se montaban sobre los campos de abajo); la vista previa del trimestre usa fechas con barras (01/10/2026); el listado de organizaciones no muestra Inicio y Fin (siguen en la ficha y el formulario) para que la tabla no se desborde.
+- 77 pruebas nuevas (tubo, trimestres, organizaciones, cuentas del equipo y reinicio), con su resultado esperado en `core/qa/esperado_tubo_de_cartas.py` y `esperado_carga_revision.py` y requisitos V51-01 a V51-04. `sql/sgr_django.sql` (40 tablas), `docs/DIAGRAMA_MODELOS.md`, el README y `DOCUMENTACION_CODIGO.md` quedan al día.
+
+### Lo que se sabe y no cambia
+
+- **Organigrama** de las organizaciones: queda para después (se decidió verlo aparte). Tampoco hay una vista de calendario: por ahora solo se guardan las fechas de inicio y de fin.
+- Solo Coordinación puede agregar trimestres (es quien define períodos); los delegados no.
+- El tablero del tubo no pagina: con muchas actividades la página se alarga.
+- Los días computables automáticos no descuentan feriados.
+- Las atenciones registradas antes de la v51 no están en el tubo hasta correr `cargar_tubo_de_cartas`; el comando crea actividades de ejemplo solo con las atenciones más recientes de cada delegación.
+- Los períodos que ya existen siguen siendo generales; los que se creen con «Agregar trimestre» son por delegación.
+
 ## Versión 50
 
 Parche chico sobre el cambio de trimestre (v40). No hay migraciones ni pantallas nuevas.

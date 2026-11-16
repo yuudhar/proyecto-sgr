@@ -2,7 +2,7 @@ from django.contrib import admin
 
 from core.admin_mixins import DelegationScopedAdminMixin, SoftDeleteAdminMixin
 
-from .models import Activity, Commitment, Followup, ManagementType
+from .models import Activity, Commitment, Followup, ManagementType, TubeItem
 
 
 class FollowupInline(admin.TabularInline):
@@ -90,3 +90,13 @@ class CommitmentAdmin(DelegationScopedAdminMixin, admin.ModelAdmin):
     list_select_related = ("territory", "delegation", "responsible_officer")
     ordering = ("-due_date",)
     date_hierarchy = "due_date"
+
+
+@admin.register(TubeItem)
+class TubeItemAdmin(DelegationScopedAdminMixin, admin.ModelAdmin):
+    delegation_lookup = "delegation"
+    list_display = ("title", "requester", "delegation", "responsible_officer", "entered_date", "due_date", "status")
+    search_fields = ("title", "requester", "description")
+    list_filter = ("delegation", "status")
+    list_select_related = ("delegation", "responsible_officer")
+    ordering = ("due_date",)
