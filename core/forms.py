@@ -1,4 +1,5 @@
 import re
+from datetime import date
 from decimal import Decimal
 from pathlib import Path
 
@@ -26,7 +27,7 @@ from core.rules import collapse_spaces, get_rule, normalize_lines
 from core.search import plain_letter, word_pattern
 from core.widgets import ColorWidget, DelegationsWidget, DependentSelect, LookupWidget, PermissionMatrixWidget, RolesWidget
 from evidence.models import Validation
-from operations.models import Commitment, Followup, QuarterChangeRequest
+from operations.models import Commitment, Followup, QuarterChangeRequest, TubeItem
 from organization.models import (
     Beneficiary,
     CommunityOrganization,
@@ -37,6 +38,7 @@ from organization.models import (
     Territory,
 )
 from planning.models import Feedback, Goal, Period
+from planning.pace import weekdays_between
 
 
 LONG_TEXT_MAX = 2000
@@ -1530,12 +1532,109 @@ class PeriodForm(CrudForm):
         limit = cleaned.get("compliment_limit")
         if limit is not None and limit < 1:
             self.add_error("compliment_limit", "El máximo de felicitaciones debe ser al menos 1.")
+        delegation = cleaned.get("delegation")
+        same_scope = Period.objects.filter(deleted_at__isnull=True, delegation=delegation)
+        if self.instance.pk:
+            same_scope = same_scope.exclude(pk=self.instance.pk)
         if cleaned.get("status") == Period.Status.ACTIVE:
-            others = Period.objects.filter(deleted_at__isnull=True, status=Period.Status.ACTIVE)
-            if self.instance.pk:
-                others = others.exclude(pk=self.instance.pk)
-            if others.exists():
-                self.add_error("status", "Ya hay un período vigente. Ciérralo antes de dejar este como vigente.")
+            if same_scope.filter(status=Period.Status.ACTIVE).exists():
+                where = f" de {delegation.name}" if delegation is not None else ""
+                self.add_error(
+                    "status", f"Ya hay un período vigente{where}. Ciérralo antes de dejar este como vigente."
+                )
+        if start and end and end >= start:
+            clash = same_scope.filter(start_date__lte=end, end_date__gte=start).first()
+            if clash is not None:
+                self.add_error("start_date", f"Se traslapa con el período del {ui.fmt_date(clash.start_date)} al {ui.fmt_date(clash.end_date)}.")
+        return cleaned
+
+
+class QuarterAddForm(BootstrapFormMixin, forms.Form):
+    """Agregar un trimestre de una vez: se eligen año y trimestre, las fechas y los días se calculan solos y el
+    trimestre se crea en cada delegación elegida (por defecto, todas)."""
+
+    QUARTERS = (
+        (1, "1.er trimestre (enero a marzo)"),
+        (2, "2.º trimestre (abril a junio)"),
+        (3, "3.er trimestre (julio a septiembre)"),
+        (4, "4.º trimestre (octubre a diciembre)"),
+    )
+    LAST_DAY = {1: (3, 31), 2: (6, 30), 3: (9, 30), 4: (12, 31)}
+
+    year = forms.IntegerField(label="Año", min_value=2000, max_value=2100)
+    quarter = forms.TypedChoiceField(label="Trimestre", choices=QUARTERS, coerce=int)
+    delegations = forms.ModelMultipleChoiceField(
+        label="Delegaciones",
+        queryset=None,
+        widget=DelegationsWidget,
+        help_text="El trimestre se crea en cada delegación marcada. Cada una puede ajustarlo después por su cuenta.",
+    )
+    computable_days = forms.IntegerField(
+        label="Días computables",
+        required=False,
+        min_value=1,
+        help_text="Si lo dejas vacío se calcula solo: los días de lunes a viernes del trimestre. Escríbelo si quieres descontar feriados.",
+    )
+    collective_threshold = forms.DecimalField(
+        label="Meta de cumplimiento (%)",
+        max_digits=5,
+        decimal_places=2,
+        min_value=Decimal("0.01"),
+        max_value=100,
+        initial=80,
+        help_text="El porcentaje de cumplimiento del trimestre. Desde ahí un resultado se ve verde en el semáforo.",
+    )
+    amber_threshold = forms.DecimalField(
+        label="Umbral ámbar (%)",
+        max_digits=5,
+        decimal_places=2,
+        min_value=0,
+        max_value=100,
+        initial=60,
+        help_text="Desde este porcentaje y bajo la meta el resultado se ve ámbar; más abajo, rojo.",
+    )
+    status = forms.ChoiceField(label="Estado", choices=Period.Status.choices, initial=Period.Status.PLANNED)
+
+    def __init__(self, *args, delegations, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.fields["delegations"].queryset = delegations
+        self.fields["delegations"].initial = list(delegations.values_list("pk", flat=True))
+        self.style_fields()
+        self.fields["delegations"].widget.attrs["class"] = "form-check-input"
+        self.fields["delegations"].widget.attrs["data-wide"] = "1"
+
+    @classmethod
+    def dates_of(cls, year, quarter):
+        first_month = (quarter - 1) * 3 + 1
+        month, day = cls.LAST_DAY[quarter]
+        return date(year, first_month, 1), date(year, month, day)
+
+    def clean(self):
+        cleaned = super().clean()
+        year, quarter = cleaned.get("year"), cleaned.get("quarter")
+        if year is None or quarter is None:
+            return cleaned
+        start, end = self.dates_of(year, quarter)
+        cleaned["start_date"], cleaned["end_date"] = start, end
+        calendar_days = (end - start).days + 1
+        days = cleaned.get("computable_days")
+        if days is None:
+            days = weekdays_between(start, end)
+            cleaned["computable_days"] = days
+        elif days > calendar_days:
+            self.add_error("computable_days", f"Los días computables van de 1 a {calendar_days}, los días del trimestre.")
+        meta, amber = cleaned.get("collective_threshold"), cleaned.get("amber_threshold")
+        if meta is not None and amber is not None and amber >= meta:
+            self.add_error("amber_threshold", "El umbral ámbar debe ser menor que la meta de cumplimiento.")
+        problems = []
+        for delegation in cleaned.get("delegations") or []:
+            same = Period.objects.filter(deleted_at__isnull=True, delegation=delegation)
+            if same.filter(start_date__lte=end, end_date__gte=start).exists():
+                problems.append(f"{delegation.name} ya tiene un período que se traslapa con ese trimestre.")
+            elif cleaned.get("status") == Period.Status.ACTIVE and same.filter(status=Period.Status.ACTIVE).exists():
+                problems.append(f"{delegation.name} ya tiene un período vigente: ciérralo antes de dejar este como vigente.")
+        if problems:
+            raise ValidationError(problems)
         return cleaned
 
 
@@ -1572,6 +1671,11 @@ class GoalForm(CrudForm):
             self.add_error("version", "La versión parte en 1.")
         item = cleaned.get("item")
         period = cleaned.get("period")
+        if officer and period and period.delegation_id and period.delegation_id != officer.delegation_id:
+            self.add_error(
+                "period",
+                f"Ese período es de {period.delegation.name} y el funcionario es de otra delegación.",
+            )
         if assigned and item and period:
             same = Goal.objects.filter(
                 deleted_at__isnull=True, item=item, period=period, officer=officer, position=position
@@ -1721,6 +1825,31 @@ class CommitmentForm(CrudForm):
         self.check_not_future(cleaned, "request_date", self.REQUEST_MESSAGE)
         self.check_not_too_old(cleaned, "request_date", self.REQUEST_LABEL)
         self.check_not_before(cleaned, "due_date", "request_date", self.DUE_MESSAGE)
+        return cleaned
+
+
+class TubeItemForm(CrudForm):
+    """Actividad del tubo de cartas: la fecha comprometida no puede ser anterior a la de ingreso."""
+
+    ENTERED_MESSAGE = "La fecha de ingreso no puede ser futura."
+    ENTERED_LABEL = "La fecha de ingreso"
+    DUE_MESSAGE = "La fecha comprometida no puede ser anterior a la fecha de ingreso."
+
+    def bounds(self):
+        return {
+            "entered_date": {**self.until_today(self.ENTERED_MESSAGE), **self.since_a_year("entered_date", self.ENTERED_LABEL)},
+            **self.not_before("due_date", "entered_date", self.DUE_MESSAGE),
+        }
+
+    def clean(self):
+        cleaned = super().clean()
+        self.check_not_future(cleaned, "entered_date", self.ENTERED_MESSAGE)
+        self.check_not_too_old(cleaned, "entered_date", self.ENTERED_LABEL)
+        self.check_not_before(cleaned, "due_date", "entered_date", self.DUE_MESSAGE)
+        officer = cleaned.get("responsible_officer")
+        delegation = cleaned.get("delegation")
+        if officer is not None and delegation is not None and officer.delegation_id != delegation.pk:
+            self.add_error("responsible_officer", "El funcionario responsable debe ser de la delegación elegida.")
         return cleaned
 
 

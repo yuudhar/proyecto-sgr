@@ -17,13 +17,11 @@ from .models import Adjustment, Feedback, Period
 HR_ALERT_PERIODS = 3  # más de dos períodos seguidos con reclamos
 
 
-def period_for(day):
-    """El período (no archivado) que incluye esa fecha, o None."""
-    return (
-        Period.objects.filter(deleted_at__isnull=True, start_date__lte=day, end_date__gte=day)
-        .order_by("-start_date")
-        .first()
-    )
+def period_for(day, delegation=None):
+    """El período (no archivado) que incluye esa fecha para esa delegación, o None."""
+    from . import periods
+
+    return periods.containing(day, delegation)
 
 
 def value_of(feedback, period=None):

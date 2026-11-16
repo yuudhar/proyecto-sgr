@@ -257,11 +257,34 @@ class CommunityOrganization(BaseModel):
         verbose_name="verificada",
         help_text="La base entregada viene «sin verificar»: se marca cuando se confirman sus datos.",
     )
+    start_date = models.DateField(
+        null=True,
+        blank=True,
+        verbose_name="inicio de actividades",
+        help_text="Desde cuándo cuenta la organización para el calendario de actividades.",
+    )
+    end_date = models.DateField(
+        null=True,
+        blank=True,
+        verbose_name="fin de actividades",
+        help_text="Hasta cuándo. Déjalo vacío si sigue en funcionamiento.",
+    )
+    description = models.TextField(
+        blank=True,
+        default="",
+        verbose_name="descripción",
+        help_text="Qué hace la organización, su sector y cualquier dato útil para quien la atienda.",
+    )
 
     class Meta:
         ordering = ("name",)
         verbose_name = "Organización"
         verbose_name_plural = "Organizaciones"
+
+    def clean(self):
+        super().clean()
+        if self.start_date and self.end_date and self.end_date < self.start_date:
+            raise ValidationError({"end_date": "El fin de actividades no puede ser anterior al inicio."})
 
     def __str__(self):
         return self.name

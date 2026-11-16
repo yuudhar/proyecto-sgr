@@ -826,6 +826,10 @@ class Crud:
     def extra_actions(self, request, obj):
         return []
 
+    def list_actions(self, request):
+        """Botones extra junto al de «Agregar» en el listado: lista de (texto, dirección, ícono)."""
+        return []
+
     def prepare_object(self, request, obj, creating, form):
         if self.delegation_lookup and hasattr(obj, "delegation_id"):
             delegation = request_delegation(request)
@@ -1234,6 +1238,7 @@ class CrudListView(CrudView):
             "can_reset": bool(text or archived or sort or page.number > 1 or any(f.selected for f in filters)),
             "can_add": crud.can_add(request.user),
             "create_url": crud.url("create") if crud.can_add(request.user) else "",
+            "list_actions": crud.list_actions(request),
             "breadcrumbs": self.breadcrumbs(),
         }
         if crud.canvas:

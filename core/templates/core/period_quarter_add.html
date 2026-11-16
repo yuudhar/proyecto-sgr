@@ -1,0 +1,45 @@
+{% extends "base.html" %}
+{% load static %}
+{% block title %}Agregar trimestre{% endblock %}
+
+{% block content %}
+<section class="page-head">
+  <div>
+    <h1 class="page-title"><i class="bi bi-calendar-plus" aria-hidden="true"></i>Agregar trimestre</h1>
+    <p class="page-sub">Elige el año y el trimestre: las fechas y los días se calculan solos y el trimestre se crea en cada delegación que marques.</p>
+  </div>
+</section>
+
+<form method="post" class="panel" data-once data-validate data-unsaved-guard{% if form.is_bound %}="dirty"{% endif %} data-quarter-add>
+  {% csrf_token %}
+  <div class="panel-body">
+    <p class="required-note">Los campos con <span class="required-mark">*</span> son obligatorios.</p>
+
+    {% if form.errors %}
+    <div class="alert alert-danger d-flex gap-2" role="alert">
+      <i class="bi bi-x-octagon-fill" aria-hidden="true"></i>
+      <div><strong>No se pudo guardar.</strong>
+        {% for error in form.non_field_errors %}<div>{{ error }}</div>{% empty %} Revisa los campos marcados en rojo.{% endfor %}
+      </div>
+    </div>
+    {% endif %}
+
+    <div class="alert alert-info d-flex gap-2" role="status" data-quarter-preview aria-live="polite">
+      <i class="bi bi-calendar-range" aria-hidden="true"></i>
+      <div data-quarter-preview-text>Elige el año y el trimestre para ver las fechas.</div>
+    </div>
+
+    <div class="row g-3">
+      {% for field in form %}{% include "core/partials/field.html" %}{% endfor %}
+    </div>
+  </div>
+  <div class="form-actions">
+    <button type="submit" class="btn btn-primary"><i class="bi bi-calendar-plus" aria-hidden="true"></i> Crear trimestre</button>
+    <a class="btn btn-outline-secondary" href="{% url 'core:periodos_list' %}">Cancelar</a>
+  </div>
+</form>
+{% endblock %}
+
+{% block extra_js %}
+<script type="module" src="{% static 'core/js/quarter-add.js' %}?v={{ asset_version|urlencode }}"></script>
+{% endblock %}

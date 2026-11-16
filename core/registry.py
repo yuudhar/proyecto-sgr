@@ -21,6 +21,7 @@ from core.forms import (
     FeedbackForm,
     AdjustmentForm,
     CommitmentForm,
+    TubeItemForm,
     DelegationForm,
     EvidenceForm,
     FollowupForm,
@@ -55,8 +56,8 @@ from core.roles import (
     sort_key,
 )
 from evidence.models import Evidence, Validation
-from operations import pipeline
-from operations.models import Activity, Commitment, Followup, ManagementType, QuarterChangeRequest
+from operations import pipeline, tube
+from operations.models import Activity, Commitment, Followup, ManagementType, QuarterChangeRequest, TubeItem
 from organization.models import (
     Beneficiary,
     CommunityOrganization,
@@ -71,6 +72,7 @@ from organization.models import (
     Territory,
 )
 from planning import feedback as feedback_rules
+from planning import periods as period_scope
 from planning.calculation import IndicatorIndex
 from planning.models import Absence, Adjustment, Feedback, Goal, Indicator, Period
 from planning.pace import pace_of
@@ -258,18 +260,26 @@ class ActivityCrud(Crud):
 
     def after_save(self, request, obj, form, creating):
         # Una atención que requiere visita (algo físico) crea su compromiso en Compromisos; la que solo ingresa al
-        # tubo de trabajo, en la agenda colectiva.
-        if not form.wants_pipeline():
-            return
-        commitment = pipeline.create_commitment(obj, form.cleaned_data["due_date"], form.cleaned_data["territory"])
-        record_status(request.user, commitment, None, commitment.status)
-        log_event(request.user, "Registro creado", commitment, new=str(commitment))
-        section = "Compromisos" if commitment.physical else "la Agenda colectiva"
-        messages.info(
-            request,
-            f"Se creó el compromiso en {section} para el {ui.fmt_date(commitment.due_date)} "
-            f"({commitment.territory}).",
-        )
+        # tubo de trabajo, en la agenda colectiva. Va antes que el tubo de cartas: su actividad toma la fecha del compromiso.
+        if form.wants_pipeline():
+            commitment = pipeline.create_commitment(obj, form.cleaned_data["due_date"], form.cleaned_data["territory"])
+            record_status(request.user, commitment, None, commitment.status)
+            log_event(request.user, "Registro creado", commitment, new=str(commitment))
+            section = "Compromisos" if commitment.physical else "la Agenda colectiva"
+            messages.info(
+                request,
+                f"Se creó el compromiso en {section} para el {ui.fmt_date(commitment.due_date)} "
+                f"({commitment.territory}).",
+            )
+        if creating:
+            # v51: toda atención registrada deja su actividad en el tubo de cartas, en «Ingresado».
+            item = tube.create_for_activity(obj)
+            log_event(request.user, "Registro creado", item, new=str(item))
+        else:
+            # Si la atención se cierra, su actividad del tubo queda «Realizado».
+            item = tube.follow_activity(obj)
+            if item is not None:
+                log_event(request.user, "Registro modificado", item, previous=f"Estado: {item.previous_label}", new="Estado: Realizado")
 
 
 @registry.register
@@ -477,6 +487,116 @@ class FieldCommitmentCrud(CommitmentCrud):
 
     def after_move(self, request, obj, previous):
         record_status(request.user, obj, previous, obj.status)
+
+
+def tubo_plazo(item):
+    return ui.fmt_date(item.due_date)
+
+
+def tubo_kpis(queryset):
+    """Indicadores del tablero del Tubo de cartas, sobre el conjunto ya filtrado."""
+    total = queryset.count()
+    counts = {row["status"]: row["total"] for row in queryset.order_by().values("status").annotate(total=Count("pk"))}
+    done = counts.get(TubeItem.Status.FULFILLED.value, 0)
+    rate = f"{round(done * 100 / total, 1):.1f}".replace(".", ",") if total else "0,0"
+    return [
+        {"label": "Actividades", "value": total, "hint": "En el tubo de cartas", "tone": "bad"},
+        {"label": "Realizadas", "value": done, "hint": f"Tasa de cumplimiento: {rate} %", "tone": "ok"},
+        {
+            "label": "Pendientes",
+            "value": counts.get(TubeItem.Status.PENDING.value, 0) + counts.get(TubeItem.Status.SUBMITTED.value, 0),
+            "hint": "Ingresadas o esperando gestión",
+            "tone": "warn",
+        },
+        {
+            "label": "Vencidas",
+            "value": counts.get(TubeItem.Status.OVERDUE.value, 0),
+            "hint": "Pasó la fecha comprometida",
+            "tone": "bad",
+        },
+    ]
+
+
+@registry.register
+class TubeItemCrud(Crud):
+    """Tubo de cartas (v51): tablero con Ingresado, Pendiente, Realizado y Vencido."""
+
+    model = TubeItem
+    slug = "tubo-de-cartas"
+    icon = "bi-envelope-paper"
+    code_prefix = "TUB"
+    code_digits = 5
+    title = "Actividad"
+    title_plural = "Actividades"
+    list_title = "Tubo de cartas"
+    gender = "f"
+    description = (
+        "Las atenciones que se registran llegan solas en «Ingresado»; también puedes agregar actividades y moverlas "
+        "en el tablero. «Vencido» lo pone el sistema cuando pasa la fecha comprometida."
+    )
+    new_label = "Agregar actividad"
+    list_display = (
+        Col(CODE_COLUMN),
+        Col("title", "Actividad", link=True),
+        "requester",
+        "responsible_officer",
+        "delegation",
+        "entered_date",
+        "due_date",
+        "status",
+    )
+    search_fields = ("title", "requester", "description", "responsible_officer__name")
+    list_filters = ("delegation", "status", "responsible_officer")
+    select_related = ("delegation", "responsible_officer", "activity")
+    form_fields = (
+        "title",
+        "description",
+        "requester",
+        "entered_date",
+        "due_date",
+        "responsible_officer",
+        "delegation",
+    )
+    full_width = ("title", "description")
+    rules = {"title": "label", "requester": "label"}
+    form_base = TubeItemForm
+    delegation_lookup = "delegation"
+    canvas = Canvas(
+        group_by="status",
+        title=lambda t: t.title,
+        lines=(
+            ("Solicitante", lambda t: t.requester or "—"),
+            ("Responsable", lambda t: t.responsible_officer.name),
+            ("Ingreso", lambda t: ui.fmt_date(t.entered_date)),
+            ("Fecha comprometida", tubo_plazo),
+            ("Origen", lambda t: f"Atención ATN{t.activity_id:05d}" if t.activity_id else "Agregada a mano"),
+        ),
+        tones={"submitted": "neutral", "pending": "warn", "fulfilled": "ok", "overdue": "bad"},
+        movable=True,
+        moves=lambda t: [(value, label) for value, label in TubeItem.next_choices(t.status) if value != t.status],
+        move_labels={"submitted": "A Ingresado", "pending": "A Pendiente", "fulfilled": "Realizar"},
+        kpis=tubo_kpis,
+        empty="Sin actividades",
+    )
+
+    def get_queryset(self, request, include_archived=False):
+        # «Vencido» se calcula al mirar el tablero: así nunca muestra una actividad con la fecha ya pasada en otra columna.
+        tube.sync_overdue()
+        return super().get_queryset(request, include_archived)
+
+    def initial_values(self, request):
+        initial = {"entered_date": timezone.localdate()}
+        initial.update(own_officer_defaults(request, "responsible_officer"))
+        delegation = default_delegation(request)
+        if delegation is not None:
+            initial["delegation"] = delegation.pk
+        initial["due_date"] = tube.default_due_date(initial["entered_date"], delegation)
+        return initial
+
+    def extra_detail(self, obj):
+        if obj.activity_id:
+            return [("Atención de origen", Cell(text=f"ATN{obj.activity_id:05d}"))]
+        return []
 
 
 def trimestre_text(period):
@@ -725,13 +845,15 @@ class PeriodCrud(Crud):
     description = "Ventanas de medición con sus umbrales de semáforo."
     list_display = (
         Col("__str__", "Período", link=True, sort="start_date"),
+        "delegation",
         "status",
         "computable_days",
         Col("collective_threshold", "Umbral colectivo", kind="percent"),
         Col("amber_threshold", "Umbral ámbar", kind="percent"),
         Col("weighted_cap", "Tope ponderado", kind="percent"),
     )
-    list_filters = ("status",)
+    list_filters = ("delegation", "status")
+    select_related = ("delegation",)
     rules = {"parameters_version": "version"}
     bounds = {
         "computable_days": {"min": "1"},
@@ -744,6 +866,7 @@ class PeriodCrud(Crud):
     }
     form_base = PeriodForm
     form_fields = (
+        "delegation",
         "start_date",
         "end_date",
         "computable_days",
@@ -757,6 +880,19 @@ class PeriodCrud(Crud):
         "parameters_version",
     )
     related = (Related("metas", "period", "Metas del período"),)
+
+    def list_actions(self, request):
+        if request.user.has_perm("planning.add_period"):
+            return [("Agregar trimestre", reverse("core:quarter_add"), "bi-calendar-plus")]
+        return []
+
+    def get_queryset(self, request, include_archived=False):
+        # v51: cada delegación ve sus trimestres y los generales (los que rigen para todas).
+        queryset = super().get_queryset(request, include_archived)
+        delegation = active_delegation(request)
+        if delegation is not None:
+            queryset = queryset.filter(Q(delegation=delegation) | Q(delegation__isnull=True))
+        return queryset
 
 
 @registry.register
@@ -1168,9 +1304,9 @@ class OfficerCrud(Crud):
         context = {"duties": duties_of(obj.position)}
         if not request.user.has_perm("planning.view_indicator"):
             return context
-        periods = list(Period.objects.filter(deleted_at__isnull=True).order_by("-start_date"))
+        periods = list(period_scope.visible(obj.delegation).order_by("-start_date", "delegation__name"))
         chosen = request.GET.get("periodo", "")
-        period = next((each for each in periods if str(each.pk) == chosen), None) or current_period()
+        period = next((each for each in periods if str(each.pk) == chosen), None) or current_period(obj.delegation)
         if period is None:
             return context
         goals = list(Goal.objects.filter(deleted_at__isnull=True, period=period).select_related("item"))
@@ -1565,17 +1701,27 @@ class CommunityOrganizationCrud(Crud):
     list_display = (
         Col("name", "Nombre", link=True),
         "territory",
+        Col("president", "Presidente", sort=False),
+        Col("treasurer", "Tesorero", sort=False),
         "active_members",
         "registry_number",
         "verified",
     )
-    search_fields = ("name", "legal_address", "territory_text")
+    computed = {
+        "president": lambda organization: leader_text(organization, OrganizationLeader.Role.PRESIDENT),
+        "treasurer": lambda organization: leader_text(organization, OrganizationLeader.Role.TREASURER),
+    }
+    search_fields = ("name", "legal_address", "territory_text", "description")
     list_filters = ("territory", "verified")
     select_related = ("territory",)
+    prefetch_related = ("leaders",)
     form_fields = (
         "name",
         "legal_address",
         "territory",
+        "description",
+        "start_date",
+        "end_date",
         "active_members",
         "constitution_date",
         "registry_number",
@@ -1583,10 +1729,30 @@ class CommunityOrganizationCrud(Crud):
         "directory_number",
         "verified",
     )
-    full_width = ("name", "legal_address")
+    full_width = ("name", "legal_address", "description")
     rules = {"name": "label", "legal_address": "label"}
     bounds = {"active_members": {"min": "0"}, "registry_number": {"min": "1"}, "directory_number": {"min": "0"}}
     related = (Related("directivas", "organization", "Directiva"),)
+
+    def validate_form(self, form, cleaned):
+        start, end = cleaned.get("start_date"), cleaned.get("end_date")
+        if start and end and end < start and not form.has_error("end_date"):
+            form.add_error("end_date", "El fin de actividades no puede ser anterior al inicio.")
+
+    def extra_detail(self, obj):
+        return [
+            ("Presidente", Cell(text=leader_text(obj, OrganizationLeader.Role.PRESIDENT))),
+            ("Secretario", Cell(text=leader_text(obj, OrganizationLeader.Role.SECRETARY))),
+            ("Tesorero", Cell(text=leader_text(obj, OrganizationLeader.Role.TREASURER))),
+        ]
+
+
+def leader_text(organization, role):
+    """«Nombre · RUT» de quien tiene ese cargo en la directiva (sin archivar), o un guion si nadie lo tiene."""
+    for leader in organization.leaders.all():
+        if leader.role == role and leader.deleted_at is None:
+            return f"{leader.name} · {leader.rut}"
+    return "—"
 
 
 def leader_role_text(leader):

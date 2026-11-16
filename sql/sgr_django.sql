@@ -263,6 +263,22 @@ CREATE TABLE `operations_quarterchangerequest` (
   `resolved_by_id` int(11) DEFAULT NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
+CREATE TABLE `operations_tubeitem` (
+  `id` bigint(20) NOT NULL,
+  `created_at` datetime(6) NOT NULL,
+  `updated_at` datetime(6) NOT NULL,
+  `deleted_at` datetime(6) DEFAULT NULL,
+  `title` varchar(200) NOT NULL,
+  `description` longtext NOT NULL,
+  `requester` varchar(100) NOT NULL,
+  `entered_date` date NOT NULL,
+  `due_date` date NOT NULL,
+  `status` varchar(20) NOT NULL,
+  `activity_id` bigint(20) DEFAULT NULL,
+  `delegation_id` bigint(20) NOT NULL,
+  `responsible_officer_id` bigint(20) NOT NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
 CREATE TABLE `organization_beneficiary` (
   `id` bigint(20) NOT NULL,
   `created_at` datetime(6) NOT NULL,
@@ -288,6 +304,9 @@ CREATE TABLE `organization_communityorganization` (
   `registration_date` date DEFAULT NULL,
   `directory_number` int(10) UNSIGNED DEFAULT NULL CHECK (`directory_number` >= 0),
   `verified` tinyint(1) NOT NULL,
+  `start_date` date DEFAULT NULL,
+  `end_date` date DEFAULT NULL,
+  `description` longtext NOT NULL,
   `territory_id` bigint(20) DEFAULT NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
@@ -486,7 +505,8 @@ CREATE TABLE `planning_period` (
   `parameters_version` varchar(20) NOT NULL,
   `compliment_value` decimal(5,2) NOT NULL,
   `complaint_value` decimal(5,2) NOT NULL,
-  `compliment_limit` int(10) UNSIGNED NOT NULL CHECK (`compliment_limit` >= 0)
+  `compliment_limit` int(10) UNSIGNED NOT NULL CHECK (`compliment_limit` >= 0),
+  `delegation_id` bigint(20) DEFAULT NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 ALTER TABLE `accounts_roleprofile`
@@ -605,6 +625,13 @@ ALTER TABLE `operations_quarterchangerequest`
   ADD KEY `operations_quarterch_resolved_by_id_19b8fafe_fk_auth_user` (`resolved_by_id`),
   ADD KEY `operations_quarterchangerequest_status_ec5245c8` (`status`);
 
+ALTER TABLE `operations_tubeitem`
+  ADD PRIMARY KEY (`id`),
+  ADD UNIQUE KEY `activity_id` (`activity_id`),
+  ADD KEY `operations_tubeitem_delegation_id_7a6d1c52_fk_organizat` (`delegation_id`),
+  ADD KEY `operations_tubeitem_responsible_officer_id_3b9e0d41_fk_organizat` (`responsible_officer_id`),
+  ADD KEY `operations_tubeitem_status_5c2f8a10` (`status`);
+
 ALTER TABLE `organization_beneficiary`
   ADD PRIMARY KEY (`id`),
   ADD UNIQUE KEY `rut` (`rut`);
@@ -683,7 +710,8 @@ ALTER TABLE `planning_indicator`
   ADD KEY `planning_indicator_officer_id_idx` (`officer_id`);
 
 ALTER TABLE `planning_period`
-  ADD PRIMARY KEY (`id`);
+  ADD PRIMARY KEY (`id`),
+  ADD KEY `planning_period_delegation_id_4d0b8e17_fk_organizat` (`delegation_id`);
 
 ALTER TABLE `accounts_roleprofile`
   MODIFY `id` bigint(20) NOT NULL AUTO_INCREMENT;
@@ -746,6 +774,9 @@ ALTER TABLE `operations_managementtype`
   MODIFY `id` bigint(20) NOT NULL AUTO_INCREMENT;
 
 ALTER TABLE `operations_quarterchangerequest`
+  MODIFY `id` bigint(20) NOT NULL AUTO_INCREMENT;
+
+ALTER TABLE `operations_tubeitem`
   MODIFY `id` bigint(20) NOT NULL AUTO_INCREMENT;
 
 ALTER TABLE `organization_beneficiary`
@@ -871,6 +902,11 @@ ALTER TABLE `operations_quarterchangerequest`
   ADD CONSTRAINT `operations_quarterch_requested_by_id_b6b7c0bf_fk_auth_user` FOREIGN KEY (`requested_by_id`) REFERENCES `auth_user` (`id`),
   ADD CONSTRAINT `operations_quarterch_resolved_by_id_19b8fafe_fk_auth_user` FOREIGN KEY (`resolved_by_id`) REFERENCES `auth_user` (`id`);
 
+ALTER TABLE `operations_tubeitem`
+  ADD CONSTRAINT `operations_tubeitem_activity_id_9e1c4b36_fk_operation` FOREIGN KEY (`activity_id`) REFERENCES `operations_activity` (`id`),
+  ADD CONSTRAINT `operations_tubeitem_delegation_id_7a6d1c52_fk_organizat` FOREIGN KEY (`delegation_id`) REFERENCES `organization_delegation` (`id`),
+  ADD CONSTRAINT `operations_tubeitem_responsible_officer_id_3b9e0d41_fk_organizat` FOREIGN KEY (`responsible_officer_id`) REFERENCES `organization_officer` (`id`);
+
 ALTER TABLE `organization_communityorganization`
   ADD CONSTRAINT `organization_communi_territory_id_524b5f27_fk_organizat` FOREIGN KEY (`territory_id`) REFERENCES `organization_territory` (`id`);
 
@@ -908,6 +944,9 @@ ALTER TABLE `planning_feedback`
   ADD CONSTRAINT `planning_feedback_officer_id_7a09d9eb_fk_organization_officer_id` FOREIGN KEY (`officer_id`) REFERENCES `organization_officer` (`id`),
   ADD CONSTRAINT `planning_feedback_period_id_92650f20_fk_planning_period_id` FOREIGN KEY (`period_id`) REFERENCES `planning_period` (`id`),
   ADD CONSTRAINT `planning_feedback_registered_by_id_864838d8_fk_auth_user_id` FOREIGN KEY (`registered_by_id`) REFERENCES `auth_user` (`id`);
+
+ALTER TABLE `planning_period`
+  ADD CONSTRAINT `planning_period_delegation_id_4d0b8e17_fk_organizat` FOREIGN KEY (`delegation_id`) REFERENCES `organization_delegation` (`id`);
 
 ALTER TABLE `planning_goal`
   ADD CONSTRAINT `planning_goal_item_id_e0b0c5b3_fk_organization_item_id` FOREIGN KEY (`item_id`) REFERENCES `organization_item` (`id`),

@@ -6,7 +6,14 @@ Qué hace
 * Carga más de 2.000 registros de negocio ficticios y variados, repartidos entre los modelos del proyecto, con al
   menos 50 en cada CRUD evaluado (y, en los que se filtran por delegación, al menos 50 en cada delegación).
 * Reparte los datos entre dos ámbitos: **Delegación Norte = organización A** y **Delegación Sur = organización B**.
-* Crea las seis cuentas de prueba (administrador A, editor A, lector A, lector B, cliente1 y cliente2).
+* Crea las seis cuentas de prueba (administrador A, editor A, lector A, lector B, cliente1 y cliente2) y las tres del
+  equipo (`admin`, Super Usuario; `matias.cavieres`, Norte; `matias.quiroz`, Sur; ver `CUENTAS_EQUIPO`).
+
+Volver a empezar
+----------------
+`--reiniciar` borra TODA la base (usuarios, datos, auditoría y archivos subidos) y la carga de nuevo desde cero, y al
+final corre `corregir_datos_revision --aplicar` (trimestres y cuentas de Sur `admin_b` y `editor_b`). Pide escribir
+BORRAR para confirmar (o `--sin-confirmar` en un script). Sirve para probar, ensuciar la base y dejarla como nueva.
 * Al terminar imprime el total por modelo y comprueba los mínimos y los permisos de las cuentas.
 
 Idempotencia
@@ -87,6 +94,7 @@ ATENCIONES = 330
 ATENCIONES_CLIENTE = 24  # por cada cliente final
 COMPROMISOS = 60
 COMPROMISOS_DE_TERRENO = 55  # por delegación: los que nacen de una atención con visita a terreno
+TUBO_DE_CARTAS = 55  # por delegación: atenciones que quedan en el tubo de cartas
 EVIDENCIAS = 130  # máximo por delegación: se toma una de cada tres atenciones vigentes
 FELICITACIONES_Y_RECLAMOS = 55
 AUSENCIAS = 55
@@ -186,11 +194,43 @@ CUENTAS = (
     },
 )
 
+# --- Cuentas del equipo (las del servidor): se cargan junto con las de revisión y vuelven con --reiniciar ----------
+# Contraseñas igual que las demás: SGR_PASSWORD_<ALIAS> (por ejemplo SGR_PASSWORD_ADMIN), --password o la común.
+CUENTAS_EQUIPO = (
+    {
+        "alias": "admin",
+        "username": "admin",
+        "nombre": ("", ""),
+        "correo": "admin@sgr.example",
+        "superusuario": True,
+        "grupos": (),
+    },
+    {
+        "alias": "matias_cavieres",
+        "username": "matias.cavieres",
+        "nombre": ("Matías", "Cavieres"),
+        "correo": "matias.cavieres@sgr.example",
+        "superusuario": False,
+        "grupos": ("Funcionario", "Verificador"),
+        "funcionario": {"ambito": "N", "nombre": "Matías Cavieres", "posicion": 100, "cargo": "Encargado Social"},
+    },
+    {
+        "alias": "matias_quiroz",
+        "username": "matias.quiroz",
+        "nombre": ("Matías", "Quiroz"),
+        "correo": "matias.quiroz@sgr.example",
+        "superusuario": False,
+        "grupos": ("Funcionario", "Verificador"),
+        "funcionario": {"ambito": "S", "nombre": "Matías Quiroz", "posicion": 100, "cargo": "Encargado Social"},
+    },
+)
+
 ACCIONES = ("view", "add", "change", "delete")
 MODULOS_OPERACION = (
     "operations.activity",
     "operations.followup",
     "operations.commitment",
+    "operations.tubeitem",
     "evidence.evidence",
     "evidence.validation",
     "planning.feedback",
@@ -426,10 +466,30 @@ class Command(BaseCommand):
             action="store_true",
             help="Cambia también la contraseña de las cuentas que ya existen.",
         )
+        parser.add_argument(
+            "--reiniciar",
+            action="store_true",
+            help=(
+                "BORRA TODA LA BASE (usuarios, datos y archivos subidos) y la vuelve a cargar desde cero: datos "
+                "ficticios, cuentas de revisión, cuentas del equipo (admin, matias.cavieres, matias.quiroz) y, al "
+                "final, corregir_datos_revision --aplicar (trimestres, admin_b y editor_b). Pide confirmación."
+            ),
+        )
+        parser.add_argument(
+            "--sin-confirmar",
+            action="store_true",
+            help="Con --reiniciar, no pregunta antes de borrar (para scripts).",
+        )
 
     # ------------------------------------------------------------------------------------------------------------
     def handle(self, *args, **opciones):
-        claves = self.reunir_claves(opciones)
+        reiniciar = opciones["reiniciar"]
+        if reiniciar:
+            self.confirmar_reinicio(opciones["sin_confirmar"])
+        # Las contraseñas se reúnen antes de borrar: si falta una, no se borra nada.
+        claves = self.reunir_claves(opciones, todas=reiniciar)
+        if reiniciar:
+            self.vaciar_base()
         self.azar = random.Random(SEMILLA)
         self.stdout.write("Cargando roles y catálogo de tipos de gestión...")
         call_command("seed_roles", stdout=StringIO())
@@ -441,6 +501,7 @@ class Command(BaseCommand):
             self.catalogos()
             self.estructura()
             self.cuentas(claves, opciones["reasignar_claves"])
+            self.cuentas_equipo(claves, opciones["reasignar_claves"])
             self.beneficiarios_y_organizaciones()
             self.compromisos()
             self.atenciones()
@@ -452,33 +513,78 @@ class Command(BaseCommand):
             self.compromisos_de_terreno()
             self.directivas_y_solicitantes()
             self.cambios_de_trimestre()
+            self.tubo_de_cartas()
         creados = calculation.recalculate_period(self.periodo)
         self.stdout.write(f"Indicadores nuevos calculados: {creados}.")
 
         total = self.informe()
         self.verificar(total)
         self.stdout.write(self.style.SUCCESS(f"Registros de negocio nuevos en esta ejecución: {total - antes}."))
+        if reiniciar:
+            # Deja la base como queda el servidor: trimestres, cuentas de Sur (admin_b, editor_b) y datos coherentes.
+            self.stdout.write("\nCorrigiendo los datos (corregir_datos_revision --aplicar)...")
+            call_command(
+                "corregir_datos_revision", aplicar=True, password=self.clave_comun or claves.get("admin_a", ""),
+                stdout=self.stdout,
+            )
+            self.stdout.write(self.style.SUCCESS("\nBase reiniciada: datos ficticios y cuentas cargados de nuevo."))
+
+    # ------------------------------------------------------------------------------------------------------------
+    # Reinicio
+    # ------------------------------------------------------------------------------------------------------------
+    def confirmar_reinicio(self, sin_confirmar):
+        base = settings.DATABASES["default"]
+        nombre = f"{base['ENGINE'].rsplit('.', 1)[-1]} · {base.get('NAME')}"
+        aviso = (
+            f"\n¡OJO! --reiniciar BORRA TODO en la base {nombre}: usuarios, atenciones, auditoría y demás datos, "
+            f"y los archivos subidos de {settings.MEDIA_ROOT}. Después lo vuelve a cargar desde cero.\n"
+        )
+        if sin_confirmar:
+            self.stdout.write(self.style.WARNING(aviso))
+            return
+        if not sys.stdin.isatty():
+            raise CommandError("--reiniciar necesita confirmación en una terminal, o agrega --sin-confirmar.")
+        self.stdout.write(self.style.WARNING(aviso))
+        if input("Escribe BORRAR para continuar: ").strip() != "BORRAR":
+            raise CommandError("Cancelado: no se borró nada.")
+
+    def vaciar_base(self):
+        import shutil
+        from pathlib import Path
+
+        self.stdout.write("Borrando la base completa (flush)...")
+        call_command("flush", interactive=False, verbosity=0)
+        media = Path(settings.MEDIA_ROOT)
+        if media.is_dir():
+            for hijo in media.iterdir():
+                if hijo.is_dir() and not hijo.is_symlink():
+                    shutil.rmtree(hijo)
+                else:
+                    hijo.unlink()
+        self.stdout.write("Base y archivos subidos borrados. Cargando todo de nuevo...")
 
     # ------------------------------------------------------------------------------------------------------------
     # Contraseñas
     # ------------------------------------------------------------------------------------------------------------
-    def reunir_claves(self, opciones):
+    def reunir_claves(self, opciones, todas=False):
         User = get_user_model()
-        reasignar = opciones["reasignar_claves"]
+        reasignar = opciones["reasignar_claves"] or todas
         faltan = [
             cuenta
-            for cuenta in CUENTAS
+            for cuenta in CUENTAS + CUENTAS_EQUIPO
             if reasignar or not User.objects.filter(username=cuenta["username"]).exists()
         ]
         claves = {}
+        comun = opciones.get("password") or os.environ.get(PASSWORD_ENV_COMUN, "")
+        self.clave_comun = comun
         if not faltan:
             return claves
-        comun = opciones.get("password") or os.environ.get(PASSWORD_ENV_COMUN, "")
         if not comun and not any(os.environ.get(f"SGR_PASSWORD_{c['alias'].upper()}") for c in faltan):
             if sys.stdin.isatty():
                 comun = getpass.getpass("Contraseña para las cuentas de prueba: ")
                 if comun != getpass.getpass("Repite la contraseña: "):
                     raise CommandError("Las contraseñas no coinciden.")
+        self.clave_comun = comun
         for cuenta in faltan:
             clave = os.environ.get(f"SGR_PASSWORD_{cuenta['alias'].upper()}") or comun
             if not clave:
@@ -678,6 +784,54 @@ class Command(BaseCommand):
                     new=f"username={usuario.username}, rol={cuenta['rol']}, grupos={','.join(cuenta['grupos'])}",
                 )
 
+    def cuentas_equipo(self, claves, reasignar):
+        """Las cuentas del equipo: admin (Super Usuario) y los dos funcionarios-verificadores, uno por delegación."""
+        User = get_user_model()
+        for cuenta in CUENTAS_EQUIPO:
+            nombre, apellido = cuenta["nombre"]
+            usuario, nuevo = User.objects.get_or_create(
+                username=cuenta["username"],
+                defaults={
+                    "email": cuenta["correo"],
+                    "first_name": nombre,
+                    "last_name": apellido,
+                    "is_staff": True,
+                    "is_superuser": cuenta["superusuario"],
+                    "is_active": True,
+                },
+            )
+            if nuevo or (reasignar and cuenta["username"] in claves):
+                usuario.set_password(claves[cuenta["username"]])
+                usuario.save()
+            if cuenta["grupos"]:
+                usuario.groups.add(*Group.objects.filter(name__in=cuenta["grupos"]))
+            self.usuario[cuenta["username"]] = usuario
+
+            funcionario = None
+            datos = cuenta.get("funcionario")
+            if datos:
+                delegacion = self.delegacion[datos["ambito"]]
+                # Se busca por nombre y delegación: corregir_datos_revision le cambia el identificador a F-0000.
+                funcionario = Officer.objects.filter(name=datos["nombre"], delegation=delegacion).first()
+                if funcionario is None:
+                    funcionario = Officer.objects.create(
+                        institutional_id=f"REV-{datos['ambito']}-{datos['posicion']:03d}",
+                        name=datos["nombre"],
+                        status=Officer.Status.ACTIVE,
+                        delegation=delegacion,
+                        position=self.cargo[datos["cargo"]],
+                    )
+            if not UserProfile.objects.filter(user=usuario).exists():
+                UserProfile.objects.create(user=usuario, officer=funcionario)
+
+            if nuevo:
+                log_event(
+                    self.usuario["admin_a"],
+                    "Creación de cuenta del equipo",
+                    usuario,
+                    new=f"username={usuario.username}, superusuario={usuario.is_superuser}, grupos={','.join(cuenta['grupos']) or '—'}",
+                )
+
     # ------------------------------------------------------------------------------------------------------------
     # Beneficiarios y organizaciones
     # ------------------------------------------------------------------------------------------------------------
@@ -844,6 +998,13 @@ class Command(BaseCommand):
                     objeto.deleted_at = fila._sello + timedelta(days=3)
                 sellos.append(objeto)
             Commitment.objects.bulk_update(sellos, ["created_at", "deleted_at"], batch_size=500)
+
+    def tubo_de_cartas(self):
+        """v51: deja atenciones de cada delegación en el Tubo de cartas. Va al final para no cambiar el resto de los datos."""
+        from operations import tube
+
+        for ambito in AMBITOS:
+            tube.load_sample(self.delegacion[ambito["letra"]], TUBO_DE_CARTAS, today=FECHA_BASE)
 
     # ------------------------------------------------------------------------------------------------------------
     # Atenciones
@@ -1403,4 +1564,18 @@ class Command(BaseCommand):
             for crud in evaluados:
                 if not crud.has_perm(lector, "view"):
                     problemas.append(f"{nombre} debe poder ver «{crud.slug}».")
+        for cuenta in CUENTAS_EQUIPO:
+            usuario = User.objects.filter(username=cuenta["username"], is_active=True).first()
+            if usuario is None:
+                problemas.append(f"Falta la cuenta del equipo «{cuenta['username']}».")
+                continue
+            if usuario.is_superuser != cuenta["superusuario"]:
+                problemas.append(f"«{cuenta['username']}» {'debe' if cuenta['superusuario'] else 'no debe'} ser superusuario.")
+            faltan = set(cuenta["grupos"]) - set(usuario.groups.values_list("name", flat=True))
+            if faltan:
+                problemas.append(f"«{cuenta['username']}» no tiene los perfiles {', '.join(sorted(faltan))}.")
+            datos = cuenta.get("funcionario")
+            perfil = UserProfile.objects.filter(user=usuario).select_related("officer").first()
+            if datos and (perfil is None or perfil.officer is None or perfil.officer.delegation_id != self.delegacion[datos["ambito"]].pk):
+                problemas.append(f"«{cuenta['username']}» debe estar ligada a su funcionario de la {self.delegacion[datos['ambito']].name}.")
         return problemas

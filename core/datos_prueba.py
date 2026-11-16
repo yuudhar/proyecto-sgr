@@ -1128,6 +1128,12 @@ class CargaDatosPrueba(BaseCommand):
             f"{ADMIN_USERNAME}@{DEMO_EMAIL_DOMAIN}). Con él se prueba «¿Olvidaste tu contraseña?»: "
             "el código llega a la terminal donde corre runserver."
         )
+        # v51: las atenciones de ejemplo quedan también en el tubo de cartas, con el estado de cada atención.
+        from operations import tube
+
+        for delegation in (north, south):
+            tube.load_sample(delegation, 50)
+
         self.stdout.write(
             "\nPara comprobar el scoping: inicia sesión con cada usuario de "
             "Delegación y verifica que Actividad/Compromiso/Evidencia solo "

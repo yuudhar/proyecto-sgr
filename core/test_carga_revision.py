@@ -408,7 +408,8 @@ class ReviewAccountsTests(RevisionTestCase):
             else:
                 self.assertIsNone(perfil.officer_id)
                 self.assertIsNotNone(perfil.beneficiary_id)
-        self.assertEqual(len(set(User.objects.values_list("email", flat=True))), 6)
+        # Las seis de revisión más las del equipo (admin, matias.cavieres, matias.quiroz), cada una con su correo.
+        self.assertEqual(len(set(User.objects.values_list("email", flat=True))), 6 + len(carga.CUENTAS_EQUIPO))
 
     def test_no_account_is_a_superuser_or_has_access_to_the_django_admin(self):
         for nombre in self.ESPERADAS:
@@ -713,3 +714,60 @@ class ModelDiagramTests(TestCase):
             archivo.unlink(missing_ok=True)
         self.assertNotEqual(mala.returncode, 0)
         self.assertIn("desactualizado", mala.stderr)
+
+
+class TeamAccountsTests(RevisionTestCase):
+    """Las cuentas del equipo (admin, matias.cavieres, matias.quiroz) se cargan junto con las de revisión."""
+
+    def test_the_three_team_accounts_are_loaded_with_their_role_and_scope(self):
+        admin = User.objects.get(username="admin")
+        self.assertTrue(admin.is_superuser and admin.is_staff)
+        self.assertIsNotNone(authenticate(username="admin", password=CLAVE))
+        for nombre, delegacion in (("matias.cavieres", self.norte), ("matias.quiroz", self.sur)):
+            usuario = User.objects.get(username=nombre)
+            self.assertFalse(usuario.is_superuser)
+            self.assertEqual(set(usuario.groups.values_list("name", flat=True)), {"Funcionario", "Verificador"})
+            self.assertEqual(UserProfile.objects.get(user=usuario).officer.delegation, delegacion)
+            self.assertIsNotNone(authenticate(username=nombre, password=CLAVE))
+
+    def test_loading_again_does_not_duplicate_the_team_accounts_or_their_officers(self):
+        cargar("--password", CLAVE)
+        self.assertEqual(User.objects.filter(username__in=["admin", "matias.cavieres", "matias.quiroz"]).count(), 3)
+        from organization.models import Officer
+
+        self.assertEqual(Officer.objects.filter(name__in=["Matías Cavieres", "Matías Quiroz"]).count(), 2)
+
+
+class ResetTests(TestCase):
+    """--reiniciar borra toda la base y la vuelve a cargar (con la corrección de datos al final)."""
+
+    def test_outside_a_terminal_it_asks_for_sin_confirmar_and_deletes_nothing(self):
+        User.objects.create_user("basura", "b@x.cl", "Xx-123456!")
+        with mock.patch("sys.stdin") as entrada:
+            entrada.isatty.return_value = False
+            with self.assertRaisesMessage(CommandError, "--sin-confirmar"):
+                cargar("--password", CLAVE, "--reiniciar")
+        self.assertTrue(User.objects.filter(username="basura").exists())
+
+    def test_a_missing_password_stops_it_before_deleting_anything(self):
+        User.objects.create_user("basura", "b@x.cl", "Xx-123456!")
+        limpio = {k: v for k, v in os.environ.items() if not k.startswith(("SGR_PASSWORD_", carga.PASSWORD_ENV_COMUN))}
+        with mock.patch.dict(os.environ, limpio, clear=True), mock.patch("sys.stdin") as entrada:
+            entrada.isatty.return_value = False
+            with self.assertRaisesMessage(CommandError, carga.PASSWORD_ENV_COMUN):
+                cargar("--reiniciar", "--sin-confirmar")
+        self.assertTrue(User.objects.filter(username="basura").exists())
+
+    def test_it_wipes_what_someone_added_and_loads_everything_again(self):
+        cargar("--password", CLAVE)
+        User.objects.create_user("basura", "b@x.cl", "Xx-123456!")
+        Beneficiary.objects.create(rut="11111111-1", name="Dato de prueba basura")
+        salida = cargar("--password", CLAVE, "--reiniciar", "--sin-confirmar")
+        self.assertIn("Base reiniciada", salida)
+        self.assertFalse(User.objects.filter(username="basura").exists())
+        self.assertFalse(Beneficiary.objects.filter(name="Dato de prueba basura").exists())
+        esperadas = {c["username"] for c in carga.CUENTAS + carga.CUENTAS_EQUIPO} | {"admin_b", "editor_b"}
+        self.assertEqual(set(User.objects.values_list("username", flat=True)), esperadas)
+        vigentes = Period.objects.filter(deleted_at__isnull=True)
+        self.assertTrue(vigentes.exists())
+        self.assertFalse([p for p in vigentes if (p.end_date - p.start_date).days > 100], "quedaron períodos anuales")

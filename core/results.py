@@ -10,10 +10,16 @@ from core import ui
 HUNDRED = Decimal(100)
 
 
-def current_period():
+def current_period(delegation=None):
+    """El período vigente; con delegación, el de esa delegación gana al general."""
+    from django.db.models import F
+
+    from planning import periods as scope
     from planning.models import Period
 
-    periods = Period.objects.filter(deleted_at__isnull=True).order_by("-start_date")
+    periods = scope.visible(delegation)
+    first = F("delegation").asc(nulls_last=True) if delegation is not None else F("delegation").asc(nulls_first=True)
+    periods = periods.order_by(first, "-start_date")
     return periods.filter(status=Period.Status.ACTIVE).first() or periods.first()
 
 

@@ -11,6 +11,7 @@
   </div>
   {% if can_add and not only_archived %}
   <div class="page-actions">
+    {% for label, url, icon in list_actions %}<a class="btn btn-outline-primary" href="{{ url }}"><i class="bi {{ icon }}" aria-hidden="true"></i> {{ label }}</a>{% endfor %}
     <a class="btn btn-primary" href="{{ create_url }}" data-modal-form><i class="bi bi-plus-lg" aria-hidden="true"></i> {{ crud.new_label }}</a>
   </div>
   {% endif %}

@@ -65,4 +65,13 @@ ESPERADO = {
         "the_diagram_is_well_formed_and_does_not_show_secrets": "El bloque del diagrama está bien formado, con llaves equilibradas, y no muestra la contraseña de los usuarios.",
         "the_generator_can_check_that_the_document_is_up_to_date": "El script con --verificar termina bien si el documento está al día y falla con «desactualizado» si no lo está.",
     },
+    "TeamAccountsTests": {
+        "the_three_team_accounts_are_loaded_with_their_role_and_scope": "Se cargan admin (Super Usuario y staff), matias.cavieres (Norte) y matias.quiroz (Sur), estos dos con los perfiles Funcionario y Verificador y ligados a su funcionario; todas ingresan con la contraseña entregada al comando.",
+        "loading_again_does_not_duplicate_the_team_accounts_or_their_officers": "Ejecutar la carga otra vez no duplica las cuentas del equipo ni sus funcionarios.",
+    },
+    "ResetTests": {
+        "outside_a_terminal_it_asks_for_sin_confirmar_and_deletes_nothing": "Sin terminal y sin --sin-confirmar, --reiniciar se detiene con un error que explica la opción y no borra nada.",
+        "a_missing_password_stops_it_before_deleting_anything": "Si falta la contraseña, --reiniciar se detiene antes de borrar nada.",
+        "it_wipes_what_someone_added_and_loads_everything_again": "--reiniciar borra lo que alguien agregó (usuarios y datos), vuelve a cargar todas las cuentas (las de revisión, las del equipo y admin_b y editor_b) y deja los trimestres corregidos, sin períodos anuales vigentes.",
+    },
 }
