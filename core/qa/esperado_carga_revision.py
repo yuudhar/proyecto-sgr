@@ -72,6 +72,15 @@ ESPERADO = {
     "ResetTests": {
         "outside_a_terminal_it_asks_for_sin_confirmar_and_deletes_nothing": "Sin terminal y sin --sin-confirmar, --reiniciar se detiene con un error que explica la opción y no borra nada.",
         "a_missing_password_stops_it_before_deleting_anything": "Si falta la contraseña, --reiniciar se detiene antes de borrar nada.",
-        "it_wipes_what_someone_added_and_loads_everything_again": "--reiniciar borra lo que alguien agregó (usuarios y datos), vuelve a cargar todas las cuentas (las de revisión, las del equipo y admin_b y editor_b) y deja los trimestres corregidos, sin períodos anuales vigentes.",
+        "it_wipes_what_someone_added_and_loads_everything_again": "--reiniciar borra lo que alguien agregó (usuarios y datos), vuelve a cargar todas las cuentas (las de revisión, las del equipo y admin_b y editor_b) y deja los trimestres corregidos, sin períodos anuales vigentes, con el tubo de cartas siguiendo a sus atenciones (estado y fecha comprometida).",
+    },
+    "ReviewCompletenessTests": {
+        "observed_validations_leave_the_evidence_pending_and_say_what_to_fix": "Hay validaciones «Observado» en las dos delegaciones: las que son la última revisión dejan la evidencia pendiente y las demás se aprobaron después; las hace la jefatura de la misma delegación (nunca el autor), después de la subida y con una observación de qué corregir.",
+        "comments_are_written_by_accounts_of_the_same_delegation_after_the_record": "Hay comentarios en atenciones y compromisos de las dos delegaciones; cada uno lo escribe una cuenta de la misma delegación del registro, sobre un registro vigente y con fecha posterior a él.",
+        "every_organization_has_its_full_board": "Toda organización vigente tiene presidente, secretario, tesorero y al menos un directivo.",
+        "every_event_is_led_by_the_role_of_its_activity": "Cada evento de una organización tiene responsable de su misma directiva y es el cargo que corresponde a la actividad (el tesorero los bingos y las cuotas, el secretario la nómina de socios, un directivo los talleres y operativos).",
+        "the_analyst_position_has_its_weighted_item": "El cargo de análisis (Gestión y Planificación tras corregir) tiene sus ítems normales con ponderadores que suman 100 %.",
+        "loading_again_adds_no_more_observations_comments_or_leaders": "Volver a ejecutar la carga no agrega más validaciones, comentarios ni integrantes de directiva.",
     },
 }
+

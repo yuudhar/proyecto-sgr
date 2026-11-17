@@ -47,12 +47,12 @@ Cada app tiene `models.py` (tablas), `admin.py` (Django Admin), `apps.py` y `mig
 
 ## 4. Modelo de datos
 
-40 tablas en la base `sgr_django`: 30 del proyecto, 6 del framework (usuarios, grupos, permisos, tipos de contenido, sesiones y registro del Admin), 3 de unión (usuario–grupo, usuario–permisos, grupo–permisos) y `django_migrations`.
+41 tablas en la base `sgr_django`: 31 del proyecto, 6 del framework (usuarios, grupos, permisos, tipos de contenido, sesiones y registro del Admin), 3 de unión (usuario–grupo, usuario–permisos, grupo–permisos) y `django_migrations`.
 
 | App | Tablas del proyecto |
 |---|---|
 | `core` | `AuditLog` (auditoría), `Comment` (comentarios, v43) |
-| `organization` | `Delegation`, `Position`, `Item`, `Service`, `Beneficiary`, `Territory`, `Officer`, `PositionItem`, `CommunityOrganization`, `OrganizationLeader` |
+| `organization` | `Delegation`, `Position`, `Item`, `Service`, `Beneficiary`, `Territory`, `Officer`, `PositionItem`, `CommunityOrganization`, `OrganizationLeader`, `OrganizationEvent` (eventos de la organización, v52) |
 | `accounts` | `UserProfile`, `RoleProfile`, `UserRoleDelegation` |
 | `planning` | `Period`, `Goal`, `Indicator`, `Adjustment` |
 | `operations` | `ManagementType`, `Activity`, `Followup`, `Commitment`, `QuarterChangeRequest`, `TubeItem` (tubo de cartas, v51) |
@@ -88,7 +88,7 @@ Cada rol tiene una ficha (`RoleProfile`) con descripción, alcance (su delegaci�
 
 ## 7. Mantenedores registrados
 
-`core/registry.py` declara un `Crud` por cada una de estas pantallas (`slug` = parte de la dirección): `actividades`, `tubo-de-cartas`, `gestiones`, `agenda`, `evidencias`, `validaciones`, `periodos`, `metas`, `indicadores`, `ajustes`, `delegaciones`, `territorios`, `funcionarios`, `cargos`, `items-de-cargo`, `servicios`, `items`, `tipos-de-atencion`, `sub-atenciones`, `tipos-de-gestion`, `beneficiarios`, `cartas`, `compromisos`, `organizaciones`, `directivas`, `usuarios`, `roles` y `auditoria`.
+`core/registry.py` declara un `Crud` por cada una de estas pantallas (`slug` = parte de la dirección): `actividades`, `tubo-de-cartas`, `eventos-de-organizaciones`, `gestiones`, `agenda`, `evidencias`, `validaciones`, `periodos`, `metas`, `indicadores`, `ajustes`, `delegaciones`, `territorios`, `funcionarios`, `cargos`, `items-de-cargo`, `servicios`, `items`, `tipos-de-atencion`, `sub-atenciones`, `tipos-de-gestion`, `beneficiarios`, `cartas`, `compromisos`, `organizaciones`, `directivas`, `usuarios`, `roles` y `auditoria`.
 
 ## 8. Cómo leer el resto del documento
 
@@ -2523,6 +2523,15 @@ Opciones del modelo (`Meta`): `ordering` = `('-created_at',)`; `verbose_name` = 
 
 - **`scoped(delegation)`**, **`containing(day, delegation)`**, **`following(period)`** y **`visible(delegation)`**: qué períodos rigen para una delegación (los suyos y los generales; el suyo gana) y cuál contiene una fecha. Lo usan el cambio de trimestre, las felicitaciones y reclamos, los resultados y los selectores de período.
 
+#### `organization/chart.py` (organigrama y calendario de una organización, v52)
+
+Arma lo que muestra la ficha de cada organización. El **organigrama** sale de su directiva: presidente arriba; secretario y tesorero en el segundo nivel (si falta uno, queda un recuadro vacío); directivos y otros cargos en el tercero. Cada persona muestra la próxima actividad planificada que lidera.
+
+- **`build(organization, today=None)`**: devuelve los tres niveles, los eventos de la organización por fecha, el conteo por estado y cuántos eventos no tienen responsable.
+- **`events_of(organization)`**, **`leaders_of(organization)`**, **`next_event(events, leader, today)`**: sus piezas. Los eventos y dirigentes archivados no cuentan; un evento suspendido o ya terminado no es «próximo».
+
+`OrganizationEvent` (`organization/models.py`) guarda la actividad, qué harán en específico, fecha de inicio y de fin, responsable de la directiva y estado (planificado, realizado, suspendido). Su `clean()` exige fin ≥ inicio, que el evento caiga dentro de las fechas de actividades de la organización (si las tiene) y que el responsable sea de la directiva de esa misma organización. La pantalla `OrganizationEventCrud` (`core/registry.py`) y `OrganizationEventForm` (`core/forms.py`) la exponen; el panel de la ficha es `core/templates/core/crud/organization_chart.html` y solo muestra los eventos a quien tiene permiso de verlos.
+
 #### `operations/tube.py` (tubo de cartas, v51)
 
 Cada atención registrada deja su actividad en el tablero del Tubo de cartas (`TubeItem`: Ingresado, Pendiente, Realizado y Vencido). La actividad **sale de la atención**: título (tipo de atención y solicitante), solicitante, descripción, funcionario responsable, delegación y fecha de ingreso; su estado inicial sigue al de la atención y su fecha comprometida es la del compromiso enlazado, o el último día del trimestre de la atención (sin trimestre definido, la fecha de la atención + 15 días).
@@ -2775,6 +2784,7 @@ Las migraciones crean y modifican las tablas de cada app.
 - `0004_reglas_de_puntaje_v29.py`: agrega el campo `item.scores` («Otorga punto»).
 - `0007_funciones_de_cargo_v44.py`: agrega el campo `position.description`; crea la tabla de `PositionFunction` (`organization_positionfunction`).
 - `0008_organizaciones_calendario_v51.py`: agrega `communityorganization.start_date`, `end_date` y `description`.
+- `0009_eventos_de_organizaciones_v52.py`: crea la tabla de `OrganizationEvent` (`organization_organizationevent`).
 
 ### `planning`
 

@@ -1,0 +1,16 @@
+{% load core_ui %}
+{% if node %}
+<div class="orgchart-node">
+  <div class="orgchart-role">{{ role_label }}</div>
+  <div class="orgchart-name">{{ node.leader.name }}</div>
+  <div class="orgchart-rut">{{ node.leader.rut }}</div>
+  {% if panel.can_view_events %}<div class="orgchart-next">
+    {% if node.next %}<i class="bi bi-calendar-event" aria-hidden="true"></i> Próxima: {{ node.next.title }} · {{ node.next.start_date|fdate }}{% elif node.events %}<span class="muted">{{ node.events }} actividad{{ node.events|pluralize:"es" }}, sin próximas</span>{% else %}<span class="muted">Sin actividades a cargo</span>{% endif %}
+  </div>{% endif %}
+</div>
+{% else %}
+<div class="orgchart-node orgchart-node-empty">
+  <div class="orgchart-role">{{ role_label }}</div>
+  <div class="orgchart-name muted">Sin {{ role_label|lower }}</div>
+</div>
+{% endif %}

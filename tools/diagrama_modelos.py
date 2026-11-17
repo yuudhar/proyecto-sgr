@@ -56,6 +56,7 @@ MULTIPLICIDAD = {
 
 # Revisión manual: «Modelo.campo» -> comentario sobre lo que el diagrama no puede decir por sí solo.
 REVISION_MANUAL = {
+    "OrganizationEvent.responsible": "Debe ser de la directiva de la misma organización del evento, y el evento debe caer dentro de las fechas de actividades de la organización (validación del modelo).",
     "Activity.beneficiary": "Una atención es de una persona (beneficiario) o de una organización: al menos una de las dos.",
     "Activity.organization": "Ver Activity.beneficiary: persona u organización, no es obligatorio tener ambas.",
     "Activity.delegation": "Debe ser la misma delegación del funcionario autor (validación del modelo); se guarda para filtrar rápido.",

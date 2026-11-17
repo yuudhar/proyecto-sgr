@@ -34,6 +34,7 @@ from organization.models import (
     Delegation,
     Item,
     Officer,
+    OrganizationEvent,
     OrganizationLeader,
     Territory,
 )
@@ -1236,6 +1237,23 @@ class LeaderForm(CrudForm):
     def bounds(self):
         attrs = {"data-show-if": f"id_role:{OrganizationLeader.Role.OTHER.value}", "data-required-when-shown": "1"}
         return {"role_detail": attrs}
+
+
+class OrganizationEventForm(CrudForm):
+    """Evento de una organización: el fin no puede ser anterior al inicio; el modelo revisa el resto (fechas de la
+    organización y que el responsable sea de su directiva)."""
+
+    END_MESSAGE = "La fecha de fin no puede ser anterior a la de inicio."
+
+    def bounds(self):
+        return self.not_before("end_date", "start_date", self.END_MESSAGE)
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        field = self.fields.get("responsible")
+        if field is not None:
+            field.queryset = field.queryset.select_related("organization")
+            field.label_from_instance = lambda leader: f"{leader.name} · {leader.role_text()} ({leader.organization.name})"
 
 
 class OfficerForm(CrudForm):

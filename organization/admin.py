@@ -7,6 +7,7 @@ from .models import (
     Delegation,
     Item,
     Officer,
+    OrganizationEvent,
     OrganizationLeader,
     Position,
     PositionFunction,
@@ -123,3 +124,12 @@ class PositionFunctionAdmin(SoftDeleteAdminMixin, admin.ModelAdmin):
     list_filter = ("position",)
     list_select_related = ("position",)
     ordering = ("position__name", "order")
+
+
+@admin.register(OrganizationEvent)
+class OrganizationEventAdmin(SoftDeleteAdminMixin, admin.ModelAdmin):
+    list_display = ("title", "organization", "start_date", "end_date", "responsible", "status")
+    search_fields = ("title", "description", "organization__name")
+    list_filter = ("status",)
+    list_select_related = ("organization", "responsible")
+    ordering = ("start_date", "title")

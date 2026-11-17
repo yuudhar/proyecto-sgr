@@ -102,6 +102,7 @@ PERMISSION_MODULES = (
             ("Beneficiarios", "organization.beneficiary"),
             ("Organizaciones", "organization.communityorganization"),
             ("Directivas de organizaciones", "organization.organizationleader"),
+            ("Eventos de organizaciones", "organization.organizationevent"),
         ),
     ),
     (

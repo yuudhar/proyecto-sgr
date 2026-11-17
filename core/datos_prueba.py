@@ -21,6 +21,7 @@ from organization.models import (
     Delegation,
     Item,
     Officer,
+    OrganizationEvent,
     OrganizationLeader,
     Position,
     PositionFunction,
@@ -312,6 +313,24 @@ class CargaDatosPrueba(BaseCommand):
                 organization=demo_organization,
                 rut=rut,
                 defaults={"role": role, "name": name, "email": email},
+            )
+        demo_leaders = {leader.role: leader for leader in OrganizationLeader.objects.filter(organization=demo_organization)}
+        for title, detail, days, length, role, status in [
+            ("Asamblea general", "Rendir cuenta del año en la sede y votar los proyectos del sector.", -40, 0, "president", "done"),
+            ("Bingo para la sede", "Bingo solidario para reunir fondos para el techo de la sede.", 12, 0, "treasurer", "planned"),
+            ("Operativo de limpieza", "Limpieza de pasajes y áreas verdes con los vecinos.", 25, 1, "director", "planned"),
+        ]:
+            start = today + timedelta(days=days)
+            OrganizationEvent.objects.get_or_create(
+                organization=demo_organization,
+                title=title,
+                defaults={
+                    "description": detail,
+                    "start_date": start,
+                    "end_date": start + timedelta(days=length),
+                    "responsible": demo_leaders.get(role),
+                    "status": status,
+                },
             )
 
         officer_north_1, _ = Officer.objects.get_or_create(

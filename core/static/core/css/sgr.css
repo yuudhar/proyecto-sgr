@@ -3131,3 +3131,78 @@ textarea.form-control {
 .duties-list li {
   margin-bottom: 0.25rem;
 }
+
+/* Organigrama de una organización (v52) */
+.orgchart {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 1.5rem;
+}
+
+.orgchart-level {
+  position: relative;
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 1rem;
+  width: 100%;
+}
+
+.orgchart-level + .orgchart-level::before {
+  content: "";
+  position: absolute;
+  top: -1.5rem;
+  left: 50%;
+  height: 1.5rem;
+  border-left: 2px solid var(--line);
+}
+
+.orgchart-node {
+  min-width: 13rem;
+  max-width: 18rem;
+  flex: 0 1 15rem;
+  padding: 0.75rem 0.9rem;
+  border: 1px solid var(--wine-line);
+  border-top: 3px solid var(--wine);
+  border-radius: var(--radius);
+  background: #fff;
+  text-align: center;
+}
+
+.orgchart-node-empty {
+  border-style: dashed;
+  border-top-style: dashed;
+  border-color: var(--line);
+  background: var(--paper);
+}
+
+.orgchart-role {
+  color: var(--wine-dark);
+  font-size: 0.8rem;
+  font-weight: 700;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+}
+
+.orgchart-name {
+  margin-top: 0.15rem;
+  font-weight: 600;
+}
+
+.orgchart-rut {
+  color: var(--ink-soft);
+  font-size: 0.85rem;
+}
+
+.orgchart-next {
+  margin-top: 0.5rem;
+  padding-top: 0.5rem;
+  border-top: 1px solid var(--line-soft);
+  font-size: 0.85rem;
+}
+
+.org-events-summary {
+  border-top: 0;
+  border-bottom: 1px solid var(--line-soft);
+}

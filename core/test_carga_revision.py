@@ -196,7 +196,10 @@ class ReviewDataVolumeTests(RevisionTestCase):
             self.assertIsNone(evidencia.activity.deleted_at)
         for validacion in Validation.objects.select_related("evidence__activity", "reviewer_officer"):
             self.assertEqual(validacion.reviewer_officer.delegation_id, validacion.evidence.activity.delegation_id)
-            self.assertNotEqual(validacion.evidence.review_status, Evidence.ReviewStatus.PENDING)
+            if validacion.evidence.review_status == Evidence.ReviewStatus.PENDING:
+                # Una evidencia validada solo sigue pendiente si su última revisión fue «Observado».
+                ultima = Validation.objects.filter(evidence=validacion.evidence).order_by("date", "pk").last()
+                self.assertEqual(ultima.decision, Validation.Decision.FLAGGED)
         self.assertGreaterEqual(Activity.objects.filter(commitment__isnull=False).count(), 2 * 30)
 
     def test_the_indicators_and_adjustments_come_from_the_real_calculation(self):
@@ -770,4 +773,90 @@ class ResetTests(TestCase):
         self.assertEqual(set(User.objects.values_list("username", flat=True)), esperadas)
         vigentes = Period.objects.filter(deleted_at__isnull=True)
         self.assertTrue(vigentes.exists())
+        # El tubo de cartas sigue a sus atenciones aunque la corrección les cambió el estado, el compromiso y el período.
+        from operations import tube
+        from operations.models import TubeItem
+
+        permitido = {"closed": {"fulfilled"}, "in_progress": {"pending", "overdue"}, "registered": {"submitted", "overdue"}}
+        for item in TubeItem.objects.select_related("activity__commitment", "activity__delegation"):
+            self.assertIn(item.status, permitido[item.activity.status], item.pk)
+            self.assertEqual(item.due_date, tube.due_date_for(item.activity), item.pk)
         self.assertFalse([p for p in vigentes if (p.end_date - p.start_date).days > 100], "quedaron períodos anuales")
+
+
+class ReviewCompletenessTests(RevisionTestCase):
+    """Cada pantalla tiene casos reales y coherentes: observadas, comentarios, directivas completas y cargos con ítems."""
+
+    def test_observed_validations_leave_the_evidence_pending_and_say_what_to_fix(self):
+        observadas = Validation.objects.filter(decision=Validation.Decision.FLAGGED).select_related("evidence__activity", "reviewer_officer")
+        self.assertEqual(observadas.count(), 2 * (carga.OBSERVADAS + carga.OBSERVADAS_Y_APROBADAS))
+        pendientes = aprobadas = 0
+        for validacion in observadas:
+            evidencia = validacion.evidence
+            ultima = Validation.objects.filter(evidence=evidencia).order_by("date", "pk").last()
+            self.assertNotEqual(validacion.reviewer_officer_id, evidencia.author_officer_id)
+            self.assertEqual(validacion.reviewer_officer.delegation_id, evidencia.activity.delegation_id)
+            self.assertTrue(validacion.notes.strip())
+            self.assertGreaterEqual(validacion.date, evidencia.uploaded_at)
+            if ultima.pk == validacion.pk:
+                self.assertEqual(evidencia.review_status, Evidence.ReviewStatus.PENDING)
+                pendientes += 1
+            else:
+                self.assertEqual(ultima.decision, Validation.Decision.APPROVED)
+                self.assertEqual(evidencia.review_status, Evidence.ReviewStatus.APPROVED)
+                aprobadas += 1
+        self.assertEqual((pendientes, aprobadas), (2 * carga.OBSERVADAS, 2 * carga.OBSERVADAS_Y_APROBADAS))
+
+    def test_comments_are_written_by_accounts_of_the_same_delegation_after_the_record(self):
+        from core.models import Comment
+
+        comentarios = list(Comment.objects.all())
+        self.assertTrue({c.delegation_id for c in comentarios} >= {self.norte.pk, self.sur.pk})
+        self.assertTrue({c.entity for c in comentarios} >= {"Activity", "Commitment"})
+        for comentario in comentarios:
+            modelo = Activity if comentario.entity == "Activity" else Commitment
+            registro = modelo._base_manager.get(pk=comentario.record_id)
+            self.assertIsNone(registro.deleted_at)
+            self.assertEqual(registro.delegation_id, comentario.delegation_id)
+            self.assertEqual(UserProfile.objects.get(user=comentario.author).officer.delegation_id, comentario.delegation_id)
+            fecha = registro.date if comentario.entity == "Activity" else registro.request_date
+            self.assertGreaterEqual(comentario.created_at.date(), fecha)
+            self.assertNotIn("{", comentario.text)
+
+    def test_every_organization_has_its_full_board(self):
+        from organization.models import CommunityOrganization, OrganizationLeader
+
+        Role = OrganizationLeader.Role
+        for organizacion in CommunityOrganization.objects.filter(deleted_at__isnull=True):
+            cargos = set(OrganizationLeader.objects.filter(organization=organizacion, deleted_at__isnull=True).values_list("role", flat=True))
+            self.assertTrue({Role.PRESIDENT, Role.SECRETARY, Role.TREASURER, Role.DIRECTOR} <= cargos, organizacion.name)
+
+    def test_every_event_is_led_by_the_role_of_its_activity(self):
+        from organization.models import OrganizationEvent
+
+        cargo_de = {
+            (tipo, titulo): cargo
+            for tipo, actividades in carga.ACTIVIDADES_ORGANIZACION.items()
+            for titulo, _detalle, cargo in actividades
+        }
+        eventos = OrganizationEvent.objects.select_related("organization", "responsible")
+        self.assertTrue(eventos.exists())
+        for evento in eventos:
+            tipo = next(t for t in carga.TIPOS_ORGANIZACION if evento.organization.name.startswith(t.upper()))
+            self.assertIsNotNone(evento.responsible, evento.title)
+            self.assertEqual(evento.responsible.organization_id, evento.organization_id)
+            self.assertEqual(evento.responsible.role, cargo_de[(tipo, evento.title)], f"{evento.title} · {evento.organization}")
+
+    def test_the_analyst_position_has_its_weighted_item(self):
+        from organization.models import PositionItem
+
+        items = PositionItem.objects.filter(position__name="Analista de Datos", kind=PositionItem.Kind.NORMAL, deleted_at__isnull=True)
+        self.assertEqual(sum(item.weight for item in items), 100)
+
+    def test_loading_again_adds_no_more_observations_comments_or_leaders(self):
+        from core.models import Comment
+        from organization.models import OrganizationLeader
+
+        antes = (Validation.objects.count(), Comment.objects.count(), OrganizationLeader.objects.count())
+        cargar("--password", CLAVE)
+        self.assertEqual((Validation.objects.count(), Comment.objects.count(), OrganizationLeader.objects.count()), antes)

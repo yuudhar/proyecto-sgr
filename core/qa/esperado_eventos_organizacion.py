@@ -1,0 +1,37 @@
+ESPERADO = {
+    "EventRulesTests": {
+        "an_event_keeps_what_they_will_do_when_and_who_leads_it": "Un evento guarda la actividad, qué harán en específico, las fechas de inicio y fin, quién de la directiva lo lidera y su estado (parte «Planificado»).",
+        "the_end_cannot_be_before_the_start": "La fecha de fin de un evento no puede ser anterior a la de inicio.",
+        "the_responsible_must_belong_to_the_directiva_of_the_organization": "El responsable del evento debe ser de la directiva de la misma organización; uno de otra organización se rechaza.",
+        "the_event_must_fall_inside_the_activity_dates_of_the_organization": "Si la organización tiene fecha de inicio y de fin de actividades, el evento no puede empezar antes ni terminar después; dentro de las fechas se acepta.",
+        "the_responsible_is_optional": "El responsable es opcional: un evento puede guardarse sin responsable.",
+    },
+    "EventScreenTests": {
+        "the_menu_and_the_list_open": "La pantalla «Eventos de organizaciones» abre y muestra los eventos.",
+        "an_event_is_created_from_the_form": "Un evento se crea desde el formulario con su organización, responsable y fechas.",
+        "the_form_refuses_an_end_before_the_start": "El formulario rechaza un fin anterior al inicio y no crea nada.",
+        "the_form_refuses_a_responsible_from_another_organization": "El formulario rechaza un responsable de otra organización y no crea nada.",
+        "the_form_starts_with_the_organization_it_comes_from": "Al agregar un evento desde la ficha de una organización, el formulario parte con esa organización elegida.",
+        "the_status_can_be_changed_to_done_or_suspended": "El estado del evento se cambia a «Realizado» y a «Suspendido» desde el formulario de edición.",
+        "the_list_can_be_filtered_by_organization_and_searched_by_detail": "El listado se filtra por organización y la búsqueda encuentra por el detalle de lo que harán.",
+        "an_event_is_archived_and_restored": "Un evento se archiva y se restaura.",
+        "a_reader_sees_the_events_but_cannot_add_them": "Un usuario de solo lectura ve los eventos y el calendario de la ficha, pero no puede agregar: recibe 403 y no ve el botón.",
+        "who_cannot_see_events_does_not_get_them_in_the_page_of_the_organization": "Quien no tiene permiso para ver eventos no los ve en la ficha de la organización ni en el organigrama.",
+    },
+    "OrgChartTests": {
+        "the_chart_places_each_role_and_the_rest_of_the_directiva": "El organigrama pone al presidente arriba, al secretario y al tesorero en el segundo nivel y al resto de la directiva en el tercero.",
+        "a_missing_role_is_shown_empty": "Un cargo que falta (por ejemplo, sin secretario o sin tesorero) aparece vacío en el organigrama.",
+        "an_organization_without_directiva_says_so": "Una organización sin directiva lo dice en lugar del organigrama.",
+        "each_person_shows_the_next_activity_they_lead": "Cada persona del organigrama muestra la próxima actividad que lidera y cuántas tiene a su cargo; las pasadas no cuentan como próximas.",
+        "a_suspended_event_is_not_a_next_activity": "Un evento suspendido no aparece como próxima actividad.",
+        "the_page_shows_the_chart_and_the_calendar_with_what_they_will_do": "La ficha muestra el organigrama y el calendario con la fecha, la actividad, qué harán en específico, el responsable y el estado de cada evento, y el botón «Agregar evento».",
+        "the_summary_counts_by_state_and_unassigned_events": "El resumen cuenta los eventos por estado y los que no tienen responsable.",
+        "archived_events_and_leaders_are_left_out": "Los eventos archivados no aparecen en el calendario ni en el organigrama.",
+    },
+    "SampleEventsCommandTests": {
+        "it_gives_the_organization_dates_a_description_and_events_of_its_directiva": "El comando deja a cada organización de la carga con su período de actividades, una descripción y 3 eventos dentro de esas fechas, con un responsable de su propia directiva.",
+        "the_treasurer_leads_the_fundraising_events": "El tesorero lidera los eventos de reunir fondos, como el bingo.",
+        "running_it_again_changes_nothing": "Repetir el comando no duplica ni cambia nada.",
+        "it_leaves_the_organizations_outside_the_review_load_alone": "El comando no toca las organizaciones que no son de la carga de revisión (las reales).",
+    },
+}

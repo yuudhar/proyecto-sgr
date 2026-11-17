@@ -341,6 +341,76 @@ class OrganizationLeader(BaseModel):
         return self.get_role_display()
 
 
+class OrganizationEvent(BaseModel):
+    """Evento o actividad que una organización comunitaria va a hacer: cuándo, qué en específico y quién la lidera."""
+
+    class Status(models.TextChoices):
+        PLANNED = "planned", "Planificado"
+        DONE = "done", "Realizado"
+        SUSPENDED = "suspended", "Suspendido"
+
+    organization = models.ForeignKey(
+        CommunityOrganization,
+        on_delete=models.PROTECT,
+        related_name="events",
+        verbose_name="organización",
+    )
+    title = models.CharField(max_length=150, verbose_name="actividad")
+    description = models.TextField(
+        blank=True,
+        default="",
+        verbose_name="qué harán en específico",
+        help_text="El detalle: qué se va a hacer, dónde y qué se necesita.",
+    )
+    start_date = models.DateField(verbose_name="fecha de inicio")
+    end_date = models.DateField(
+        verbose_name="fecha de fin",
+        help_text="Si dura un solo día, la misma fecha del inicio.",
+    )
+    responsible = models.ForeignKey(
+        OrganizationLeader,
+        on_delete=models.PROTECT,
+        null=True,
+        blank=True,
+        related_name="events",
+        verbose_name="responsable de la directiva",
+        help_text="Quién de la directiva de esta organización lidera la actividad.",
+    )
+    status = models.CharField(
+        max_length=20, choices=Status.choices, default=Status.PLANNED, db_index=True, verbose_name="estado"
+    )
+
+    class Meta:
+        ordering = ("start_date", "organization__name", "title")
+        verbose_name = "Evento de organización"
+        verbose_name_plural = "Eventos de organizaciones"
+
+    def __str__(self):
+        return f"{self.title} · {self.organization}"
+
+    def clean(self):
+        super().clean()
+        errors = {}
+        if self.start_date and self.end_date and self.end_date < self.start_date:
+            errors["end_date"] = "La fecha de fin no puede ser anterior a la de inicio."
+        organization = self.organization if self.organization_id else None
+        if organization is not None and self.start_date and self.end_date:
+            if organization.start_date and self.start_date < organization.start_date:
+                errors["start_date"] = (
+                    f"La organización empieza sus actividades el {organization.start_date:%d/%m/%Y}: "
+                    "el evento no puede empezar antes."
+                )
+            if organization.end_date and self.end_date > organization.end_date:
+                errors["end_date"] = (
+                    f"La organización termina sus actividades el {organization.end_date:%d/%m/%Y}: "
+                    "el evento no puede terminar después."
+                )
+        if organization is not None and self.responsible_id and self.responsible.organization_id != organization.pk:
+            errors["responsible"] = "El responsable debe ser de la directiva de la organización elegida."
+        if errors:
+            raise ValidationError(errors)
+
+
 class Officer(BaseModel):
 
     class Status(models.TextChoices):
