@@ -159,6 +159,7 @@ MENU = [
                     crud_entry("beneficiarios"),
                     crud_entry("organizaciones"),
                     crud_entry("directivas"),
+                    crud_entry("eventos-de-organizaciones"),
                 ],
             ),
             (

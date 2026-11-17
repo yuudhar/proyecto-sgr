@@ -30,6 +30,7 @@ from core.qa.esperado_listado_y_perfil import ESPERADO as _LISTADO_Y_PERFIL
 from core.qa.esperado_carga_revision import ESPERADO as _CARGA_REVISION
 from core.qa.esperado_ensayo_revision import ESPERADO as _ENSAYO_REVISION
 from core.qa.esperado_tubo_de_cartas import ESPERADO as _TUBO_DE_CARTAS
+from core.qa.esperado_eventos_organizacion import ESPERADO as _EVENTOS_ORGANIZACION
 
 REQUISITOS = {
     "A1-01": ("A1", "Login: usuario o correo más contraseña, validación y acceso según perfil"),
@@ -117,6 +118,9 @@ REQUISITOS = {
     "V51-02": ("Versión 51", "Trimestres por delegación: «Agregar trimestre» crea el trimestre en todas las delegaciones marcadas, con días computables automáticos (lunes a viernes) y meta de cumplimiento; cada delegación rige con su propio período y no se traslapan"),
     "V51-03": ("Versión 51", "Organizaciones comunitarias con presidente y tesorero (nombre y RUT) en el listado y la ficha, fecha de inicio y de fin para el calendario de actividades y descripción"),
     "V51-04": ("Versión 51", "Carga de datos: las cuentas del equipo (admin como Super Usuario, matias.cavieres en Norte y matias.quiroz en Sur, ambos Funcionario y Verificador) se cargan con las de revisión, y --reiniciar borra toda la base y la vuelve a cargar desde cero, con confirmación y la corrección de datos al final"),
+    "V52-01": ("Versión 52", "Eventos de las organizaciones comunitarias: actividad, qué harán en específico, fecha de inicio y de fin (dentro de las fechas de la organización), responsable de su directiva y estado (planificado, realizado, suspendido), con su pantalla propia"),
+    "V52-02": ("Versión 52", "Organigrama en la ficha de la organización (presidente, secretario y tesorero, directivos y otros cargos, con la próxima actividad de cada uno) y calendario de sus eventos, visible solo para quien puede ver eventos"),
+    "V52-03": ("Versión 52", "Datos de revisión completos y coherentes: validaciones «Observado» que dejan la evidencia pendiente (y otras observadas y luego aprobadas), comentarios en atenciones y compromisos escritos por cuentas de la misma delegación, directiva completa en cada organización (presidente, secretario, tesorero y al menos un directivo, para que cada evento lo lidere el cargo que corresponde) y el cargo de análisis con su ítem con ponderador"),
     "V40-01": ("Versión 40", "Cambio de trimestre de una atención: el funcionario lo pide (automático al trimestre siguiente o manual con fecha) y Jefatura lo aprueba o rechaza con su respuesta; al aprobar la atención toma la fecha nueva, con revisiones de trimestre abierto, de fecha no futura, de límite diario y de alcance por delegación"),
     "V42-01": ("Versión 42", "Del solicitante externo de la agenda colectiva a su cuenta de cliente: botón en el compromiso, RUT, beneficiario creado o reutilizado y «Nuevo usuario» con el perfil Cliente ya elegido"),
     "V44-01": ("Versión 44", "Funciones de cada cargo según el descriptor de funciones 2026: mantenedor propio, descripción del cargo, comando que carga los siete cargos del descriptor sin pisar lo editado y sección «Funciones del cargo» en la ficha personal"),
@@ -351,6 +355,7 @@ CLASES = {
     "ReviewAccountsTests": (["V36-02"], "Seis cuentas de prueba: permisos, aislamiento y portal", "Base de datos vacía y una ejecución de cargar_datos_revision"),
     "TeamAccountsTests": (["V51-04"], "Cuentas del equipo: admin, matias.cavieres y matias.quiroz", "Base de datos vacía y una ejecución de cargar_datos_revision"),
     "ResetTests": (["V51-04"], "Volver a empezar: cargar_datos_revision --reiniciar", "Base de datos vacía; datos agregados por la prueba"),
+    "ReviewCompletenessTests": (["V52-03"], "Datos de revisión completos: observadas, comentarios, directivas y cargos", "Base de datos vacía y una ejecución de cargar_datos_revision"),
     "RoleSeedRequirementTests": (["V36-01", "V36-03"], "Roles y tipos de gestión que prepara la carga", "Base de datos vacía, sin roles"),
     "ReviewReadmeTests": (["V36-02", "V36-03"], "README de la revisión: cuentas, AWS, WebSocket y carga", _SIN_BD),
     "ModelDiagramTests": (["V36-03"], "Diagrama de modelos generado desde los modelos registrados", _SIN_BD),
@@ -417,10 +422,14 @@ CLASES = {
     "QuarterAddTests": (["V51-02"], "Agregar trimestre en varias delegaciones", _SEMILLA + "; sesión de Coordinación"),
     "PeriodListAndFormTests": (["V51-02"], "Listado y formulario de períodos por delegación", _SEMILLA),
     "OrganizationCalendarTests": (["V51-03"], "Organización comunitaria con directiva, fechas y descripción", _SEMILLA),
+    "EventRulesTests": (["V52-01"], "Eventos de organizaciones: reglas del modelo", _SEMILLA),
+    "EventScreenTests": (["V52-01"], "Eventos de organizaciones: pantalla, filtros y permisos", _SEMILLA + "; sesiones del Super Usuario y de usuarios con permisos sueltos"),
+    "SampleEventsCommandTests": (["V52-01"], "Comando cargar_eventos_de_organizaciones", _SEMILLA + "; organización de la carga de revisión creada en la prueba"),
+    "OrgChartTests": (["V52-02"], "Organigrama y calendario de la ficha de la organización", _SEMILLA + "; organización con su directiva"),
     "SolicitanteTests": (["V39-02"], "Tipo de solicitante en la atención", _SEMILLA + "; sesión de Matías Cavieres (Norte); organización con su directiva"),
 }
 
 ESPERADO = {}
-for _grupo in (_ACCESO, _MANTENEDORES, _INGRESO, _LISTADOS, _DESPLIEGUE, _VALIDACIONES, _ARCHIVOS_Y_FOTO, _ELIMINAR_Y_LISTADOS, _USUARIOS_ELIMINADOS, _TIEMPO_REAL, _RITMO_Y_COMPROMISOS, _RESULTADOS_Y_CALCULO, _CODES_SEARCH_AND_CHARTS, _REGLAS_PUNTAJE, _CIERRE_Y_AUSENCIAS, _FELICITACIONES_EQUIPO_Y_JJVV, _TUBO_DE_TRABAJO, _CLIENTE_Y_RECORTE, _ERRORES, _LISTADO_Y_PERFIL, _CARGA_REVISION, _ENSAYO_REVISION, _CARTAS_Y_COMPROMISOS, _DIRECTIVA_Y_SOLICITANTE, _CAMBIO_DE_TRIMESTRE, _LIMITE_DE_FECHAS, _CLIENTE_DESDE_COMPROMISO, _AVISO_DE_EDICION, _COMENTARIOS, _RESPALDO, _FUNCIONES_DE_CARGO, _TUBO_DE_CARTAS, ):
+for _grupo in (_ACCESO, _MANTENEDORES, _INGRESO, _LISTADOS, _DESPLIEGUE, _VALIDACIONES, _ARCHIVOS_Y_FOTO, _ELIMINAR_Y_LISTADOS, _USUARIOS_ELIMINADOS, _TIEMPO_REAL, _RITMO_Y_COMPROMISOS, _RESULTADOS_Y_CALCULO, _CODES_SEARCH_AND_CHARTS, _REGLAS_PUNTAJE, _CIERRE_Y_AUSENCIAS, _FELICITACIONES_EQUIPO_Y_JJVV, _TUBO_DE_TRABAJO, _CLIENTE_Y_RECORTE, _ERRORES, _LISTADO_Y_PERFIL, _CARGA_REVISION, _ENSAYO_REVISION, _CARTAS_Y_COMPROMISOS, _DIRECTIVA_Y_SOLICITANTE, _CAMBIO_DE_TRIMESTRE, _LIMITE_DE_FECHAS, _CLIENTE_DESDE_COMPROMISO, _AVISO_DE_EDICION, _COMENTARIOS, _RESPALDO, _FUNCIONES_DE_CARGO, _TUBO_DE_CARTAS, _EVENTOS_ORGANIZACION, ):
     for _clase, _metodos in _grupo.items():
         ESPERADO.setdefault(_clase, {}).update(_metodos)

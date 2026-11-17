@@ -17,6 +17,27 @@ Nombres que cambiaron en la v27 (los textos antiguos los mencionan con el nombre
 | `core/qa/esperado_vNN.py` | `core/qa/esperado_<tema>.py` (mismo tema que su archivo de pruebas) |
 | `sql/*.sql` (todos) | `sql/sgr_django.sql` (estructura vigente) |
 
+## Versión 52
+
+Eventos y organigrama de las organizaciones comunitarias. Hay una migración (`organization 0009`) y no hay que correr `seed_roles`, pero sí dar el permiso del módulo nuevo a quien deba usarlo (en la pantalla Roles, fila «Eventos de organizaciones»).
+
+### Qué cambia
+
+- **Eventos de organizaciones** (menú Catálogos): cada organización tiene sus eventos con **actividad**, **qué harán en específico**, **fecha de inicio y de fin**, **responsable de su directiva** y **estado** (planificado, realizado o suspendido). Reglas: el fin no puede ser anterior al inicio; si la organización tiene fecha de inicio y de fin de actividades, el evento tiene que caer dentro; el responsable tiene que ser de la directiva de esa misma organización (opcional).
+- **Organigrama en la ficha de la organización:** presidente arriba, secretario y tesorero en el segundo nivel y directivos y otros cargos en el tercero, con el nombre, el RUT y la **próxima actividad** que lidera cada uno. Un cargo que falta aparece vacío; sin directiva, la ficha lo dice.
+- **Calendario de actividades en la ficha:** los eventos por fecha, con qué harán, quién los lidera y su estado, un resumen por estado y el botón «Agregar evento» (parte con la organización elegida). Quien no puede ver eventos no los ve ni en el calendario ni en el organigrama.
+- **Datos de revisión coherentes:** `cargar_datos_revision` deja a cada organización con su período de actividades, una descripción y 3 eventos acordes a su tipo (la junta de vecinos hace asambleas y operativos de limpieza; el club de adulto mayor, talleres y paseos; el tesorero lidera los bingos y las cuotas), dentro de sus fechas y con responsable de su directiva. Son 240 eventos; los pasados quedan realizados o suspendidos y los futuros, planificados. Los datos de antes no cambian. El comando nuevo **`cargar_eventos_de_organizaciones`** hace lo mismo en una base que ya tenía los datos de revisión (no duplica, no toca las organizaciones reales) y da a las cuentas de revisión los permisos del módulo.
+- **Permisos de las cuentas de revisión:** `admin_a` hace todo con los eventos; `editor_a` los ve, agrega y edita; `lector_a` y `lector_b` solo los ven.
+- 27 pruebas nuevas (`core/test_eventos_organizacion.py`) con su resultado esperado en `core/qa/esperado_eventos_organizacion.py` y requisitos V52-01 y V52-02. `sql/sgr_django.sql` (41 tablas), `docs/DIAGRAMA_MODELOS.md`, el README y `DOCUMENTACION_CODIGO.md` quedan al día.
+- **El tubo de cartas sigue a sus atenciones después de corregir:** `corregir_datos_revision` tiene un paso nuevo `tubo` (el último): como los pasos anteriores cambian el estado de las atenciones, les crean o enlazan compromisos y pasan los períodos anuales a trimestres, la actividad del tubo toma el estado de su atención y la fecha comprometida de su compromiso o el fin de su trimestre. Antes, tras `--reiniciar` quedaban 21 actividades con el estado de antes y 54 con la fecha del período anual.
+- **Datos de revisión completos y coherentes:** la carga suma validaciones «Observado» (la evidencia sigue pendiente, o se aprueba después), comentarios en atenciones y compromisos de cuentas de la misma delegación, la directiva completa en cada organización (presidente, secretario, tesorero y al menos un directivo, antes de crear los eventos, así cada evento lo lidera el cargo que corresponde) y el ítem con ponderador del cargo de análisis. Con `--reiniciar` la auditoría de datos queda sin problemas.
+
+### Lo que se sabe y no cambia
+
+- Los eventos no se filtran por delegación: las organizaciones son un catálogo compartido entre delegaciones y sus eventos también.
+- No hay vista de calendario mensual: el calendario es la lista de eventos por fecha dentro de la ficha de cada organización.
+- Los grupos de `seed_roles` no incluyen el permiso de eventos (igual que organizaciones y directivas): se da por cuenta o por rol en la pantalla Roles.
+
 ## Versión 51
 
 Tubo de cartas como tablero de actividades, trimestres por delegación con «Agregar trimestre» y organizaciones comunitarias con directiva y fechas. Hay 3 migraciones (`operations 0009`, `planning 0007`, `organization 0008`) y hay que correr `seed_roles` al actualizar para dar permisos del módulo nuevo.

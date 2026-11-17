@@ -336,6 +336,20 @@ CREATE TABLE `organization_item` (
   `scores` tinyint(1) NOT NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
+CREATE TABLE `organization_organizationevent` (
+  `id` bigint(20) NOT NULL,
+  `created_at` datetime(6) NOT NULL,
+  `updated_at` datetime(6) NOT NULL,
+  `deleted_at` datetime(6) DEFAULT NULL,
+  `title` varchar(150) NOT NULL,
+  `description` longtext NOT NULL,
+  `start_date` date NOT NULL,
+  `end_date` date NOT NULL,
+  `status` varchar(20) NOT NULL,
+  `organization_id` bigint(20) NOT NULL,
+  `responsible_id` bigint(20) DEFAULT NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
 CREATE TABLE `organization_officer` (
   `id` bigint(20) NOT NULL,
   `created_at` datetime(6) NOT NULL,
@@ -649,6 +663,12 @@ ALTER TABLE `organization_item`
   ADD PRIMARY KEY (`id`),
   ADD KEY `organization_item_parent_item_id_5d2e054a_fk_organizat` (`parent_item_id`);
 
+ALTER TABLE `organization_organizationevent`
+  ADD PRIMARY KEY (`id`),
+  ADD KEY `organization_organiz_organization_id_6c2e8d14_fk_organizat` (`organization_id`),
+  ADD KEY `organization_organiz_responsible_id_a41b7f09_fk_organizat` (`responsible_id`),
+  ADD KEY `organization_organizationevent_status_d83a5e22` (`status`);
+
 ALTER TABLE `organization_officer`
   ADD PRIMARY KEY (`id`),
   ADD UNIQUE KEY `institutional_id` (`institutional_id`),
@@ -791,6 +811,9 @@ ALTER TABLE `organization_delegation`
 ALTER TABLE `organization_item`
   MODIFY `id` bigint(20) NOT NULL AUTO_INCREMENT;
 
+ALTER TABLE `organization_organizationevent`
+  MODIFY `id` bigint(20) NOT NULL AUTO_INCREMENT;
+
 ALTER TABLE `organization_officer`
   MODIFY `id` bigint(20) NOT NULL AUTO_INCREMENT;
 
@@ -912,6 +935,10 @@ ALTER TABLE `organization_communityorganization`
 
 ALTER TABLE `organization_item`
   ADD CONSTRAINT `organization_item_parent_item_id_5d2e054a_fk_organizat` FOREIGN KEY (`parent_item_id`) REFERENCES `organization_item` (`id`);
+
+ALTER TABLE `organization_organizationevent`
+  ADD CONSTRAINT `organization_organiz_organization_id_6c2e8d14_fk_organizat` FOREIGN KEY (`organization_id`) REFERENCES `organization_communityorganization` (`id`),
+  ADD CONSTRAINT `organization_organiz_responsible_id_a41b7f09_fk_organizat` FOREIGN KEY (`responsible_id`) REFERENCES `organization_organizationleader` (`id`);
 
 ALTER TABLE `organization_officer`
   ADD CONSTRAINT `organization_officer_delegation_id_ff127796_fk_organizat` FOREIGN KEY (`delegation_id`) REFERENCES `organization_delegation` (`id`),

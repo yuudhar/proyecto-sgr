@@ -13,6 +13,7 @@ from core import ui, uploads
 from core.audit import log_event
 from core.commitments import DEADLINE_LABELS, deadline_of, deadline_text, history_of, record_status
 from core.duties import duties_of
+from core.entry_rules import portal_today
 from core.crud import CODE_COLUMN, Canvas, Cell, Col, Crud, Related, is_id, registry
 from core.forms import (
     ActivityEditForm,
@@ -32,6 +33,7 @@ from core.forms import (
     QuarterRequestForm,
     QuarterResolveForm,
     OfficerForm,
+    OrganizationEventForm,
     PeriodForm,
     PositionForm,
     PositionFunctionForm,
@@ -64,6 +66,7 @@ from organization.models import (
     Delegation,
     Item,
     Officer,
+    OrganizationEvent,
     OrganizationLeader,
     Position,
     PositionFunction,
@@ -71,6 +74,7 @@ from organization.models import (
     Service,
     Territory,
 )
+from organization import chart as org_chart
 from planning import feedback as feedback_rules
 from planning import periods as period_scope
 from planning.calculation import IndicatorIndex
@@ -585,7 +589,7 @@ class TubeItemCrud(Crud):
         return super().get_queryset(request, include_archived)
 
     def initial_values(self, request):
-        initial = {"entered_date": timezone.localdate()}
+        initial = {"entered_date": portal_today()}
         initial.update(own_officer_defaults(request, "responsible_officer"))
         delegation = default_delegation(request)
         if delegation is not None:
@@ -1733,6 +1737,18 @@ class CommunityOrganizationCrud(Crud):
     rules = {"name": "label", "legal_address": "label"}
     bounds = {"active_members": {"min": "0"}, "registry_number": {"min": "1"}, "directory_number": {"min": "0"}}
     related = (Related("directivas", "organization", "Directiva"),)
+    detail_panel = "core/crud/organization_chart.html"
+
+    def panel_context(self, request, obj):
+        events = registry.get("eventos-de-organizaciones")
+        context = org_chart.build(obj)
+        context["can_view_events"] = events.has_perm(request.user, "view")
+        context["can_add_events"] = events.has_perm(request.user, "add") and obj.deleted_at is None
+        for event in context["events"]:
+            event.detail_url = events.url("detail", event.pk)
+        context["add_event_url"] = f"{events.url('create')}?organization={obj.pk}"
+        context["events_list_url"] = f"{events.url('list')}?organization={obj.pk}"
+        return context
 
     def validate_form(self, form, cleaned):
         start, end = cleaned.get("start_date"), cleaned.get("end_date")
@@ -1820,6 +1836,50 @@ class OrganizationLeaderCrud(Crud):
                     "role",
                     f"Esta organización ya tiene {label}: {holder.name}. Cámbiale el cargo o archívalo antes.",
                 )
+
+
+@registry.register
+class OrganizationEventCrud(Crud):
+    """Eventos de las organizaciones (v52): qué actividad harán, cuándo y quién de la directiva la lidera."""
+
+    model = OrganizationEvent
+    slug = "eventos-de-organizaciones"
+    icon = "bi-calendar-event"
+    gender = "m"
+    title = "Evento"
+    title_plural = "Eventos"
+    list_title = "Eventos de organizaciones"
+    deletable = True
+    state_filter = True
+    new_label = "Agregar evento"
+    description = (
+        "Lo que hará cada organización: la actividad, qué harán en específico, desde y hasta cuándo y quién de la "
+        "directiva la lidera. Se ve también en la ficha de cada organización, junto a su organigrama."
+    )
+    list_display = (
+        Col("title", "Actividad", link=True),
+        "organization",
+        "start_date",
+        "end_date",
+        "responsible",
+        "status",
+    )
+    search_fields = ("title", "description", "organization__name", "responsible__name")
+    list_filters = ("organization", "status", "responsible")
+    select_related = ("organization", "responsible")
+    form_base = OrganizationEventForm
+    form_fields = ("organization", "title", "description", "start_date", "end_date", "responsible", "status")
+    full_width = ("title", "description")
+    rules = {"title": "label"}
+
+    def initial_values(self, request):
+        organization = request.GET.get("organization", "")
+        return {"organization": organization} if organization.isdigit() else {}
+
+    def restore_blockers(self, obj):
+        if obj.organization.deleted_at is not None:
+            return [f"Su organización «{obj.organization.name}» está archivada: restáurala primero."]
+        return []
 
 
 @registry.register

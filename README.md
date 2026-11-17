@@ -302,7 +302,7 @@ Comandos de datos (`python manage.py <comando>`):
 | `cargar_volumen_estres` | Carga un volumen grande de registros marcados como prueba (`--limpiar` los borra); necesita funcionarios e ítems ya creados |
 | `exportar_registro_pruebas` | Genera `docs/pruebas/registro_pruebas_funcionales.csv` y `.xlsx` |
 
-La carpeta `sql/` tiene un solo archivo, **`sgr_django.sql`**: la estructura de la base del servidor (`sgr_django`, 40 tablas, MariaDB/MySQL, sin datos ni contraseñas), al día con las migraciones de Django. Sirve para crear la base a mano en phpMyAdmin; con `python manage.py migrate` se obtiene lo mismo.
+La carpeta `sql/` tiene un solo archivo, **`sgr_django.sql`**: la estructura de la base del servidor (`sgr_django`, 41 tablas, MariaDB/MySQL, sin datos ni contraseñas), al día con las migraciones de Django. Sirve para crear la base a mano en phpMyAdmin; con `python manage.py migrate` se obtiene lo mismo.
 
 **Zonas horarias en MariaDB:** los informes agrupan por fecha en hora de Chile y necesitan las tablas de zonas horarias del motor. Se cargan una vez con:
 
@@ -401,7 +401,9 @@ unset SGR_REVISION_PASSWORD
 - **Qué prepara:** `seed_roles` y `seed_management_types` (por eso un servidor recién migrado queda con roles y tipos de gestión), las dos delegaciones, cargos, ítems, servicios, territorios, funcionarios, beneficiarios, organizaciones, atenciones, gestiones, compromisos, evidencias con archivo real y su validación, felicitaciones y reclamos (con su ajuste automático), ausencias, metas y los indicadores, que salen del mismo cálculo que usa el sistema (no son números escritos a mano).
 - **Qué comprueba al terminar:** imprime el total por modelo (la tabla de abajo), verifica los mínimos (2.000 registros en total y 50 en cada CRUD evaluado, y en cada delegación cuando el CRUD se filtra por delegación) y que cada cuenta tenga exactamente los permisos que se documentan más abajo; si algo falla, termina con error.
 - **`core/datos_prueba.py` no se usa:** es solo para las pruebas automáticas y nunca se carga en el servidor.
+- **Organizaciones con eventos (v52):** cada organización queda con su período de actividades, una descripción y 3 eventos de ejemplo (240 en total) acordes a su tipo —por ejemplo, la junta de vecinos hace asambleas y el tesorero lidera los bingos—, dentro de sus fechas y con un responsable de su directiva; los pasados quedan «Realizado» o «Suspendido» y los futuros «Planificado». En la ficha de cada organización se ve su organigrama y el calendario.
 - **Cuentas del equipo:** el comando también crea `admin` (Super Usuario), `matias.cavieres` (Funcionario y Verificador, Delegación Norte) y `matias.quiroz` (Funcionario y Verificador, Delegación Sur), cada matías con su funcionario. Sus contraseñas salen igual que las demás (`SGR_PASSWORD_ADMIN`, `SGR_PASSWORD_MATIAS_CAVIERES`, `SGR_PASSWORD_MATIAS_QUIROZ` o la común).
+- **Casos completos:** la carga deja también 24 validaciones «Observado» (16 evidencias que siguen pendientes y 8 que se observaron y después se aprobaron), comentarios de coordinación en atenciones y compromisos escritos por cuentas de la misma delegación, la directiva completa (presidente, secretario, tesorero y al menos un directivo, antes de crear los eventos para que cada uno lo lidere el cargo que corresponde) en cada organización y el ítem con ponderador del cargo de análisis (Gestión y Planificación tras corregir).
 - **Volver a empezar (`--reiniciar`):** `python manage.py cargar_datos_revision --reiniciar` **borra toda la base** (usuarios, datos, auditoría y archivos subidos), la carga de nuevo con los datos ficticios y todas las cuentas, y termina con `corregir_datos_revision --aplicar` (trimestres y cuentas `admin_b`/`editor_b`). Pide escribir BORRAR (o `--sin-confirmar` en un script). Después de `corregir_datos_revision` no se debe correr la carga simple: para dejar la base como nueva se usa `--reiniciar`.
 - **`deploy/actualizar.sh` no carga ni ejecuta nada de esto:** hace `check --deploy`, `migrate` y `collectstatic`. En un servidor nuevo, `migrate` deja la base sin roles: hay que correr `cargar_datos_revision` (o, como mínimo, `seed_roles` y `seed_management_types`).
 
@@ -429,6 +431,7 @@ Registros vigentes por módulo (los archivados no se cuentan):
 | Beneficiarios (compartido) | — | — | 402 |
 | Organizaciones comunitarias (compartido) | — | — | 80 |
 | Directivas de organizaciones (compartido) | — | — | 375 |
+| Eventos de organizaciones (compartido) | — | — | 240 |
 | Metas, indicadores y ajustes | — | — | 107, 160 y 110 |
 
 Los datos son variados para probar búsqueda, filtros, orden y paginación (con 30 filas por página, las atenciones de cada delegación ocupan más de diez páginas): tres estados de atención, cinco ítems (tipos de atención y sub atenciones), cuatro servicios, fechas repartidas en los 240 días anteriores a la fecha base (solo días hábiles), atenciones con y sin puntaje, compromisos en los cuatro estados, evidencias pendientes, aprobadas y rechazadas, y una fracción archivada (6 % de las atenciones y 7 % de los compromisos) para probar «Archivados» y restaurar.
@@ -440,7 +443,7 @@ Resultado de ejecutar el comando sobre una base recién migrada (la misma tabla 
 | Modelo | Total | Vigentes | Archivados |
 |---|---|---|---|
 | `core.AuditLog` | 9 | 9 | 0 |
-| `core.Comment` | 0 | 0 | 0 |
+| `core.Comment` | 34 | 34 | 0 |
 | `organization.Delegation` | 2 | 2 | 0 |
 | `organization.Position` | 4 | 4 | 0 |
 | `organization.PositionFunction` | 0 | 0 | 0 |
@@ -449,9 +452,10 @@ Resultado de ejecutar el comando sobre una base recién migrada (la misma tabla 
 | `organization.Beneficiary` | 402 | 402 | 0 |
 | `organization.Territory` | 110 | 110 | 0 |
 | `organization.CommunityOrganization` | 80 | 80 | 0 |
-| `organization.OrganizationLeader` | 375 | 375 | 0 |
+| `organization.OrganizationLeader` | 407 | 407 | 0 |
+| `organization.OrganizationEvent` | 240 | 240 | 0 |
 | `organization.Officer` | 112 | 112 | 0 |
-| `organization.PositionItem` | 4 | 4 | 0 |
+| `organization.PositionItem` | 5 | 5 | 0 |
 | `operations.ManagementType` | 6 | 6 | 0 |
 | `operations.Activity` | 818 | 777 | 41 |
 | `operations.Followup` | 661 | 661 | 0 |
@@ -459,7 +463,7 @@ Resultado de ejecutar el comando sobre una base recién migrada (la misma tabla 
 | `operations.QuarterChangeRequest` | 110 | 110 | 0 |
 | `operations.TubeItem` | 110 | 110 | 0 |
 | `evidence.Evidence` | 223 | 223 | 0 |
-| `evidence.Validation` | 164 | 164 | 0 |
+| `evidence.Validation` | 188 | 188 | 0 |
 | `planning.Period` | 2 | 2 | 0 |
 | `planning.Goal` | 107 | 107 | 0 |
 | `planning.Indicator` | 162 | 162 | 0 |
@@ -469,7 +473,7 @@ Resultado de ejecutar el comando sobre una base recién migrada (la misma tabla 
 | `accounts.UserProfile` | 9 | 9 | 0 |
 | `accounts.RoleProfile` | 6 | 6 | 0 |
 | `accounts.UserRoleDelegation` | 0 | 0 | 0 |
-| **Total** | **4045** | **3993** | **52** |
+| **Total** | **4376** | **4324** | **52** |
 
 Si la base ya tenía otros datos (por ejemplo los de una prueba anterior), los totales de la base completa son mayores: el comando solo agrega lo suyo.
 
@@ -510,6 +514,7 @@ Todos los módulos leen y escriben en la base de datos real, con permisos por ro
 | Recuperar contraseña | Pantalla de ingreso | Operativo | Enlace firmado de 1 hora y un solo uso; correo real por SMTP |
 | Atención (ingreso y listado) | Atención | Operativo | Tipo y sub atención dependientes; solicitante persona natural (RUT o nombre) u organización con quién de su directiva viene; identificador `ATN00001`…; el listado de actividades es esta misma pantalla, con filtros y Excel |
 | Directivas de organizaciones | Administración › Catálogos | Operativo | Presidente, secretario, tesorero, directivos y otros cargos de cada organización, con nombre, RUT y correo; registro propio (no es beneficiario); se ve y se agrega desde la ficha de la organización |
+| Eventos de organizaciones | Administración › Catálogos | Operativo | Lo que hará cada organización: actividad, qué harán en específico, fecha de inicio y de fin (dentro de las fechas de la organización), responsable de su directiva y estado (planificado, realizado o suspendido); en la ficha de cada organización se ve su organigrama y su calendario |
 | Dashboard | Dashboard | Operativo | Promedios y semáforo con las metas guardadas |
 | Gestiones, Agenda colectiva | Operación | Operativo | Ligadas a la atención y a la delegación de quien las crea (las actividades se ven en Atención) |
 | Compromisos | Operación | Operativo | Vista de tarjetas con cuatro columnas por estado e indicadores; una atención que requiere visita crea sola su compromiso; botones para cambiar de estado con historial; mismos permisos y alcance que la agenda |

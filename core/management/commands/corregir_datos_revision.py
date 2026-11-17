@@ -53,7 +53,8 @@ from core import entry_rules
 from core.audit import log_event
 from core.management.commands import cargar_datos_revision as carga
 from evidence.models import Evidence, Validation
-from operations.models import Activity, Commitment, Followup, QuarterChangeRequest
+from operations import tube
+from operations.models import Activity, Commitment, Followup, QuarterChangeRequest, TubeItem
 from organization.models import Item, Officer, Position, PositionItem, Service, Territory
 from planning import calculation
 from planning import feedback as feedback_rules
@@ -96,7 +97,7 @@ NOTA_POR_TIPO = {
     "compensatory": "Día compensatorio",
 }
 
-PASOS = ("cargos", "identificadores", "clasificacion", "estados", "compromisos", "ausencias", "trimestres", "autoria", "restos", "periodos", "metas")
+PASOS = ("cargos", "identificadores", "clasificacion", "estados", "compromisos", "ausencias", "trimestres", "autoria", "restos", "periodos", "metas", "tubo")
 
 
 def fila_de(texto):
@@ -845,6 +846,34 @@ class Command(BaseCommand):
     # ------------------------------------------------------------------------------------------------------------
     # 10. Metas
     # ------------------------------------------------------------------------------------------------------------
+    def tubo(self):
+        """Las actividades del tubo de cartas siguen a su atención después de corregir.
+
+        Los pasos anteriores cambian el estado de las atenciones, les crean o enlazan compromisos y pasan los períodos
+        anuales a trimestres: la actividad del tubo toma el estado que corresponde a su atención (cerrada = Realizado,
+        en proceso = Pendiente, registrada = Ingresado; «Vencido» lo recalcula el sistema) y la fecha comprometida del
+        compromiso enlazado o el fin del trimestre de su delegación. Solo toca las que salen de atenciones de revisión.
+        """
+        for item in TubeItem._base_manager.filter(deleted_at__isnull=True, activity__isnull=False).select_related(
+            "activity__commitment", "activity__delegation"
+        ):
+            atencion = item.activity
+            if fila_de(atencion.request_description) is None:
+                continue
+            cambios = {}
+            fecha = tube.due_date_for(atencion)
+            if item.due_date != fecha:
+                cambios["due_date"] = fecha
+                self.hecho("actividades del tubo con la fecha comprometida de su atención")
+            estado = tube.status_for(atencion)
+            vencida_que_sigue_abierta = item.status == TubeItem.Status.OVERDUE and estado != TubeItem.Status.FULFILLED
+            if item.status != estado and not vencida_que_sigue_abierta:
+                cambios["status"] = estado
+                self.hecho("actividades del tubo con el estado de su atención")
+            if cambios:
+                TubeItem._base_manager.filter(pk=item.pk).update(**cambios)
+        tube.sync_overdue(self.hoy)
+
     def metas(self):
         metas = list(
             Goal._base_manager.filter(deleted_at__isnull=True, unit="atenciones", target_value=36).select_related(

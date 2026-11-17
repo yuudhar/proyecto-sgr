@@ -8,6 +8,7 @@ from datetime import timedelta
 
 from django.utils import timezone
 
+from core.entry_rules import portal_today
 from planning import periods
 
 from .models import TubeItem
@@ -90,7 +91,7 @@ def sync_overdue(today=None, queryset=None):
 
     Devuelve cuántas actividades pasaron a vencidas y cuántas volvieron a pendientes.
     """
-    today = today or timezone.localdate()
+    today = today or portal_today()
     queryset = TubeItem.objects.all() if queryset is None else queryset
     live = queryset.filter(deleted_at__isnull=True)
     now = timezone.now()

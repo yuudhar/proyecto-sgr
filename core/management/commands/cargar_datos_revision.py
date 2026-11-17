@@ -62,6 +62,7 @@ from organization.models import (
     Delegation,
     Item,
     Officer,
+    OrganizationEvent,
     OrganizationLeader,
     Position,
     PositionItem,
@@ -94,7 +95,34 @@ ATENCIONES = 330
 ATENCIONES_CLIENTE = 24  # por cada cliente final
 COMPROMISOS = 60
 COMPROMISOS_DE_TERRENO = 55  # por delegación: los que nacen de una atención con visita a terreno
+EVENTOS_POR_ORGANIZACION = 3  # eventos de ejemplo de cada organización
 TUBO_DE_CARTAS = 55  # por delegación: atenciones que quedan en el tubo de cartas
+OBSERVADAS = 8  # por delegación: evidencias pendientes con una validación «Observado»
+OBSERVADAS_Y_APROBADAS = 4  # por delegación: evidencias que se observaron y después se aprobaron
+COMENTARIOS_POR_DELEGACION = 12  # comentarios en atenciones
+COMENTARIOS_COMPROMISOS = 8  # comentarios en compromisos abiertos
+
+# (resultado, observación) de una validación «Observado»: siempre dicen qué hay que corregir
+OBSERVACIONES = (
+    ("Falta la firma del vecino", "El acta no tiene la firma de quien recibió la atención: súbela de nuevo firmada."),
+    ("Fecha ilegible", "No se lee la fecha del documento: sube una foto más nítida."),
+    ("Falta la foto de la visita", "Agrega una foto del lugar visitado para respaldar la gestión."),
+    ("Documento incompleto", "Falta la segunda página del formulario: súbelo completo."),
+)
+COMENTARIOS_ATENCION = (
+    "Llamé a {contacto} para confirmar los datos; queda a la espera de la visita.",
+    "{contacto} trajo el documento que faltaba: ya se puede cargar la evidencia.",
+    "Se derivó el caso a la Dirección de Desarrollo Comunitario; falta su respuesta.",
+    "Se acordó con {contacto} volver a llamar la próxima semana para ver cómo sigue.",
+    "El teléfono de {contacto} no contesta: confirmar el número en la próxima gestión.",
+    "Revisar si corresponde ingresarla al tubo de trabajo: la solicitud necesita seguimiento.",
+)
+COMENTARIOS_COMPROMISO = (
+    "Se coordinó con {apoyo} la fecha de ejecución en {territorio}.",
+    "La junta de vecinos de {territorio} confirmó que el problema sigue; se mantiene el compromiso.",
+    "Se le avisó a {solicitante} por teléfono cómo va el compromiso.",
+    "Falta el visto bueno de Jefatura para darlo por realizado.",
+)
 EVIDENCIAS = 130  # máximo por delegación: se toma una de cada tres atenciones vigentes
 FELICITACIONES_Y_RECLAMOS = 55
 AUSENCIAS = 55
@@ -231,6 +259,7 @@ MODULOS_OPERACION = (
     "operations.followup",
     "operations.commitment",
     "operations.tubeitem",
+    "organization.organizationevent",
     "evidence.evidence",
     "evidence.validation",
     "planning.feedback",
@@ -247,11 +276,13 @@ PERMISOS_EXTRA = {
     "administrador": [f"{modulo}:{accion}" for modulo in MODULOS_OPERACION for accion in ACCIONES]
     + ["auth.user:view", "auth.user:add", "auth.user:change"],
     "editor": [f"organization.beneficiary:{accion}" for accion in ("view", "add", "change")]
-    + ["organization.communityorganization:view", "organization.organizationleader:view"],
+    + ["organization.communityorganization:view", "organization.organizationleader:view"]
+    + [f"organization.organizationevent:{accion}" for accion in ("view", "add", "change")],
     "lector": [
         "organization.beneficiary:view",
         "organization.communityorganization:view",
         "organization.organizationleader:view",
+        "organization.organizationevent:view",
     ],
     "cliente": [],
 }
@@ -376,6 +407,40 @@ RESPUESTAS_TRIMESTRE_RECHAZADO = [
 ]
 CARGOS_OTROS = ["Delegado de calle", "Director suplente", "Encargado de actividades", "Delegado de seguridad"]
 TIPOS_ORGANIZACION = ["Junta de Vecinos", "Club de Adulto Mayor", "Comité de Vivienda", "Centro de Madres", "Club Deportivo"]
+
+# Qué hace cada tipo de organización: (actividad, qué harán en específico, quién de la directiva la lidera).
+ACTIVIDADES_ORGANIZACION = {
+    "Junta de Vecinos": [
+        ("Asamblea general", "Reunión de los socios en la sede para rendir cuenta del año y votar los proyectos del sector.", "president"),
+        ("Operativo de limpieza del sector", "Jornada de limpieza de pasajes y áreas verdes con los vecinos; el municipio presta los contenedores.", "director"),
+        ("Bingo para la sede", "Bingo solidario para juntar fondos para el arreglo del techo de la sede.", "treasurer"),
+        ("Postulación a proyectos", "Revisión de las bases del fondo vecinal y armado de la carpeta de postulación.", "secretary"),
+    ],
+    "Club de Adulto Mayor": [
+        ("Taller de manualidades", "Taller semanal de telar y bordado para los socios, con materiales que aporta el club.", "director"),
+        ("Once comunitaria", "Once en la sede para los socios y sus familias, con entrega de las cuotas del mes.", "president"),
+        ("Charla de salud", "Charla del consultorio sobre control de presión y prevención de caídas.", "secretary"),
+        ("Paseo anual", "Paseo de un día a la costa con transporte contratado y control de asistencia.", "treasurer"),
+    ],
+    "Comité de Vivienda": [
+        ("Reunión por el subsidio", "Reunión con los socios para revisar el estado de la postulación al subsidio de vivienda.", "president"),
+        ("Rendición de la cuenta de ahorro", "Presentación de los aportes de cada socio y del saldo de la cuenta de ahorro del comité.", "treasurer"),
+        ("Visita al terreno", "Visita de los socios al terreno con la constructora para ver los avances.", "director"),
+        ("Actualización de la nómina de socios", "Revisión de los datos y la documentación de cada socio del comité.", "secretary"),
+    ],
+    "Centro de Madres": [
+        ("Taller de costura", "Taller de costura básica para las socias, con máquinas de la sede.", "director"),
+        ("Venta de pasteles", "Venta de pasteles en la feria del sector para reunir fondos del centro.", "treasurer"),
+        ("Curso de computación básica", "Curso de computación para las socias en convenio con la biblioteca municipal.", "secretary"),
+        ("Celebración del Día de la Madre", "Celebración en la sede con las socias, sus hijas y las autoridades del sector.", "president"),
+    ],
+    "Club Deportivo": [
+        ("Campeonato de baby fútbol", "Campeonato entre clubes del sector durante los fines de semana, con arbitraje contratado.", "president"),
+        ("Cobro de la cuota anual", "Cobro de la cuota de los socios y entrega de los comprobantes.", "treasurer"),
+        ("Entrenamiento abierto", "Jornada de entrenamiento abierta a los niños del barrio, con la cancha prestada por el colegio.", "director"),
+        ("Inscripción de jugadores", "Inscripción de los jugadores de la temporada con sus documentos al día.", "secretary"),
+    ],
+}
 
 
 # --- Utilidades --------------------------------------------------------------------------------------------------
@@ -514,6 +579,9 @@ class Command(BaseCommand):
             self.directivas_y_solicitantes()
             self.cambios_de_trimestre()
             self.tubo_de_cartas()
+            # Antes de los eventos: así cada evento lo lidera el cargo que corresponde (el tesorero, los bingos).
+            self.complementos()
+            self.eventos_de_organizaciones()
         creados = calculation.recalculate_period(self.periodo)
         self.stdout.write(f"Indicadores nuevos calculados: {creados}.")
 
@@ -653,6 +721,12 @@ class Command(BaseCommand):
                 item=social,
                 defaults={"weight": 50, "valid_from": desde, "kind": PositionItem.Kind.NORMAL},
             )
+        # El analista (Gestión y Planificación tras corregir) responde por la coordinación con el territorio.
+        PositionItem.objects.get_or_create(
+            position=self.cargo["Analista de Datos"],
+            item=coordinacion,
+            defaults={"weight": 100, "valid_from": desde, "kind": PositionItem.Kind.NORMAL},
+        )
         PositionItem.objects.get_or_create(
             position=self.cargo["Encargado Social"],
             item=ayudas,
@@ -999,12 +1073,202 @@ class Command(BaseCommand):
                 sellos.append(objeto)
             Commitment.objects.bulk_update(sellos, ["created_at", "deleted_at"], batch_size=500)
 
+    def eventos_de_organizaciones(self, organizaciones=None):
+        """v52: deja a cada organización con su período de actividades, su descripción y 3 eventos con responsable.
+
+        Azar propio y solo toca lo que está vacío: así no cambia nada de lo que generan los demás cargadores ni
+        pisa lo que alguien editó. El evento es coherente con la organización: según su tipo, dentro de sus fechas de
+        actividades y liderado por quien de su directiva corresponde (el tesorero lidera los bingos y las cuotas).
+        """
+        azar = random.Random(SEMILLA + 52)
+        if organizaciones is None:
+            organizaciones = [o for lista in self.organizaciones.values() for o in lista]
+        organizaciones = sorted(organizaciones, key=lambda o: o.registry_number)
+        por_organizacion = {}
+        for persona in OrganizationLeader.objects.filter(organization__in=organizaciones, deleted_at__isnull=True).order_by("pk"):
+            por_organizacion.setdefault(persona.organization_id, []).append(persona)
+        con_eventos = set(
+            OrganizationEvent._base_manager.filter(organization__in=organizaciones).values_list("organization_id", flat=True)
+        )
+        nuevos = []
+        for organizacion in organizaciones:
+            tipo = next((t for t in TIPOS_ORGANIZACION if organizacion.name.startswith(t.upper())), TIPOS_ORGANIZACION[0])
+            if organizacion.start_date is None and not organizacion.description:
+                organizacion.start_date = FECHA_BASE - timedelta(days=azar.randint(90, 400))
+                if azar.random() < 0.12:
+                    organizacion.end_date = FECHA_BASE + timedelta(days=azar.randint(60, 300))
+                organizacion.description = (
+                    f"{tipo} del sector {organizacion.territory.name if organizacion.territory_id else (organizacion.territory_text.title() or 'La Serena')}. "
+                    f"Reúne a {organizacion.active_members or 'varios'} socios y se junta en su sede."
+                )
+                organizacion.save(update_fields=["start_date", "end_date", "description", "updated_at"])
+            if organizacion.pk in con_eventos or organizacion.start_date is None:
+                continue
+            desde = max(organizacion.start_date, FECHA_BASE - timedelta(days=150))
+            hasta = min(organizacion.end_date or (FECHA_BASE + timedelta(days=150)), FECHA_BASE + timedelta(days=150))
+            if hasta < desde:
+                desde, hasta = organizacion.start_date, organizacion.end_date or organizacion.start_date
+            directiva = por_organizacion.get(organizacion.pk, [])
+            plantillas = azar.sample(ACTIVIDADES_ORGANIZACION[tipo], EVENTOS_POR_ORGANIZACION)
+            for titulo, detalle, cargo in plantillas:
+                responsable = next((p for p in directiva if p.role == cargo), None) or next(
+                    (p for p in directiva if p.role == OrganizationLeader.Role.PRESIDENT), None
+                )
+                inicio = desde + timedelta(days=azar.randint(0, max((hasta - desde).days, 0)))
+                fin = min(inicio + timedelta(days=azar.choice((0, 0, 1, 2))), hasta)
+                if fin < FECHA_BASE:
+                    estado = OrganizationEvent.Status.DONE if azar.random() < 0.8 else OrganizationEvent.Status.SUSPENDED
+                else:
+                    estado = OrganizationEvent.Status.PLANNED
+                nuevos.append(
+                    OrganizationEvent(
+                        organization=organizacion,
+                        title=titulo,
+                        description=detalle,
+                        start_date=inicio,
+                        end_date=fin,
+                        responsible=responsable,
+                        status=estado,
+                    )
+                )
+        OrganizationEvent.objects.bulk_create(nuevos, batch_size=500)
+        return len(nuevos)
+
     def tubo_de_cartas(self):
         """v51: deja atenciones de cada delegación en el Tubo de cartas. Va al final para no cambiar el resto de los datos."""
         from operations import tube
 
         for ambito in AMBITOS:
             tube.load_sample(self.delegacion[ambito["letra"]], TUBO_DE_CARTAS, today=FECHA_BASE)
+
+    # ------------------------------------------------------------------------------------------------------------
+    # Complementos: lo que faltaba para que cada pantalla tenga casos reales y coherentes
+    # ------------------------------------------------------------------------------------------------------------
+    def complementos(self):
+        """Validaciones «Observado», comentarios y directivas completas. Va después de los demás cargadores (y antes de
+        los eventos de las organizaciones, que eligen su responsable según la directiva) y con azar propio: no cambia
+        nada de lo que generan los demás, y se puede repetir sin duplicar."""
+        azar = random.Random(SEMILLA + 51)
+        self.validaciones_observadas()
+        self.comentarios(azar)
+        self.directivas_completas(azar)
+
+    def validaciones_observadas(self):
+        """Evidencias observadas (siguen pendientes) y otras que se observaron y después se aprobaron.
+
+        Las revisa la jefatura de la misma delegación, nunca el autor, y la observación explica qué corregir.
+        """
+        if Validation._base_manager.filter(
+            decision=Validation.Decision.FLAGGED, result__in=[resultado for resultado, _nota in OBSERVACIONES]
+        ).exists():
+            return  # ya se cargaron: repetir el comando no agrega otras
+        observadas = Evidence._base_manager.filter(validations__decision=Validation.Decision.FLAGGED).values("pk")
+        for ambito in AMBITOS:
+            letra = ambito["letra"]
+            revisor = self.funcionarios[letra][POSICION_JEFATURA]
+            vivas = (
+                Evidence._base_manager.filter(
+                    deleted_at__isnull=True, activity__deleted_at__isnull=True, activity__delegation=self.delegacion[letra]
+                )
+                .exclude(author_officer=revisor)
+                .exclude(pk__in=observadas)
+                .order_by("pk")
+            )
+            pendientes = list(vivas.filter(review_status=Evidence.ReviewStatus.PENDING)[:OBSERVADAS])
+            aprobadas = list(vivas.filter(review_status=Evidence.ReviewStatus.APPROVED)[:OBSERVADAS_Y_APROBADAS])
+            for numero, evidencia in enumerate(pendientes + aprobadas):
+                resultado, nota = OBSERVACIONES[numero % len(OBSERVACIONES)]
+                subida = evidencia.uploaded_at
+                if evidencia.review_status == Evidence.ReviewStatus.APPROVED:
+                    # Se observó primero; la aprobación que ya tenía queda como la revisión final.
+                    cuando = subida + timedelta(hours=12)
+                else:
+                    cuando = subida + timedelta(days=2)
+                validacion = Validation.objects.create(
+                    evidence=evidencia,
+                    reviewer_officer=revisor,
+                    decision=Validation.Decision.FLAGGED,
+                    result=resultado,
+                    notes=nota,
+                )
+                Validation.objects.filter(pk=validacion.pk).update(created_at=cuando, date=cuando)
+
+    def comentarios(self, azar):
+        """Comentarios de coordinación en atenciones y compromisos, escritos por cuentas de la misma delegación."""
+        from core.models import Comment
+
+        if Comment._base_manager.filter(text__in=[t for t in COMENTARIOS_ATENCION + COMENTARIOS_COMPROMISO]).exists():
+            return
+        User = get_user_model()
+        autores = {
+            letra: [u for u in User.objects.filter(username__in=nombres).order_by("username")]
+            for letra, nombres in (("N", ("admin_a", "editor_a", "matias.cavieres")), ("S", ("matias.quiroz",)))
+        }
+        filas = []
+        for ambito in AMBITOS:
+            letra = ambito["letra"]
+            delegacion = self.delegacion[letra]
+            atenciones = list(
+                Activity._base_manager.filter(deleted_at__isnull=True, delegation=delegacion)
+                .exclude(contact_name="")
+                .order_by("-date", "pk")[: COMENTARIOS_POR_DELEGACION * 3 : 3]
+            )
+            compromisos = list(
+                Commitment._base_manager.filter(
+                    deleted_at__isnull=True, delegation=delegacion,
+                    status__in=(Commitment.Status.PENDING, Commitment.Status.IN_PROGRESS),
+                    # abiertos y con plazo por venir: corregir_datos_revision no los da por realizados
+                    due_date__gt=FECHA_BASE,
+                    request_date__lte=FECHA_BASE,
+                ).select_related("territory").order_by("due_date", "pk")[:COMENTARIOS_COMPROMISOS]
+            )
+            for atencion in atenciones[:COMENTARIOS_POR_DELEGACION]:
+                texto = azar.choice(COMENTARIOS_ATENCION).format(contacto=atencion.contact_name)
+                cuando = momento(min(atencion.date + timedelta(days=azar.randint(1, 4)), FECHA_BASE), atencion.pk)
+                filas.append((Comment(entity="Activity", record_id=atencion.pk, delegation=delegacion,
+                                      author=azar.choice(autores[letra]), text=texto), cuando))
+            for compromiso in compromisos:
+                texto = azar.choice(COMENTARIOS_COMPROMISO).format(
+                    solicitante=compromiso.requester or "la persona que lo pidió",
+                    territorio=compromiso.territory.name,
+                    apoyo=compromiso.support or "la unidad de apoyo",
+                )
+                # corregir_datos_revision alinea el compromiso con su atención (cambia su fecha de solicitud): el
+                # comentario va justo después de la fecha base, que es posterior a cualquier solicitud.
+                cuando = momento(FECHA_BASE + timedelta(days=1), compromiso.pk)
+                filas.append((Comment(entity="Commitment", record_id=compromiso.pk, delegation=delegacion,
+                                      author=azar.choice(autores[letra]), text=texto), cuando))
+        for comentario, cuando in filas:
+            comentario.save()
+            Comment.objects.filter(pk=comentario.pk).update(created_at=cuando, updated_at=cuando)
+
+    def directivas_completas(self, azar):
+        """Toda organización queda con presidente, secretario y tesorero vigentes (los exige la ley de juntas de vecinos)
+        y al menos un directivo: los eventos de la organización los lidera el cargo que corresponde a cada actividad."""
+        obligatorios = (
+            OrganizationLeader.Role.PRESIDENT,
+            OrganizationLeader.Role.SECRETARY,
+            OrganizationLeader.Role.TREASURER,
+            OrganizationLeader.Role.DIRECTOR,
+        )
+        organizaciones = sorted(
+            (o for lista in self.organizaciones.values() for o in lista), key=lambda o: o.registry_number
+        )
+        contador = 0
+        for organizacion in organizaciones:
+            tiene = set(
+                OrganizationLeader.objects.filter(organization=organizacion, deleted_at__isnull=True).values_list("role", flat=True)
+            )
+            for cargo in obligatorios:
+                contador += 1
+                if cargo in tiene:
+                    continue
+                OrganizationLeader.objects.create(
+                    organization=organizacion,
+                    role=cargo,
+                    name=nombre_persona(azar),
+                    rut=rut_de(18_600_000 + contador * 13),
+                )
 
     # ------------------------------------------------------------------------------------------------------------
     # Atenciones

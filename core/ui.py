@@ -8,6 +8,8 @@ TONES = {
     "active": ("ok", "bi-check-circle-fill"),
     "inactive": ("neutral", "bi-dash-circle-fill"),
     "planned": ("info", "bi-calendar-event"),
+    "done": ("ok", "bi-check-circle-fill"),
+    "suspended": ("warn", "bi-pause-circle-fill"),
     "closed": ("neutral", "bi-lock-fill"),
     "registered": ("neutral", "bi-journal-plus"),
     "in_progress": ("info", "bi-hourglass-split"),

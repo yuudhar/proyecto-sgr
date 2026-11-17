@@ -1,0 +1,71 @@
+{% load core_ui %}
+<section class="panel" aria-labelledby="titulo-organigrama">
+  <div class="panel-head">
+    <h2 class="panel-title" id="titulo-organigrama">Organigrama</h2>
+    <span class="muted">Quién hace qué en {{ obj.name }}</span>
+  </div>
+  <div class="panel-body">
+    {% if panel.has_leaders %}
+    <div class="orgchart" role="group" aria-label="Organigrama de la directiva">
+      <div class="orgchart-level">
+        {% include "core/crud/organization_chart_node.html" with node=panel.president role_label="Presidente" %}
+      </div>
+      <div class="orgchart-level orgchart-level-2">
+        {% include "core/crud/organization_chart_node.html" with node=panel.secretary role_label="Secretario" %}
+        {% include "core/crud/organization_chart_node.html" with node=panel.treasurer role_label="Tesorero" %}
+      </div>
+      {% if panel.others %}
+      <div class="orgchart-level orgchart-level-3">
+        {% for node in panel.others %}{% include "core/crud/organization_chart_node.html" with node=node role_label=node.leader.role_text %}{% endfor %}
+      </div>
+      {% endif %}
+    </div>
+    {% else %}
+    <p class="muted mb-0">Esta organización todavía no tiene directiva registrada. Agrégala en «Directivas» para armar su organigrama.</p>
+    {% endif %}
+  </div>
+</section>
+
+{% if panel.can_view_events %}
+<section class="panel" aria-labelledby="titulo-eventos">
+  <div class="panel-head">
+    <h2 class="panel-title" id="titulo-eventos">Calendario de actividades</h2>
+    {% if panel.can_add_events %}<a class="btn btn-outline-primary btn-sm" href="{{ panel.add_event_url }}" data-modal-form><i class="bi bi-plus-lg" aria-hidden="true"></i> Agregar evento</a>{% endif %}
+  </div>
+  {% if panel.events %}
+  <p class="panel-foot mb-0 org-events-summary">
+    {{ panel.events|length }} evento{{ panel.events|length|pluralize }}:
+    {{ panel.counts.planned }} planificado{{ panel.counts.planned|pluralize }},
+    {{ panel.counts.done }} realizado{{ panel.counts.done|pluralize }},
+    {{ panel.counts.suspended }} suspendido{{ panel.counts.suspended|pluralize }}{% if panel.unassigned %}; {{ panel.unassigned }} sin responsable{% endif %}.
+  </p>
+  <div class="table-responsive">
+    <table class="table data-table data-table-compact align-middle mb-0">
+      <caption class="visually-hidden">Eventos de {{ obj.name }} ordenados por fecha</caption>
+      <thead>
+        <tr>
+          <th scope="col">Fecha</th>
+          <th scope="col">Actividad</th>
+          <th scope="col">Qué harán en específico</th>
+          <th scope="col">Responsable</th>
+          <th scope="col">Estado</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for event in panel.events %}
+        <tr>
+          <td class="nowrap">{{ event.start_date|fdate }}{% if event.end_date != event.start_date %} al {{ event.end_date|fdate }}{% endif %}</td>
+          <td><a href="{{ event.detail_url }}">{{ event.title }}</a></td>
+          <td>{{ event.description|default:"—"|truncatechars:90 }}</td>
+          <td>{% if event.responsible %}{{ event.responsible.name }} <span class="muted">· {{ event.responsible.role_text }}</span>{% else %}<span class="muted">Sin responsable</span>{% endif %}</td>
+          <td><span class="chip chip-{% if event.status == 'done' %}ok{% elif event.status == 'suspended' %}warn{% else %}info{% endif %}">{{ event.get_status_display }}</span></td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% else %}
+  <div class="panel-body"><p class="muted mb-0">Esta organización todavía no tiene eventos. {% if panel.can_add_events %}Usa «Agregar evento» para planificar el primero.{% endif %}</p></div>
+  {% endif %}
+</section>
+{% endif %}

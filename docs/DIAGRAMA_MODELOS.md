@@ -67,6 +67,17 @@ erDiagram
         int delegation_id FK
         int position_id FK
     }
+    OrganizationEvent {
+        int id PK
+        datetime deleted_at "archivado"
+        int organization_id FK
+        string title
+        text description
+        date start_date
+        date end_date
+        int responsible_id FK "opcional"
+        string status
+    }
     OrganizationLeader {
         int id PK
         datetime deleted_at "archivado"
@@ -371,6 +382,7 @@ erDiagram
     Beneficiary |o--o| UserProfile : "beneficiary"
     Commitment |o--o| Activity : "commitment"
     CommunityOrganization |o--o{ Activity : "organization"
+    CommunityOrganization ||--o{ OrganizationEvent : "organization"
     CommunityOrganization ||--o{ OrganizationLeader : "organization"
     Delegation ||--o{ Activity : "delegation"
     Delegation |o--o{ Comment : "delegation"
@@ -403,6 +415,7 @@ erDiagram
     Officer |o--o| UserProfile : "officer"
     Officer |o--o{ Validation : "reviewer_officer"
     OrganizationLeader |o--o{ Activity : "organization_leader"
+    OrganizationLeader |o--o{ OrganizationEvent : "responsible"
     Period ||--o{ Adjustment : "period"
     Period ||--o{ Feedback : "period"
     Period ||--o{ Goal : "period"
@@ -439,6 +452,7 @@ La multiplicidad sale del tipo de campo, pero hay reglas que un diagrama no mues
 | `UserProfile.beneficiary` | `Beneficiary` | uno → uno (opcional) | Solo cuentas del perfil Cliente. Un perfil es de un funcionario o de un beneficiario, nunca de ambos. |
 | `Activity.commitment` | `Commitment` | uno → uno (opcional) | Una atención puede originar un compromiso de la agenda; cada compromiso nace de, como máximo, una atención. |
 | `Activity.organization` | `CommunityOrganization` | muchos → uno (opcional) | Ver Activity.beneficiary: persona u organización, no es obligatorio tener ambas. |
+| `OrganizationEvent.organization` | `CommunityOrganization` | muchos → uno (obligatoria) | — |
 | `OrganizationLeader.organization` | `CommunityOrganization` | muchos → uno (obligatoria) | — |
 | `Activity.delegation` | `Delegation` | muchos → uno (obligatoria) | Debe ser la misma delegación del funcionario autor (validación del modelo); se guarda para filtrar rápido. |
 | `Comment.delegation` | `Delegation` | muchos → uno (opcional) | — |
@@ -471,6 +485,7 @@ La multiplicidad sale del tipo de campo, pero hay reglas que un diagrama no mues
 | `UserProfile.officer` | `Officer` | uno → uno (opcional) | Cuentas de personal: un funcionario, una cuenta. Vacío en cuentas técnicas y de clientes. |
 | `Validation.reviewer_officer` | `Officer` | muchos → uno (opcional) | Opcional: queda vacío si el revisor ya no existe como funcionario. |
 | `Activity.organization_leader` | `OrganizationLeader` | muchos → uno (opcional) | — |
+| `OrganizationEvent.responsible` | `OrganizationLeader` | muchos → uno (opcional) | Debe ser de la directiva de la misma organización del evento, y el evento debe caer dentro de las fechas de actividades de la organización (validación del modelo). |
 | `Adjustment.period` | `Period` | muchos → uno (obligatoria) | — |
 | `Feedback.period` | `Period` | muchos → uno (obligatoria) | Se deduce de la fecha del registro; un período cerrado ya no admite cambios. |
 | `Goal.period` | `Period` | muchos → uno (obligatoria) | — |
