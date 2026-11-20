@@ -2785,6 +2785,7 @@ Las migraciones crean y modifican las tablas de cada app.
 - `0007_funciones_de_cargo_v44.py`: agrega el campo `position.description`; crea la tabla de `PositionFunction` (`organization_positionfunction`).
 - `0008_organizaciones_calendario_v51.py`: agrega `communityorganization.start_date`, `end_date` y `description`.
 - `0009_eventos_de_organizaciones_v52.py`: crea la tabla de `OrganizationEvent` (`organization_organizationevent`).
+- `0010_directiva_vinculada_a_beneficiario_v53.py`: agrega `OrganizationLeader.beneficiary` (opcional) y vincula las directivas existentes con el beneficiario del mismo RUT.
 
 ### `planning`
 
@@ -2793,6 +2794,7 @@ Las migraciones crean y modifican las tablas de cada app.
 - `0003_reglas_de_puntaje_v29.py`: cambia a 120 el valor por defecto de `period.weighted_cap` y baja a 120 el tope de los períodos que no están cerrados (los cerrados conservan el suyo).
 - `0004_ausencias_v30.py`: crea la tabla de `Absence`.
 - `0007_periodos_por_delegacion_v51.py`: agrega el campo `period.delegation` (vacío = período general).
+- `0008_felicitaciones_y_reclamos_v53.py`: cambia el nombre visible de `Feedback` a «Felicitación o reclamo» / «Felicitaciones y reclamos» (no toca la tabla).
 
 ## 11. Plantillas
 

@@ -307,8 +307,8 @@ class Feedback(BaseModel):
 
     class Meta:
         ordering = ("-date", "-pk")
-        verbose_name = "Carta"
-        verbose_name_plural = "Cartas"
+        verbose_name = "Felicitación o reclamo"
+        verbose_name_plural = "Felicitaciones y reclamos"
 
     def clean(self):
         super().clean()

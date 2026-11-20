@@ -165,6 +165,21 @@ class ActivityCrud(Crud):
         "requires_visit",
         Col("scoring", "Puntaje", kind="badge", sort=False),
     )
+    # v53: también como tablero Kanban por estado (se abre en lista; el botón Lista/Kanban cambia la vista)
+    canvas = Canvas(
+        group_by="status",
+        title=lambda a: f"{attention_type_name(a) or 'Atención'} · {a.contact_name or 'sin contacto'}",
+        lines=(
+            ("Fecha", lambda a: ui.fmt_date(a.date)),
+            ("Funcionario", lambda a: a.author_officer.name),
+            ("Sub atención", lambda a: sub_attention_name(a) or ""),
+            ("Delegación", lambda a: a.delegation.name),
+            ("Puntaje", lambda a: dict(SCORING).get(scoring_state(a), "")),
+        ),
+        tones={"registered": "neutral", "in_progress": "warn", "closed": "ok"},
+        empty="Sin atenciones",
+    )
+    canvas_default = False
     computed = {"attention_type": attention_type_name, "sub_attention": sub_attention_name, "scoring": scoring_state}
     computed_choices = {"scoring": SCORING}
     search_fields = (
@@ -348,8 +363,28 @@ class CommitmentCrud(Crud):
         "status",
         "requester_type",
     )
+    canvas = Canvas(
+        group_by="status",
+        title=lambda c: compromisos_title(c),
+        lines=(
+            ("Solicitante", lambda c: c.requester),
+            ("Territorio", lambda c: str(c.territory)),
+            ("Responsable", lambda c: c.responsible_officer.name),
+            ("Plazo", lambda c: compromisos_plazo(c)),
+            ("Origen", lambda c: c.source or ""),
+        ),
+        tones={"submitted": "neutral", "pending": "bad", "in_progress": "warn", "fulfilled": "ok"},
+        movable=True,
+        moves=lambda c: [(value, label) for value, label in Commitment.next_choices(c.status)],
+        move_labels={"pending": "A Pendiente", "in_progress": "A Proceso", "fulfilled": "Realizar"},
+        empty="Sin compromisos",
+    )
+    canvas_default = False
     computed = {"deadline": deadline_of}
     computed_choices = {"deadline": DEADLINE_LABELS}
+
+    def after_move(self, request, obj, previous):
+        record_status(request.user, obj, previous, obj.status)
     search_fields = ("requester", "territory__name", "description")
     list_filters = ("delegation", "status", "requester_type")
     select_related = ("territory", "territory__delegation", "delegation", "responsible_officer")
@@ -465,6 +500,7 @@ class FieldCommitmentCrud(CommitmentCrud):
     )
     queryset_filter = {"physical": True}
     related = ()
+    canvas_default = True
     canvas = Canvas(
         group_by="status",
         title=compromisos_title,
@@ -747,6 +783,19 @@ class EvidenceCrud(Crud):
         "review_status",
         "uploaded_at",
     )
+    canvas = Canvas(
+        group_by="review_status",
+        title=lambda e: e.unique_code,
+        code=lambda e: e.unique_code,
+        lines=(
+            ("Atención", lambda e: str(e.activity)),
+            ("Autor", lambda e: e.author_officer.name),
+            ("Subida", lambda e: ui.fmt_date(e.uploaded_at)),
+        ),
+        tones={"pending": "warn", "approved": "ok", "rejected": "bad"},
+        empty="Sin evidencias",
+    )
+    canvas_default = False
     search_fields = ("unique_code", "file_link", "activity__contact_name")
     list_filters = ("review_status",)
     select_related = ("activity", "author_officer")
@@ -834,6 +883,20 @@ class ValidationCrud(Crud):
         "result",
         "date",
     )
+    canvas = Canvas(
+        group_by="decision",
+        title=lambda v: str(v.evidence.unique_code),
+        code=lambda v: v.evidence.unique_code,
+        lines=(
+            ("Resultado", lambda v: v.result),
+            ("Verificador", lambda v: v.reviewer_officer.name if v.reviewer_officer_id else ""),
+            ("Fecha", lambda v: ui.fmt_date(v.date)),
+            ("Observación", lambda v: v.notes or ""),
+        ),
+        tones={"approved": "ok", "rejected": "bad", "flagged": "warn"},
+        empty="Sin validaciones",
+    )
+    canvas_default = False
     search_fields = ("evidence__unique_code", "result", "notes")
     list_filters = ("decision",)
     select_related = ("evidence", "reviewer_officer")
@@ -856,6 +919,18 @@ class PeriodCrud(Crud):
         Col("amber_threshold", "Umbral ámbar", kind="percent"),
         Col("weighted_cap", "Tope ponderado", kind="percent"),
     )
+    canvas = Canvas(
+        group_by="status",
+        title=lambda p: f"{ui.fmt_date(p.start_date)} al {ui.fmt_date(p.end_date)}",
+        lines=(
+            ("Delegación", lambda p: p.delegation.name if p.delegation_id else "General (todas)"),
+            ("Días computables", lambda p: str(p.computable_days)),
+            ("Meta de cumplimiento", lambda p: f"{p.collective_threshold:g} %".replace(".", ",")),
+        ),
+        tones={"planned": "neutral", "active": "ok", "closed": "bad"},
+        empty="Sin períodos",
+    )
+    canvas_default = False
     list_filters = ("delegation", "status")
     select_related = ("delegation",)
     rules = {"parameters_version": "version"}
@@ -995,6 +1070,19 @@ class IndicatorCrud(Crud):
         "status_light",
         "calculated_at",
     )
+    canvas = Canvas(
+        group_by="status_light",
+        title=lambda i: str(i.goal),
+        lines=(
+            ("Funcionario", lambda i: i.goal.officer.name if i.goal.officer_id else ""),
+            ("Cargo", lambda i: i.goal.position.name if i.goal.position_id else ""),
+            ("Cumplimiento", lambda i: f"{i.compliance:g} %".replace(".", ",")),
+            ("Avance", lambda i: f"{i.progress:g}".replace(".", ",")),
+        ),
+        tones={"green": "ok", "amber": "warn", "red": "bad"},
+        empty="Sin indicadores",
+    )
+    canvas_default = False
     list_filters = ("status_light",)
     select_related = (
         "goal",
@@ -1066,16 +1154,16 @@ def feedback_alert(feedback):
 
 
 def cartas_kpis(queryset):
-    """Indicadores de la vista canvas de Cartas, sobre el conjunto ya filtrado."""
+    """Indicadores de la vista canvas de Felicitaciones y reclamos, sobre el conjunto ya filtrado."""
     total = queryset.count()
     compliments = queryset.filter(kind=Feedback.Kind.COMPLIMENT).count()
     complaints = total - compliments
 
     def share(part):
-        return f"{round(part * 100 / total)} % del total" if total else "Sin cartas"
+        return f"{round(part * 100 / total)} % del total" if total else "Sin registros"
 
     return [
-        {"label": "Cartas", "value": total, "hint": "Felicitaciones y reclamos", "tone": "neutral"},
+        {"label": "Total", "value": total, "hint": "Felicitaciones y reclamos", "tone": "neutral"},
         {"label": "Felicitaciones", "value": compliments, "hint": share(compliments), "tone": "ok"},
         {"label": "Reclamos", "value": complaints, "hint": share(complaints), "tone": "bad"},
     ]
@@ -1087,11 +1175,15 @@ class FeedbackCrud(Crud):
     slug = "cartas"
     icon = "bi-envelope-paper"
     gender = "f"
-    code_prefix = "CAR"
+    title = "Felicitación o reclamo"
+    title_plural = "Felicitaciones y reclamos"
+    list_title = "Felicitaciones y reclamos"
+    new_label = "Nueva felicitación o reclamo"
+    code_prefix = "FYR"  # v53: Felicitación y reclamo (antes CAR, de «Cartas»)
     code_digits = 5
     description = (
-        "Cartas de felicitación (suman) y de reclamo (restan) contra un funcionario, con su respaldo. "
-        "Solo el delegado las registra y el ajuste se genera solo."
+        "Felicitaciones (suman) y reclamos (restan) sobre un funcionario, con su respaldo. "
+        "Solo el delegado los registra y el ajuste se genera solo."
     )
     canvas = Canvas(
         group_by="kind",
@@ -1106,7 +1198,7 @@ class FeedbackCrud(Crud):
         ),
         tones={"compliment": "ok", "complaint": "bad"},
         kpis=lambda qs: cartas_kpis(qs),
-        empty="Sin cartas",
+        empty="Sin felicitaciones ni reclamos",
     )
     delegation_lookup = "officer__delegation"
     list_display = (
@@ -1783,8 +1875,8 @@ class OrganizationLeaderCrud(Crud):
     deletable = True
     state_filter = True
     description = (
-        "Presidente, secretario, tesorero y demás integrantes de la directiva de cada organización. "
-        "Son registros propios: no se crean como beneficiarios."
+        "Presidente, secretario, tesorero y demás integrantes de la directiva de cada organización. Al guardar, "
+        "cada uno queda vinculado al beneficiario con su mismo RUT (o se registra como beneficiario, si se pide)."
     )
     list_display = (
         Col("name", "Nombre", link=True),
@@ -1798,9 +1890,24 @@ class OrganizationLeaderCrud(Crud):
     list_filters = ("role", "organization")
     select_related = ("organization",)
     form_base = LeaderForm
-    form_fields = ("organization", "role", "role_detail", "name", "rut", "email")
+    form_fields = ("organization", "role", "role_detail", "rut", "name", "email")
     rules = {"name": "person_name", "rut": "rut", "email": "email", "role_detail": "label"}
-    help_texts = {"rut": "Con o sin puntos; se guarda como 12345678-5."}
+    help_texts = {
+        "rut": "Con o sin puntos; se guarda como 12345678-5. Si la persona ya está en el sistema, se completan sus datos.",
+    }
+
+    def prepare_object(self, request, obj, creating, form):
+        super().prepare_object(request, obj, creating, form)
+        # v53: la misma persona en Beneficiarios (por el RUT); si ya no está, el vínculo se quita.
+        obj.beneficiary = Beneficiary.objects.filter(rut=obj.rut, deleted_at__isnull=True).first()
+
+    def after_save(self, request, obj, form, creating):
+        super().after_save(request, obj, form, creating)
+        if obj.beneficiary_id is None and form.cleaned_data.get("create_beneficiary"):
+            persona = Beneficiary.objects.create(rut=obj.rut, name=obj.name)
+            log_event(request.user, "Registro creado", persona, new=f"{persona} (desde la directiva de {obj.organization.name})")
+            type(obj).objects.filter(pk=obj.pk).update(beneficiary=persona)
+            obj.beneficiary = persona
 
     def restore_blockers(self, obj):
         if obj.organization.deleted_at is not None:
@@ -1864,6 +1971,22 @@ class OrganizationEventCrud(Crud):
         "responsible",
         "status",
     )
+    canvas = Canvas(
+        group_by="status",
+        title=lambda e: e.title,
+        lines=(
+            ("Organización", lambda e: e.organization.name),
+            ("Fecha", lambda e: ui.fmt_date(e.start_date) if e.start_date == e.end_date else f"{ui.fmt_date(e.start_date)} al {ui.fmt_date(e.end_date)}"),
+            ("Responsable", lambda e: f"{e.responsible.name} · {e.responsible.get_role_display()}" if e.responsible_id else "Sin responsable"),
+            ("Qué harán", lambda e: e.description[:120] + ("…" if len(e.description) > 120 else "")),
+        ),
+        tones={"planned": "neutral", "done": "ok", "suspended": "bad"},
+        movable=True,
+        moves=lambda e: [(value, label) for value, label in OrganizationEvent.Status.choices if value != e.status],
+        move_labels={"planned": "A Planificado", "done": "Realizado", "suspended": "Suspender"},
+        empty="Sin eventos",
+    )
+    canvas_default = False
     search_fields = ("title", "description", "organization__name", "responsible__name")
     list_filters = ("organization", "status", "responsible")
     select_related = ("organization", "responsible")
@@ -1895,7 +2018,10 @@ class BeneficiaryCrud(Crud):
     form_fields = ("rut", "name", "phone", "address")
     rules = {"rut": "rut", "name": "person_name", "phone": "phone", "address": "label"}
     help_texts = {"rut": "Con o sin puntos; se guarda como 12345678-5."}
-    related = (Related("actividades", "beneficiary", "Actividades"),)
+    related = (
+        Related("actividades", "beneficiary", "Actividades"),
+        Related("directivas", "beneficiary", "Directivas de organizaciones"),
+    )
 
 
 def roles_text(user):

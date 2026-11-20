@@ -322,6 +322,15 @@ class OrganizationLeader(BaseModel):
     name = models.CharField(max_length=150, verbose_name="nombre")
     rut = models.CharField(max_length=12, verbose_name="RUT")
     email = models.CharField(max_length=254, blank=True, default="", verbose_name="correo")
+    beneficiary = models.ForeignKey(
+        "Beneficiary",
+        on_delete=models.PROTECT,
+        null=True,
+        blank=True,
+        related_name="leaderships",
+        verbose_name="beneficiario vinculado",
+        help_text="La misma persona en Beneficiarios (se vincula sola por el RUT al guardar).",
+    )
 
     class Meta:
         ordering = ("organization__name", "name")

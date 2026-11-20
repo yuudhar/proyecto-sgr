@@ -1,0 +1,6 @@
+{% if can_switch_view %}
+<div class="btn-group btn-group-sm view-switch" role="group" aria-label="Cómo ver {{ crud.title_plural|lower }}">
+  <a class="btn {% if view == 'lista' %}btn-primary{% else %}btn-outline-primary{% endif %}" href="{{ view_urls.lista }}"{% if view == 'lista' %} aria-current="true"{% endif %} title="Ver como lista (tabla)"><i class="bi bi-list-ul" aria-hidden="true"></i> Lista</a>
+  <a class="btn {% if view == 'kanban' %}btn-primary{% else %}btn-outline-primary{% endif %}" href="{{ view_urls.kanban }}"{% if view == 'kanban' %} aria-current="true"{% endif %} title="Ver como tablero Kanban (columnas por estado)"><i class="bi bi-kanban" aria-hidden="true"></i> Kanban</a>
+</div>
+{% endif %}

@@ -39,6 +39,7 @@
     {% endfor %}
     {% if archived %}<input type="hidden" name="archivados" value="{% if only_archived %}solo{% else %}1{% endif %}">{% endif %}
     {% if sort %}<input type="hidden" name="orden" value="{{ sort }}"><input type="hidden" name="dir" value="{{ direction }}">{% endif %}
+    {% if can_switch_view %}<input type="hidden" name="vista" value="{{ view }}">{% endif %}
     <div class="filters-actions" data-live-target="acciones">
       <button type="submit" class="btn btn-primary"><i class="bi bi-search" aria-hidden="true"></i> {% if crud.search_fields %}Buscar{% else %}Filtrar{% endif %}</button>
       {% if can_reset %}<a class="btn btn-outline-secondary" href="{{ reset_url }}">Limpiar</a>{% endif %}
@@ -57,6 +58,7 @@
     <a href="{{ archived_url }}">{% if archived %}<i class="bi bi-eye-slash" aria-hidden="true"></i> Ocultar archivados{% else %}<i class="bi bi-archive" aria-hidden="true"></i> Incluir archivados{% endif %}</a>
     {% endif %}
     <span class="chip chip-neutral" data-live-state hidden><i class="bi bi-broadcast" aria-hidden="true"></i><span data-live-text>Conectando…</span></span>
+    {% include "core/partials/view_switch.html" %}
     {% if rows and not board %}{% include "core/partials/page_size.html" %}{% endif %}
   </div>
 

@@ -15,8 +15,9 @@
   <section class="canvas-column canvas-column-{{ column.tone }}" aria-label="{{ column.label }}">
     <header class="canvas-column-head">
       <h2 class="canvas-column-title">{{ forloop.counter }}. {{ column.label }}</h2>
-      <span class="canvas-count" aria-label="{{ column.cards|length }} tarjeta{{ column.cards|length|pluralize }}">{{ column.cards|length }}</span>
+      <span class="canvas-count" aria-label="{{ column.total }} en total{% if column.partial %}, {{ column.cards|length }} en esta página{% endif %}">{{ column.total }}</span>
     </header>
+    {% if column.partial %}<p class="canvas-partial">Se ven {{ column.cards|length }} de {{ column.total }} en esta página.</p>{% endif %}
     <div class="canvas-cards">
       {% for card in column.cards %}
       <article class="canvas-card{% if card.archived %} is-archived{% endif %}">

@@ -10,7 +10,7 @@ from django.contrib.auth.forms import AuthenticationForm, PasswordChangeForm
 from django.contrib.auth.models import Group, Permission, User
 from django.core.exceptions import ValidationError
 from django.core.files.uploadedfile import UploadedFile
-from django.core.validators import MaxLengthValidator, MinValueValidator
+from django.core.validators import MaxLengthValidator, MaxValueValidator, MinValueValidator
 from django.db.models import Q
 from django.utils import timezone
 from django.utils.html import format_html, format_html_join
@@ -1232,7 +1232,44 @@ class UserForm(CrudForm):
 
 
 class LeaderForm(CrudForm):
-    """Directiva de una organización: el detalle del cargo solo aparece cuando el cargo es «Otro cargo»."""
+    """Directiva de una organización: el detalle del cargo solo aparece cuando el cargo es «Otro cargo».
+
+    v53: el RUT se busca entre los beneficiarios (lista para elegir) y, al escribirlo, la pantalla completa el nombre y
+    el correo que el sistema ya conoce. Al guardar, el integrante queda vinculado al beneficiario con ese RUT; si no
+    existe, «Registrar también como beneficiario» lo agrega.
+    """
+
+    create_beneficiary = forms.BooleanField(
+        required=False,
+        label="Registrar también como beneficiario",
+        help_text="Si el RUT todavía no está en Beneficiarios, se agrega con este nombre y queda vinculado.",
+    )
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        from django.urls import reverse
+
+        field = self.fields.get("rut")
+        if field is not None:
+            people = Beneficiary.objects.filter(deleted_at__isnull=True).order_by("name")[:LOOKUP_LIMIT]
+            widget = LookupWidget(
+                options=[(person.rut, person.name) for person in people], search_label="Buscar por RUT o nombre"
+            )
+            widget.attrs.update(field.widget.attrs)
+            widget.attrs.update(
+                {
+                    "autocomplete": "off",
+                    "placeholder": "Ej.: 12.345.678-5",
+                    "data-person-lookup": reverse("core:person_by_rut"),
+                    "data-person-exclude": str(self.instance.pk or ""),
+                }
+            )
+            field.widget = widget
+        flag = self.fields.get("create_beneficiary")
+        if flag is not None:
+            flag.widget.attrs["class"] = "form-check-input"
+            if self.instance.pk and self.instance.beneficiary_id:
+                flag.help_text = "Ya está vinculado a su beneficiario."
 
     def bounds(self):
         attrs = {"data-show-if": f"id_role:{OrganizationLeader.Role.OTHER.value}", "data-required-when-shown": "1"}
@@ -1510,15 +1547,31 @@ class PortalPasswordChangeForm(BootstrapFormMixin, PasswordChangeForm):
         super().validate_password_for_user(user, "new_password1")
 
 
+def too_far_message(latest):
+    return (
+        f"Los trimestres se pueden planificar hasta {settings.PERIOD_YEARS_AHEAD} años hacia adelante: "
+        f"como máximo hasta el {ui.fmt_date(latest)}."
+    )
+
+
 class PeriodForm(CrudForm):
 
     def bounds(self):
-        return self.not_before("end_date", "start_date", "La fecha de término no puede ser anterior a la de inicio.")
+        found = self.not_before("end_date", "start_date", "La fecha de término no puede ser anterior a la de inicio.")
+        latest = entry_rules.latest_period_date()
+        for name in ("start_date", "end_date"):
+            found.setdefault(name, {}).update({"max": latest.isoformat(), "data-max-message": too_far_message(latest)})
+        return found
 
     def clean(self):
         cleaned = super().clean()
         start = cleaned.get("start_date")
         end = cleaned.get("end_date")
+        latest = entry_rules.latest_period_date()
+        for name in ("start_date", "end_date"):
+            value = cleaned.get(name)
+            if value and value > latest and not (self.instance.pk and getattr(self.instance, name) == value):
+                self.add_error(name, too_far_message(latest))
         if start and end:
             if end < start:
                 self.add_error("end_date", "La fecha de término no puede ser anterior a la de inicio.")
@@ -1579,7 +1632,7 @@ class QuarterAddForm(BootstrapFormMixin, forms.Form):
     )
     LAST_DAY = {1: (3, 31), 2: (6, 30), 3: (9, 30), 4: (12, 31)}
 
-    year = forms.IntegerField(label="Año", min_value=2000, max_value=2100)
+    year = forms.IntegerField(label="Año", min_value=2000)
     quarter = forms.TypedChoiceField(label="Trimestre", choices=QUARTERS, coerce=int)
     delegations = forms.ModelMultipleChoiceField(
         label="Delegaciones",
@@ -1617,7 +1670,15 @@ class QuarterAddForm(BootstrapFormMixin, forms.Form):
         super().__init__(*args, **kwargs)
         self.fields["delegations"].queryset = delegations
         self.fields["delegations"].initial = list(delegations.values_list("pk", flat=True))
+        # v53: hasta 10 años hacia adelante (PERIOD_YEARS_AHEAD), no solo el año en curso y el siguiente.
+        self.latest_year = entry_rules.latest_period_date().year
+        self.fields["year"].max_value = self.latest_year
+        self.fields["year"].validators.append(
+            MaxValueValidator(self.latest_year, message=too_far_message(entry_rules.latest_period_date()))
+        )
+        self.fields["year"].help_text = f"Desde 2000 hasta {self.latest_year} ({settings.PERIOD_YEARS_AHEAD} años hacia adelante)."
         self.style_fields()
+        self.fields["year"].widget.attrs["max"] = str(self.latest_year)
         self.fields["delegations"].widget.attrs["class"] = "form-check-input"
         self.fields["delegations"].widget.attrs["data-wide"] = "1"
 

@@ -17,6 +17,25 @@ Nombres que cambiaron en la v27 (los textos antiguos los mencionan con el nombre
 | `core/qa/esperado_vNN.py` | `core/qa/esperado_<tema>.py` (mismo tema que su archivo de pruebas) |
 | `sql/*.sql` (todos) | `sql/sgr_django.sql` (estructura vigente) |
 
+## Versión 53
+
+Trimestre en la barra, «Felicitaciones y reclamos», vista Kanban en todas las pantallas con estado, directivas vinculadas a beneficiarios y trimestres hasta 10 años hacia adelante. Hay dos migraciones (`organization 0010` y `planning 0008`); no hay que correr `seed_roles`.
+
+### Qué cambia
+
+- **Trimestre en la barra superior:** junto a la delegación se ve en qué trimestre está hoy la persona («4.º trimestre 2026», con sus fechas): el de su delegación si tiene uno propio, o el general. Un período anual se ve como «Período 2026» y, si no hay ninguno vigente, dice «Sin trimestre vigente». Los clientes no lo ven.
+- **«Cartas» pasa a llamarse «Felicitaciones y reclamos»** en el menú, el listado, el formulario («Nueva felicitación o reclamo»), la matriz de permisos y el nombre del modelo (`planning 0008`, solo cambia el nombre visible). Los códigos pasan de `CAR00001` a `FYR00001` (se calculan del número del registro, no se guardan). Los mensajes de `corregir_datos_revision` también usan el nombre nuevo. La dirección `/cartas/` se mantiene para no romper enlaces guardados. El «Tubo de cartas» no cambia de nombre.
+- **Botón Lista / Kanban** en las 11 pantallas con estado: Atención, Agenda colectiva, Compromisos, Tubo de cartas, Felicitaciones y reclamos, Cambios de trimestre, Evidencias, Validaciones, Indicadores, Períodos y Eventos de organizaciones. Las que ya eran tablero abren en Kanban y las demás en lista; la elección se recuerda por pantalla y se mantiene al buscar y filtrar. Cada columna muestra el total real del filtro (y avisa si en la página se ven menos). Desde el tablero se mueven de estado los compromisos de la agenda (queda en su historial) y los eventos de organizaciones; quien solo puede ver no tiene los botones y el servidor responde 403.
+- **Directivas vinculadas a beneficiarios:** el formulario de la directiva pide primero el **RUT**, con la lista de beneficiarios para elegir. Al escribir un RUT completo se consulta qué sabe el sistema de esa persona: se completan el nombre y el correo (sin pisar lo escrito a mano) y se avisa si ya es beneficiario y qué otros cargos tiene. Al guardar, el integrante queda **vinculado al beneficiario con su mismo RUT** (campo nuevo `beneficiary`, `organization 0010`, que vincula solas las directivas existentes); si no existe, la casilla «Registrar también como beneficiario» lo crea. La ficha del beneficiario muestra sus directivas y un beneficiario vinculado no se puede eliminar.
+- **Trimestres hasta 10 años hacia adelante:** «Agregar trimestre» y el formulario de Períodos aceptan fechas hasta el 31 de diciembre de dentro de 10 años (`PERIOD_YEARS_AHEAD`, configurable con `SGR_PERIOD_YEARS_AHEAD`); más allá se rechaza con un mensaje que dice el último día permitido, también en el navegador antes de guardar.
+- **Datos de revisión:** el presidente de cada organización también es beneficiario y queda vinculado (80 beneficiarios más: 482 en total), con teléfono y una dirección en la misma calle de la sede de su organización. Se generan con un azar propio de semilla fija, así el resto de los datos de revisión no cambia. No hay dos integrantes con el mismo RUT y distinto nombre o correo, y cada RUT de directiva que existe en Beneficiarios queda vinculado.
+- 24 pruebas nuevas (`core/test_v53_kanban_trimestre_directiva.py`) con su resultado esperado en `core/qa/esperado_v53_kanban_trimestre_directiva.py` y requisitos V53-01 a V53-05. `sql/sgr_django.sql`, `docs/DIAGRAMA_MODELOS.md` y el README quedan al día.
+
+### Lo que se sabe y no cambia
+
+- El Kanban muestra la misma página que la lista (hasta su tamaño de tablero); con muchos registros, las columnas avisan cuántos se ven de cuántos.
+- La consulta por RUT no crea nada: solo lee. El beneficiario se crea al guardar y solo si se marca la casilla.
+
 ## Versión 52
 
 Eventos y organigrama de las organizaciones comunitarias. Hay una migración (`organization 0009`) y no hay que correr `seed_roles`, pero sí dar el permiso del módulo nuevo a quien deba usarlo (en la pantalla Roles, fila «Eventos de organizaciones»).

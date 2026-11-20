@@ -63,7 +63,8 @@ class CartasBoardTests(BoardBase):
         response = self.client.get(reverse("core:cartas_list"))
         self.assertEqual(response.status_code, 200)
         self.assertContains(response, "<h1")
-        self.assertContains(response, "Cartas")
+        # v53: la pantalla vuelve a llamarse «Felicitaciones y reclamos», pero sigue en /cartas/.
+        self.assertContains(response, "Felicitaciones y reclamos")
         self.assertEqual(self.client.get("/felicitaciones-y-reclamos/").status_code, 404)
 
     def test_the_list_is_a_board_with_a_column_for_compliments_and_one_for_complaints(self):
@@ -83,7 +84,7 @@ class CartasBoardTests(BoardBase):
         self.assertContains(response, "canvas-card")
         total = Feedback.objects.filter(deleted_at__isnull=True, officer__delegation=self.north).count()
         kpis = self.kpis(response)
-        self.assertEqual(kpis["Cartas"], total)
+        self.assertEqual(kpis["Total"], total)
         self.assertEqual(kpis["Felicitaciones"] + kpis["Reclamos"], total)
 
     def test_the_board_respects_the_filters_and_the_own_delegation(self):
@@ -97,14 +98,14 @@ class CartasBoardTests(BoardBase):
         self.letter(Feedback.Kind.COMPLIMENT, "Rosa Núñez")
         self.login_as("jefatura1")
         cards = self.columns(self.client.get(reverse("core:cartas_list")))["Felicitación"]
-        self.assertTrue(all(card["code"].startswith("CAR") for card in cards))
+        self.assertTrue(all(card["code"].startswith("FYR") for card in cards))
 
     def test_the_roles_screen_lists_the_module_as_cartas(self):
         from core.roles import PERMISSION_MODULES
 
         labels = [label for _, rows in PERMISSION_MODULES for label, _ in rows]
-        self.assertIn("Cartas", labels)
-        self.assertNotIn("Felicitaciones y reclamos", labels)
+        self.assertIn("Felicitaciones y reclamos", labels)  # v53
+        self.assertNotIn("Cartas", labels)
 
 
 class CompromisosBoardTests(BoardBase):

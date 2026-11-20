@@ -317,6 +317,76 @@ function setUpRequiredIf(field, root) {
   update();
 }
 
+
+// v53: directiva de una organización. Al escribir o elegir un RUT completo, se consulta qué sabe el sistema de esa
+// persona (beneficiario y otros cargos de directiva): se completan nombre y correo vacíos y se avisa el vínculo.
+const RUT_COMPLETO = /^\d{1,2}\.?\d{3}\.?\d{3}-?[\dkK]$/;
+
+function setUpPersonLookup(input, root) {
+  if (input.dataset.personReady) return; // la página puede inicializar los widgets más de una vez
+  input.dataset.personReady = "1";
+  const form = input.form || root;
+  const name = form.querySelector("[name=name]");
+  const email = form.querySelector("[name=email]");
+  const create = form.querySelector("[name=create_beneficiary]");
+  const box = input.closest("[data-lookup-field]") || input;
+  const note = document.createElement("div");
+  note.className = "form-text person-note";
+  note.setAttribute("aria-live", "polite");
+  box.insertAdjacentElement("afterend", note);
+  const filled = { name: "", email: "" };
+  let last = "";
+
+  const put = (field, key, value) => {
+    if (!field || !value) return;
+    if (field.value.trim() === "" || field.value === filled[key]) {
+      field.value = value;
+      filled[key] = value;
+      field.dispatchEvent(new Event("input", { bubbles: true }));
+    }
+  };
+
+  const ask = async () => {
+    const value = input.value.trim();
+    if (!RUT_COMPLETO.test(value) || value === last) return;
+    last = value;
+    try {
+      const url = `${input.dataset.personLookup}?rut=${encodeURIComponent(value)}&excluir=${encodeURIComponent(input.dataset.personExclude || "")}`;
+      const response = await fetch(url, { headers: { "X-Requested-With": "fetch" }, credentials: "same-origin" });
+      if (!response.ok) return;
+      const data = await response.json();
+      if (!data.valid) {
+        note.textContent = "";
+        return;
+      }
+      put(name, "name", data.name);
+      put(email, "email", data.email);
+      const parts = [];
+      if (data.beneficiary) {
+        const phone = data.beneficiary.phone ? ` · ${data.beneficiary.phone}` : "";
+        parts.push(`Ya está en Beneficiarios: ${data.beneficiary.name}${phone}. Al guardar queda vinculado.`);
+      } else {
+        parts.push("No está en Beneficiarios.");
+      }
+      if (data.memberships.length) parts.push(`También es ${data.memberships.join("; ")}.`);
+      if (!data.beneficiary && !data.memberships.length) parts.push("Es una persona nueva en el sistema.");
+      note.textContent = parts.join(" ");
+      if (create) {
+        create.disabled = Boolean(data.beneficiary);
+        if (data.beneficiary) create.checked = false;
+      }
+    } catch (error) {
+      note.textContent = "";
+    }
+  };
+
+  input.addEventListener("change", ask);
+  input.addEventListener("input", () => {
+    if (RUT_COMPLETO.test(input.value.trim())) ask();
+  });
+  if (input.value) ask();
+}
+
 export function initWidgets(root = document) {
   root.querySelectorAll("input[type=password]").forEach(setUpPasswordToggle);
   root.querySelectorAll("[data-color-field]").forEach(setUpColor);
@@ -327,6 +397,7 @@ export function initWidgets(root = document) {
   root.querySelectorAll("[data-show-if]").forEach((field) => setUpShowIf(field, root));
   root.querySelectorAll("[data-required-if]").forEach((field) => setUpRequiredIf(field, root));
   if (dialog.available) root.querySelectorAll("[data-lookup-field]").forEach((box) => setUpLookup(box, root));
+  root.querySelectorAll("input[data-person-lookup]").forEach((input) => setUpPersonLookup(input, root));
 }
 
 initWidgets();

@@ -7,6 +7,7 @@ from django.contrib.auth.mixins import LoginRequiredMixin
 from django.core.exceptions import FieldDoesNotExist, ObjectDoesNotExist, PermissionDenied
 from django.core.paginator import Paginator
 from django.db import IntegrityError, models, transaction
+from django.db.models import Count
 from django.forms import modelform_factory
 from django.http import Http404, HttpResponse, JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
@@ -31,6 +32,10 @@ SESSION_PAGE_SIZE = "page_size"
 # Estado de cada listado en la sesión, por módulo: la clave es "list_state:<slug>" (ver ListState más abajo).
 SESSION_LIST_STATE = "list_state:"
 LIST_RESET = "limpiar"
+# v53: cada listado con tablero se ve como lista o como Kanban; la elección se recuerda por módulo.
+VIEW_PARAM = "vista"
+VIEW_LIST, VIEW_BOARD = "lista", "kanban"
+VIEWS = (VIEW_LIST, VIEW_BOARD)
 # Cabecera que manda live-updates.js en sus consultas de fondo: esas consultas ni restauran ni guardan el estado.
 LIVE_REFRESH_HEADER = "X-Live-Refresh"
 RELATED_LIMIT = 25
@@ -321,6 +326,7 @@ class Crud:
     comments = False
     list_redirect = ""
     canvas = None
+    canvas_default = True  # con tablero: abre en Kanban (True) o en lista (False) hasta que la persona elija
     # Filtro fijo del listado cuando dos pantallas comparten un mismo modelo (por ejemplo Agenda y Compromisos).
     queryset_filter = {}
 
@@ -712,6 +718,14 @@ class Crud:
                     "archived": row.archived,
                 }
             )
+        # v53: el número de cada columna es el total del conjunto filtrado, no solo de las tarjetas de esta página.
+        totals = {
+            row[spec.group_by]: row["total"]
+            for row in queryset.order_by().values(spec.group_by).annotate(total=Count("pk"))
+        }
+        for column in columns.values():
+            column["total"] = totals.get(column["value"], 0)
+            column["partial"] = column["total"] > len(column["cards"])
         kpis = spec.kpis(queryset) if spec.kpis else []
         return {"columns": list(columns.values()), "kpis": kpis, "movable": spec.movable}
 
@@ -1035,11 +1049,11 @@ def page_size_of(request):
 # La consulta de fondo del WebSocket (cabecera X-Live-Refresh) ni restaura ni guarda: así una pestaña vieja no pisa
 # lo que se hizo en otra. La exportación a Excel tampoco guarda (no cambia lo que se está viendo).
 
-LIST_STATE_PARAMS = ("q", "orden", "dir", "page", "filas", STATE_FILTER, "archivados")
+LIST_STATE_PARAMS = ("q", "orden", "dir", "page", "filas", STATE_FILTER, "archivados", VIEW_PARAM)
 
 
 def blank_list_state(size=None):
-    return {"q": "", "filters": {}, "orden": "", "dir": "", "archivados": "", "page": 1, "size": size}
+    return {"q": "", "filters": {}, "orden": "", "dir": "", "archivados": "", "page": 1, "size": size, "vista": ""}
 
 
 def read_list_state(request, slug):
@@ -1061,6 +1075,8 @@ def read_list_state(request, slug):
         state["page"] = raw["page"]
     if raw.get("size") in PAGE_SIZES:
         state["size"] = raw["size"]
+    if raw.get("vista") in VIEWS:
+        state["vista"] = raw["vista"]
     return state
 
 
@@ -1082,6 +1098,8 @@ def list_state_params(state):
         params["archivados"] = state["archivados"]
     if state["page"] > 1:
         params["page"] = str(state["page"])
+    if state.get("vista"):
+        params[VIEW_PARAM] = state["vista"]
     return params
 
 
@@ -1171,7 +1189,13 @@ class CrudListView(CrudView):
 
         asked = self.asked_size(request)
         page_size = asked or saved["size"] or page_size_of(request)
-        paginator = Paginator(qs, crud.canvas.page_size if crud.canvas else page_size)
+        asked_view = request.GET.get(VIEW_PARAM, "")
+        asked_view = asked_view if asked_view in VIEWS else ""
+        view = asked_view or saved["vista"] or (VIEW_BOARD if crud.canvas_default else VIEW_LIST)
+        if not crud.canvas:
+            view = VIEW_LIST
+        board_view = view == VIEW_BOARD
+        paginator = Paginator(qs, crud.canvas.page_size if board_view else page_size)
         page = paginator.page(page_number_of(request.GET.get("page"), paginator))
 
         if not background:
@@ -1186,6 +1210,7 @@ class CrudListView(CrudView):
                     "archivados": mode,
                     "page": page.number,
                     "size": asked or saved["size"],
+                    "vista": asked_view or saved["vista"],
                 },
             )
 
@@ -1241,7 +1266,13 @@ class CrudListView(CrudView):
             "list_actions": crud.list_actions(request),
             "breadcrumbs": self.breadcrumbs(),
         }
+        context["view"] = view
+        context["can_switch_view"] = bool(crud.canvas)
         if crud.canvas:
+            context["view_urls"] = {
+                name: query_string(request, drop=("page", "filas", VIEW_PARAM), **{VIEW_PARAM: name}) for name in VIEWS
+            }
+        if board_view:
             context["board"] = crud.canvas_board(rows, qs)
         context.update(self.extra_context(request))
         return render(request, self.template_name, context)

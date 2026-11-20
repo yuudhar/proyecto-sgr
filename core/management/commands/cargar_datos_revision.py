@@ -1152,6 +1152,7 @@ class Command(BaseCommand):
         self.validaciones_observadas()
         self.comentarios(azar)
         self.directivas_completas(azar)
+        self.presidentes_beneficiarios()
 
     def validaciones_observadas(self):
         """Evidencias observadas (siguen pendientes) y otras que se observaron y después se aprobaron.
@@ -1241,6 +1242,30 @@ class Command(BaseCommand):
         for comentario, cuando in filas:
             comentario.save()
             Comment.objects.filter(pk=comentario.pk).update(created_at=cuando, updated_at=cuando)
+
+    def presidentes_beneficiarios(self):
+        """v53: el presidente de cada organización también es beneficiario y queda vinculado (es quien suele venir a
+        pedir en nombre de la organización). Si ya hay un beneficiario con su RUT, se usa ese."""
+        organizaciones = [o for lista in self.organizaciones.values() for o in lista]
+        presidentes = OrganizationLeader.objects.filter(
+            organization__in=organizaciones, role=OrganizationLeader.Role.PRESIDENT, deleted_at__isnull=True,
+            beneficiary__isnull=True,
+        ).order_by("pk")
+        # Azar propio (semilla fija): no mueve la secuencia del resto de la carga, así los demás datos no cambian.
+        azar = random.Random(SEMILLA + 53)
+        for presidente in presidentes.select_related("organization"):
+            persona = Beneficiary.objects.filter(rut=presidente.rut, deleted_at__isnull=True).first()
+            if persona is None:
+                # Vive en la misma calle de la sede de su organización, con teléfono como el resto de los beneficiarios.
+                sede = presidente.organization.legal_address or ""
+                calle = sede.rsplit(",", 1)[0].rstrip("0123456789 ") or azar.choice(CALLES)
+                persona = Beneficiary.objects.create(
+                    rut=presidente.rut,
+                    name=presidente.name,
+                    phone=telefono(azar),
+                    address=f"{calle} {azar.randint(1, 3500)}, La Serena",
+                )
+            OrganizationLeader.objects.filter(pk=presidente.pk).update(beneficiary=persona)
 
     def directivas_completas(self, azar):
         """Toda organización queda con presidente, secretario y tesorero vigentes (los exige la ley de juntas de vecinos)

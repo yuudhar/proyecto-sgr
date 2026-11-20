@@ -166,6 +166,8 @@ DAILY_ENTRY_LIMIT = 7
 
 # Hasta cuántos meses hacia atrás se puede poner la fecha de un compromiso, una gestión, una carta o una ausencia (v41).
 BACKDATE_MONTHS = 12
+# v53: hasta cuántos años hacia adelante se pueden planificar trimestres y períodos (desde el año en curso).
+PERIOD_YEARS_AHEAD = int(os.environ.get("SGR_PERIOD_YEARS_AHEAD", "10"))
 
 AUTHENTICATION_BACKENDS = ['accounts.backends.EmailOrUsernameBackend']
 LOGIN_URL = 'core:login'

@@ -28,6 +28,13 @@
       <span class="topbar-scope-name">{{ me_scope.name }}</span>
     </p>
     {% endif %}
+    {% if me_quarter %}
+    <p class="topbar-scope topbar-quarter" title="{{ me_quarter.title }}" aria-label="Tu trimestre: {{ me_quarter.label }}{% if me_quarter.range %}, {{ me_quarter.range }}{% endif %}">
+      <i class="bi bi-calendar3" aria-hidden="true"></i>
+      <span class="topbar-quarter-label">{{ me_quarter.label }}</span>
+      {% if me_quarter.range %}<span class="topbar-quarter-range">{{ me_quarter.range }}</span>{% endif %}
+    </p>
+    {% endif %}
     <a class="topbar-name" href="{% url 'core:profile' %}" title="Ver mi perfil">
       {% if me_photo_url %}<img class="avatar avatar-sm" src="{{ me_photo_url }}" alt="">{% else %}<i class="bi bi-person-circle" aria-hidden="true"></i>{% endif %}
       <span class="topbar-label">{{ me_name }}</span>

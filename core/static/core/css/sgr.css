@@ -596,9 +596,25 @@ a {
   font-size: 0.9rem;
 }
 
-.topbar-code {
+.topbar-code,
+.topbar-quarter-label {
   font-weight: 700;
   letter-spacing: 0.03em;
+}
+
+.topbar-quarter .bi {
+  color: var(--wine);
+}
+
+.topbar-quarter-range {
+  color: var(--ink-soft);
+  font-size: 0.85rem;
+}
+
+@media (max-width: 575.98px) {
+  .topbar-quarter-range {
+    display: none;
+  }
 }
 
 
@@ -3205,4 +3221,28 @@ textarea.form-control {
 .org-events-summary {
   border-top: 0;
   border-bottom: 1px solid var(--line-soft);
+}
+
+
+/* v53: botón Lista / Kanban de los listados con tablero */
+.view-switch {
+  margin-left: auto;
+}
+
+.view-switch .btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+}
+
+@media (max-width: 575.98px) {
+  .view-switch {
+    margin-left: 0;
+  }
+}
+
+.canvas-partial {
+  margin: 0 0 0.5rem;
+  color: var(--ink-soft);
+  font-size: 0.8rem;
 }

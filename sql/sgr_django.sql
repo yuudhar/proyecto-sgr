@@ -372,7 +372,8 @@ CREATE TABLE `organization_organizationleader` (
   `name` varchar(150) NOT NULL,
   `rut` varchar(12) NOT NULL,
   `email` varchar(254) NOT NULL,
-  `organization_id` bigint(20) NOT NULL
+  `organization_id` bigint(20) NOT NULL,
+  `beneficiary_id` bigint(20) DEFAULT NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 CREATE TABLE `organization_position` (
@@ -677,7 +678,8 @@ ALTER TABLE `organization_officer`
 
 ALTER TABLE `organization_organizationleader`
   ADD PRIMARY KEY (`id`),
-  ADD KEY `organization_organiz_organization_id_4325541f_fk_organizat` (`organization_id`);
+  ADD KEY `organization_organiz_organization_id_4325541f_fk_organizat` (`organization_id`),
+  ADD KEY `organization_organiz_beneficiary_id_132a22a7_fk_organizat` (`beneficiary_id`);
 
 ALTER TABLE `organization_position`
   ADD PRIMARY KEY (`id`);
@@ -945,7 +947,8 @@ ALTER TABLE `organization_officer`
   ADD CONSTRAINT `organization_officer_position_id_d6fa7362_fk_organizat` FOREIGN KEY (`position_id`) REFERENCES `organization_position` (`id`);
 
 ALTER TABLE `organization_organizationleader`
-  ADD CONSTRAINT `organization_organiz_organization_id_4325541f_fk_organizat` FOREIGN KEY (`organization_id`) REFERENCES `organization_communityorganization` (`id`);
+  ADD CONSTRAINT `organization_organiz_organization_id_4325541f_fk_organizat` FOREIGN KEY (`organization_id`) REFERENCES `organization_communityorganization` (`id`),
+  ADD CONSTRAINT `organization_organiz_beneficiary_id_132a22a7_fk_organizat` FOREIGN KEY (`beneficiary_id`) REFERENCES `organization_beneficiary` (`id`);
 
 ALTER TABLE `organization_positionfunction`
   ADD CONSTRAINT `organization_positio_position_id_5c1e0b6e_fk_organizat` FOREIGN KEY (`position_id`) REFERENCES `organization_position` (`id`);

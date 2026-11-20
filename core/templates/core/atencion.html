@@ -43,6 +43,7 @@
       {% endfor %}
       {% if archived %}<input type="hidden" name="archivados" value="1">{% endif %}
       {% if sort %}<input type="hidden" name="orden" value="{{ sort }}"><input type="hidden" name="dir" value="{{ direction }}">{% endif %}
+      {% if can_switch_view %}<input type="hidden" name="vista" value="{{ view }}">{% endif %}
       {% if can_reset %}<a class="btn btn-outline-secondary align-self-end" href="{{ reset_url }}">Limpiar</a>{% endif %}
     </div>
     {% endif %}
@@ -64,11 +65,12 @@
     <div class="panel-head-side">
       <span class="muted">{{ page.paginator.count }} resultado{{ page.paginator.count|pluralize }}{% if archived %}, incluidos los archivados{% endif %}</span>
       {% if crud.archivable %}<a href="{{ archived_url }}">{% if archived %}<i class="bi bi-eye-slash" aria-hidden="true"></i> Ocultar archivados{% else %}<i class="bi bi-archive" aria-hidden="true"></i> Incluir archivados{% endif %}</a>{% endif %}
-      {% if rows %}{% include "core/partials/page_size.html" %}{% endif %}
+      {% include "core/partials/view_switch.html" %}
+      {% if rows and not board %}{% include "core/partials/page_size.html" %}{% endif %}
     </div>
   </div>
   {% if rows %}
-  {% include "core/partials/data_table.html" with with_new=can_add %}
+  {% if board %}{% include "core/partials/canvas.html" %}{% else %}{% include "core/partials/data_table.html" with with_new=can_add %}{% endif %}
   {% include "core/partials/pagination.html" %}
   {% else %}
   <div class="empty">

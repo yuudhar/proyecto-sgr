@@ -63,7 +63,7 @@ class ListStateIsSavedTests(ListCase):
         self.client.get(self.url, {"q": "Persona", "orden": "name", "dir": "desc", "estado": "activo", "page": 2, "filas": 5})
         self.assertEqual(
             self.saved(),
-            {"q": "Persona", "filters": {"estado": "activo"}, "orden": "name", "dir": "desc", "archivados": "", "page": 2, "size": 5},
+            {"q": "Persona", "filters": {"estado": "activo"}, "orden": "name", "dir": "desc", "archivados": "", "page": 2, "size": 5, "vista": ""},
         )
 
     def test_a_visit_without_params_and_nothing_saved_just_shows_the_list(self):

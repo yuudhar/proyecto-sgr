@@ -457,9 +457,9 @@ class FeedbackScreensTests(PortalTestCase):
 
     def test_the_menu_lists_the_module_only_for_the_roles_that_see_it(self):
         self.login_as("jefatura1")
-        self.assertIn("Cartas", self.menu_labels(self.client.get(reverse("core:dashboard"))))
+        self.assertIn("Felicitaciones y reclamos", self.menu_labels(self.client.get(reverse("core:dashboard"))))
         self.login_as("matias.cavieres")
-        self.assertNotIn("Cartas", self.menu_labels(self.client.get(reverse("core:dashboard"))))
+        self.assertNotIn("Felicitaciones y reclamos", self.menu_labels(self.client.get(reverse("core:dashboard"))))
 
     def test_the_period_form_asks_for_the_new_values(self):
         self.login_as("coordinacion1")

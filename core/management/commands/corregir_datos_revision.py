@@ -13,13 +13,13 @@ Qué corrige (solo toca datos de revisión: se reconocen por sus textos, orígen
 * ausencias: la observación coincide con el tipo, tienen días hábiles y no caen sobre días con atenciones;
 * cambios de trimestre: se piden antes de resolverse y se aprueban después de la fecha nueva; cada delegación usa sus
   propias cuentas (se crean ``editor_b`` y ``admin_b`` si se entrega una contraseña);
-* autoría: las cartas, ausencias y ajustes de Sur quedan registrados por la cuenta de Sur (``admin_b``);
+* autoría: las felicitaciones y reclamos, ausencias y ajustes de Sur quedan registrados por la cuenta de Sur (``admin_b``);
 * restos (v47): lo que la auditoría marca en cualquier otro registro, aunque no sea de revisión (pruebas tempranas
   hechas a mano): atenciones «Registradas» con acciones, visitas y «tubo» sin su compromiso, gestiones de atenciones
   archivadas o con fechas de visita al revés, compromisos vencidos sin avanzar, evidencias con autor distinto al de la
   atención, sin archivo en disco o con un estado distinto al de su última validación, e identificadores de
   funcionario fuera del formato ``F-0000``;
-* periodos (v49): cada período anual pasa a cuatro trimestres (se archiva el anual): las metas, las cartas y los ajustes
+* periodos (v49): cada período anual pasa a cuatro trimestres (se archiva el anual): las metas, las felicitaciones y reclamos y los ajustes
   se reparten en los trimestres y los indicadores se recalculan;
 * metas: la meta de atenciones se acerca a lo que de verdad se puede cumplir y se recalculan los indicadores.
 
@@ -529,7 +529,7 @@ class Command(BaseCommand):
             for p in UserProfile.objects.select_related("officer").filter(officer__isnull=False)
         }
         for modelo, campo, nombre in (
-            (Feedback, "registered_by", "cartas de Sur registradas por una cuenta de Sur"),
+            (Feedback, "registered_by", "felicitaciones y reclamos de Sur registrados por una cuenta de Sur"),
             (Absence, "registered_by", "ausencias de Sur registradas por una cuenta de Sur"),
             (Adjustment, "responsible_user", "ajustes de Sur a cargo de una cuenta de Sur"),
         ):
@@ -726,8 +726,8 @@ class Command(BaseCommand):
         """Cada período de más de 100 días (anual) se reparte en trimestres y el anual queda archivado.
 
         Las metas se copian a cada trimestre (la meta de atenciones se acerca a lo que se logra en un trimestre), las
-        cartas y los ajustes pasan al trimestre de su fecha y los indicadores se recalculan. Los trimestres de años
-        anteriores quedan cerrados; los del año en curso quedan vigentes para poder seguir ingresando cartas y
+        felicitaciones y reclamos y los ajustes pasan al trimestre de su fecha y los indicadores se recalculan. Los trimestres de años
+        anteriores quedan cerrados; los del año en curso quedan vigentes para poder seguir ingresando felicitaciones, reclamos y
         cambios de trimestre.
         """
         ahora = timezone.now()
@@ -828,7 +828,7 @@ class Command(BaseCommand):
                 Feedback._base_manager.filter(pk=f.pk).update(period=trimestre)
                 if f.deleted_at is None:
                     pares.add((f.officer_id, trimestre.pk))
-                self.hecho("cartas que pasan al trimestre de su fecha")
+                self.hecho("felicitaciones y reclamos que pasan al trimestre de su fecha")
         for funcionario_id, periodo_id in sorted(pares):
             feedback_rules.sync(funcionario_id, periodo_id)
         for anual in anuales:

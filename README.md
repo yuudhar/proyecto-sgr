@@ -402,6 +402,7 @@ unset SGR_REVISION_PASSWORD
 - **Qué comprueba al terminar:** imprime el total por modelo (la tabla de abajo), verifica los mínimos (2.000 registros en total y 50 en cada CRUD evaluado, y en cada delegación cuando el CRUD se filtra por delegación) y que cada cuenta tenga exactamente los permisos que se documentan más abajo; si algo falla, termina con error.
 - **`core/datos_prueba.py` no se usa:** es solo para las pruebas automáticas y nunca se carga en el servidor.
 - **Organizaciones con eventos (v52):** cada organización queda con su período de actividades, una descripción y 3 eventos de ejemplo (240 en total) acordes a su tipo —por ejemplo, la junta de vecinos hace asambleas y el tesorero lidera los bingos—, dentro de sus fechas y con un responsable de su directiva; los pasados quedan «Realizado» o «Suspendido» y los futuros «Planificado». En la ficha de cada organización se ve su organigrama y el calendario.
+- **Presidentes como beneficiarios (v53):** el presidente de cada organización también es beneficiario y su integrante de directiva queda vinculado por el RUT (80 beneficiarios más).
 - **Cuentas del equipo:** el comando también crea `admin` (Super Usuario), `matias.cavieres` (Funcionario y Verificador, Delegación Norte) y `matias.quiroz` (Funcionario y Verificador, Delegación Sur), cada matías con su funcionario. Sus contraseñas salen igual que las demás (`SGR_PASSWORD_ADMIN`, `SGR_PASSWORD_MATIAS_CAVIERES`, `SGR_PASSWORD_MATIAS_QUIROZ` o la común).
 - **Casos completos:** la carga deja también 24 validaciones «Observado» (16 evidencias que siguen pendientes y 8 que se observaron y después se aprobaron), comentarios de coordinación en atenciones y compromisos escritos por cuentas de la misma delegación, la directiva completa (presidente, secretario, tesorero y al menos un directivo, antes de crear los eventos para que cada uno lo lidere el cargo que corresponde) en cada organización y el ítem con ponderador del cargo de análisis (Gestión y Planificación tras corregir).
 - **Volver a empezar (`--reiniciar`):** `python manage.py cargar_datos_revision --reiniciar` **borra toda la base** (usuarios, datos, auditoría y archivos subidos), la carga de nuevo con los datos ficticios y todas las cuentas, y termina con `corregir_datos_revision --aplicar` (trimestres y cuentas `admin_b`/`editor_b`). Pide escribir BORRAR (o `--sin-confirmar` en un script). Después de `corregir_datos_revision` no se debe correr la carga simple: para dejar la base como nueva se usa `--reiniciar`.
@@ -428,7 +429,7 @@ Registros vigentes por módulo (los archivados no se cuentan):
 | Ausencias | 55 | 55 | 110 |
 | Territorios | 55 | 55 | 110 |
 | Funcionarios | 55 | 55 | 110 |
-| Beneficiarios (compartido) | — | — | 402 |
+| Beneficiarios (compartido) | — | — | 482 |
 | Organizaciones comunitarias (compartido) | — | — | 80 |
 | Directivas de organizaciones (compartido) | — | — | 375 |
 | Eventos de organizaciones (compartido) | — | — | 240 |
@@ -449,7 +450,7 @@ Resultado de ejecutar el comando sobre una base recién migrada (la misma tabla 
 | `organization.PositionFunction` | 0 | 0 | 0 |
 | `organization.Item` | 5 | 5 | 0 |
 | `organization.Service` | 4 | 4 | 0 |
-| `organization.Beneficiary` | 402 | 402 | 0 |
+| `organization.Beneficiary` | 482 | 482 | 0 |
 | `organization.Territory` | 110 | 110 | 0 |
 | `organization.CommunityOrganization` | 80 | 80 | 0 |
 | `organization.OrganizationLeader` | 407 | 407 | 0 |
@@ -473,7 +474,7 @@ Resultado de ejecutar el comando sobre una base recién migrada (la misma tabla 
 | `accounts.UserProfile` | 9 | 9 | 0 |
 | `accounts.RoleProfile` | 6 | 6 | 0 |
 | `accounts.UserRoleDelegation` | 0 | 0 | 0 |
-| **Total** | **4376** | **4324** | **52** |
+| **Total** | **4456** | **4404** | **52** |
 
 Si la base ya tenía otros datos (por ejemplo los de una prueba anterior), los totales de la base completa son mayores: el comando solo agrega lo suyo.
 

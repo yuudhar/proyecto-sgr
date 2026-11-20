@@ -31,6 +31,7 @@ from core.qa.esperado_carga_revision import ESPERADO as _CARGA_REVISION
 from core.qa.esperado_ensayo_revision import ESPERADO as _ENSAYO_REVISION
 from core.qa.esperado_tubo_de_cartas import ESPERADO as _TUBO_DE_CARTAS
 from core.qa.esperado_eventos_organizacion import ESPERADO as _EVENTOS_ORGANIZACION
+from core.qa.esperado_v53_kanban_trimestre_directiva import ESPERADO as _V53
 
 REQUISITOS = {
     "A1-01": ("A1", "Login: usuario o correo más contraseña, validación y acceso según perfil"),
@@ -121,6 +122,11 @@ REQUISITOS = {
     "V52-01": ("Versión 52", "Eventos de las organizaciones comunitarias: actividad, qué harán en específico, fecha de inicio y de fin (dentro de las fechas de la organización), responsable de su directiva y estado (planificado, realizado, suspendido), con su pantalla propia"),
     "V52-02": ("Versión 52", "Organigrama en la ficha de la organización (presidente, secretario y tesorero, directivos y otros cargos, con la próxima actividad de cada uno) y calendario de sus eventos, visible solo para quien puede ver eventos"),
     "V52-03": ("Versión 52", "Datos de revisión completos y coherentes: validaciones «Observado» que dejan la evidencia pendiente (y otras observadas y luego aprobadas), comentarios en atenciones y compromisos escritos por cuentas de la misma delegación, directiva completa en cada organización (presidente, secretario, tesorero y al menos un directivo, para que cada evento lo lidere el cargo que corresponde) y el cargo de análisis con su ítem con ponderador"),
+    "V53-01": ("Versión 53", "Barra superior con el trimestre en que está hoy la persona (el de su delegación o el general, con sus fechas)"),
+    "V53-02": ("Versión 53", "«Cartas» pasa a llamarse «Felicitaciones y reclamos» en el menú, las pantallas, los permisos y el modelo"),
+    "V53-03": ("Versión 53", "Botón Lista/Kanban en todas las pantallas con estado, que recuerda la elección; columnas con el total real y movimiento entre estados según los permisos"),
+    "V53-04": ("Versión 53", "Directivas de organizaciones vinculadas al beneficiario con el mismo RUT: búsqueda por RUT que completa los datos conocidos, registro opcional como beneficiario y directivas en la ficha del beneficiario"),
+    "V53-05": ("Versión 53", "Trimestres y períodos planificables hasta 10 años hacia adelante, con el tope avisado en el navegador y en el servidor"),
     "V40-01": ("Versión 40", "Cambio de trimestre de una atención: el funcionario lo pide (automático al trimestre siguiente o manual con fecha) y Jefatura lo aprueba o rechaza con su respuesta; al aprobar la atención toma la fecha nueva, con revisiones de trimestre abierto, de fecha no futura, de límite diario y de alcance por delegación"),
     "V42-01": ("Versión 42", "Del solicitante externo de la agenda colectiva a su cuenta de cliente: botón en el compromiso, RUT, beneficiario creado o reutilizado y «Nuevo usuario» con el perfil Cliente ya elegido"),
     "V44-01": ("Versión 44", "Funciones de cada cargo según el descriptor de funciones 2026: mantenedor propio, descripción del cargo, comando que carga los siete cargos del descriptor sin pisar lo editado y sección «Funciones del cargo» en la ficha personal"),
@@ -426,10 +432,15 @@ CLASES = {
     "EventScreenTests": (["V52-01"], "Eventos de organizaciones: pantalla, filtros y permisos", _SEMILLA + "; sesiones del Super Usuario y de usuarios con permisos sueltos"),
     "SampleEventsCommandTests": (["V52-01"], "Comando cargar_eventos_de_organizaciones", _SEMILLA + "; organización de la carga de revisión creada en la prueba"),
     "OrgChartTests": (["V52-02"], "Organigrama y calendario de la ficha de la organización", _SEMILLA + "; organización con su directiva"),
+    "QuarterInTopbarTests": (["V53-01"], "Trimestre de la persona en la barra superior", _SEMILLA + "; trimestres creados en la prueba"),
+    "FeedbackRenameTests": (["V53-02"], "Felicitaciones y reclamos: nombre nuevo", _SEMILLA + "; sesión del Super Usuario"),
+    "ViewSwitchTests": (["V53-03"], "Vista Lista/Kanban de las pantallas con estado", _SEMILLA + "; sesiones del Super Usuario y de consulta"),
+    "LeaderBeneficiaryTests": (["V53-04"], "Directiva vinculada a beneficiario por el RUT", _SEMILLA + "; organización con su directiva"),
+    "QuartersAheadTests": (["V53-05"], "Trimestres hasta 10 años hacia adelante", _SEMILLA + "; sesión del Super Usuario"),
     "SolicitanteTests": (["V39-02"], "Tipo de solicitante en la atención", _SEMILLA + "; sesión de Matías Cavieres (Norte); organización con su directiva"),
 }
 
 ESPERADO = {}
-for _grupo in (_ACCESO, _MANTENEDORES, _INGRESO, _LISTADOS, _DESPLIEGUE, _VALIDACIONES, _ARCHIVOS_Y_FOTO, _ELIMINAR_Y_LISTADOS, _USUARIOS_ELIMINADOS, _TIEMPO_REAL, _RITMO_Y_COMPROMISOS, _RESULTADOS_Y_CALCULO, _CODES_SEARCH_AND_CHARTS, _REGLAS_PUNTAJE, _CIERRE_Y_AUSENCIAS, _FELICITACIONES_EQUIPO_Y_JJVV, _TUBO_DE_TRABAJO, _CLIENTE_Y_RECORTE, _ERRORES, _LISTADO_Y_PERFIL, _CARGA_REVISION, _ENSAYO_REVISION, _CARTAS_Y_COMPROMISOS, _DIRECTIVA_Y_SOLICITANTE, _CAMBIO_DE_TRIMESTRE, _LIMITE_DE_FECHAS, _CLIENTE_DESDE_COMPROMISO, _AVISO_DE_EDICION, _COMENTARIOS, _RESPALDO, _FUNCIONES_DE_CARGO, _TUBO_DE_CARTAS, _EVENTOS_ORGANIZACION, ):
+for _grupo in (_ACCESO, _MANTENEDORES, _INGRESO, _LISTADOS, _DESPLIEGUE, _VALIDACIONES, _ARCHIVOS_Y_FOTO, _ELIMINAR_Y_LISTADOS, _USUARIOS_ELIMINADOS, _TIEMPO_REAL, _RITMO_Y_COMPROMISOS, _RESULTADOS_Y_CALCULO, _CODES_SEARCH_AND_CHARTS, _REGLAS_PUNTAJE, _CIERRE_Y_AUSENCIAS, _FELICITACIONES_EQUIPO_Y_JJVV, _TUBO_DE_TRABAJO, _CLIENTE_Y_RECORTE, _ERRORES, _LISTADO_Y_PERFIL, _CARGA_REVISION, _ENSAYO_REVISION, _CARTAS_Y_COMPROMISOS, _DIRECTIVA_Y_SOLICITANTE, _CAMBIO_DE_TRIMESTRE, _LIMITE_DE_FECHAS, _CLIENTE_DESDE_COMPROMISO, _AVISO_DE_EDICION, _COMENTARIOS, _RESPALDO, _FUNCIONES_DE_CARGO, _TUBO_DE_CARTAS, _EVENTOS_ORGANIZACION, _V53, ):
     for _clase, _metodos in _grupo.items():
         ESPERADO.setdefault(_clase, {}).update(_metodos)

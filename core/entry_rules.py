@@ -33,6 +33,13 @@ def earliest_date(today=None):
     return months_back(today or portal_today(), settings.BACKDATE_MONTHS)
 
 
+def latest_period_date(today=None):
+    """v53: el último día en que puede terminar un trimestre o período planificado: el 31 de diciembre de dentro de
+    `PERIOD_YEARS_AHEAD` años (10 por defecto)."""
+    today = today or portal_today()
+    return date(today.year + settings.PERIOD_YEARS_AHEAD, 12, 31)
+
+
 def week_start(day):
     return day - timedelta(days=day.weekday())
 

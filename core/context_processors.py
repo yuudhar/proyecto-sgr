@@ -95,6 +95,35 @@ def delegation_scope(request):
     }
 
 
+ORDINAL_TRIMESTRE = {1: "1.er", 2: "2.º", 3: "3.er", 4: "4.º"}
+
+
+def quarter_scope(request):
+    """El trimestre en que está hoy la persona: el de su delegación activa (o el general, si ve todas)."""
+    from core import entry_rules
+    from planning import periods
+
+    try:
+        delegation = active_delegation(request)
+    except PermissionDenied:
+        delegation = None
+    today = entry_rules.portal_today()
+    period = periods.containing(today, delegation)
+    if period is None:
+        return {"label": "Sin trimestre vigente", "range": "", "title": f"Hoy ({today:%d/%m/%Y}) no cae en ningún trimestre creado."}
+    start, end = period.start_date, period.end_date
+    if (end - start).days > 100:
+        label = f"Período {start.year}" if start.year == end.year else f"Período {start.year}–{end.year}"
+    else:
+        label = f"{ORDINAL_TRIMESTRE[(start.month - 1) // 3 + 1]} trimestre {start.year}"
+    where = f"de la {period.delegation.name}" if period.delegation_id else "general (todas las delegaciones)"
+    return {
+        "label": label,
+        "range": f"{start:%d/%m} al {end:%d/%m/%Y}",
+        "title": f"Trimestre {where}: del {start:%d/%m/%Y} al {end:%d/%m/%Y} ({period.get_status_display().lower()}).",
+    }
+
+
 def portal(request):
     context = {
         "brand_name": "SGR",
@@ -137,6 +166,7 @@ def portal(request):
             "me_delegation": home_delegation(request),
             "me_roles": roles,
             "me_scope": delegation_scope(request),
+            "me_quarter": quarter_scope(request),
             "is_client": False,
             "home_url": reverse("core:dashboard"),
         }

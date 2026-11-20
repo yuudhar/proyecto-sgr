@@ -67,7 +67,7 @@ PERMISSION_MODULES = (
             ("Tubo de cartas", "operations.tubeitem"),
             ("Evidencias", "evidence.evidence"),
             ("Validaciones", "evidence.validation"),
-            ("Cartas", "planning.feedback"),
+            ("Felicitaciones y reclamos", "planning.feedback"),
             ("Cambios de trimestre", "operations.quarterchangerequest"),
             ("Comentarios", "core.comment"),
         ),

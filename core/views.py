@@ -10,7 +10,7 @@ from django.contrib.auth.models import User
 from django.core.exceptions import PermissionDenied
 from django.db import transaction
 from django.db.models import Count, Prefetch, Q
-from django.http import FileResponse, Http404, HttpResponse
+from django.http import FileResponse, Http404, HttpResponse, JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import Resolver404, resolve, reverse
 from django.utils import timezone
@@ -36,10 +36,10 @@ from core.crud import CODE_COLUMN, PAGE_SIZES, SESSION_PAGE_SIZE, Col, Column, C
 from core.forms import ClientDataForm, PortalAuthenticationForm, QuarterAddForm, PortalPasswordChangeForm, ProfileDataForm, ProfilePhotoForm, ValidationForm
 from core.results import current_period, goals_of, light_of, mean, officer_summary, rounded, team_goals
 from core.registry import can_create_clients
-from core.rules import normalize_rut, rut_with_wrong_digit
+from core.rules import is_valid_rut, normalize_rut, rut_with_wrong_digit
 from evidence.models import Evidence, Validation
 from operations.models import Activity, Commitment
-from organization.models import Beneficiary, Delegation, Officer
+from organization.models import Beneficiary, Delegation, Officer, OrganizationLeader
 from planning import feedback as feedback_rules
 from planning import periods as period_scope
 from planning.team import team_score
@@ -1546,3 +1546,32 @@ def administration(request):
             "breadcrumbs": [("Inicio", reverse("core:dashboard")), ("Administración", None)],
         },
     )
+
+
+@login_required
+def person_by_rut(request):
+    """v53: lo que el sistema ya sabe de una persona por su RUT, para completar la directiva de una organización.
+
+    Busca el beneficiario con ese RUT y los demás cargos de directiva que tiene. Beneficiarios y organizaciones son
+    catálogos compartidos entre delegaciones, así que basta con poder ver la directiva o los beneficiarios.
+    """
+    user = request.user
+    if not (user.has_perm("organization.view_organizationleader") or user.has_perm("organization.view_beneficiary")):
+        raise PermissionDenied
+    rut = normalize_rut((request.GET.get("rut") or "").strip())
+    data = {"rut": rut, "valid": is_valid_rut(rut), "beneficiary": None, "name": "", "email": "", "memberships": []}
+    if not data["valid"]:
+        return JsonResponse(data)
+    exclude = request.GET.get("excluir", "")
+    persona = Beneficiary.objects.filter(rut=rut, deleted_at__isnull=True).first()
+    if persona is not None:
+        data["beneficiary"] = {"id": persona.pk, "name": persona.name, "phone": persona.phone or "", "address": persona.address or ""}
+        data["name"] = persona.name
+    cargos = OrganizationLeader.objects.filter(rut=rut, deleted_at__isnull=True).select_related("organization").order_by("-updated_at")
+    if exclude.isdigit():
+        cargos = cargos.exclude(pk=int(exclude))
+    for cargo in cargos:
+        data["memberships"].append(f"{cargo.role_text()} de {cargo.organization.name}")
+        data["name"] = data["name"] or cargo.name
+        data["email"] = data["email"] or cargo.email
+    return JsonResponse(data)

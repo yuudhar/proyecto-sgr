@@ -87,6 +87,7 @@ erDiagram
         string name
         string rut
         string email
+        int beneficiary_id FK "opcional"
     }
     Position {
         int id PK
@@ -379,6 +380,7 @@ erDiagram
     Activity |o--o| TubeItem : "activity"
     Adjustment |o--o| Feedback : "adjustment"
     Beneficiary |o--o{ Activity : "beneficiary"
+    Beneficiary |o--o{ OrganizationLeader : "beneficiary"
     Beneficiary |o--o| UserProfile : "beneficiary"
     Commitment |o--o| Activity : "commitment"
     CommunityOrganization |o--o{ Activity : "organization"
@@ -449,6 +451,7 @@ La multiplicidad sale del tipo de campo, pero hay reglas que un diagrama no mues
 | `TubeItem.activity` | `Activity` | uno → uno (opcional) | — |
 | `Feedback.adjustment` | `Adjustment` | uno → uno (opcional) | El ajuste (bonificación o penalización) lo genera el sistema al registrar la felicitación o el reclamo. |
 | `Activity.beneficiary` | `Beneficiary` | muchos → uno (opcional) | Una atención es de una persona (beneficiario) o de una organización: al menos una de las dos. |
+| `OrganizationLeader.beneficiary` | `Beneficiary` | muchos → uno (opcional) | — |
 | `UserProfile.beneficiary` | `Beneficiary` | uno → uno (opcional) | Solo cuentas del perfil Cliente. Un perfil es de un funcionario o de un beneficiario, nunca de ambos. |
 | `Activity.commitment` | `Commitment` | uno → uno (opcional) | Una atención puede originar un compromiso de la agenda; cada compromiso nace de, como máximo, una atención. |
 | `Activity.organization` | `CommunityOrganization` | muchos → uno (opcional) | Ver Activity.beneficiary: persona u organización, no es obligatorio tener ambas. |
